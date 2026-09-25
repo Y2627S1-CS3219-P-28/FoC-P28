@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
   poweredByHeader: false,
+  images: {
+    // Seed-data photos are several MB; serve them resized (NFR5.3.1). Only this host is optimised.
+    remotePatterns: [{ protocol: "https", hostname: "raw.githubusercontent.com" }],
+  },
 }
 
 export default nextConfig

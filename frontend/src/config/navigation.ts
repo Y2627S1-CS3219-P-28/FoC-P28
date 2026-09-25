@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react"
+import { StoreIcon, type LucideIcon } from "lucide-react"
 
 export type NavItem = {
   href: string
@@ -11,4 +11,11 @@ export type NavItem = {
 // in the header navigation and as cards on the home page, in this order.
 // Example:
 //   { href: "/suppliers", label: "Suppliers", description: "...", icon: StoreIcon },
-export const NAV_ITEMS: NavItem[] = []
+export const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/suppliers",
+    label: "Suppliers",
+    description: "Browse campus stores, facilities and landmarks for pickups and deliveries.",
+    icon: StoreIcon,
+  },
+]
