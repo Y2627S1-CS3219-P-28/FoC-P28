@@ -23,7 +23,7 @@ may add their own `AGENTS.md` for service-specific notes; this file still applie
 | Build | Maven via the wrapper (`./mvnw`); never require a global Maven |
 | Base package | `sg.edu.nus.foc.<name>` (e.g. `sg.edu.nus.foc.supplier`) |
 | Database | Firestore via `com.google.cloud:google-cloud-firestore` (use `libraries-bom`) |
-| API docs | `springdoc-openapi-starter-webmvc-ui` |
+| API docs | `springdoc-openapi-starter-webmvc-ui` (mandatory, see section 6) |
 | Tests | JUnit 5, Spring Boot Test, Testcontainers (`testcontainers-gcloud` Firestore emulator) |
 | Coverage | JaCoCo `check` in `verify`: ≥ 80% line **and** branch (NFR3.1.1) |
 | Frontend | Next.js 16 App Router, TypeScript, Tailwind CSS 4, shadcn/ui |
@@ -109,7 +109,16 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
   | 409 | `CONFLICT` | duplicate or state conflict |
   | 503 | `SERVICE_UNAVAILABLE` | a dependency is down |
 
-- OpenAPI docs at `/api/<resource>/docs` (Swagger UI) and `/api/<resource>/v3/api-docs`.
+- **Every endpoint must be documented in OpenAPI** (repo-wide rule, enforced by CI):
+  - add `springdoc-openapi-starter-webmvc-ui` and serve the docs at `/api/<resource>/docs`
+    (Swagger UI) and `/api/<resource>/v3/api-docs`
+    (`springdoc.swagger-ui.path` / `springdoc.api-docs.path`); permit both paths in security;
+  - annotate every operation with `@Operation(summary = ...)`, and document parameters with
+    `@Parameter` and non-obvious responses with `@ApiResponse`;
+  - copy `docs/templates/OpenApiDocumentationTest.java` into the service. It fails the build
+    when an operation lacks a summary or a 2xx response, and it writes `target/openapi.json`,
+    which CI publishes as the `openapi-<service>` artifact.
+  An endpoint that isn't in the OpenAPI document doesn't count as done.
 
 ## 7. Authentication and authorisation
 
@@ -157,8 +166,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 3. Add `location /api/<resource>` to `gateway/templates/default.conf.template` and the
    `<NAME>_SERVICE_URL` default to `gateway/Dockerfile` / `gateway/deploy/env.yaml`.
 4. Add any new env vars to `.env.example`.
-5. If it uses Firestore, get its databases created (section 8).
-6. Open a PR; CI builds and tests it automatically.
+5. Document every endpoint in OpenAPI and add `OpenApiDocumentationTest` (section 6).
+6. If it uses Firestore, get its databases created (section 8).
+7. Open a PR; CI builds and tests it automatically.
 
 ## 12. Git workflow and secrets
 

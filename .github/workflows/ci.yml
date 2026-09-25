@@ -98,8 +98,24 @@ jobs:
           java-version: "21"
           cache: maven
       - if: steps.kind.outputs.kind == 'maven'
+        name: Require OpenAPI documentation (AGENTS.md section 6)
+        run: |
+          missing=0
+          grep -q "springdoc-openapi-starter-webmvc-ui" pom.xml \
+            || { echo "::error file=${{ matrix.service }}/pom.xml::Add springdoc-openapi-starter-webmvc-ui: every API must be documented in OpenAPI."; missing=1; }
+          grep -rqs "class OpenApiDocumentationTest" src/test \
+            || { echo "::error::${{ matrix.service }} has no OpenApiDocumentationTest (copy docs/templates/OpenApiDocumentationTest.java)."; missing=1; }
+          exit $missing
+      - if: steps.kind.outputs.kind == 'maven'
         name: Test (mvn verify)
         run: ./mvnw -B -ntp verify
+      - if: always() && steps.kind.outputs.kind == 'maven'
+        name: Publish OpenAPI spec
+        uses: actions/upload-artifact@v7
+        with:
+          name: openapi-${{ matrix.service }}
+          path: ${{ matrix.service }}/target/openapi.json
+          if-no-files-found: ignore
       - if: always() && steps.kind.outputs.kind == 'maven'
         name: Upload coverage report
         uses: actions/upload-artifact@v7

@@ -10,8 +10,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { readPublicConfig } from "@/lib/runtime-config"
 import "./globals.css"
 
+// shadcn/ui's theme (globals.css) reads the UI font from --font-sans.
 const geistSans = Geist({
-  variable: "--font-geist-sans",
+  variable: "--font-sans",
   subsets: ["latin"],
 })
 

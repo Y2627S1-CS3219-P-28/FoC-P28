@@ -13,6 +13,7 @@
 ## Checklist
 
 - [ ] Follows [AGENTS.md](../AGENTS.md) (folder layout, API conventions, runtime contract)
+- [ ] Every new or changed endpoint is documented in OpenAPI (`@Operation` summary, parameters, responses)
 - [ ] Tests added/updated; `./mvnw verify` (or `npm run lint`) passes locally
 - [ ] New env vars documented in `.env.example`
 - [ ] No secrets or key files committed
