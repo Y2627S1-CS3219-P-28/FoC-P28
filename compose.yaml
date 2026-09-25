@@ -1,0 +1,74 @@
+# FoC local deployment (M7). Start everything with:   docker compose up --build
+#
+#   http://localhost:8080   gateway: UI + all APIs (use this one)
+#   http://localhost:3000   frontend directly
+#   http://localhost:4000   Firebase emulator UI (create/inspect test users and data)
+#
+# Each backend service adds its own block below (copy the template at the bottom).
+# Variables in ${...} can be overridden in a root `.env` file (see .env.example).
+
+name: foc
+
+# Standard environment every Spring Boot service reads (see AGENTS.md "Runtime contract").
+x-backend-env: &backend-env
+  PORT: "8080"
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  FIRESTORE_PROJECT_ID: demo-foc
+  FIRESTORE_EMULATOR_HOST: firebase-emulator:8090
+  FIREBASE_AUTH_PROJECT_ID: demo-foc
+  FIREBASE_AUTH_EMULATOR_HOST: firebase-emulator:9099
+  USER_SERVICE_MODE: ${USER_SERVICE_MODE:-mock}
+  USER_SERVICE_URL: http://user-service:8080
+  MOCK_ADMIN_EMAILS: ${MOCK_ADMIN_EMAILS:-admin@u.nus.edu}
+  CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+
+x-backend-depends: &backend-depends
+  firebase-emulator:
+    condition: service_healthy
+
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      - frontend
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:8080"
+    environment:
+      FOC_ENVIRONMENT: local
+      FOC_API_BASE_URL: ""
+      FOC_FIREBASE_PROJECT_ID: demo-foc
+      FOC_FIREBASE_API_KEY: demo-api-key
+      # Reached by the browser, so this is the host-mapped port.
+      FOC_FIREBASE_AUTH_EMULATOR_URL: http://localhost:9099
+
+  firebase-emulator:
+    build: ./infra/firebase-emulator
+    ports:
+      - "4000:4000" # emulator UI
+      - "9099:9099" # Auth
+      - "8090:8090" # Firestore
+    volumes:
+      - firebase-data:/data
+    stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
+    stop_grace_period: 30s # time to export data on shutdown
+
+  # ---- Backend service template ------------------------------------------
+  # Copy, uncomment and rename once <name>-service has a working Dockerfile.
+  # Host ports: user 8081, supplier 8082, order 8083, credit 8084, admin 8085.
+  #
+  # <name>-service:
+  #   build: ./<name>-service
+  #   ports:
+  #     - "808X:8080"
+  #   environment:
+  #     <<: *backend-env
+  #     FIRESTORE_DATABASE_ID: <name>-local
+  #   depends_on: *backend-depends
+
+volumes:
+  firebase-data:
