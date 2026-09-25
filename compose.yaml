@@ -19,7 +19,7 @@ x-backend-env: &backend-env
   FIREBASE_AUTH_EMULATOR_HOST: firebase-emulator:9099
   USER_SERVICE_MODE: ${USER_SERVICE_MODE:-mock}
   USER_SERVICE_URL: http://user-service:8080
-  MOCK_ADMIN_EMAILS: ${MOCK_ADMIN_EMAILS:-admin@u.nus.edu}
+  MOCK_ADMIN_EMAILS: ${MOCK_ADMIN_EMAILS:-admin@u.nus.edu,e1398851@u.nus.edu}
   CORS_ORIGINS: http://localhost:3000,http://localhost:8080
 
 x-backend-depends: &backend-depends
