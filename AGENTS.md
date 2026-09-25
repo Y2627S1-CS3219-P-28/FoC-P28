@@ -61,6 +61,8 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
   variable in the root `.env.example`.
 - `GET /actuator/health` is public and reports readiness (Cloud Run and CI smoke tests
   use it). Enable `management.endpoint.health.probes.enabled: true`.
+- Don't give any endpoint a path ending in `z` (e.g. `/healthz`). Cloud Run reserves such
+  paths and answers 404 before the request reaches your container.
 - Log to stdout. The cloud sets `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` for JSON logs.
 - Standard variables (compose sets them locally, `scripts/ci/deploy.sh` in the cloud):
 
@@ -129,7 +131,11 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - Roles (`requester`, `courier`, `admin`) come from the User Service and become Spring
   authorities `ROLE_REQUESTER`, `ROLE_COURIER`, `ROLE_ADMIN`. Enforce them with
   `@PreAuthorize` on endpoints; never trust roles sent by the client.
-- Until the User Service role API exists, use `USER_SERVICE_MODE=mock`.
+- Until the User Service role API exists, use `USER_SERVICE_MODE=mock`. Admin emails are set in
+  `MOCK_ADMIN_EMAILS`: `compose.yaml` for local runs and `infra/environments/<env>.env` for the cloud.
+- The cloud Firebase project (`cs3219-p28-auth`) enforces a password policy (8+ characters,
+  upper- and lowercase letters, a number and a special character). The local Auth emulator
+  does not.
 
 ## 8. Data
 
@@ -158,6 +164,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - `npm run lint` and `npm run typecheck` must pass (CI runs both; `typecheck` generates Next.js route types first).
 - Configuration is read at request time (`src/lib/runtime-config.ts`), not via
   `NEXT_PUBLIC_*`, so one image serves every environment.
+- In the cloud the UI is only used through the gateway. `src/proxy.ts` redirects direct
+  visits to the frontend's own URL to `FOC_PUBLIC_URL` (the gateway). Keep API calls
+  relative (`useApi()`) so they always go through the gateway.
 
 ## 11. Adding a new service (checklist)
 

@@ -6,7 +6,8 @@ The catalogue of campus stores, facilities and landmarks (FoC calls them *suppli
 errands are picked up from and delivered to. Spring Boot 4.1.1 on Java 21 with Firestore.
 It follows the repo conventions in [AGENTS.md](../AGENTS.md).
 
-- **API docs (OpenAPI):** `/api/suppliers/docs` (Swagger UI) and `/api/suppliers/v3/api-docs`
+- **API docs (OpenAPI):** `/api/suppliers/docs` (Swagger UI) and `/api/suppliers/v3/api-docs`.
+  Staging: https://gateway-staging-374055363871.asia-southeast1.run.app/api/suppliers/docs
 - **Health:** `/actuator/health` (with readiness and liveness groups)
 
 ## Run
@@ -35,6 +36,8 @@ curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/suppliers?lat=
 ```
 
 Accounts listed in `MOCK_ADMIN_EMAILS` are admins; everyone else is a requester and a courier.
+Locally that's `admin@u.nus.edu` and `e1398851@u.nus.edu` (see `compose.yaml`). In the cloud it's
+set per environment in `infra/environments/<env>.env`.
 
 ## Test
 

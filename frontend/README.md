@@ -28,8 +28,16 @@ src/
 │   └── <feature>/        # feature components
 ├── config/navigation.ts  # register your feature's nav entry here
 ├── hooks/use-api.ts      # authenticated fetch through the gateway
-└── lib/                  # api client, firebase, runtime config
+├── lib/                  # api client, firebase, runtime config
+└── proxy.ts              # cloud: redirect direct visits to the gateway (FOC_PUBLIC_URL)
 ```
+
+## Sign-in
+
+- Locally: the Firebase Auth emulator. Create any account on the sign-in page.
+- Cloud: the team Firebase project (`cs3219-p28-auth`), which enforces a password policy. The
+  sign-up form checks the project's policy as you type (Firebase `validatePassword`).
+- Health check for Docker and Cloud Run: `GET /health`. Paths ending in `z` are reserved by Cloud Run.
 
 ## Configuration
 
