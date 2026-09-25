@@ -1,0 +1,165 @@
+name: CI
+
+# Validates every changed service: tests (Maven or npm, detected per folder) and a Docker
+# build through the service's own Dockerfile. Also reused by the staging deploy.
+on:
+  pull_request:
+  push:
+    branches-ignore: [main] # main is validated by "Deploy staging", which calls this workflow
+  workflow_call:
+    outputs:
+      services:
+        description: JSON array of the services that were validated
+        value: ${{ jobs.changes.outputs.services }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_call' && github.ref != 'refs/heads/main' }}
+
+jobs:
+  changes:
+    name: Detect services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.list.outputs.services }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: list
+        name: List services to validate
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF: ${{ github.ref }}
+        run: |
+          if [[ $EVENT == pull_request ]]; then
+            services=$(scripts/ci/list-services.sh --json --changed-since "origin/$BASE_REF")
+          elif [[ $EVENT == push && $REF != refs/heads/main ]]; then
+            services=$(scripts/ci/list-services.sh --json --changed-since origin/main)
+          else
+            services=$(scripts/ci/list-services.sh --json)
+          fi
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "Services: $services" >> "$GITHUB_STEP_SUMMARY"
+
+  repo-checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shellcheck CI and infra scripts
+        run: shellcheck -x scripts/ci/*.sh infra/gcp/*.sh
+      - name: Lint workflows (actionlint)
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+      - name: Validate compose.yaml
+        run: docker compose -f compose.yaml config --quiet
+      - name: Ensure no credentials are committed
+        run: |
+          if git ls-files | grep -Ei '(service-account|serviceaccount|credentials|-sa-key).*\.json$|\.pem$|\.p12$'; then
+            echo "::error::Credential-like files are tracked by git."; exit 1
+          fi
+          if git grep -nE '"type": *"service_account"|-----BEGIN (RSA |EC )?PRIVATE KEY-----' -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::Private key material found in tracked files."; exit 1
+          fi
+
+  test:
+    name: ${{ matrix.service }}
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect toolchain
+        id: kind
+        run: |
+          if [[ -f pom.xml ]]; then echo "kind=maven" >> "$GITHUB_OUTPUT"
+          elif [[ -f package.json ]]; then echo "kind=node" >> "$GITHUB_OUTPUT"
+          else echo "kind=docker" >> "$GITHUB_OUTPUT"; fi
+
+      # ---- Java / Spring Boot (unit + integration tests, JaCoCo >= 80% gate) ----
+      - if: steps.kind.outputs.kind == 'maven'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - if: steps.kind.outputs.kind == 'maven'
+        name: Require OpenAPI documentation (AGENTS.md section 6)
+        run: |
+          missing=0
+          grep -q "springdoc-openapi-starter-webmvc-ui" pom.xml \
+            || { echo "::error file=${{ matrix.service }}/pom.xml::Add springdoc-openapi-starter-webmvc-ui: every API must be documented in OpenAPI."; missing=1; }
+          grep -rqs "class OpenApiDocumentationTest" src/test \
+            || { echo "::error::${{ matrix.service }} has no OpenApiDocumentationTest (copy docs/templates/OpenApiDocumentationTest.java)."; missing=1; }
+          exit $missing
+      - if: steps.kind.outputs.kind == 'maven'
+        name: Test (mvn verify)
+        run: ./mvnw -B -ntp verify
+      - if: always() && steps.kind.outputs.kind == 'maven'
+        name: Publish OpenAPI spec
+        uses: actions/upload-artifact@v7
+        with:
+          name: openapi-${{ matrix.service }}
+          path: ${{ matrix.service }}/target/openapi.json
+          if-no-files-found: ignore
+      - if: always() && steps.kind.outputs.kind == 'maven'
+        name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ matrix.service }}/target/site/jacoco/
+          if-no-files-found: ignore
+
+      # ---- Node / Next.js ------------------------------------------------------
+      - if: steps.kind.outputs.kind == 'node'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+      - if: steps.kind.outputs.kind == 'node'
+        name: Lint, typecheck and test
+        run: |
+          npm ci --no-audit --no-fund
+          npm run lint --if-present
+          npm run typecheck --if-present
+          npm test --if-present
+
+      # ---- Every service: the Dockerfile must build -----------------------------
+      - uses: docker/setup-buildx-action@v4
+      - name: Docker build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  ci-passed:
+    name: CI passed
+    needs: [changes, repo-checks, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all jobs to succeed (single required check for branch protection)
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            [[ $result == success || $result == skipped ]] || exit 1
+          done
