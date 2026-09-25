@@ -96,8 +96,9 @@ log "Deployer service account: $DEPLOYER_SA"
 exists gc iam service-accounts describe "$DEPLOYER_SA" ||
   create_sa "$DEPLOYER_ID" --display-name "FoC GitHub Actions deployer"
 project_binding --member "serviceAccount:$DEPLOYER_SA" --role roles/run.admin --condition None
+# repoAdmin (not just writer): promoting a build moves the <environment> tag, which deletes the old tag.
 gc artifacts repositories add-iam-policy-binding "$AR_REPO" --location "$REGION" \
-  --member "serviceAccount:$DEPLOYER_SA" --role roles/artifactregistry.writer >/dev/null
+  --member "serviceAccount:$DEPLOYER_SA" --role roles/artifactregistry.repoAdmin >/dev/null
 for svc in "${RUNTIME_SERVICES[@]}"; do
   # Lets the deployer run Cloud Run revisions as each runtime identity.
   gc iam service-accounts add-iam-policy-binding "$(runtime_sa "$svc")" \

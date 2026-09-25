@@ -14,11 +14,11 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 
 | Name | Role |
 | ----- | ----- |
+| Khoo Yu Yien | TBC |
+| Tham Yao Xiang | TBC |
+| Oh Yi Xian | TBC |
 | Zheng Jiongjie | Supplier Service (catalogue, search/filter API, supplier management UI); CI/CD pipeline & cloud deployment (NTH5: GitHub Actions, Cloud Run, Artifact Registry, Firestore, staging/production environments) |
-| Your Name | Your ownership |
-| Your Name | Your ownership |
-| Your Name | Your ownership |
-| Your Name | Your ownership |
+| Choong Weng Sheng | TBC |
 
 ---
 
@@ -118,8 +118,9 @@ docker compose up --build
 | http://localhost:3000 | Frontend directly |
 
 Locally, sign-in uses the Firebase **Auth emulator**: create an account on the sign-in
-page (or in the emulator UI). Accounts whose email is listed in `MOCK_ADMIN_EMAILS`
-(default `admin@u.nus.edu`) receive the admin role.
+page (or in the emulator UI). Emulator accounts are separate from the cloud ones and are
+kept across restarts in the `firebase-data` volume. Accounts whose email is listed in
+`MOCK_ADMIN_EMAILS` (default `admin@u.nus.edu,e1398851@u.nus.edu`) receive the admin role.
 
 Working on one service? Run the emulators and the gateway in Docker and your service
 from your IDE; see the service's own README.
@@ -132,13 +133,32 @@ from your IDE; see the service's own README.
 | --- | --- | --- |
 | Pull request / push to a branch | **CI** | Tests (+ coverage gate) and a Docker build for every changed service |
 | Push to `main` | **Deploy staging** | CI, then images built once (tagged with the commit SHA) and rolled out to **staging** |
-| Manual ("Run workflow") | **Deploy production** | Promotes the exact images staging verified to **production** (requires approval) |
+| Manual ("Run workflow") | **Deploy production** | Promotes the exact images staging verified to **production** |
 
 Rollouts are health-checked on the new revision before it receives traffic; a failed
 check leaves the previous revision serving. Details, rollback and setup:
 [docs/ci-cd.md](docs/ci-cd.md).
 
 A service joins CI/CD automatically once its `Dockerfile` has content.
+
+### Using the cloud environments
+
+| Environment | URL |
+| --- | --- |
+| Staging | https://gateway-staging-374055363871.asia-southeast1.run.app |
+| Production | `https://gateway-production-374055363871.asia-southeast1.run.app` (after the first promotion) |
+
+- **Always use the gateway URL above.** Each service also has its own `*.run.app` URL, but
+  only the gateway routes `/api/*` to the backend services. Opening the frontend's own URL
+  redirects you to the gateway.
+- **Sign in** with an account in the team's Firebase project (`cs3219-p28-auth`), or create one
+  on the sign-in page. The project enforces a password policy: at least 8 characters, with an
+  uppercase letter, a lowercase letter, a number and a special character. The sign-up form
+  shows a checklist as you type.
+- **Admins** (while roles are mocked) are listed in `MOCK_ADMIN_EMAILS` in
+  `infra/environments/<environment>.env`. Changes apply on the next deploy.
+- Services scale to zero when idle, so the first request after a quiet period can take
+  10–20 seconds.
 
 ---
 
