@@ -32,6 +32,19 @@ gc() { gcloud --project "$PROJECT_ID" --quiet "$@"; }
 exists() { "$@" >/dev/null 2>&1; }
 log() { printf '\n==> %s\n' "$*"; }
 runtime_sa() { echo "foc-$1@${PROJECT_ID}.iam.gserviceaccount.com"; }
+# Retries transient IAM failures: per-minute service-account quotas and concurrent
+# policy edits (ETag conflicts) are both common right after APIs/databases are created.
+retry() {
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    "$@" && return 0
+    echo "  retrying in $((attempt * 15))s (attempt $attempt/5)"
+    sleep $((attempt * 15))
+  done
+  return 1
+}
+create_sa() { retry gc iam service-accounts create "$@"; }
+project_binding() { retry gc projects add-iam-policy-binding "$PROJECT_ID" "$@" >/dev/null; }
 config_bucket() { echo "${PROJECT_ID}-foc-config-$1"; }
 
 log "Enabling APIs"
@@ -48,7 +61,7 @@ exists gc artifacts repositories describe "$AR_REPO" --location "$REGION" ||
 log "Runtime service accounts"
 for svc in "${RUNTIME_SERVICES[@]}"; do
   exists gc iam service-accounts describe "$(runtime_sa "$svc")" ||
-    gc iam service-accounts create "foc-$svc" --display-name "FoC $svc (Cloud Run runtime)"
+    create_sa "foc-$svc" --display-name "FoC $svc (Cloud Run runtime)"
 done
 
 log "Firestore databases (database-per-service)"
@@ -59,13 +72,11 @@ for svc in "${FIRESTORE_SERVICES[@]}"; do
     if ! exists gc firestore databases describe --database "$db"; then
       protection=()
       [[ $env == production ]] && protection=(--delete-protection)
-      gc firestore databases create --database "$db" --location "$REGION" --type firestore-native "${protection[@]}"
+      gc firestore databases create --database "$db" --location "$REGION" --type firestore-native ${protection[@]+"${protection[@]}"}
     fi
     # Only this service's identity may read/write its database.
-    gc projects add-iam-policy-binding "$PROJECT_ID" \
-      --member "serviceAccount:$(runtime_sa "$svc")" --role roles/datastore.user \
-      --condition "expression=resource.name == \"projects/$PROJECT_ID/databases/$db\",title=firestore-$db" \
-      >/dev/null
+    project_binding --member "serviceAccount:$(runtime_sa "$svc")" --role roles/datastore.user \
+      --condition "expression=resource.name == \"projects/$PROJECT_ID/databases/$db\",title=firestore-$db"
   done
 done
 
@@ -83,9 +94,8 @@ done
 
 log "Deployer service account: $DEPLOYER_SA"
 exists gc iam service-accounts describe "$DEPLOYER_SA" ||
-  gc iam service-accounts create "$DEPLOYER_ID" --display-name "FoC GitHub Actions deployer"
-gc projects add-iam-policy-binding "$PROJECT_ID" \
-  --member "serviceAccount:$DEPLOYER_SA" --role roles/run.admin --condition None >/dev/null
+  create_sa "$DEPLOYER_ID" --display-name "FoC GitHub Actions deployer"
+project_binding --member "serviceAccount:$DEPLOYER_SA" --role roles/run.admin --condition None
 gc artifacts repositories add-iam-policy-binding "$AR_REPO" --location "$REGION" \
   --member "serviceAccount:$DEPLOYER_SA" --role roles/artifactregistry.writer >/dev/null
 for svc in "${RUNTIME_SERVICES[@]}"; do
