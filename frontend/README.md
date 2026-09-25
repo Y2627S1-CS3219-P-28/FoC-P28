@@ -42,3 +42,4 @@ every environment:
 | `FOC_API_BASE_URL` | gateway origin; empty = same origin |
 | `FOC_FIREBASE_PROJECT_ID`, `FOC_FIREBASE_API_KEY`, `FOC_FIREBASE_AUTH_DOMAIN`, `FOC_FIREBASE_APP_ID` | Firebase web config |
 | `FOC_FIREBASE_AUTH_EMULATOR_URL` | Auth emulator URL (local only) |
+| `FOC_PUBLIC_URL` | Cloud only: the gateway URL; direct visits to the frontend's own URL redirect there |
