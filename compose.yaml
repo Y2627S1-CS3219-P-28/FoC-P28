@@ -32,7 +32,10 @@ services:
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     depends_on:
-      - frontend
+      frontend:
+        condition: service_started
+      supplier-service:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -56,6 +59,25 @@ services:
       - firebase-data:/data
     stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
     stop_grace_period: 30s # time to export data on shutdown
+
+  supplier-service:
+    build: ./supplier-service
+    ports:
+      - "8082:8080"
+    environment:
+      <<: *backend-env
+      FIRESTORE_DATABASE_ID: supplier-local
+      # Mounted, not baked into the image (Supplier F2.1.1).
+      SUPPLIER_SEED_FILE: /data/supplier-seed-data.csv
+    volumes:
+      - ./data/csv:/data:ro
+    depends_on: *backend-depends
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 10
 
   # ---- Backend service template ------------------------------------------
   # Copy, uncomment and rename once <name>-service has a working Dockerfile.
