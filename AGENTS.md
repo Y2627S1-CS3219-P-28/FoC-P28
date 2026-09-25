@@ -146,6 +146,7 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - Build UI from shadcn/ui components (`npx shadcn@latest add <component>` inside
   `frontend/`). This project uses the Base UI flavour: compose with `render={...}`, not
   `asChild`. Every page must work from 320 px to 1920 px wide (NFR2.1).
+- `npm run lint` and `npm run typecheck` must pass (CI runs both; `typecheck` generates Next.js route types first).
 - Configuration is read at request time (`src/lib/runtime-config.ts`), not via
   `NEXT_PUBLIC_*`, so one image serves every environment.
 
