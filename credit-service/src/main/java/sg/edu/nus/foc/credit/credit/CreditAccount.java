@@ -16,4 +16,8 @@ public record CreditAccount(
         long version,
         Instant createdAt,
         Instant updatedAt) {
+
+    public long usableBalance() {
+        return totalBalance - reservedBalance;
+    }
 }
