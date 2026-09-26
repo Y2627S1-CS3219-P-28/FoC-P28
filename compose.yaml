@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-5), date: 2026-09-25
+# Scope: Updated deployment boilerplate to integrate the Credit Service.
+# Author review: I reviewed for correctness.
+
 # FoC local deployment (M7). Start everything with:   docker compose up --build
 #
 #   http://localhost:8080   gateway: UI + all APIs (use this one)
@@ -36,6 +41,8 @@ services:
         condition: service_started
       supplier-service:
         condition: service_healthy
+      credit-service:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -71,6 +78,21 @@ services:
       SUPPLIER_SEED_FILE: /data/supplier-seed-data.csv
     volumes:
       - ./data/csv:/data:ro
+    depends_on: *backend-depends
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 10
+
+  credit-service:
+    build: ./credit-service
+    ports:
+      - "8084:8080"
+    environment:
+      <<: *backend-env
+      FIRESTORE_DATABASE_ID: credit-local
     depends_on: *backend-depends
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
