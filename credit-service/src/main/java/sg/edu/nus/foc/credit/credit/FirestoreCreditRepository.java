@@ -28,6 +28,7 @@ import com.google.cloud.firestore.Firestore;
 import org.springframework.stereotype.Repository;
 import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
+import sg.edu.nus.foc.credit.error.InsufficientCreditsException;
 import sg.edu.nus.foc.credit.error.ReservationConflictException;
 
 @Repository
@@ -107,6 +108,9 @@ public class FirestoreCreditRepository implements CreditRepository {
             }
 
             CreditAccount current = fromAccount(account);
+            if (current.usableBalance() < amount) {
+                throw new InsufficientCreditsException(current.usableBalance(), amount);
+            }
 
             Instant now = clock.instant();
             CreditAccount updated = new CreditAccount(current.userId(), current.totalBalance(),

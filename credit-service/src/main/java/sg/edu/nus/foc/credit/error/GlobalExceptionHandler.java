@@ -97,6 +97,11 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.RESERVATION_NOT_FOUND, exception.getMessage(), request, List.of());
     }
 
+    @ExceptionHandler(InsufficientCreditsException.class)
+    ResponseEntity<ApiError> insufficient(InsufficientCreditsException exception, HttpServletRequest request) {
+        return respond(ErrorCode.INSUFFICIENT_CREDITS, exception.getMessage(), request,
+                List.of(new FieldProblem("amount", "exceeds usable balance")));
+    }
 
     @ExceptionHandler(ReservationConflictException.class)
     ResponseEntity<ApiError> reservationConflict(ReservationConflictException exception,

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
+import sg.edu.nus.foc.credit.error.InsufficientCreditsException;
 import sg.edu.nus.foc.credit.error.ReservationConflictException;
 import sg.edu.nus.foc.credit.support.FirestoreEmulator;
 
@@ -105,6 +106,43 @@ class FirestoreCreditRepositoryIntegrationTest {
         assertThat(documents(FirestoreCreditRepository.LEDGER)).hasSize(2);
     }
 
+    @Test
+    void rejectsMissingAccountInsufficientBalanceAndOrderConflictWithoutPartialWrites() throws Exception {
+        assertThatThrownBy(() -> repository.reserve("order-1", "missing", 1))
+                .isInstanceOf(AccountNotFoundException.class);
+        repository.initializeAccount(UUID.randomUUID(), "user-1", NOW);
+        assertThatThrownBy(() -> repository.reserve("order-1", "user-1", 51))
+                .isInstanceOf(InsufficientCreditsException.class);
+        assertThat(documents(FirestoreCreditRepository.RESERVATIONS)).isEmpty();
+
+        repository.reserve("order-1", "user-1", 20);
+        assertThatThrownBy(() -> repository.reserve("order-1", "user-1", 21))
+                .isInstanceOf(ReservationConflictException.class);
+        assertThatThrownBy(() -> repository.reserve("order-1", "different-user", 20))
+                .isInstanceOf(ReservationConflictException.class);
+        assertThat(documents(FirestoreCreditRepository.RESERVATIONS)).hasSize(1);
+    }
+
+    @Test
+    void concurrentReservationsCannotOverdrawTheAccount() {
+        repository.initializeAccount(UUID.randomUUID(), "user-1", NOW);
+
+        CompletableFuture<ReservationResult> first = CompletableFuture.supplyAsync(
+                () -> repository.reserve("order-a", "user-1", 30));
+        CompletableFuture<ReservationResult> second = CompletableFuture.supplyAsync(
+                () -> repository.reserve("order-b", "user-1", 30));
+
+        long successes = List.of(first, second).stream().filter(future -> {
+            try {
+                future.join();
+                return true;
+            } catch (CompletionException exception) {
+                assertThat(exception.getCause()).isInstanceOf(InsufficientCreditsException.class);
+                return false;
+            }
+        }).count();
+        assertThat(successes).isEqualTo(1);
+    }
 
     @Test
     void documentMappingAndHashesAreStableAndRejectCorruptDocuments() throws Exception {

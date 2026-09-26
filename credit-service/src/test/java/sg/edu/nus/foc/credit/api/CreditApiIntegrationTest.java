@@ -124,6 +124,31 @@ class CreditApiIntegrationTest {
                 .andExpect(jsonPath("$.balance").doesNotExist());
     }
 
+    @Test
+    void reservationFailuresUseStableErrorsAndDoNotLeakOwnership() throws Exception {
+        register(USER);
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(USER, 51))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("INSUFFICIENT_CREDITS"));
+
+        reserve("order-1", USER, 20);
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(USER, 21))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("RESERVATION_CONFLICT"));
+        mvc.perform(get("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject("someone-else"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("RESERVATION_NOT_FOUND"));
+        mvc.perform(get("/api/credits/orders/missing/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void rejectsMissingAccountInvalidAmountInvalidIdsAndMalformedJson() throws Exception {
