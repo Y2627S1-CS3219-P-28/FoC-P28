@@ -9,8 +9,8 @@ Author review: I reviewed for correctness and edited where needed.
 # Credit Service
 
 The Credit Service owns Friend on Campus credit accounts, balances, reservations and the
-immutable credit ledger. Sprint 1 allocates exactly 50 credits after registration and reserves
-usable credits before an order becomes open.
+immutable credit ledger. Sprint 1 allocates exactly 50 credits after registration, lets an
+authenticated user view their own balances, and reserves usable credits before an order becomes open.
 
 ## Run
 
@@ -30,12 +30,13 @@ FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./mvnw spring-boot:run
 
 ## Sprint 1 API
 
-Every business endpoint requires a Firebase ID token. The token subject must match the
-`userId` or `requesterId` in the request.
+Every business endpoint requires a Firebase ID token. The token subject is used directly for
+`GET /api/credits/me` and must match the `userId` or `requesterId` supplied to write operations.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/credits/registration-facts` | Idempotently allocate 50 credits after registration. |
+| `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
 

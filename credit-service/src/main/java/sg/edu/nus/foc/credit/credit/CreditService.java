@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.InvalidCreditIdException;
 import sg.edu.nus.foc.credit.error.InvalidCreditAmountException;
 import sg.edu.nus.foc.credit.error.ReservationNotFoundException;
@@ -27,6 +28,12 @@ public class CreditService {
     public RegistrationResult initializeAccount(UUID eventId, String userId, Instant occurredAt) {
         requireDocumentId(userId, "userId");
         return repository.initializeAccount(eventId, userId, occurredAt);
+    }
+
+    public CreditAccount getAccount(String userId) {
+        requireDocumentId(userId, "userId");
+        return repository.findAccount(userId)
+                .orElseThrow(() -> new AccountNotFoundException(userId));
     }
 
     public ReservationResult reserve(String orderId, String requesterId, long amount) {

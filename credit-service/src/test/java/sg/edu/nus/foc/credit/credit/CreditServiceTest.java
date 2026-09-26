@@ -28,6 +28,7 @@ class CreditServiceTest {
         UUID eventId = UUID.randomUUID();
         Instant occurredAt = Instant.parse("2026-09-25T08:00:00Z");
         assertThat(service.initializeAccount(eventId, "user-1", occurredAt)).isSameAs(repository.registration);
+        assertThat(service.getAccount("user-1")).isEqualTo(repository.account);
         assertThat(service.reserve("order-1", "user-1", 5)).isSameAs(repository.reservation);
         assertThat(service.getReservation("order-1", "user-1")).isEqualTo(repository.creditReservation);
         assertThat(repository.eventId).isEqualTo(eventId);
@@ -57,6 +58,13 @@ class CreditServiceTest {
                 .isInstanceOf(ReservationNotFoundException.class);
     }
 
+    @Test
+    void rejectsMissingCreditAccount() {
+        repository.accountFound = Optional.empty();
+        assertThatThrownBy(() -> service.getAccount("missing"))
+                .isInstanceOf(sg.edu.nus.foc.credit.error.AccountNotFoundException.class);
+    }
+
     private static final class RecordingRepository implements CreditRepository {
         private final CreditAccount account = new CreditAccount("user-1", 50, 5, 1,
                 Instant.EPOCH, Instant.EPOCH);
@@ -65,6 +73,7 @@ class CreditServiceTest {
         private final RegistrationResult registration = new RegistrationResult(account, true);
         private final ReservationResult reservation = new ReservationResult(creditReservation, account, true);
         private Optional<CreditReservation> found = Optional.of(creditReservation);
+        private Optional<CreditAccount> accountFound = Optional.of(account);
         private UUID eventId;
         private Instant occurredAt;
         private long amount;
@@ -74,6 +83,11 @@ class CreditServiceTest {
             this.eventId = eventId;
             this.occurredAt = occurredAt;
             return registration;
+        }
+
+        @Override
+        public Optional<CreditAccount> findAccount(String userId) {
+            return accountFound;
         }
 
         @Override

@@ -96,6 +96,44 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void authenticatedUserCanReadOnlyTheirOwnCurrentBalance() throws Exception {
+        register(USER);
+        reserve("order-1", USER, 20);
+
+        mvc.perform(get("/api/credits/me")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(USER))
+                .andExpect(jsonPath("$.totalBalance").value(50))
+                .andExpect(jsonPath("$.reservedBalance").value(20))
+                .andExpect(jsonPath("$.usableBalance").value(30))
+                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.asOf").exists());
+
+        String otherUser = "firebase-user-456";
+        register(otherUser);
+        mvc.perform(get("/api/credits/me")
+                        .with(jwt().jwt(token -> token.subject(otherUser))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(otherUser))
+                .andExpect(jsonPath("$.totalBalance").value(50))
+                .andExpect(jsonPath("$.reservedBalance").value(0))
+                .andExpect(jsonPath("$.usableBalance").value(50));
+    }
+
+    @Test
+    void balanceRequiresAuthenticationAndAnExistingAccount() throws Exception {
+        mvc.perform(get("/api/credits/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
+
+        mvc.perform(get("/api/credits/me")
+                        .with(jwt().jwt(token -> token.subject("missing-user"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_NOT_FOUND"));
+    }
+
+    @Test
     void reservesByOrderIdReplaysAndAllowsOwnerRecovery() throws Exception {
         register(USER);
         ReserveCreditsRequest request = new ReserveCreditsRequest(USER, 20);

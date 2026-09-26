@@ -58,6 +58,17 @@ public class CreditController {
         return ResponseEntity.status(status).body(AccountResponse.from(result.account()));
     }
 
+    @GetMapping("/me")
+    @Operation(summary = "Get current credit balances for the authenticated user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Current credit balances"),
+            @ApiResponse(responseCode = "401", description = "Firebase ID token is missing or invalid"),
+            @ApiResponse(responseCode = "404", description = "Credit account has not been provisioned")
+    })
+    public BalanceResponse balance(JwtAuthenticationToken caller) {
+        return BalanceResponse.from(service.getAccount(caller.getName()));
+    }
+
     @PutMapping("/orders/{orderId}/reservation")
     @Operation(summary = "Reserve a requester's usable credits for an order")
     @ApiResponses({
