@@ -1,0 +1,53 @@
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-5), date: 2026-09-25
+# Mode: Boilerplate generation.
+# Scope: Generated Spring Boot runtime configuration for the team-finalized Credit Service settings.
+# Author review: I reviewed for correctness.
+
+spring:
+  application:
+    name: credit-service
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+foc:
+  credit:
+    firestore:
+      project-id: ${FIRESTORE_PROJECT_ID:demo-foc}
+      database-id: ${FIRESTORE_DATABASE_ID:(default)}
+      emulator-host: ${FIRESTORE_EMULATOR_HOST:}
+    auth:
+      project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
+      emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+    cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  api-docs:
+    path: /api/credits/v3/api-docs
+  swagger-ui:
+    path: /api/credits/docs
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}

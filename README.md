@@ -1,3 +1,11 @@
+<!--
+AI Assistance Disclosure:
+Tool: OpenAI Codex (GPT-5), date: 2026-09-25
+Mode: Documentation refactoring and disclosure assistance.
+Scope: Assisted with documentation cleanup and Credit Service disclosure content.
+Author review: I validated correctness and edited for style.
+-->
+
 # CS3219 — Software Design and Architecture (AY2627 Sem 1)
 
 ## Friend on Campus (FoC)
@@ -122,9 +130,6 @@ page (or in the emulator UI). Emulator accounts are separate from the cloud ones
 kept across restarts in the `firebase-data` volume. Accounts whose email is listed in
 `MOCK_ADMIN_EMAILS` (default `admin@u.nus.edu,e1398851@u.nus.edu`) receive the admin role.
 
-Working on one service? Run the emulators and the gateway in Docker and your service
-from your IDE; see the service's own README.
-
 ---
 
 ## CI/CD and Environments
@@ -169,3 +174,23 @@ A service joins CI/CD automatically once its `Dockerfile` has content.
 3. Open a pull request; the **CI passed** check must be green before merging.
 4. Never commit secrets or key files (`.env`, `*.json` service-account keys). They are
    git-ignored and CI fails if credential-like files are tracked.
+
+---
+
+## AI Use Summary
+
+**Tools:** OpenAI Codex (GPT-5)
+
+The team discussed and decided on the project requirements (FRs and NFRs), priorities, features, architecture, component boundaries, interfaces and data schemas. We did not outsource to AI to make those decisions or to write their rationales.
+
+AI assistance was used for:
+
+- generating the initial code implementation from the team-finalized design;
+- generating Spring Boot, Maven, Docker, Compose, Cloud Run, and Firestore boilerplate;
+- generating initial unit, integration, security, and OpenAPI tests;
+- formatting and improving implementation documentation.
+
+All AI-assisted output was reviewed for correctness and course compliance, edited where needed,
+and verified with relevant automated tests. Exact available prompts, key-response summaries,
+affected locations, and verification notes are recorded in
+[`ai/usage-log.md`](ai/usage-log.md).

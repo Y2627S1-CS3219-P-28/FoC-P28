@@ -20,7 +20,7 @@ source "$ROOT/infra/gcp/project.env"
 
 ENVIRONMENTS=(staging production)
 # Services that own a Firestore database. Add yours here, then re-run.
-read -r -a FIRESTORE_SERVICES <<<"${FIRESTORE_SERVICES:-supplier-service}"
+read -r -a FIRESTORE_SERVICES <<<"${FIRESTORE_SERVICES:-supplier-service credit-service}"
 # Services deployed to Cloud Run (each gets a least-privilege runtime identity).
 read -r -a RUNTIME_SERVICES <<<"${RUNTIME_SERVICES:-gateway frontend user-service supplier-service order-service credit-service admin-service}"
 
