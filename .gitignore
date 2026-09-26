@@ -11,6 +11,7 @@ node_modules/
 .env.*.local
 *.pem
 *.key
+user-service/backend/userservice/src/main/resources/application.yaml
 
 # OS
 .DS_Store
