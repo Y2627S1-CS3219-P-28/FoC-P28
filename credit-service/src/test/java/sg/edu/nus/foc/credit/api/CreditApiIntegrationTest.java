@@ -25,8 +25,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import sg.edu.nus.foc.credit.support.FirestoreEmulator;
+import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -93,6 +95,69 @@ class CreditApiIntegrationTest {
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    void reservesByOrderIdReplaysAndAllowsOwnerRecovery() throws Exception {
+        register(USER);
+        ReserveCreditsRequest request = new ReserveCreditsRequest(USER, 20);
+
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.orderId").value("order-1"))
+                .andExpect(jsonPath("$.status").value("RESERVED"))
+                .andExpect(jsonPath("$.balance.totalBalance").value(50))
+                .andExpect(jsonPath("$.balance.reservedBalance").value(20))
+                .andExpect(jsonPath("$.balance.usableBalance").value(30));
+
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(request)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESERVED"))
+                .andExpect(jsonPath("$.balance").doesNotExist());
+    }
+
+
+    @Test
+    void rejectsMissingAccountInvalidAmountInvalidIdsAndMalformedJson() throws Exception {
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(USER, 1))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_NOT_FOUND"));
+
+        register(USER);
+        mvc.perform(put("/api/credits/orders/order-1/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(USER, 0))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/credits/orders/../reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(USER, 1))))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(put("/api/credits/orders/order-2/reservation")
+                        .with(jwt().jwt(token -> token.subject(USER)))
+                        .contentType(MediaType.APPLICATION_JSON).content("not-json"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void responseNeverUsesDeprecatedActiveStatusOrOperationId() throws Exception {
+        register(USER);
+        String response = reserve("order-1", USER, 5);
+        assertThat(response).contains("RESERVED").doesNotContain("ACTIVE").doesNotContain("operationId");
+    }
+
     private RegistrationFactRequest registration(String userId) {
         return new RegistrationFactRequest(UUID.randomUUID(), userId, Instant.parse("2026-09-25T08:00:00Z"));
     }
@@ -105,4 +170,12 @@ class CreditApiIntegrationTest {
                 .andExpect(status().isCreated());
     }
 
+    private String reserve(String orderId, String userId, long amount) throws Exception {
+        return mvc.perform(put("/api/credits/orders/{orderId}/reservation", orderId)
+                        .with(jwt().jwt(token -> token.subject(userId)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(userId, amount))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+    }
 }

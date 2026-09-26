@@ -24,7 +24,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
+import sg.edu.nus.foc.credit.error.ReservationConflictException;
 import sg.edu.nus.foc.credit.support.FirestoreEmulator;
 
 class FirestoreCreditRepositoryIntegrationTest {
@@ -82,6 +84,42 @@ class FirestoreCreditRepositoryIntegrationTest {
         assertThat(documents(FirestoreCreditRepository.LEDGER)).hasSize(1);
         assertThatThrownBy(() -> repository.initializeAccount(first, "user-2", NOW))
                 .isInstanceOf(EventConflictException.class);
+    }
+
+    @Test
+    void reservesByOrderIdAndWritesOneLedgerEntry() throws Exception {
+        repository.initializeAccount(UUID.randomUUID(), "user-1", NOW);
+
+        ReservationResult first = repository.reserve("order-1", "user-1", 20);
+        ReservationResult replay = repository.reserve("order-1", "user-1", 20);
+
+        assertThat(first.created()).isTrue();
+        assertThat(replay.created()).isFalse();
+        assertThat(first.reservation().status()).isEqualTo(ReservationStatus.RESERVED);
+        assertThat(first.account().totalBalance()).isEqualTo(50);
+        assertThat(first.account().reservedBalance()).isEqualTo(20);
+        assertThat(first.account().usableBalance()).isEqualTo(30);
+        assertThat(repository.findReservation("order-1")).contains(first.reservation());
+        assertThat(repository.findReservation("missing")).isEmpty();
+        assertThat(documents(FirestoreCreditRepository.RESERVATIONS)).hasSize(1);
+        assertThat(documents(FirestoreCreditRepository.LEDGER)).hasSize(2);
+    }
+
+
+    @Test
+    void documentMappingAndHashesAreStableAndRejectCorruptDocuments() throws Exception {
+        CreditReservation reservation = new CreditReservation("order-1", "user-1", null, 5,
+                ReservationStatus.RESERVED, NOW, NOW, null, null);
+        firestore.collection("mapping").document("reservation")
+                .set(FirestoreCreditRepository.reservationDocument(reservation)).get();
+        assertThat(FirestoreCreditRepository.fromReservation(
+                firestore.collection("mapping").document("reservation").get().get())).isEqualTo(reservation);
+        assertThat(FirestoreCreditRepository.payloadHash(ProcessedEventType.USER_REGISTERED,
+                "user-1", null, NOW))
+                .isEqualTo(FirestoreCreditRepository.payloadHash(ProcessedEventType.USER_REGISTERED,
+                        "user-1", null, NOW))
+                .isNotEqualTo(FirestoreCreditRepository.payloadHash(ProcessedEventType.USER_REGISTERED,
+                        "user-2", null, NOW));
     }
 
     private static List<? extends DocumentSnapshot> documents(String collection) throws Exception {

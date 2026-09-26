@@ -8,14 +8,15 @@
 package sg.edu.nus.foc.credit.credit;
 
 import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
 
-public interface CreditRepository {
-
-    RegistrationResult initializeAccount(UUID eventId, String userId, Instant occurredAt);
-
-    ReservationResult reserve(String orderId, String requesterId, long amount);
-
-    Optional<CreditReservation> findReservation(String orderId);
+public record CreditReservation(
+        String orderId,
+        String requesterId,
+        String courierId,
+        long amount,
+        ReservationStatus status,
+        Instant createdAt,
+        Instant updatedAt,
+        Instant refundedAt,
+        Instant paidAt) {
 }

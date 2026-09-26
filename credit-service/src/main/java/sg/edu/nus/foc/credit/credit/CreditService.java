@@ -12,6 +12,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import sg.edu.nus.foc.credit.error.InvalidCreditIdException;
+import sg.edu.nus.foc.credit.error.InvalidCreditAmountException;
+import sg.edu.nus.foc.credit.error.ReservationNotFoundException;
 
 @Service
 public class CreditService {
@@ -26,6 +28,23 @@ public class CreditService {
         requireDocumentId(userId, "userId");
         return repository.initializeAccount(eventId, userId, occurredAt);
     }
+
+    public ReservationResult reserve(String orderId, String requesterId, long amount) {
+        requireDocumentId(orderId, "orderId");
+        requireDocumentId(requesterId, "requesterId");
+        if (amount <= 0) {
+            throw new InvalidCreditAmountException(amount);
+        }
+        return repository.reserve(orderId, requesterId, amount);
+    }
+
+    public CreditReservation getReservation(String orderId, String requesterId) {
+        requireDocumentId(orderId, "orderId");
+        return repository.findReservation(orderId)
+                .filter(reservation -> reservation.requesterId().equals(requesterId))
+                .orElseThrow(() -> new ReservationNotFoundException(orderId));
+    }
+
     static void requireDocumentId(String value, String field) {
         if (value == null || value.isBlank() || value.length() > 128 || value.contains("/")
                 || value.equals(".") || value.equals("..")

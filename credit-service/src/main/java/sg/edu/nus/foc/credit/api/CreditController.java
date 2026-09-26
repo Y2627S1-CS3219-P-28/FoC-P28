@@ -25,8 +25,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import sg.edu.nus.foc.credit.credit.CreditReservation;
 import sg.edu.nus.foc.credit.credit.CreditService;
 import sg.edu.nus.foc.credit.credit.RegistrationResult;
+import sg.edu.nus.foc.credit.credit.ReservationResult;
 import sg.edu.nus.foc.credit.error.ForbiddenException;
 
 @RestController
@@ -55,6 +57,36 @@ public class CreditController {
         HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(AccountResponse.from(result.account()));
     }
+
+    @PutMapping("/orders/{orderId}/reservation")
+    @Operation(summary = "Reserve a requester's usable credits for an order")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Credits reserved"),
+            @ApiResponse(responseCode = "200", description = "Existing identical reservation returned")
+    })
+    public ResponseEntity<ReservationResponse> reserve(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            @Valid @RequestBody ReserveCreditsRequest request,
+            JwtAuthenticationToken caller) {
+        requireSelf(request.requesterId(), caller);
+        ReservationResult result = service.reserve(orderId, request.requesterId(), request.amount());
+        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status)
+                .body(ReservationResponse.from(result.reservation(), result.account()));
+    }
+
+    @GetMapping("/orders/{orderId}/reservation")
+    @Operation(summary = "Recover the authenticated requester's reservation status for an order")
+    @ApiResponse(responseCode = "200", description = "Reservation status")
+    public ReservationResponse reservation(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            JwtAuthenticationToken caller) {
+        CreditReservation reservation = service.getReservation(orderId, caller.getName());
+        return ReservationResponse.from(reservation);
+    }
+
     private static void requireSelf(String userId, JwtAuthenticationToken caller) {
         if (!caller.getName().equals(userId)) {
             throw new ForbiddenException("The authenticated user does not match the requested credit account.");

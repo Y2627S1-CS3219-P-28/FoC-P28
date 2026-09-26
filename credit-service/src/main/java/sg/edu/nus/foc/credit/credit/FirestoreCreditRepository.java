@@ -26,7 +26,9 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import org.springframework.stereotype.Repository;
+import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
+import sg.edu.nus.foc.credit.error.ReservationConflictException;
 
 @Repository
 public class FirestoreCreditRepository implements CreditRepository {
@@ -81,8 +83,58 @@ public class FirestoreCreditRepository implements CreditRepository {
             return new RegistrationResult(created, true);
         }));
     }
+
+    @Override
+    public ReservationResult reserve(String orderId, String requesterId, long amount) {
+        return await(firestore.runTransaction(transaction -> {
+            DocumentReference reservationRef = reservations().document(orderId);
+            DocumentReference accountRef = accounts().document(requesterId);
+            DocumentSnapshot reservation = transaction.get(reservationRef).get();
+            DocumentSnapshot account = transaction.get(accountRef).get();
+
+            if (reservation.exists()) {
+                CreditReservation existing = fromReservation(reservation);
+                if (!existing.requesterId().equals(requesterId) || existing.amount() != amount) {
+                    throw new ReservationConflictException(orderId);
+                }
+                if (!account.exists()) {
+                    throw new IllegalStateException("Credit reservation has no requester account");
+                }
+                return new ReservationResult(existing, fromAccount(account), false);
+            }
+            if (!account.exists()) {
+                throw new AccountNotFoundException(requesterId);
+            }
+
+            CreditAccount current = fromAccount(account);
+
+            Instant now = clock.instant();
+            CreditAccount updated = new CreditAccount(current.userId(), current.totalBalance(),
+                    Math.addExact(current.reservedBalance(), amount), Math.addExact(current.version(), 1),
+                    current.createdAt(), now);
+            CreditReservation created = new CreditReservation(orderId, requesterId, null, amount,
+                    ReservationStatus.RESERVED, now, now, null, null);
+            DocumentReference ledgerRef = ledger().document();
+            transaction.set(accountRef, accountDocument(updated));
+            transaction.set(reservationRef, reservationDocument(created));
+            transaction.set(ledgerRef, ledgerDocument(ledgerRef.getId(), requesterId, orderId, null,
+                    LedgerEntryType.RESERVATION, amount, 0, amount, now, now));
+            return new ReservationResult(created, updated, true);
+        }));
+    }
+
+    @Override
+    public Optional<CreditReservation> findReservation(String orderId) {
+        DocumentSnapshot reservation = await(reservations().document(orderId).get());
+        return reservation.exists() ? Optional.of(fromReservation(reservation)) : Optional.empty();
+    }
+
     private CollectionReference accounts() {
         return firestore.collection(ACCOUNTS);
+    }
+
+    private CollectionReference reservations() {
+        return firestore.collection(RESERVATIONS);
     }
 
     private CollectionReference events() {
@@ -101,6 +153,20 @@ public class FirestoreCreditRepository implements CreditRepository {
         document.put("version", account.version());
         document.put("createdAt", timestamp(account.createdAt()));
         document.put("updatedAt", timestamp(account.updatedAt()));
+        return document;
+    }
+
+    static Map<String, Object> reservationDocument(CreditReservation reservation) {
+        Map<String, Object> document = new HashMap<>();
+        document.put("orderId", reservation.orderId());
+        document.put("requesterId", reservation.requesterId());
+        document.put("courierId", reservation.courierId());
+        document.put("amount", reservation.amount());
+        document.put("status", reservation.status().name());
+        document.put("createdAt", timestamp(reservation.createdAt()));
+        document.put("updatedAt", timestamp(reservation.updatedAt()));
+        document.put("refundedAt", nullableTimestamp(reservation.refundedAt()));
+        document.put("paidAt", nullableTimestamp(reservation.paidAt()));
         return document;
     }
 
@@ -142,6 +208,14 @@ public class FirestoreCreditRepository implements CreditRepository {
                 instant(document, "createdAt"), instant(document, "updatedAt"));
     }
 
+    static CreditReservation fromReservation(DocumentSnapshot document) {
+        return new CreditReservation(document.getString("orderId"), document.getString("requesterId"),
+                document.getString("courierId"), requiredLong(document, "amount"),
+                ReservationStatus.valueOf(document.getString("status")), instant(document, "createdAt"),
+                instant(document, "updatedAt"), nullableInstant(document, "refundedAt"),
+                nullableInstant(document, "paidAt"));
+    }
+
     private static long requiredLong(DocumentSnapshot document, String field) {
         Long value = document.getLong(field);
         if (value == null) {
@@ -165,6 +239,10 @@ public class FirestoreCreditRepository implements CreditRepository {
 
     private static Timestamp timestamp(Instant value) {
         return Timestamp.ofTimeSecondsAndNanos(value.getEpochSecond(), value.getNano());
+    }
+
+    private static Timestamp nullableTimestamp(Instant value) {
+        return value != null ? timestamp(value) : null;
     }
 
     static String payloadHash(ProcessedEventType type, String userId, String orderId, Instant occurredAt) {

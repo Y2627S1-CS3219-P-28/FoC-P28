@@ -74,15 +74,41 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    @ExceptionHandler(InvalidCreditAmountException.class)
+    ResponseEntity<ApiError> invalidAmount(InvalidCreditAmountException exception, HttpServletRequest request) {
+        return respond(ErrorCode.VALIDATION_ERROR, "Request validation failed.", request,
+                List.of(new FieldProblem("amount", exception.getMessage())));
+    }
+
     @ExceptionHandler(InvalidCreditIdException.class)
     ResponseEntity<ApiError> invalidIdentifier(InvalidCreditIdException exception, HttpServletRequest request) {
         return respond(ErrorCode.VALIDATION_ERROR, "Request validation failed.", request,
                 List.of(new FieldProblem(exception.field(), exception.getMessage())));
     }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    ResponseEntity<ApiError> accountNotFound(AccountNotFoundException exception, HttpServletRequest request) {
+        return respond(ErrorCode.ACCOUNT_NOT_FOUND, exception.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(ReservationNotFoundException.class)
+    ResponseEntity<ApiError> reservationNotFound(ReservationNotFoundException exception,
+                                                  HttpServletRequest request) {
+        return respond(ErrorCode.RESERVATION_NOT_FOUND, exception.getMessage(), request, List.of());
+    }
+
+
+    @ExceptionHandler(ReservationConflictException.class)
+    ResponseEntity<ApiError> reservationConflict(ReservationConflictException exception,
+                                                  HttpServletRequest request) {
+        return respond(ErrorCode.RESERVATION_CONFLICT, exception.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(EventConflictException.class)
     ResponseEntity<ApiError> eventConflict(EventConflictException exception, HttpServletRequest request) {
         return respond(ErrorCode.EVENT_CONFLICT, exception.getMessage(), request, List.of());
     }
+
     @ExceptionHandler(NoResourceFoundException.class)
     ResponseEntity<ApiError> noRoute(NoResourceFoundException exception, HttpServletRequest request) {
         return respond(ErrorCode.NOT_FOUND, "No endpoint handles this path.", request, List.of());
