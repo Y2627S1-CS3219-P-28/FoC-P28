@@ -65,6 +65,8 @@ class FirestoreCreditRepositoryIntegrationTest {
         assertThat(first.account().totalBalance()).isEqualTo(50);
         assertThat(first.account().reservedBalance()).isZero();
         assertThat(first.account().usableBalance()).isEqualTo(50);
+        assertThat(repository.findAccount("user-1")).contains(first.account());
+        assertThat(repository.findAccount("missing")).isEmpty();
         assertThat(documents(FirestoreCreditRepository.ACCOUNTS)).hasSize(1);
         assertThat(documents(FirestoreCreditRepository.EVENTS)).hasSize(1);
         var ledger = documents(FirestoreCreditRepository.LEDGER);

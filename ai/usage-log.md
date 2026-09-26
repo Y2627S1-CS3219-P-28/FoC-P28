@@ -42,7 +42,7 @@ i need one collection to store each user's balances - including total balance, r
   file ai usage are documented in the file headers
 - **Author verification:** Reviewed the plan devised, brainstormed and edited where necessary, clarified follow up questions, and modified the plan to ensure it follows our architecture, interfaces, and schemas before implementing
 
-## 2026-09-26 — Disclosure implementation
+## Disclosure implementation
 
 - **Tool:** OpenAI Codex (GPT-5)
 - **Mode:** Documentation and comment generation.
@@ -58,7 +58,7 @@ i need one collection to store each user's balances - including total balance, r
   deployment configuration; `README.md`; `compose.yaml`; `infra/gcp/bootstrap.sh`; and this log.
 - **Author verification:** The author selected the statement that the work was reviewed and tested.
 
-## 2026-09-26 — FR-based commit organization
+## FR-based commit organization
 
 - **Tool:** OpenAI Codex (GPT-5)
 - **Mode:** Requirements mapping and Git commit organization.
@@ -113,3 +113,30 @@ i need one collection to store each user's balances - including total balance, r
   verified the final combined implementation.
 - **Affected locations:** Git history for the Credit Service implementation, both READMEs, and this
   usage log.
+
+
+## User credit balance display in sidebar
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Implementation and testing assistance.
+- **Exact prompt:** implement the plan
+Add GET /api/credits/me, authenticated with the Firebase ID token.
+user should only be allowed to view their own credit balances for now - will be adding role access later on for admins but this is out of scope for now
+
+credit service should be able to lookup the user's credit account using creditAccounts/{userId}.
+this api should return the user's total balance, reserved balance, and usable balance computed from total balance - reserved baalnce.
+in the frontend add a sidebar to the left of the screen - persistent on desktop and replaces the existing desktop header navigation, for mobile navigation remain using drawer opened from the compact top bar
+
+At the bottom of the sidebar, display a credit summary:
+- Available: {usableBalance} as the primary value.
+- {reservedBalance} reserved.
+- {totalBalance} total.
+
+when a user logs in, the system should refresh and get the latest credit balances by calling the api, and user can also manually click on refresh to refresh the balance when needed
+for failures show credits unavailable
+- **Key response:** Added token-subject account lookup through `creditAccounts/{userId}`,
+  `GET /api/credits/me`, ownership/error tests, and a responsive desktop/mobile application
+  shell that loads balances after sign-in and supports focus and manual refresh.
+- **Affected locations:** `credit-service/`, the frontend application shell and balance hook,
+  Credit Service documentation, and this usage log.
+- **Author verification:** The code was reviewed and verified that it complies wiht the intended design

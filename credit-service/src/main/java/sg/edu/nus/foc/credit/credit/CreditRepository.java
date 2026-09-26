@@ -15,6 +15,8 @@ public interface CreditRepository {
 
     RegistrationResult initializeAccount(UUID eventId, String userId, Instant occurredAt);
 
+    Optional<CreditAccount> findAccount(String userId);
+
     ReservationResult reserve(String orderId, String requesterId, long amount);
 
     Optional<CreditReservation> findReservation(String orderId);

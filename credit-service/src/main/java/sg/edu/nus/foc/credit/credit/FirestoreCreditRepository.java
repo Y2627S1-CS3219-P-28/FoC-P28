@@ -86,6 +86,12 @@ public class FirestoreCreditRepository implements CreditRepository {
     }
 
     @Override
+    public Optional<CreditAccount> findAccount(String userId) {
+        DocumentSnapshot account = await(accounts().document(userId).get());
+        return account.exists() ? Optional.of(fromAccount(account)) : Optional.empty();
+    }
+
+    @Override
     public ReservationResult reserve(String orderId, String requesterId, long amount) {
         return await(firestore.runTransaction(transaction -> {
             DocumentReference reservationRef = reservations().document(orderId);

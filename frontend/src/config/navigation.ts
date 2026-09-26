@@ -8,7 +8,7 @@ export type NavItem = {
 }
 
 // Each service owner registers the UI entry point for their feature here. Items appear
-// in the header navigation and as cards on the home page, in this order.
+// in the sidebar navigation and as cards on the home page, in this order.
 // Example:
 //   { href: "/suppliers", label: "Suppliers", description: "...", icon: StoreIcon },
 export const NAV_ITEMS: NavItem[] = [
