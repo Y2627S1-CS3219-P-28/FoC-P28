@@ -23,6 +23,8 @@ const signup = () => {
         const email = emailRef.current.value;
         const password = passwordRef.current.value;
 
+        let user = null;
+
         try {
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
@@ -42,18 +44,15 @@ const signup = () => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    userId: user.uid,
                     username: username,
-                    email: user.email
+                    email: user.email,
+                    userId: user.uid
                 })
             });
 
             // Checks if API succeeded
             if (!response.ok) {
                 const data = await response.json();
-
-                // Did not go through, delete firebase acc
-                await user.delete();
 
                 console.log("API Error: ", data.message || "Unknown error")
                 throw new Error(data.message || "Failed to create user");
@@ -63,6 +62,12 @@ const signup = () => {
 
             router.push('/login')
         } catch (error) {
+            // Did not go through, delete firebase acc
+            if (user) {
+                console.log(`Deleting firebase user ${user.email}`);
+                await user.delete();
+            }
+            
             const errorCode = error.code;
             const errorMessage = error.message;
             
