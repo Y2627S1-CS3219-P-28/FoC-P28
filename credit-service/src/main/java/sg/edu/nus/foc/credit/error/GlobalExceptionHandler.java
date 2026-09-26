@@ -79,6 +79,10 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.VALIDATION_ERROR, "Request validation failed.", request,
                 List.of(new FieldProblem(exception.field(), exception.getMessage())));
     }
+    @ExceptionHandler(EventConflictException.class)
+    ResponseEntity<ApiError> eventConflict(EventConflictException exception, HttpServletRequest request) {
+        return respond(ErrorCode.EVENT_CONFLICT, exception.getMessage(), request, List.of());
+    }
     @ExceptionHandler(NoResourceFoundException.class)
     ResponseEntity<ApiError> noRoute(NoResourceFoundException exception, HttpServletRequest request) {
         return respond(ErrorCode.NOT_FOUND, "No endpoint handles this path.", request, List.of());
