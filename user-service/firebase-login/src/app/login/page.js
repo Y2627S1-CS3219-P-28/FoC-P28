@@ -28,12 +28,12 @@ const login = () => {
 
                 if (user && user.emailVerified) {
                     console.log(`${user.email} is verified`)
-                    alert(`Welcome ${user.email}, redirecting to home page.`)
+                    console.log(`${user.email} redirected to home page.`)
                     //router to next page
                     router.push('/home');
                 } else {
                     console.log(`${user.email} is not verified`)
-                    alert(`${user.email}, please verify your email first.`)
+                    alert(`${user.email}, please verify your email before logging in`)
                 }
                 
 
@@ -50,35 +50,37 @@ const login = () => {
     }
 
     return (
-        <div>
-            <center>
-                <h1>Log in screen</h1><br /><br />
-                <form onSubmit={logIn}>
-                    <input type="email"
-                        placeholder="Enter your email"
-                        ref={logemailRef}
-                        style={{ color: 'white' }} /><br />
-                    <br></br>
-                    <input type="password"
-                        placeholder="Enter your password"
-                        ref={logpasswordRef}
-                        style={{ color: 'white' }} /><br />
-                    <br /><button type="submit"
-                        className="w-200 p-3 bg-indigo-600 
-        rounded text-white hover:bg-indigo-500">
-                        Log In
-                    </button>
-                </form>
-                <div>
-                    <br></br>
-                    <button onClick = {signUp}
-                        className="w-200 p-3 bg-indigo-600 
-                        rounded text-white hover:bg-indigo-500">
-                        Sign Up
-                    </button>
-                </div>
-            </center>
-        </div>
+        <main className="flex min-h-screen flex-col items-center justify-center px-10">
+            <div className="w-full max-w-md text-center">
+                <center>
+                    <h1>Log in screen</h1><br /><br />
+                    <form onSubmit={logIn}>
+                        <input type="email"
+                            placeholder="Enter your email"
+                            ref={logemailRef}
+                            /><br />
+                        <br></br>
+                        <input type="password"
+                            placeholder="Enter your password"
+                            ref={logpasswordRef}
+                            /><br />
+                        <br /><button type="submit"
+                            className="w-full p-3 bg-indigo-600 
+                            rounded text-white hover:bg-indigo-500">
+                            Log In
+                        </button>
+                    </form>
+                    <div>
+                        <br></br>
+                        <button onClick = {signUp}
+                            className="w-full p-3 bg-indigo-600 
+                            rounded text-white hover:bg-indigo-500">
+                            Sign Up
+                        </button>
+                    </div>
+                </center>
+            </div>
+        </main>
     )
 }
 export default login

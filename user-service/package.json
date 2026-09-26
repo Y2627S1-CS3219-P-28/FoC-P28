@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "firebase": "^12.19.0"
-  },
-  "allowScripts": {
-    "firebase@12.19.0": true
-  }
-}
