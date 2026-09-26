@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# One-time GCP setup for FoC CI/CD and Cloud Run. Idempotent: it only creates what is
-# missing, so re-run it after adding a service to FIRESTORE_SERVICES / RUNTIME_SERVICES.
+# GCP setup for FoC CI/CD and Cloud Run. Idempotent: it only creates what is missing.
+# Re-run it whenever a service is added: the service lists are derived from the repository,
+# and CI's "Cloud infrastructure" check (scripts/ci/check-infra.sh) fails until it has run.
 #
 # Usage (with an owner-level gcloud account active):
 #   infra/gcp/bootstrap.sh
@@ -11,6 +12,7 @@
 #   - one Firestore database per service per env         <name>-<env>, only readable by foc-<service>@
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
 #   - deployer service account used by GitHub Actions    foc-deployer@
+#   - read-only custom role focInfraReader (deployer), used by the CI infrastructure check
 #   - Workload Identity Federation for the GitHub repo  (keyless: no JSON keys in GitHub)
 set -euo pipefail
 
@@ -19,10 +21,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT/infra/gcp/project.env"
 
 ENVIRONMENTS=(staging production)
-# Services that own a Firestore database. Add yours here, then re-run.
-read -r -a FIRESTORE_SERVICES <<<"${FIRESTORE_SERVICES:-supplier-service credit-service}"
-# Services deployed to Cloud Run (each gets a least-privilege runtime identity).
-read -r -a RUNTIME_SERVICES <<<"${RUNTIME_SERVICES:-gateway frontend user-service supplier-service order-service credit-service admin-service}"
+# Derived from the repository so nobody has to maintain lists (override with env vars):
+# every service folder (it has a Dockerfile, even an empty placeholder) gets a runtime
+# identity, and every service whose build uses the Firestore client gets its databases.
+default_runtime=$(for dir in "$ROOT"/*/; do [[ -f "$dir/Dockerfile" ]] && basename "$dir"; done | tr '\n' ' ')
+default_firestore=$("$ROOT/scripts/ci/list-services.sh" --firestore | tr '\n' ' ')
+read -r -a RUNTIME_SERVICES <<<"${RUNTIME_SERVICES:-$default_runtime}"
+read -r -a FIRESTORE_SERVICES <<<"${FIRESTORE_SERVICES:-$default_firestore}"
+echo "Runtime services:   ${RUNTIME_SERVICES[*]}"
+echo "Firestore services: ${FIRESTORE_SERVICES[*]:-none}"
 
 POOL_ID=github
 PROVIDER_ID=github-actions
@@ -65,7 +72,7 @@ for svc in "${RUNTIME_SERVICES[@]}"; do
 done
 
 log "Firestore databases (database-per-service)"
-for svc in "${FIRESTORE_SERVICES[@]}"; do
+for svc in ${FIRESTORE_SERVICES[@]+"${FIRESTORE_SERVICES[@]}"}; do
   name=${svc%-service}
   for env in "${ENVIRONMENTS[@]}"; do
     db="$name-$env"
@@ -108,6 +115,17 @@ for env in "${ENVIRONMENTS[@]}"; do
   gcloud storage buckets add-iam-policy-binding "gs://$(config_bucket "$env")" \
     --member "serviceAccount:$DEPLOYER_SA" --role roles/storage.objectAdmin >/dev/null
 done
+
+log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,resourcemanager.projects.getIamPolicy,storage.buckets.get"
+if exists gc iam roles describe focInfraReader; then
+  gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
+else
+  gc iam roles create focInfraReader --title "FoC infrastructure reader" \
+    --description "Read-only checks that every service's cloud resources exist" \
+    --permissions "$reader_permissions" --stage GA >/dev/null
+fi
+project_binding --member "serviceAccount:$DEPLOYER_SA" --role "projects/$PROJECT_ID/roles/focInfraReader" --condition None
 
 log "Workload Identity Federation for GitHub repo $GITHUB_REPO"
 exists gc iam workload-identity-pools describe "$POOL_ID" --location global ||

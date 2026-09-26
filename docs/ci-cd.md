@@ -38,9 +38,23 @@ them if `.github/`, `scripts/ci/` or `infra/` changed). Per service:
 - npm project: `npm ci`, lint, type-check, `npm test` if present.
 - Always: `docker build` of the service's own `Dockerfile`.
 
-Plus repository checks: shellcheck, actionlint, `docker compose config`, and a guard that
-fails if credential-like files are tracked. The **CI passed** job aggregates everything and
-is the single required status check for `main`.
+Plus two cross-cutting jobs:
+
+- **Repository checks:** shellcheck, actionlint (a pinned, checksum-verified release,
+  downloaded with retries), `docker compose config`, and a guard that fails if
+  credential-like files are tracked.
+- **Cloud infrastructure** (`scripts/ci/check-infra.sh staging production`), a read-only
+  check through Workload Identity Federation that every deployable service has:
+  - its runtime identity `foc-<service>@`, which the deployer may deploy as;
+  - if it uses Firestore: databases `<name>-staging` and `<name>-production`, with access
+    granted to that identity only;
+  - the config buckets.
+
+  A new service therefore fails its PR, not a deploy, until the bootstrap has provisioned it.
+  The check uses the custom role `focInfraReader`, which can read metadata and IAM policies
+  but never data or settings.
+
+The **CI passed** job aggregates everything and is the single required status check for `main`.
 
 ### Deploy staging (`.github/workflows/deploy-staging.yml`)
 
@@ -51,8 +65,8 @@ SHA → `scripts/ci/deploy.sh staging <sha>`.
 
 Manual (**Actions → Deploy production → Run workflow**). With no input it promotes the
 commit currently tagged `staging`; or give a full commit SHA. It verifies all images exist,
-checks out that commit for the deploy configuration, and runs
-`scripts/ci/deploy.sh production <sha>`. Images are **never rebuilt** for production.
+checks out that commit for the deploy configuration, re-runs the infrastructure check for
+production, and runs `scripts/ci/deploy.sh production <sha>`. Images are **never rebuilt** for production.
 To require approval before each production deploy, add required reviewers to the
 `production` GitHub environment (not configured yet).
 
@@ -63,7 +77,8 @@ For each service (backends → frontend → gateway):
 1. Run `<service>/deploy/pre-deploy.sh` if present (e.g. upload seed files).
 2. Render env vars: standard runtime variables (AGENTS.md §4) + `<service>/deploy/env.yaml`
    (envsubst with `infra/environments/<env>.env` and every `<SERVICE>_URL`).
-3. `gcloud run deploy` as the service's own identity `foc-<service>@`. For an existing
+3. `gcloud run deploy` as the service's own identity `foc-<service>@`. If the identity
+   doesn't exist, the deploy stops rather than using the project's default identity. For an existing
    service the new revision gets **no traffic** and a `sha-xxxxxxx` tag URL.
 4. Smoke test `HEALTH_PATH` on the new revision (12 tries, 5 s apart).
 5. Healthy → switch 100% of traffic to it. Unhealthy → fail the job; the previous revision
@@ -115,7 +130,12 @@ gcloud auth login   # or activate an owner service account
 infra/gcp/bootstrap.sh
 ```
 
-The script is idempotent: re-run it after adding a service to `FIRESTORE_SERVICES`.
+The script is idempotent and works out its service lists from the repository: every service
+folder gets a runtime identity, and every service using the Firestore client gets its
+databases. Re-run it whenever the **Cloud infrastructure** CI check reports something missing
+(typically after a new service is added). It needs an owner-level account, which is why CI
+only checks and never provisions: provisioning grants IAM roles, and letting CI do that
+would let any merge escalate to project owner.
 
 In GitHub, `main` is protected: merges need a pull request with a green **CI passed** check.
 Adding required reviewers to the `production` environment is optional.
@@ -128,5 +148,8 @@ Adding required reviewers to the `production` environment is optional.
 | UI loads but data requests get **404 on `/api/...`** | The page was opened on a service's own URL instead of the gateway. Use the gateway URL (the frontend now redirects there). |
 | Rollout succeeded but the job failed on `artifacts docker tags add` (`tags.delete` denied) | The deployer needs `artifactregistry.repoAdmin` on the repository (in `bootstrap.sh`). |
 | Sign-up fails in the cloud but works locally | The cloud Firebase project enforces a password policy; the emulator doesn't. The sign-up form lists the rules. |
+| **Repository checks** fails installing actionlint (`Connection reset`, `./actionlint: No such file`) | A network blip while downloading. The step now retries and verifies a pinned release; re-run the job if GitHub itself is down. |
+| **Cloud infrastructure** check fails on a PR | A service is missing its identity, databases or access (usually a new service). The CI/CD owner runs `infra/gcp/bootstrap.sh`, then re-runs the job. |
+| Deploy fails with "Missing runtime identity" | Same cause, caught at deploy time. `deploy.sh` never falls back to the default (over-privileged) identity. |
 | First request is slow | Services scale to zero; a cold start takes 10–20 s. Set `--min-instances=1` in `EXTRA_FLAGS` for demos. |
 | A deploy failed | Earlier services keep their previous revision. Fix the problem and re-run the failed job (`gh run rerun <id> --failed`), or push a fix. |

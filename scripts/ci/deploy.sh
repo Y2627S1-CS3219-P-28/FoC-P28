@@ -107,9 +107,15 @@ deploy_service() {
   env_file=$(mktemp)
   render_env_file "$svc" "$env_file"
 
-  local identity=()
+  # Never fall back to the project's default identity: it is over-privileged and cannot
+  # reach the service's own databases. scripts/ci/check-infra.sh catches this earlier.
   local sa="foc-$svc@$PROJECT_ID.iam.gserviceaccount.com"
-  gcloud iam service-accounts describe "$sa" --project "$PROJECT_ID" >/dev/null 2>&1 && identity=(--service-account "$sa")
+  if ! gcloud iam service-accounts describe "$sa" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    echo "::endgroup::"
+    echo "::error title=Missing runtime identity::$sa does not exist. Ask the CI/CD owner to run infra/gcp/bootstrap.sh."
+    return 1
+  fi
+  local identity=(--service-account "$sa")
 
   local existing=false rollout=()
   if gcloud run services describe "$name" --project "$PROJECT_ID" --region "$REGION" >/dev/null 2>&1; then

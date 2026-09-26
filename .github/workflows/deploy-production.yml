@@ -66,6 +66,8 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.DEPLOYER_SA }}
       - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify cloud infrastructure for production
+        run: scripts/ci/check-infra.sh production
       - name: Verify images exist for every service
         env:
           COMMIT: ${{ needs.resolve.outputs.commit }}
