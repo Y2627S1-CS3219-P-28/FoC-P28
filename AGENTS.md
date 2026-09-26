@@ -141,8 +141,11 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 - Firestore, one database per service per environment: `<name>-local`, `<name>-staging`,
   `<name>-production`. Each service's runtime identity can only access its own databases.
-- New Firestore service? Add it to `FIRESTORE_SERVICES` in `infra/gcp/bootstrap.sh`
-  and ask the CI/CD owner to re-run it.
+- There's no list to edit. A service whose `pom.xml` depends on `google-cloud-firestore` is
+  detected automatically (`scripts/ci/list-services.sh --firestore`).
+- CI's **Cloud infrastructure** check fails your PR until the service's identity, databases
+  and access exist in staging and production. When it does, ask the CI/CD owner to run
+  `infra/gcp/bootstrap.sh`, then re-run the job. Nothing reaches `main` half-provisioned.
 
 ## 9. Testing
 
@@ -176,8 +179,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
    `<NAME>_SERVICE_URL` default to `gateway/Dockerfile` / `gateway/deploy/env.yaml`.
 4. Add any new env vars to `.env.example`.
 5. Document every endpoint in OpenAPI and add `OpenApiDocumentationTest` (section 6).
-6. If it uses Firestore, get its databases created (section 8).
-7. Open a PR; CI builds and tests it automatically.
+6. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
+   owner runs `infra/gcp/bootstrap.sh`, which provisions the new service's identity (and
+   databases, if it uses Firestore). Then re-run the check (section 8).
 
 ## 12. Git workflow and secrets
 

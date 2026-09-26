@@ -78,6 +78,24 @@ jobs:
             echo "::error::Private key material found in tracked files."; exit 1
           fi
 
+  infrastructure:
+    name: Cloud infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # read-only GCP checks via Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v7
+      - name: Load project settings
+        run: grep -E '^[A-Z_]+=' infra/gcp/project.env >> "$GITHUB_ENV"
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Every service has its identity, databases and access (staging + production)
+        run: scripts/ci/check-infra.sh staging production
+
   test:
     name: ${{ matrix.service }}
     needs: changes
@@ -161,7 +179,7 @@ jobs:
 
   ci-passed:
     name: CI passed
-    needs: [changes, repo-checks, test]
+    needs: [changes, repo-checks, infrastructure, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
