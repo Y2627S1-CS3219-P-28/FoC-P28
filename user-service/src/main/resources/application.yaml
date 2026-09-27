@@ -11,6 +11,11 @@ spring:
 p28:
   userservice:
     cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    
+firebase:
+  auth:
+    project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
+    emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
 
 server:
   port: ${PORT:8080}
