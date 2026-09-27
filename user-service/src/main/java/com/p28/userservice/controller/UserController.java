@@ -1,5 +1,7 @@
 package com.p28.userservice.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -45,25 +47,28 @@ public class UserController {
     }
 
     // Test
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<String> handleHttpMessageNotReadable(
-            HttpMessageNotReadableException e) {
+    // @ExceptionHandler(HttpMessageNotReadableException.class)
+    // public ResponseEntity<String> handleHttpMessageNotReadable(
+            // HttpMessageNotReadableException e) {
 
-        e.printStackTrace();
+        // e.printStackTrace();
 
-        return ResponseEntity.badRequest().body(
-            e.getMostSpecificCause() != null
-                ? e.getMostSpecificCause().toString()
-                : e.toString()
-        );
-    }
+        // return ResponseEntity.badRequest().body(
+            // e.getMostSpecificCause() != null
+                // ? e.getMostSpecificCause().toString()
+                // : e.toString()
+        // );
+    // }
+
     // GET /api/users
+    @Operation(summary = "Get all users")
     @GetMapping
     public ResponseEntity<List<User>> fetchAllUsers() {
         return ResponseEntity.ok(userService.fetchAllUsers());
     }
 
     // GET /api/users/:firebaseUid
+    @Operation(summary = "Get specific user based on firebaseUid")
     @GetMapping("/{firebaseUid}")
     public ResponseEntity<User> getUser(
             @PathVariable String firebaseUid) {
@@ -73,18 +78,9 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // GET /api/users/profile/:firebaseUid
-    @GetMapping("/profile/{firebaseUid}")
-    public ResponseEntity<User> getProfileInfo(
-            @PathVariable String firebaseUid) {
-
-        return ResponseEntity.ok(
-                userService.getProfileInfo(firebaseUid)
-        );
-    }
-
     // GET /api/users/role-context/:firebaseUid
     // Used for checking if a user is of a certain role for certain actions
+    @Operation(summary = "Get user roles from auth token")
     @GetMapping("/role-context")
     public ResponseEntity<UserRoleContext> getRoleContext(
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -100,6 +96,7 @@ public class UserController {
 
 
     // GET /api/users/courier-eligibility/:firebaseUid
+    @Operation(summary = "Get courier eligibility from Firebase uid")
     @GetMapping("/courier-eligibility/{firebaseUid}")
     public ResponseEntity<CourierElgibility> getCourierEligibility(
             @PathVariable String firebaseUid) {
@@ -111,6 +108,7 @@ public class UserController {
 
 
     // GET /api/users/summary/:firebaseUid
+    @Operation(summary = "Get user summary from firebase Uid")
     @GetMapping("/summary/{firebaseUid}")
     public ResponseEntity<UserSummary> getUserSummary(
             @PathVariable String firebaseUid) {
@@ -121,6 +119,7 @@ public class UserController {
     }
 
     // GET /api/users/me
+    @Operation(summary = "Get user's own information from auth token")
     @GetMapping("/me")
     public ResponseEntity<User> getMyProfile(
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -135,6 +134,7 @@ public class UserController {
 
     // POST /api/users/
     // Only accepts username, email and firebaseUid
+    @Operation(summary = "Add user into database")
     @PostMapping
     public ResponseEntity<User> addUser(
             @RequestBody AddUserRequest request) {
@@ -144,17 +144,8 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
-    // PUT routes for order outcomes
-    @PutMapping("/{courierId}/outcome-completed")
-    public ResponseEntity<User> acceptCourierOutcomeCompleted(
-            @PathVariable String courierId) {
-
-        return ResponseEntity.ok(
-            userService.acceptCourierOutcomeCompleted(courierId)
-        );
-    }
-
     // PUT /api/users/:id
+    @Operation(summary = "Update user info")
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(
             @PathVariable String id,
@@ -165,6 +156,18 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    // PUT routes for order outcomes
+    @Operation(summary = "Update user penalty from normal completion")
+    @PutMapping("/{courierId}/outcome-completed")
+    public ResponseEntity<User> acceptCourierOutcomeCompleted(
+            @PathVariable String courierId) {
+
+        return ResponseEntity.ok(
+            userService.acceptCourierOutcomeCompleted(courierId)
+        );
+    }
+
+    @Operation(summary = "Update user penalty from normal completion")
     @PutMapping("/{courierId}/outcome-aborted")
     public ResponseEntity<User> acceptCourierOutcomeAborted(
             @PathVariable String courierId) {
@@ -174,6 +177,7 @@ public class UserController {
         );
     }
 
+    @Operation(summary = "Update user penalty from normal completion")
     @PutMapping("/{courierId}/outcome-overdue")
     public ResponseEntity<User> acceptCourierOutcomeOverdue(
             @PathVariable String courierId) {
@@ -184,6 +188,7 @@ public class UserController {
     }
 
     // DELETE /api/users/:id
+    @Operation(summary = "Delete specified user from database")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteUser(
             @PathVariable String id) {

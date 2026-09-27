@@ -17,5 +17,9 @@ firebase:
     project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
     emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
 
+springdoc:
+  api-docs:
+    path: /api/users/v3/api-docs
+
 server:
   port: ${PORT:8080}
