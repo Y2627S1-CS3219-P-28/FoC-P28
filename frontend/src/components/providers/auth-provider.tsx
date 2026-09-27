@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import {
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   onIdTokenChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -40,14 +41,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      await signInWithEmailAndPassword(getFirebaseAuth(config), email, password)
+      const auth = getFirebaseAuth(config);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      const user = userCredential.user;
+
+      console.log(user)
+
+      // User can only sign in after verifying the email through link
+      if (user && user.emailVerified) {
+        console.log(`${user.email} is verified`)
+        console.log(`${user.email} redirected to home page.`)
+      } else {
+        await firebaseSignOut(auth);
+
+        console.log(`${user.email} is not verified`)
+        throw new Error("EMAIL_NOT_VERIFIED");
+      }
     },
     [config],
   )
 
   const signUp = useCallback(
     async (email: string, password: string) => {
-      await createUserWithEmailAndPassword(getFirebaseAuth(config), email, password)
+        let user = null;
+
+        try {
+            const auth = getFirebaseAuth(config);
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                email, 
+                password
+            );
+            
+            // Signed up 
+            user = userCredential.user;
+                    
+            const response = await fetch(`${config.apiBaseUrl}/api/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firebaseUid: user.uid,
+                    email: user.email
+                })
+            });
+
+            // Checks if API succeeded
+            if (!response.ok) {
+                const data = await response.json();
+
+                console.log("API Error: ", data.message || "Unknown error")
+                throw new Error(data.message || "Failed to create user");
+            }
+
+            await sendEmailVerification(user);
+        
+            console.log("Verification email sent");
+
+            await firebaseSignOut(auth);
+        } catch (error) {
+            // Error happened
+            // Did not go through, delete firebase acc
+            if (user) {
+                console.log(`Deleting firebase user ${user.email}`);
+                await user.delete();
+            }
+
+            // Log it in console
+            console.error(error);
+
+            // Continue throwing the error up
+            if (error instanceof Error) {
+              throw error;
+            }
+
+            throw new Error("Something went wrong during sign up.");
+        }
     },
     [config],
   )
