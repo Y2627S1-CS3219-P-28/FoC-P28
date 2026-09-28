@@ -32,25 +32,25 @@ public class UserService {
                         new RuntimeException("User not found"));
     }
 
-    public User getProfileInfo(String firebaseUid) {
+    public User getProfileInfo(String userId) {
         return userRepository
-                .findByFirebaseUid(firebaseUid)
+                .findByUserId(userId)
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
     }
 
-    public UserRoleContext getRoleContext(String firebaseUid) {
+    public UserRoleContext getRoleContext(String userId) {
         User user = userRepository
-                .findByFirebaseUid(firebaseUid)
+                .findByUserId(userId)
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
 
-        return new UserRoleContext(user.getFirebaseUid(), user.getRoles());
+        return new UserRoleContext(user.getUserId(), user.getRoles());
     }
 
-    public CourierElgibility getCourierEligibility(String firebaseUid) {
+    public CourierElgibility getCourierEligibility(String userId) {
         User user = userRepository
-                .findByFirebaseUid(firebaseUid)
+                .findByUserId(userId)
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
 
@@ -63,15 +63,15 @@ public class UserService {
             );
     }
 
-    public UserSummary getUserSummary(String firebaseUid) {
+    public UserSummary getUserSummary(String userId) {
         User user = userRepository
-                .findByFirebaseUid(firebaseUid)
+                .findByUserId(userId)
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
 
         return new UserSummary(
             user.getUsername(), 
-            user.getFirebaseUid(), 
+            user.getUserId(), 
             user.getEmail(), 
             user.getRoles(), 
             user.getPenalty(), 
@@ -80,7 +80,7 @@ public class UserService {
     }
 
     public User addUser(AddUserRequest request) {
-        if (request.getFirebaseUid() == null ||
+        if (request.getUserId() == null ||
             request.getEmail() == null) {
 
             throw new IllegalArgumentException("Please enter all fields.");
@@ -92,7 +92,7 @@ public class UserService {
         roles.add("courier");
         roles.add("requester");
 
-        user.setFirebaseUid(request.getFirebaseUid());
+        user.setUserId(request.getUserId());
         user.setEmail(request.getEmail());
         user.setUsername("");
         user.setRoles(roles);
@@ -134,7 +134,7 @@ public class UserService {
 
     public User acceptCourierOutcomeCompleted(String courierId) {
         User courier = userRepository
-                .findByFirebaseUid(courierId)
+                .findByUserId(courierId)
                 .orElseThrow(() -> 
                         new RuntimeException("Courier not found"));
 
@@ -151,7 +151,7 @@ public class UserService {
 
     public User acceptCourierOutcomeOverdue(String courierId) {
         User courier = userRepository
-                .findByFirebaseUid(courierId)
+                .findByUserId(courierId)
                 .orElseThrow(() -> 
                         new RuntimeException("Courier not found"));
 
@@ -169,7 +169,7 @@ public class UserService {
     }
 
     public User acceptCourierOutcomeAborted(String courierId) {
-        User courier = userRepository.findByFirebaseUid(courierId)
+        User courier = userRepository.findByUserId(courierId)
                 .orElseThrow(() -> new RuntimeException("Courier not found"));
 
         int newPenalty = courier.getPenalty() + 2;
@@ -189,9 +189,9 @@ public class UserService {
         // TODO: implement
     }
 
-    public User getUserByFirebaseUid(String firebaseUid) {
+    public User getUserByUserId(String userId) {
         return userRepository
-                .findByFirebaseUid(firebaseUid)
+                .findByUserId(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found"

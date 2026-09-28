@@ -1,21 +1,21 @@
 package com.p28.userservice.logic;
 
 public class UpdateUserRequest {
-    private String firebaseUid;
+    private String userId;
     private String email;
     private String username;
 
     public UpdateUserRequest() {}
 
-    public UpdateUserRequest(String firebaseUid, String email, String username) {
-        this.firebaseUid = firebaseUid;
+    public UpdateUserRequest(String userId, String email, String username) {
+        this.userId = userId;
         this.email = email;
         this.username = username;
     }
 
     // Getter
-    public String getFirebaseUid() {
-        return this.firebaseUid;
+    public String getUserId() {
+        return this.userId;
     }
 
     public String getEmail() {
@@ -27,8 +27,8 @@ public class UpdateUserRequest {
     }
 
     // Setter
-    public void setFirebaseUid(String firebaseUid) {
-        this.firebaseUid = firebaseUid;
+    public void setUserId(String newUserId) {
+        this.userId = newUserId;
         return;
     }
 

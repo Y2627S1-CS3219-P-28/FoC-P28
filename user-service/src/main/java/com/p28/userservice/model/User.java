@@ -14,7 +14,9 @@ public class User {
     private String id;
 
     private String username;
-    private String firebaseUid;
+    
+    @Indexed(unique = true)
+    private String userId;
 
     @Indexed(unique = true)
     private String email;
@@ -36,8 +38,8 @@ public class User {
         return this.username;
     }
 
-    public String getFirebaseUid() {
-        return this.firebaseUid;
+    public String getUserId() {
+        return this.userId;
     }
 
     public String getEmail() {
@@ -71,8 +73,8 @@ public class User {
         return;
     }
 
-    public void setFirebaseUid(String newFirebaseUid) {
-        this.firebaseUid = newFirebaseUid;
+    public void setUserId(String newUserId) {
+        this.userId = newUserId;
         return;
     }
 

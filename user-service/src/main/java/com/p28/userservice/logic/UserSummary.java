@@ -5,7 +5,7 @@ import java.util.Date;
 
 public class UserSummary {
     private String username;
-    private String firebaseUid;
+    private String userId;
     private String email;
     private List<String> roles;
     private int penalty;
@@ -16,7 +16,7 @@ public class UserSummary {
 
     public UserSummary(
         String username,
-        String firebaseUid, 
+        String userId, 
         String email,
         List<String> roles,
         int penalty,
@@ -24,7 +24,7 @@ public class UserSummary {
         Date suspensionEndDate) {
 
         this.username = username;
-        this.firebaseUid = firebaseUid;
+        this.userId = userId;
         this.email = email;
         this.roles = roles;
         this.penalty = penalty;
@@ -37,8 +37,8 @@ public class UserSummary {
         return this.username;
     }
 
-    public String getFirebaseUid() {
-        return this.firebaseUid;
+    public String getUserId() {
+        return this.userId;
     }
 
     public String getEmail() {
@@ -59,5 +59,41 @@ public class UserSummary {
 
     public Date getSuspensionEndDate() {
         return this.suspensionEndDate;
+    }
+
+    //setters
+    public void setUsername(String newUsername) {
+        this.username = newUsername;
+        return;
+    }
+
+    public void setUserId(String newUserId) {
+        this.userId = newUserId;
+        return;
+    }
+
+    public void setEmail(String newEmail) {
+        this.email = newEmail;
+        return;
+    }
+
+    public void setRoles(List<String> newRoles) {
+        this.roles = newRoles;
+        return;
+    }
+
+    public void setPenalty(int newPenalty) {
+        this.penalty = newPenalty;
+        return;
+    }
+
+    public void setIsCourierSuspended(boolean newIsCourierSuspended) {
+        this.isCourierSuspended = newIsCourierSuspended;
+        return;
+    }
+
+    public void setSuspensionEndDate(Date newSuspensionEndDate) {
+        this.suspensionEndDate = newSuspensionEndDate;
+        return;
     }
 }

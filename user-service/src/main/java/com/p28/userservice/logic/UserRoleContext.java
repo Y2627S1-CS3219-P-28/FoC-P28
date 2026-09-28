@@ -3,27 +3,27 @@ package com.p28.userservice.logic;
 import java.util.List;
 
 public class UserRoleContext {
-    private String firebaseUid;
+    private String userId;
     private List<String> roles;
 
     public UserRoleContext() {}
 
-    public UserRoleContext(String firebaseUid, List<String> roles) {
-        this.firebaseUid = firebaseUid;
+    public UserRoleContext(String userId, List<String> roles) {
+        this.userId = userId;
         this.roles = roles;
     }
 
     // getters and setters
-    public String getFirebaseUid() {
-        return this.firebaseUid;
+    public String getUserId() {
+        return this.userId;
     }
 
     public List<String> getRoles() {
         return this.roles;
     }
 
-    public void setFirebaseUid(String newFirebaseUid) {
-        this.firebaseUid = newFirebaseUid;
+    public void setUserId(String newUserId) {
+        this.userId = newUserId;
         return;
     }
 

@@ -40,7 +40,7 @@ when retrieving the current user's profile.
 | POST   | `/api/users`             | unauthenticated during registration | Create an application user after Firebase registration |
 | GET    | `/api/users/me`          | authenticated user                  | Retrieve the currently authenticated user's profile    |
 | GET    | `/api/users/role-context`| authenticated / services            | Retrieve roles for authorization by other services     |
-| PUT    | `/api/users/{:firebaseUid}`| authenticated user                | Update user information after registration             |
+| PUT    | `/api/users/{:userId}`   | authenticated user                  | Update user information after registration             |
 
 
 ## Data model
@@ -52,7 +52,6 @@ The `users` collection contains one document per application user in MongoDB.
 | `id`                 | string           | MongoDB document ID                                          |
 | `username`           | string           | User's application username                                  |
 | `userId`             | string           | Application/Firebase user identifier                         |
-| `firebaseUid`        | string           | UID from Firebase Authentication                             |
 | `email`              | string           | User email; unique                                           |
 | `roles`              | array of strings | Application roles such as `requester`, `courier`, `admin`    |
 | `penalty`            | integer          | Current user penalty count; defaults to `0`                  |

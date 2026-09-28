@@ -77,13 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Signed up 
             user = userCredential.user;
                     
+            // User Firebase provided uid as our user ID
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    firebaseUid: user.uid,
+                    userId: user.uid,
                     email: user.email
                 })
             });

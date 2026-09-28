@@ -6,5 +6,5 @@ import com.p28.userservice.model.User;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface UserRepository extends MongoRepository<User, String> {
-    Optional<User> findByFirebaseUid(String firebaseUid);
+    Optional<User> findByUserId(String userId);
 }
