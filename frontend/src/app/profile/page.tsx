@@ -43,7 +43,7 @@ export default function ProfilePage() {
         
         // Debug code for testing token-related APIs
         // Remove before actual
-        // console.log(token)
+        console.log(token)
 
         const response = await fetch(
           `${config.apiBaseUrl}/api/users/me`,
@@ -99,7 +99,6 @@ export default function ProfilePage() {
 
         <CardContent>
           <p>Email: {profile.email}</p>
-          <p>Username: {profile.username}</p>
           <p>Roles: {profile.roles.join(", ")}</p>
           <p>Penalty: {profile.penalty}</p>
 
