@@ -1,0 +1,4 @@
+firebase:
+  auth:
+    project-id: cs3219-p28-auth
+    emulator-host: localhost:9099
