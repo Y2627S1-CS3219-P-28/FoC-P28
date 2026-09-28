@@ -1,0 +1,16 @@
+target
+.idea
+*.iml
+Dockerfile
+.dockerignore
+README.md
+AGENTS.md
+deploy
+.git
+.env
+.env.*
+.codex
+docs
+changes
+sprints
+skills.md

@@ -1,0 +1,22 @@
+spring:
+  flyway:
+    # Apply the same versioned schema changes on every developer's database.
+    enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/order_service_dev}
+    username: ${DB_USERNAME:order_dev}
+    password: ${DB_PASSWORD:local_dev_only}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # Flyway owns schema changes; Hibernate checks entity/schema compatibility.
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    sg.edu.nus.foc.order: DEBUG

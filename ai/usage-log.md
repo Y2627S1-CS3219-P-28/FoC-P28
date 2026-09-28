@@ -140,3 +140,35 @@ for failures show credits unavailable
 - **Affected locations:** `credit-service/`, the frontend application shell and balance hook,
   Credit Service documentation, and this usage log.
 - **Author verification:** The code was reviewed and verified that it complies wiht the intended design
+
+## Local and production runtime setup assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-28
+- **Mode:** Comparison, implementation, verification and documentation
+- **Affected locations:** order-service Dockerfiles, Compose and application YAML, Maven, setup tests, deploy/, README and local workflow records; root compose.yaml and .env.example.
+- **Prompt:** Prepare easy local startup and production placeholders before Cloud SQL exists, using separate local and production Dockerfiles, and check all Order YAML files.
+- **Key response:** Compared Supplier conventions; added PostgreSQL readiness, Flyway startup, Cloud SQL connector and secret references, guarded unconfigured cloud deployment, root Compose integration, and separate images. Maven verify passed 5 tests; both images built and local Compose became healthy. Production image became ready against an isolated PostgreSQL container and applied V1. No Cloud SQL rollout or business feature completion is claimed.
+- **Author verification:** Yao Xiang selected PostgreSQL, separate images and placeholder-only production preparation. AI supported comparison and implementation; developer review of the resulting changes remains pending.
+
+- **Additional verification:** Database outage returned readiness HTTP 503 while liveness stayed HTTP 200; Cloud Run placeholder guard rejected configuration as intended. Temporary test containers removed; local stack left running. Maven wrapper executable Git permission corrected for Linux CI (mode-only staging).
+
+## Runtime configuration cleanup assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-28
+- **Mode:** Implementation and documentation
+- **Prompt:** Remove unnecessary files, retain local Compose, and explain local versus production configuration.
+- **Affected locations:** Order README, removed production Compose/example env, root .env.example, local workflow records.
+- **Key response:** Removed optional Docker-host deployment files and unused ORDER_IMAGE; documented local/prod profile selection and Cloud Run deployment settings. No application code changed.
+- **Author verification:** User selected cleanup and retention of local Compose; final review pending.
+
+## Shared schema migrations assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-28
+- **Mode:** Implementation, documentation and verification
+- **Prompt:** Implement the explained Git/Flyway workflow for synchronizing separate local databases.
+- **Affected locations:** application-local.yaml, README, local AGENTS/skill/context/change records.
+- **Key response:** Enabled local Flyway and Hibernate validate; documented version coordination, immutable migrations and teammate commands. Inspected empty local schema, preserved the volume, verified V1 applied once across restart, and passed all 5 Maven tests. No domain SQL invented.
+- **Author verification:** Yao Xiang selected the migration-based approach; AI implemented and verified it. Human review pending. No teammate message sent.

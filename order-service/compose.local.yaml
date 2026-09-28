@@ -1,0 +1,44 @@
+name: foc-order-local
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: order_service_dev
+      POSTGRES_USER: order_dev
+      POSTGRES_PASSWORD: local_dev_only
+    ports:
+      - "127.0.0.1:${ORDER_DB_PORT:-5433}:5432"
+    volumes:
+      - order_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_dev -d order_service_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      PORT: "8080"
+      DB_URL: jdbc:postgresql://postgres:5432/order_service_dev
+      DB_USERNAME: order_dev
+      DB_PASSWORD: local_dev_only
+    ports:
+      - "127.0.0.1:${ORDER_PORT:-8083}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      start_period: 40s
+      retries: 12
+    stop_grace_period: 30s
+
+volumes:
+  order_pgdata:
