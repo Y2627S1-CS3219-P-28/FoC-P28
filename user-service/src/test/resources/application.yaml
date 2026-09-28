@@ -2,3 +2,10 @@ firebase:
   auth:
     project-id: cs3219-p28-auth
     emulator-host: localhost:9099
+
+    
+springdoc:
+  api-docs:
+    path: /api/users/v3/api-docs
+  swagger-ui:
+    path: /api/users/docs
