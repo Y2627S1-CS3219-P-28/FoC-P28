@@ -43,7 +43,7 @@ export default function ProfilePage() {
         
         // Debug code for testing token-related APIs
         // Remove before actual
-        console.log(token)
+        // console.log(token)
 
         const response = await fetch(
           `${config.apiBaseUrl}/api/users/me`,
