@@ -7,17 +7,18 @@ import com.google.firebase.FirebaseOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
+
 @Configuration
 public class FirebaseConfig {
 
     public FirebaseConfig(
             @Value("${firebase.auth.project-id:demo-foc}") String projectId,
-            @Value("${firebase.auth.emulator-enabled:true}") boolean emulatorEnabled
+            @Value("${firebase.auth.emulator-host:}") String emulatorHost
     ) {
         if (FirebaseApp.getApps().isEmpty()) {
             FirebaseOptions.Builder builder = FirebaseOptions.builder()
                     .setProjectId(projectId);
-            if (emulatorEnabled) {
+            if (!emulatorHost.isBlank()) {
                 GoogleCredentials credentials =
                         GoogleCredentials.create(
                                 new AccessToken("fake-token", null)
