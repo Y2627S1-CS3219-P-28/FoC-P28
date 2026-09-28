@@ -1,0 +1,36 @@
+spring:
+  mongodb:
+    auto-index-creation: true
+    uri: ${MONGODB_URI}
+  application:
+    name: userservice
+  mvc:
+    problemdetails:
+      enabled: true
+
+p28:
+  userservice:
+    cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    
+firebase:
+  auth:
+    project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
+    emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+
+springdoc:
+  api-docs:
+    path: /api/users/v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+server:
+  port: ${PORT:8080}

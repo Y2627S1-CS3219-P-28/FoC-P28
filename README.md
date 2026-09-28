@@ -45,10 +45,11 @@ flowchart LR
   supplier --> sdb[(Firestore<br/>supplier-*)]
   order --> odb[(Firestore<br/>order-*)]
   credit --> cdb[(Firestore<br/>credit-*)]
+  user --> udb[(MongoDB Atlas<br/>user-*)]
 ```
 
 - **Microservices**: each backend service is an independent Spring Boot app with its own
-  Firestore database (database-per-service). Services never read another service's data
+  Firestore or MongoDB Atlas database (database-per-service). Services never read another service's data
   directly; they call its API.
 - **Frontend**: a single Next.js app that only renders UI and calls the services' APIs.
 - **Gateway**: nginx serves the UI and routes `/api/<service>` to each service, so the
@@ -61,7 +62,7 @@ flowchart LR
 | Layer | Technology |
 | --- | --- |
 | Backend services | Java 21, Spring Boot 4.1.1 (Web MVC, Security OAuth2 Resource Server, Validation, Actuator), Maven wrapper |
-| Data | Google Cloud Firestore (one database per service per environment) |
+| Data | Google Cloud Firestore (one database per service per environment), MongoDB Atlas |
 | Auth | Firebase Authentication (ID tokens verified by each service) |
 | Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS 4, shadcn/ui |
 | Gateway | nginx |

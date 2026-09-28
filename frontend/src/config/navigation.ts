@@ -1,4 +1,4 @@
-import { StoreIcon, type LucideIcon } from "lucide-react"
+import { CircleUserRound, StoreIcon, type LucideIcon } from "lucide-react"
 
 export type NavItem = {
   href: string
@@ -12,6 +12,12 @@ export type NavItem = {
 // Example:
 //   { href: "/suppliers", label: "Suppliers", description: "...", icon: StoreIcon },
 export const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/profile",
+    label: "Profile",
+    description: "View your account information here.",
+    icon: CircleUserRound,
+  },
   {
     href: "/suppliers",
     label: "Suppliers",
