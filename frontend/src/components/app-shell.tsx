@@ -1,8 +1,9 @@
 /*
  * AI Assistance Disclosure:
- * Tool: OpenAI Codex (GPT-5), date: 2026-09-26
+ * Tool: OpenAI Codex (GPT-5), dates: 2026-09-26 and 2026-09-28
  * Mode: Code generation.
- * Scope: Implemented the responsive sidebar and authenticated credit summary UI.
+ * Scope: Implemented the responsive sidebar and credit summary, then added the requested
+ * sidebar navigation, active states, and Post Request action.
  * Author review: I reviewed for correctness and edited where needed.
  */
 "use client"
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { NAV_ITEMS } from "@/config/navigation"
+import { POST_REQUEST_ITEM, SIDEBAR_NAV_ITEMS } from "@/config/navigation"
 import { useCreditBalance } from "@/hooks/use-credit-balance"
 import { cn } from "@/lib/utils"
 
@@ -101,14 +102,16 @@ function SidebarNavigation({
   onNavigate?: () => void
 }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
+  const postRequestActive = isActive(POST_REQUEST_ITEM.href)
 
   return (
     <nav className="flex flex-col gap-1 px-3 py-4" aria-label="Primary navigation">
-      {NAV_ITEMS.map((item) => (
+      {SIDEBAR_NAV_ITEMS.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           onClick={onNavigate}
+          aria-current={isActive(item.href) ? "page" : undefined}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             isActive(item.href) && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -118,6 +121,17 @@ function SidebarNavigation({
           {item.label}
         </Link>
       ))}
+      <div className="pt-3">
+        <Button
+          nativeButton={false}
+          render={<Link href={POST_REQUEST_ITEM.href} onClick={onNavigate} />}
+          aria-current={postRequestActive ? "page" : undefined}
+          className={cn("w-full justify-start", postRequestActive && "ring-3 ring-sidebar-ring/50")}
+        >
+          <POST_REQUEST_ITEM.icon />
+          {POST_REQUEST_ITEM.label}
+        </Button>
+      </div>
     </nav>
   )
 }
