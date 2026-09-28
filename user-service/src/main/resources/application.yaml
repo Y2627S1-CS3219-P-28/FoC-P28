@@ -15,7 +15,7 @@ p28:
 firebase:
   auth:
     project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
-    emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
+    emulator-enabled: ${FIREBASE_AUTH_EMULATOR_ENABLED:true}
 
 springdoc:
   api-docs:
