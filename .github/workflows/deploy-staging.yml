@@ -18,6 +18,7 @@ concurrency:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   build:
     name: Build ${{ matrix.service }}
