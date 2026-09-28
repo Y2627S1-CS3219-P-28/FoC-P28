@@ -3,6 +3,8 @@ package com.p28.userservice.authentication;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.google.firebase.auth.UserRecord;
+import com.google.firebase.auth.UserRecord.UpdateRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +22,17 @@ public class FirebaseAuthService {
                     HttpStatus.UNAUTHORIZED,
                     "Invalid authentication token"
             );
+        }
+    }
+
+    public void updateUserEmail(String firebaseUid, String newEmail) {
+        try {
+            UpdateRequest request = new UpdateRequest(firebaseUid)
+                    .setEmail(newEmail);
+
+            FirebaseAuth.getInstance().updateUser(request);
+        } catch (FirebaseAuthException e) {
+            throw new RuntimeException("Failed to update Firebase email", e);
         }
     }
 }

@@ -73,7 +73,7 @@ public class UserController {
     public ResponseEntity<User> getUser(
             @PathVariable String userId) {
 
-        User user = userService.getUserById(userId);
+        User user = userService.getUserByUserId(userId);
 
         return ResponseEntity.ok(user);
     }
@@ -86,7 +86,6 @@ public class UserController {
             @RequestHeader("Authorization") String authorizationHeader) {
 
         FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-
         String userId = token.getUid();
 
         return ResponseEntity.ok(
@@ -97,9 +96,12 @@ public class UserController {
 
     // GET /api/users/courier-eligibility/
     @Operation(summary = "Get requesting user's courier eligibility from auth token")
-    @GetMapping("/courier-eligibility/{userId}")
+    @GetMapping("/courier-eligibility")
     public ResponseEntity<CourierElgibility> getCourierEligibility(
-            @PathVariable String userId) {
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String userId = token.getUid();
 
         return ResponseEntity.ok(
                 userService.getCourierEligibility(userId)
@@ -145,12 +147,28 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
-    // PUT /api/users/:id
-    // Only admin can update other users' info
-    @Operation(summary = "Update user info")
-    @PutMapping("/{id}")
+    // PUT /api/users/me
+    // Update own info
+    @Operation(summary = "Update requesting user's own info")
+    @PutMapping("/me")
     public ResponseEntity<User> updateUser(
-            @PathVariable String id,
+            @RequestBody UpdateUserRequest request,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        // Get user from auth token
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String userId = token.getUid();
+        User user = userService.updateUser(userId, request);
+
+        return ResponseEntity.ok(user);
+    }
+
+    // PUT /api/users/:userId
+    // Only admin can update other users' info
+    @Operation(summary = "Update any user's info")
+    @PutMapping("/{userId}")
+    public ResponseEntity<User> updateUser(
+            @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
             @RequestHeader("Authorization") String authorizationHeader) {
 
@@ -166,7 +184,7 @@ public class UserController {
             );
         }
             
-        User user = userService.updateUser(id, request);
+        User user = userService.updateUser(userId, request);
 
         return ResponseEntity.ok(user);
     }

@@ -11,25 +11,30 @@ import java.util.Date;
 
 import com.p28.userservice.model.User;
 import com.p28.userservice.repository.UserRepository;
+import com.p28.userservice.authentication.FirebaseAuthService;
 
 @Service
 public class UserService {
-
+    private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, 
+            FirebaseAuthService firebaseAuthService) {
         this.userRepository = userRepository;
+        this.firebaseAuthService = firebaseAuthService;
     }
 
     public List<User> fetchAllUsers() {
         return userRepository.findAll();
     }
 
-    public User getUserById(String id) {
+    public User getUserByUserId(String userId) {
         return userRepository
-                .findById(id)
-                .orElseThrow(() -> 
-                        new RuntimeException("User not found"));
+                .findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
     }
 
     public User getProfileInfo(String userId) {
@@ -104,17 +109,19 @@ public class UserService {
         }
     }
 
-    public User updateUser(String id, UpdateUserRequest request) {
-
+    // Currently, users can only update their email and username
+    // TODO: update password
+    public User updateUser(String userId, UpdateUserRequest request) {
         User user = userRepository
-                .findById(id)
+                .findByUserId(userId)
                 .orElseThrow(() -> 
                     new RuntimeException("User not found"));
 
         String email = request.getEmail();
         String username = request.getUsername();
 
-        if (email != null) {
+        if (email != null && !email.equals(user.getEmail())) {
+            firebaseAuthService.updateUserEmail(userId, email);
             user.setEmail(email);
         }
 
@@ -125,8 +132,8 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public void deleteUser(String id) {
-        User user = userRepository.findById(id)
+    public void deleteUser(String userId) {
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         userRepository.delete(user);
@@ -187,14 +194,5 @@ public class UserService {
 
     public void verifyIdentity(Object accessContext) {
         // TODO: implement
-    }
-
-    public User getUserByUserId(String userId) {
-        return userRepository
-                .findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "User not found"
-                ));
     }
 }

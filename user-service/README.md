@@ -40,7 +40,9 @@ when retrieving the current user's profile.
 | POST   | `/api/users`             | unauthenticated during registration | Create an application user after Firebase registration |
 | GET    | `/api/users/me`          | authenticated user                  | Retrieve the currently authenticated user's profile    |
 | GET    | `/api/users/role-context`| authenticated / services            | Retrieve roles for authorization by other services     |
-| PUT    | `/api/users/{:userId}`   | authenticated user                  | Update user information after registration             |
+| GET    | `/api/users/courier-eligibility`| authenticated / services     | Retrieve boolean if user can be courier by other services     |
+| PUT    | `/api/users/me`          | authenticated user                  | Update own information after registration              |
+| PUT    | `/api/users/{:userId}`   | authenticated admin user            | Update user information after registration             |
 
 
 ## Data model
