@@ -18,6 +18,9 @@ public class FirebaseAuthService {
             return FirebaseAuth.getInstance().verifyIdToken(idToken);
 
         } catch (FirebaseAuthException | IllegalArgumentException e) {
+            System.err.println("Firebase token verification failed:");
+            e.printStackTrace();
+            
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Invalid authentication token"
