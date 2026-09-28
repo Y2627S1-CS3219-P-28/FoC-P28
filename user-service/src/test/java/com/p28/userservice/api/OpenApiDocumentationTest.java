@@ -42,7 +42,6 @@ class OpenApiDocumentationTest {
 
     @Test
     void everyEndpointIsDocumented() throws Exception {
-        //String json = mvc.perform(get("/v3/api-docs"))
         String json = mvc.perform(get(PREFIX + "/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
