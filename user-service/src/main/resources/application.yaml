@@ -21,5 +21,16 @@ springdoc:
   api-docs:
     path: /api/users/v3/api-docs
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
 server:
   port: ${PORT:8080}

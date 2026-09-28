@@ -44,7 +44,7 @@ services:
       credit-service:
         condition: service_healthy
       user-service:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build: ./frontend
