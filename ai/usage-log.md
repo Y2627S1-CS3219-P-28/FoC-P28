@@ -181,3 +181,13 @@ for failures show credits unavailable
 - **Prompt:** "Then can do it here"
 - **Key response:** Implemented the developer-approved eight-module Maven structure, preserving all relocated source/configuration/migration contents. Maven verification passed five tests without failures or skips; both Docker images built and passed isolated PostgreSQL readiness/profile checks. Shared CI path adjustment is prepared and awaits scope approval.
 - **Author verification:** AI supported research/comparison of package-only and Maven-module organization. Yao Xiang selected the module architecture and explicitly authorized implementation. Human review of the final changes is pending.
+
+## Maven module CI path correction assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Implementation, verification, documentation.
+- **Affected locations:** `.github/workflows/ci.yml`; Order Service CHANGE-015, architecture-evolution/change-log and active-work records; this disclosure.
+- **Prompt:** "yeah" (approval of the proposed three Order Service-specific CI path adjustments).
+- **Key response:** Updated only Order Service's OpenAPI test search and OpenAPI/coverage upload paths. Executed the exact OpenAPI shell gate successfully, verified existing report paths, and passed git diff --check. Other service paths and CI triggers remain unchanged. Remote CI is pending commit/push.
+- **Author verification:** AI supported research/comparison of the module layout and CI assumptions; Yao Xiang selected the architecture and explicitly approved this shared-workflow scope exception. Human review of the final diff is pending.

@@ -133,7 +133,11 @@ jobs:
           missing=0
           grep -q "springdoc-openapi-starter-webmvc-ui" pom.xml \
             || { echo "::error file=${{ matrix.service }}/pom.xml::Add springdoc-openapi-starter-webmvc-ui: every API must be documented in OpenAPI."; missing=1; }
-          grep -rqs "class OpenApiDocumentationTest" src/test \
+          test_source=src/test
+          if [[ '${{ matrix.service }}' == order-service ]]; then
+            test_source=orderservice.api/src/test
+          fi
+          grep -rqs "class OpenApiDocumentationTest" "$test_source" \
             || { echo "::error::${{ matrix.service }} has no OpenApiDocumentationTest (copy docs/templates/OpenApiDocumentationTest.java)."; missing=1; }
           exit $missing
       - if: steps.kind.outputs.kind == 'maven'
@@ -144,14 +148,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: openapi-${{ matrix.service }}
-          path: ${{ matrix.service }}/target/openapi.json
+          path: ${{ matrix.service }}/${{ matrix.service == 'order-service' && 'orderservice.api/target/openapi.json' || 'target/openapi.json' }}
           if-no-files-found: ignore
       - if: always() && steps.kind.outputs.kind == 'maven'
         name: Upload coverage report
         uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.service }}
-          path: ${{ matrix.service }}/target/site/jacoco/
+          path: ${{ matrix.service }}/${{ matrix.service == 'order-service' && '*/target/site/jacoco/' || 'target/site/jacoco/' }}
           if-no-files-found: ignore
 
       # ---- Node / Next.js ------------------------------------------------------
