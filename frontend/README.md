@@ -51,3 +51,30 @@ every environment:
 | `FOC_FIREBASE_PROJECT_ID`, `FOC_FIREBASE_API_KEY`, `FOC_FIREBASE_AUTH_DOMAIN`, `FOC_FIREBASE_APP_ID` | Firebase web config |
 | `FOC_FIREBASE_AUTH_EMULATOR_URL` | Auth emulator URL (local only) |
 | `FOC_PUBLIC_URL` | Cloud only: the gateway URL; direct visits to the frontend's own URL redirect there |
+
+## Order Service prototype (sequences 1-6)
+
+Start `order-service/compose.local.yaml` first. From this directory:
+
+```powershell
+npm ci
+$env:FOC_ORDER_DEV_URL = 'http://127.0.0.1:8083'
+$env:PORT = '3100'
+npm run dev
+```
+
+Open `/requests/new` to post, `/errands` to browse/accept, and the linked delivery page
+to start, pick up and deliver. These prototype pages do not require login; demo IDs
+exercise relationships only. Sample suppliers and credits are simulated. Existing
+Profile/Suppliers authentication and shared navigation remain unchanged.
+
+`FOC_ORDER_DEV_URL` enables a development-only proxy for `/api/orders`. When using the
+normal gateway, leave it unset and keep the existing relative `useApi()` requests.
+This variable is never a public browser credential and is not used in production.
+
+`npm run test:orders` runs the real UI against the local Order backend at 1920 px and
+320 px, including creation through delivery, ownership controls, persistence after
+reload, and network-error retry. Install Chromium using `npx playwright install chromium`,
+or set `PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome. Tests create sample errands
+in the local development database; they do not use or alter real credits. Test artifacts
+are ignored in `test-results/` and `playwright-report/`.

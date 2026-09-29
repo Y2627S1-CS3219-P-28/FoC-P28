@@ -9,4 +9,10 @@
   </parent>
   <artifactId>orderservice.api.contracts</artifactId>
   <name>orderservice.api.contracts</name>
+  <dependencies>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+    </dependency>
+  </dependencies>
 </project>

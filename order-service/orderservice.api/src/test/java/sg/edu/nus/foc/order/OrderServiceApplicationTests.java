@@ -21,7 +21,7 @@ class OrderServiceApplicationTests {
 	@Test
 	void contextLoads() {
 		assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class))
-				.isEqualTo(1);
+				.isEqualTo(2);
 	}
 
 	@Test
@@ -31,6 +31,7 @@ class OrderServiceApplicationTests {
 
 	@Test
 	void productionDoesNotExposeApiDocsOrEnvironment() throws Exception {
+		mvc.perform(get("/api/orders/errands")).andExpect(status().isNotFound());
 		mvc.perform(get("/api/orders/v3/api-docs")).andExpect(status().isNotFound());
 		mvc.perform(get("/actuator/env")).andExpect(status().isNotFound());
 	}

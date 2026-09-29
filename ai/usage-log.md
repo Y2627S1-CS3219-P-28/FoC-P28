@@ -191,3 +191,32 @@ for failures show credits unavailable
 - **Prompt:** "yeah" (approval of the proposed three Order Service-specific CI path adjustments).
 - **Key response:** Updated only Order Service's OpenAPI test search and OpenAPI/coverage upload paths. Executed the exact OpenAPI shell gate successfully, verified existing report paths, and passed git diff --check. Other service paths and CI triggers remain unchanged. Remote CI is pending commit/push.
 - **Author verification:** AI supported research/comparison of the module layout and CI assumptions; Yao Xiang selected the architecture and explicitly approved this shared-workflow scope exception. Human review of the final diff is pending.
+## Sequences 1-6 architecture review assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Document comparison and static source review.
+- **Prompt:** "check the seq1 to 6 that assigned to me" and "Only bother those are in the seq 1 to 6 that assigned to me. Dont bother the seq 7 to 12 stuff."
+- **Key response:** Compared the six assigned primary sequence diagrams with the supplied Extended Architecture PDF, D1 and approved architecture; identified model/identity, acceptance-time and authentication choices, plus conditional peer gaps in role claim issuance and creation compensation. Preserved checkpoint and validation requirements; no feature implementation or architecture approval inferred.
+- **Affected locations:** Order Service active-work and peer-service feedback records; this disclosure. Application source and other services unchanged.
+- **Author verification:** AI supported research/comparison only. Yao Xiang explicitly limited scope to sequences 1-6. Design choices and human review remain pending. Static peer inspection is not runtime integration verification.
+
+## Sequences 1-6 prototype decisions assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Design clarification and documentation.
+- **Affected locations:** Order Service ADR-009, CHANGE-016, architecture-evolution, context, in-scope sprint and peer-feedback records; this disclosure.
+- **Prompt:** "1. split"; accept while open/unexpired, omit scheduled start time; "dont need to autehnticate Just foxus on making the apis"; "Store in domain layer"; "put dummy function that always return the intended thing".
+- **Key response:** Recorded the user's choices and retained actual startedAt for duration measurement. Clarified that dummy creation-release success is not a real Credit effect. Asked whether authenticated Credit reservation and Supplier APIs should also be stubbed. No application implementation or tests changed; all eight source hashes matched.
+- **Author verification:** Yao Xiang selected the model, timing, JPA placement and prototype exceptions. AI documented these choices and identified the remaining dependency-boundary question; broader stubs and runtime integration have not been approved or verified.
+
+## Sequences 1-6 backend and frontend prototype assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Implementation, test generation, verification and documentation.
+- **Affected locations:** Order Service domain/application/API/contracts/gateway modules, Maven dependencies, Flyway V2, tests and README; frontend Order pages/components/types, local proxy and Playwright tests; persistent ADR-009/CHANGE-016 context; this disclosure.
+- **Prompt:** "Okie start doing now. When u do backend please do frontend as well"
+- **Key response:** Implemented the core create/browse/accept/start/pickup/deliver prototype using the selected Errand/Order split, domain JPA, MapStruct, no scheduled availability time, deferred authentication and local dummy Credit/Supplier adapters. Maven verify passed 15 tests with zero failures/errors/skips and retained coverage gates. Frontend lint/typecheck passed (12 existing unrelated warnings); four desktop/mobile browser tests passed. Existing V1 database upgraded to V2 without reset. Optional repost-term storage and actual integrations remain unimplemented; full Sprint completion is not claimed.
+- **Author verification:** AI supported research/comparison and implementation of the architecture selected by Yao Xiang. The developer approved the prototype and frontend scope. Final human review is pending; dummy integrations are not verified peer contracts. MapStruct setup checked against official documentation. Browser screenshots inspected; runtime behavior tested against local PostgreSQL. No sibling service changes or messages.

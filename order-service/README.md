@@ -1,7 +1,8 @@
 # Order Service
 
-Java 21, Spring Boot 4.1.1, PostgreSQL 17. Runnable infrastructure scaffold;
-business APIs and Firebase authentication are not implemented yet.
+Java 21, Spring Boot 4.1.1, PostgreSQL 17. Sequences 1-6 have a local API and
+frontend prototype: create, browse, accept, start, pickup and delivery.
+Authentication and real Credit/Supplier integrations are deferred by user approval.
 
 ## Maven modules
 
@@ -15,14 +16,13 @@ packages. Empty directories use `.gitkeep` so the structure survives checkout.
 | `orderservice.api` | Spring Boot startup, HTTP/security configuration, controllers and API mappers; executable JAR |
 | `orderservice.api.contracts` | External request/response DTOs, API validation and errors |
 | `orderservice.application` | Use cases, workflows, transaction boundaries and coordination |
-| `orderservice.domain` | Business models/rules and repository/gateway interfaces; no framework dependencies |
+| `orderservice.domain` | JPA entities, business rules, Spring Data repositories and gateway interfaces |
 | `orderservice.domain.messaging.models` | Event and message payload definitions; no broker dependencies |
-| `orderservice.infrastructure.db` | Database adapters, persistence entities and Flyway migrations |
+| `orderservice.infrastructure.db` | Existing database configuration dependencies and Flyway migrations; reserved for future adapters |
 | `orderservice.infrastructure.gateway` | External service adapters |
 | `orderservice.infrastructure.messaging.publisher` | Publishing adapters |
 
-The current scaffold has only startup/configuration and database migration code.
-The other modules intentionally have no business classes yet. Each is a normal JAR;
+Errand and Order entities live in domain, as selected by Yao Xiang. Each module is a normal JAR;
 only API applies Spring Boot repackaging. All modules remain one deployed Order Service.
 
 Compile dependencies point inward: application depends on domain and message models;
@@ -61,7 +61,7 @@ Invoke-RestMethod http://localhost:8083/actuator/health/readiness
 No `.env`, Java installation, Cloud SQL, Firebase emulator, or manual database setup
 is required. PostgreSQL: `localhost:5433`, database `order_service_dev`, user
 `order_dev`, password `local_dev_only` (local development only).
-Swagger: `http://localhost:8083/api/orders/docs`. No business operations exist yet.
+Swagger: `http://localhost:8083/api/orders/docs`.
 
 ```powershell
 docker compose -f compose.local.yaml logs -f order-service
@@ -237,3 +237,91 @@ the bootstrap class; there is no business code coverage to report yet.
 
 Firebase authentication/authorization must be implemented before exposing real Order
 APIs. This scaffold is not a completed production rollout or business feature.
+
+## Sequences 1-6 prototype
+
+Only `local` and `test` profiles expose these APIs and dummy adapters. Adding `prod`
+disables them even alongside another profile. No real credit balance is read or changed.
+Demo IDs are caller-supplied and do not authenticate a user; local ownership comparisons
+still reject own acceptance and another courier's progress updates.
+
+| Method | Path under `/api/orders` | Result |
+| --- | --- | --- |
+| POST | `/errands` | Create an OPEN Errand (201); replay the same command safely |
+| GET | `/errands?page=1&size=20` | OPEN/unexpired errands; size at most 100 |
+| GET | `/errands/{id}` | Current posting and accepted execution ID |
+| POST | `/errands/{id}/accept` | Atomically assign one courier and create an ACCEPTED Order |
+| GET | `/executions/{id}` | Execution, listing details and four possible progress checkpoints |
+| POST | `/executions/{id}/start` | ACCEPTED -> IN_PROGRESS; sets actual startedAt |
+| POST | `/executions/{id}/pickup` | IN_PROGRESS -> PICKED_UP; records pickup supplier ID |
+| POST | `/executions/{id}/deliver` | PICKED_UP -> DELIVERED; records delivery supplier ID |
+| GET | `/prototype/suppliers` | Three explicitly marked sample locations |
+
+Create body: `commandId`, `requesterId`, `description` (10-100 characters, no controls),
+`pickupSupplierId`, `deliverySupplierId` (distinct fixture IDs), positive whole
+`creditAmount`, `deliveryDurationMinutes` (15-1440), `expiresAt` (UTC ISO instant,
+at least 30 minutes ahead). There is no scheduled availability time.
+Mutation body: `commandId`, `actorId`, `expectedVersion`. Reuse the exact command
+and body after an uncertain response; a reused command with changed input returns 409.
+Read the latest version after a conflict. The execution's duration starts at `startedAt`;
+listing expiry prevents acceptance, not subsequent progress. Delivery is not completion.
+
+```mermaid
+flowchart LR
+    UI[Next.js pages] --> API[Controllers and validated DTOs]
+    API --> APP[ErrandWorkflow transaction boundary]
+    APP --> E[Errand JPA entity]
+    APP --> O[Order and Checkpoint JPA entities]
+    APP --> DB[(PostgreSQL)]
+    APP --> STUB[Local Credit and Supplier adapters]
+```
+
+Application services coordinate; domain methods enforce acceptance and progress rules.
+MapStruct generates entity/view-to-DTO mappings in API. Row locks, expected versions,
+command fingerprints and unique checkpoint constraints protect updates/retries.
+Create/accept/progress and their local records commit atomically. Reservation rollback
+calls the dummy release after transaction completion; neither function moves funds.
+Creation success is returned directly over HTTP; there is no messaging infrastructure.
+
+Run the frontend from `../frontend` (the environment variable only affects Next dev):
+
+```powershell
+npm ci
+$env:FOC_ORDER_DEV_URL = 'http://127.0.0.1:8083'
+$env:PORT = '3100'
+npm run dev
+```
+
+Open `http://localhost:3100/requests/new` or `/errands`. No login is needed for these
+prototype pages. Use different demo requester/courier IDs; acceptance opens the delivery
+page. Keep its URL to resume. Other service pages and their authentication are unchanged.
+The optional dev proxy applies only to `/api/orders`; deployed traffic uses the gateway.
+
+### Verification and teammate handoff
+
+`./mvnw verify` runs module unit tests and PostgreSQL-backed HTTP/OpenAPI tests, including
+invalid fields, expiry exclusion, illegal/foreign/stale transitions, duplicate commands,
+checkpoint persistence and disabled production endpoints. Coverage gates remain 80%
+line and branch for handwritten code. Only bootstrap and generated MapStruct code are
+excluded. MapStruct configuration follows https://mapstruct.org/documentation/stable/reference/html/ .
+Frontend: `npm run lint`, `npm run typecheck`, and `npm run test:orders` (backend must run).
+Install the test browser with `npx playwright install chromium`, or set
+`PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome. Browser tests cover desktop 1920 px
+and mobile 320 px, all six steps, role-relationship controls and network error retry.
+
+V2 adds errands, delivery_orders, order_checkpoints and order_commands; V1 is unchanged.
+Rebuild with `docker compose -f compose.local.yaml up -d --build --wait`, then inspect:
+
+```powershell
+docker compose -f compose.local.yaml exec -T postgres psql -U order_dev -d order_service_dev -c 'select version, description, success from flyway_schema_history order by installed_rank;'
+```
+
+Expected: successful versions 1 and 2. No reset, baseline or Hibernate update is needed.
+The existing local V1 database was upgraded in place; fresh databases are tested separately.
+Coordinate later migration versions with teammates; do not edit an applied V2 migration.
+
+This milestone is a prototype, not verified real integration. Firebase/roles, real Credit
+reserve/recovery and Supplier APIs remain pending. Repost configuration/execution, account
+history, completion, cancellation and other sequences beyond this six-step core are not
+implemented. Future integration must remove the dummy adapters and verify the actual
+Errand-to-Credit reservation identity mapping before moving real credits.

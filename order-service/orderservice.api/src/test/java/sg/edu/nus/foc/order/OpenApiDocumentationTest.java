@@ -28,7 +28,7 @@ class OpenApiDocumentationTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         var document = mapper.readTree(json);
         assertThat(document.path("openapi").asString()).startsWith("3.");
-        // This setup has no business controllers yet. Do not invent an API to fill the spec.
+        assertThat(document.path("paths").has("/api/orders/errands")).isTrue();
         for (var path : document.path("paths").properties()) {
             assertThat(path.getKey()).startsWith("/api/orders");
             for (var operation : path.getValue().properties()) {
@@ -36,6 +36,8 @@ class OpenApiDocumentationTest {
                 assertThat(operation.getValue().path("summary").asString("")).isNotBlank();
                 assertThat(operation.getValue().path("responses").propertyNames())
                         .anyMatch(code -> code.startsWith("2"));
+                assertThat(operation.getValue().path("responses").has("400")).isTrue();
+                assertThat(operation.getValue().path("responses").has("409")).isTrue();
             }
         }
         Files.createDirectories(Path.of("target"));
