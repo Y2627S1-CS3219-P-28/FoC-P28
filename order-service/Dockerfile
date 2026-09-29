@@ -8,13 +8,17 @@ COPY mvnw pom.xml ./
 
 RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
-RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -ntp -q dependency:go-offline
-
-COPY src/ src/
+COPY orderservice.api/ orderservice.api/
+COPY orderservice.api.contracts/ orderservice.api.contracts/
+COPY orderservice.application/ orderservice.application/
+COPY orderservice.domain/ orderservice.domain/
+COPY orderservice.domain.messaging.models/ orderservice.domain.messaging.models/
+COPY orderservice.infrastructure.db/ orderservice.infrastructure.db/
+COPY orderservice.infrastructure.gateway/ orderservice.infrastructure.gateway/
+COPY orderservice.infrastructure.messaging.publisher/ orderservice.infrastructure.messaging.publisher/
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw -B -ntp -q package -DskipTests \
-    && cp target/*.jar app.jar \
+    && cp orderservice.api/target/orderservice.api-*.jar app.jar \
     && java -Djarmode=tools -jar app.jar \
        extract --layers --launcher --destination extracted
 

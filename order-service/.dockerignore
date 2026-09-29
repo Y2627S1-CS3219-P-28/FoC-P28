@@ -14,3 +14,5 @@ docs
 changes
 sprints
 skills.md
+**/target
+*.log

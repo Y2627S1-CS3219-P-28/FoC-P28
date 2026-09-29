@@ -3,6 +3,52 @@
 Java 21, Spring Boot 4.1.1, PostgreSQL 17. Runnable infrastructure scaffold;
 business APIs and Firebase authentication are not implemented yet.
 
+## Maven modules
+
+Open this directory's `pom.xml` as the Maven project. It is the parent/aggregator;
+each module has its own POM and standard `src/main/java`, `src/main/resources`,
+`src/test/java`, and `src/test/resources` directories. Tests mirror their production
+packages. Empty directories use `.gitkeep` so the structure survives checkout.
+
+| Module | Responsibility |
+| --- | --- |
+| `orderservice.api` | Spring Boot startup, HTTP/security configuration, controllers and API mappers; executable JAR |
+| `orderservice.api.contracts` | External request/response DTOs, API validation and errors |
+| `orderservice.application` | Use cases, workflows, transaction boundaries and coordination |
+| `orderservice.domain` | Business models/rules and repository/gateway interfaces; no framework dependencies |
+| `orderservice.domain.messaging.models` | Event and message payload definitions; no broker dependencies |
+| `orderservice.infrastructure.db` | Database adapters, persistence entities and Flyway migrations |
+| `orderservice.infrastructure.gateway` | External service adapters |
+| `orderservice.infrastructure.messaging.publisher` | Publishing adapters |
+
+The current scaffold has only startup/configuration and database migration code.
+The other modules intentionally have no business classes yet. Each is a normal JAR;
+only API applies Spring Boot repackaging. All modules remain one deployed Order Service.
+
+Compile dependencies point inward: application depends on domain and message models;
+database/gateway depend on domain; publisher depends on domain and message models.
+API depends on application/contracts and includes infrastructure modules at runtime.
+Add dependencies only to their owning module; the parent manages shared versions
+and the existing JaCoCo 80% line/branch gates without inheriting runtime dependencies.
+
+Runtime profile YAML files live in `orderservice.api/src/main/resources/`.
+Migrations live in `orderservice.infrastructure.db/src/main/resources/db/migration/`
+and are discovered from that module's JAR on the application classpath.
+
+From this directory:
+
+```powershell
+.\mvnw.cmd clean verify
+.\mvnw.cmd -pl orderservice.application -am test
+```
+
+Full application tests live in API because they verify startup and HTTP behavior with
+all runtime adapters. Add focused database tests to infrastructure.db when it owns
+database implementation behavior beyond the initial migration. Test and coverage
+reports are module-local under `target/`; OpenAPI is written to
+`orderservice.api/target/openapi.json`. The executable is
+`orderservice.api/target/orderservice.api-0.0.1-SNAPSHOT.jar`.
+
 ## Local: Docker only
 
 From this directory, with Docker Desktop running:
@@ -36,7 +82,8 @@ first if it occupies port 8083: `docker compose -f compose.local.yaml stop order
 docker compose -f compose.local.yaml up -d --wait postgres
 $env:SPRING_PROFILES_ACTIVE = "local"
 $env:PORT = "8083"
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd install -DskipTests
+.\mvnw.cmd -pl orderservice.api spring-boot:run
 ```
 
 `application-local.yaml` supplies the localhost database defaults. Compose supplies
@@ -139,7 +186,7 @@ managed schema after successful startup; pulling Git alone does not update a dat
 1. Before an approved entity/schema change, pull the team's agreed integration branch
    and coordinate the next migration version with the other developer. Existing V1
    is retained. Use V2, V3, etc. and descriptive names with two underscores, e.g.
-   `src/main/resources/db/migration/V2__create_orders.sql`. Do not create this example
+   `orderservice.infrastructure.db/src/main/resources/db/migration/V2__create_orders.sql`. Do not create this example
    until the domain schema is approved. Never reuse a shared version number.
 2. Include forward SQL for the change and required data backfills in the same commit
    as entities/repositories. Codex must provide the migration path, purpose, prerequisites,

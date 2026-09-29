@@ -171,3 +171,13 @@ for failures show credits unavailable
 - **Affected locations:** Frontend navigation configuration, application shell, Dashboard and new
   placeholder routes, the shared coming-soon component, and this usage log.
 - **Author verification:** I have reviewed the code generated and ensured that it complies with the plan I wanted 
+
+## Maven module conversion assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Architecture comparison, implementation, verification, documentation.
+- **Affected locations:** Order Service POMs, module directories, Dockerfiles, README and persistent context; this disclosure.
+- **Prompt:** "Then can do it here"
+- **Key response:** Implemented the developer-approved eight-module Maven structure, preserving all relocated source/configuration/migration contents. Maven verification passed five tests without failures or skips; both Docker images built and passed isolated PostgreSQL readiness/profile checks. Shared CI path adjustment is prepared and awaits scope approval.
+- **Author verification:** AI supported research/comparison of package-only and Maven-module organization. Yao Xiang selected the module architecture and explicitly authorized implementation. Human review of the final changes is pending.
