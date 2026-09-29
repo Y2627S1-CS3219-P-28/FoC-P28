@@ -23,12 +23,16 @@ const FIREBASE_MESSAGES: Record<string, string> = {
   "auth/password-does-not-meet-requirements": "Your password doesn't meet the requirements listed below the password field.",
   "auth/operation-not-allowed": "Email sign-up is not enabled for this app. Please contact the team.",
   "auth/admin-restricted-operation": "New accounts can't be created right now. Please contact the team.",
+  "auth/user-not-found": "No account of this email has been found. Please create an account.",
   "auth/user-disabled": "This account has been disabled.",
   "auth/too-many-requests": "Too many attempts. Please wait a moment and try again.",
   "auth/network-request-failed": "Could not reach the sign-in service. Check your connection.",
 }
 
 function describeError(error: unknown): string {
+  if (error instanceof Error && error.message === "EMAIL_NOT_VERIFIED") {
+    return "Please verify your email before signing in."
+  }
   if (error instanceof FirebaseError) {
     // Include the code for anything unexpected so it can be diagnosed.
     return FIREBASE_MESSAGES[error.code] ?? `Sign-in failed (${error.code}). Please try again.`
@@ -54,17 +58,30 @@ export function LoginForm() {
   const [passwordValid, setPasswordValid] = useState(true)
   const onPasswordValidity = useCallback((valid: boolean) => setPasswordValid(valid), [])
 
-  useEffect(() => {
-    if (!loading && user) router.replace(next)
-  }, [loading, user, router, next])
+  // Not needed for now because of email verification
+  // useEffect(() => {
+    // if (!loading && user && mode === "sign-in") {
+      // router.replace(next)
+    // }
+  // }, [loading, user, router, next])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      if (mode === "sign-in") await signIn(email.trim(), password)
-      else await signUp(email.trim(), password)
+      if (mode === "sign-in") {
+        await signIn(email.trim(), password)
+        router.replace(next)
+      } else { 
+        await signUp(email.trim(), password)
+
+        // Change page back to sign in
+        setMode("sign-in")
+        setPassword("")
+
+        alert(`Please verify your email sent to ${email} before logging in`)
+      }
     } catch (err) {
       setError(describeError(err))
     } finally {

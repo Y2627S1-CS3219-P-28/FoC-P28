@@ -121,9 +121,10 @@ and curly quotes.
   - Spring Security validates the Firebase ID token (issuer, audience, expiry, Google signing keys).
   - Roles come from the User Service and become `ROLE_*` authorities.
   - Management endpoints use `@PreAuthorize("hasRole('ADMIN')")`.
-  - Until the User Service role API exists, `USER_SERVICE_MODE=mock` gives everyone
-    requester + courier and grants admin to `MOCK_ADMIN_EMAILS`.
-  - Set `USER_SERVICE_MODE=http` to call `GET {USER_SERVICE_URL}/api/users/{uid}/roles` instead.
+  - `USER_SERVICE_MODE=mock` gives everyone requester + courier and grants admin to
+    `MOCK_ADMIN_EMAILS`.
+  - Set `USER_SERVICE_MODE=http` to call `GET {USER_SERVICE_URL}/api/users/role-context` instead,
+    forwarding the caller's bearer token. A caller with no User Service profile (404) gets no roles.
 - **Deployment:** Cloud Run as `supplier-service-<environment>`, running as its own service
   account, which can only access its own Firestore databases. The seed CSV is uploaded to the
   environment's config bucket and mounted read-only (F2.1.1). See [docs/ci-cd.md](../docs/ci-cd.md).

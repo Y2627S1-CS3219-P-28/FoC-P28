@@ -140,3 +140,34 @@ for failures show credits unavailable
 - **Affected locations:** `credit-service/`, the frontend application shell and balance hook,
   Credit Service documentation, and this usage log.
 - **Author verification:** The code was reviewed and verified that it complies wiht the intended design
+
+## Frontend sidebar placeholder navigation
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-28
+- **Mode:** Implementation and testing assistance.
+- **Exact prompt:**
+
+  ```text
+  Implement the plan
+
+  in a new branch feat/frontend-sidebar update the sidebar to have a few more placeholder navs - dashboard, browse errands, my errands, my requests and another button below all these pages -> post request
+
+  Add sidebar-only navigation configuration in this order:
+    1. Dashboard → `/`
+    2. Browse Errands → `/errands`
+    3. My Errands → `/my-errands`
+    4. My Requests → `/my-requests`
+    5. Profile
+    6. Suppliers
+
+  apart from existing profile and suppliers, the rest will have a coming soon placeholder. dont change the current implementation for profile and suppliers page
+  ```
+
+- **Key response:** Created `feat/frontend-sidebar`, added the ordered desktop and mobile sidebar
+  links, added the distinct Post Request action, and generated authenticated coming-soon pages for
+  Dashboard, Browse Errands, My Errands, My Requests, and Post Request while leaving Profile and
+  Suppliers unchanged.
+- **Affected locations:** Frontend navigation configuration, application shell, Dashboard and new
+  placeholder routes, the shared coming-soon component, and this usage log.
+- **Author verification:** I have reviewed the code generated and ensured that it complies with the plan I wanted 

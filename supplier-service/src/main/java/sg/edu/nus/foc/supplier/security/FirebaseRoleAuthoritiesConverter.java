@@ -21,7 +21,7 @@ public class FirebaseRoleAuthoritiesConverter implements Converter<Jwt, Collecti
 
     @Override
     public Collection<GrantedAuthority> convert(Jwt jwt) {
-        return roleProvider.rolesFor(jwt.getSubject(), jwt.getClaimAsString("email")).stream()
+        return roleProvider.rolesFor(jwt).stream()
                 .sorted()
                 .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role.authority()))
                 .toList();
