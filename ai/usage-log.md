@@ -220,3 +220,13 @@ for failures show credits unavailable
 - **Prompt:** "Okie start doing now. When u do backend please do frontend as well"
 - **Key response:** Implemented the core create/browse/accept/start/pickup/deliver prototype using the selected Errand/Order split, domain JPA, MapStruct, no scheduled availability time, deferred authentication and local dummy Credit/Supplier adapters. Maven verify passed 15 tests with zero failures/errors/skips and retained coverage gates. Frontend lint/typecheck passed (12 existing unrelated warnings); four desktop/mobile browser tests passed. Existing V1 database upgraded to V2 without reset. Optional repost-term storage and actual integrations remain unimplemented; full Sprint completion is not claimed.
 - **Author verification:** AI supported research/comparison and implementation of the architecture selected by Yao Xiang. The developer approved the prototype and frontend scope. Final human review is pending; dummy integrations are not verified peer contracts. MapStruct setup checked against official documentation. Browser screenshots inspected; runtime behavior tested against local PostgreSQL. No sibling service changes or messages.
+
+## Order Service Lombok and formatting assistance
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Refactoring, verification and documentation.
+- **Affected locations:** Order Service prototype Java source/tests, domain/application/API POMs, README and CHANGE-017 context; this disclosure.
+- **Prompt:** User requested annotation-generated accessors/constructors and spacing between imports, classes and methods instead of cramped handwritten boilerplate.
+- **Key response:** Added Lombok getters, protected JPA no-argument constructors and equivalent plain constructors; retained business-state initialisation and computed getters. Avoided blanket lifecycle setters. Formatted prototype Java code. Maven verify passed all 15 tests and coverage gates; git diff --check passed. API, schema and business behavior unchanged; frontend unchanged.
+- **Author verification:** AI checked official Lombok getter/setter and constructor documentation and implemented the requested refactor. Existing tests verify behavior; no new tests were needed for formatting and equivalent boilerplate generation. Final human review pending. Prior prototype limitations remain.

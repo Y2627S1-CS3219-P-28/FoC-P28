@@ -302,8 +302,8 @@ The optional dev proxy applies only to `/api/orders`; deployed traffic uses the 
 `./mvnw verify` runs module unit tests and PostgreSQL-backed HTTP/OpenAPI tests, including
 invalid fields, expiry exclusion, illegal/foreign/stale transitions, duplicate commands,
 checkpoint persistence and disabled production endpoints. Coverage gates remain 80%
-line and branch for handwritten code. Only bootstrap and generated MapStruct code are
-excluded. MapStruct configuration follows https://mapstruct.org/documentation/stable/reference/html/ .
+line and branch for handwritten code. Bootstrap and generated MapStruct code are
+excluded; JaCoCo also filters Lombok-generated methods. MapStruct configuration follows https://mapstruct.org/documentation/stable/reference/html/ .
 Frontend: `npm run lint`, `npm run typecheck`, and `npm run test:orders` (backend must run).
 Install the test browser with `npx playwright install chromium`, or set
 `PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome. Browser tests cover desktop 1920 px
@@ -325,3 +325,11 @@ reserve/recovery and Supplier APIs remain pending. Repost configuration/executio
 history, completion, cancellation and other sequences beyond this six-step core are not
 implemented. Future integration must remove the dummy adapters and verify the actual
 Errand-to-Credit reservation identity mapping before moving real credits.
+
+### Java code conventions
+
+Use Lombok for ordinary entity getters, protected JPA no-argument constructors and
+constructor injection. Keep explicit constructors when they initialise business state,
+and retain computed getters and guarded lifecycle methods. Avoid blanket entity setters
+that bypass those rules. Keep declarations and statements on separate lines, with blank
+lines between imports and classes and between methods.
