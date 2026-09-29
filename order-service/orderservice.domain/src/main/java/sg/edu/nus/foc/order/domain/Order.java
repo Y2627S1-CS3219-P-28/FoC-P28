@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Entity
 @Table(name = "delivery_orders")
@@ -57,21 +58,28 @@ public class Order {
         this.status = Status.ACCEPTED;
     }
 
-    public void progress(String actorId, long expectedVersion, Status target, Instant now) {
+    public Optional<OrderProblem> progress(
+            String actorId, long expectedVersion, Status target, Instant now) {
         if (!courierId.equals(actorId))
-            throw new OrderProblem(
-                    "FORBIDDEN", "Only the assigned courier may update this delivery.");
+            return Optional.of(
+                    new OrderProblem(
+                            OrderProblem.Code.FORBIDDEN,
+                            "Only the assigned courier may update this delivery."));
         if (getVersion() != expectedVersion)
-            throw OrderProblem.conflict("The delivery changed. Refresh and try again.");
-        if (target.ordinal() != status.ordinal() + 1)
-            throw OrderProblem.conflict("This action is not allowed from " + status + ".");
+            return Optional.of(
+                    OrderProblem.conflict("The delivery changed. Refresh and try again."));
+        if (target == null || target.ordinal() != status.ordinal() + 1)
+            return Optional.of(
+                    OrderProblem.conflict("This action is not allowed from " + status + "."));
         switch (target) {
             case IN_PROGRESS -> startedAt = now;
             case PICKED_UP -> pickedUpAt = now;
             case DELIVERED -> deliveredAt = now;
-            default -> throw OrderProblem.conflict("Invalid progress action.");
+            default ->
+                    throw new IllegalStateException("Validated transition has no implementation.");
         }
         status = target;
+        return Optional.empty();
     }
 
     public long getVersion() {

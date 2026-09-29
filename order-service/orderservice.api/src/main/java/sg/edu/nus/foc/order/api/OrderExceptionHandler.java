@@ -12,30 +12,18 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import sg.edu.nus.foc.order.contracts.ErrandContracts.*;
-import sg.edu.nus.foc.order.domain.OrderProblem;
 
 import java.time.Instant;
 import java.util.List;
 
 @RestControllerAdvice(basePackageClasses = ErrandController.class)
+@lombok.extern.slf4j.Slf4j
 public class OrderExceptionHandler {
-    @ExceptionHandler(OrderProblem.class)
-    ResponseEntity<ApiError> domain(OrderProblem error, HttpServletRequest request) {
-        int status =
-                switch (error.getCode()) {
-                    case "FORBIDDEN" -> 403;
-                    case "NOT_FOUND" -> 404;
-                    case "CONFLICT" -> 409;
-                    default -> 400;
-                };
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> unexpected(Exception error, HttpServletRequest request) {
+        log.error("Unexpected Order Service failure at {}", request.getRequestURI(), error);
         return response(
-                status,
-                error.getCode(),
-                error.getMessage(),
-                error.getDetails().stream()
-                        .map(d -> new ErrorDetail(d.field(), d.message()))
-                        .toList(),
-                request);
+                500, "INTERNAL_SERVER_ERROR", "An unexpected error occurred.", List.of(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

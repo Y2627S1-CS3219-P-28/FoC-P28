@@ -1,32 +1,37 @@
 package sg.edu.nus.foc.order.domain;
 
-import java.util.List;
+import lombok.Getter;
 
-public class OrderProblem extends RuntimeException {
+import java.util.List;
+import java.util.Objects;
+
+@Getter
+public final class OrderProblem {
+    public enum Code {
+        VALIDATION_ERROR,
+        RESERVATION_REJECTED,
+        FORBIDDEN,
+        NOT_FOUND,
+        CONFLICT
+    }
+
     public record Detail(String field, String message) {}
 
-    private final String code;
+    private final Code code;
+    private final String message;
     private final List<Detail> details;
 
-    public OrderProblem(String code, String message) {
+    public OrderProblem(Code code, String message) {
         this(code, message, List.of());
     }
 
-    public OrderProblem(String code, String message, List<Detail> details) {
-        super(message);
-        this.code = code;
+    public OrderProblem(Code code, String message, List<Detail> details) {
+        this.message = Objects.requireNonNull(message);
+        this.code = Objects.requireNonNull(code);
         this.details = List.copyOf(details);
     }
 
-    public String getCode() {
-        return code;
-    }
-
-    public List<Detail> getDetails() {
-        return details;
-    }
-
     public static OrderProblem conflict(String message) {
-        return new OrderProblem("CONFLICT", message);
+        return new OrderProblem(Code.CONFLICT, message);
     }
 }

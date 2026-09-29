@@ -8,6 +8,18 @@ import java.util.List;
 public final class ErrandContracts {
     private ErrandContracts() {}
 
+    public enum ErrandStatus {
+        OPEN,
+        ACCEPTED
+    }
+
+    public enum OrderStatus {
+        ACCEPTED,
+        IN_PROGRESS,
+        PICKED_UP,
+        DELIVERED
+    }
+
     public record CreateRequest(
             @NotBlank @Size(max = 128) String commandId,
             @NotBlank @Size(max = 128) String requesterId,
@@ -35,7 +47,7 @@ public final class ErrandContracts {
             int deliveryDurationMinutes,
             Instant expiresAt,
             Instant createdAt,
-            String status,
+            ErrandStatus status,
             String orderId,
             long version,
             SupplierResponse pickup,
@@ -45,7 +57,7 @@ public final class ErrandContracts {
             String id,
             String orderId,
             String courierId,
-            String status,
+            OrderStatus status,
             Instant occurredAt,
             String supplierId) {}
 
@@ -53,7 +65,7 @@ public final class ErrandContracts {
             String id,
             String errandId,
             String courierId,
-            String status,
+            OrderStatus status,
             int deliveryDurationMinutes,
             Instant acceptedAt,
             Instant startedAt,
@@ -63,6 +75,9 @@ public final class ErrandContracts {
             long version,
             ErrandResponse errand,
             List<CheckpointResponse> checkpoints) {}
+
+    public record ErrandPageResponse(
+            List<ErrandResponse> items, int page, int size, long totalItems, int totalPages) {}
 
     public record PageResponse<T>(
             List<T> items, int page, int size, long totalItems, int totalPages) {}

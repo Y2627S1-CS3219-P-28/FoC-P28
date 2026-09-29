@@ -230,3 +230,34 @@ for failures show credits unavailable
 - **Prompt:** User requested annotation-generated accessors/constructors and spacing between imports, classes and methods instead of cramped handwritten boilerplate.
 - **Key response:** Added Lombok getters, protected JPA no-argument constructors and equivalent plain constructors; retained business-state initialisation and computed getters. Avoided blanket lifecycle setters. Formatted prototype Java code. Maven verify passed all 15 tests and coverage gates; git diff --check passed. API, schema and business behavior unchanged; frontend unchanged.
 - **Author verification:** AI checked official Lombok getter/setter and constructor documentation and implemented the requested refactor. Existing tests verify behavior; no new tests were needed for formatting and equivalent boilerplate generation. Final human review pending. Prior prototype limitations remain.
+
+## Order Service typed statuses and explicit local types
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Refactoring, verification and documentation.
+- **Affected locations:** Order Service domain, application, API contracts/controller and tests; README and CHANGE-018 context; this disclosure.
+- **Prompt:** User requested status enums for safety and explicit Java types instead of var throughout Order Service.
+- **Key response:** Converted Errand string status and repository query parameters to an enum; retained existing Order/Checkpoint enum. Added contract-owned response enums with unchanged JSON values. Replaced var declarations in Java source/tests and documented the convention. Kept initialisation and business transition guards. Maven verify passed all 15 tests and coverage gates; generated OpenAPI enum values and absence of var verified; git diff --check passed.
+- **Author verification:** Yao Xiang requested the enum/type convention. AI implemented and verified this refinement using existing persistence/API/domain regression tests. Human diff review pending. No real integration or broader prototype completion claimed.
+
+## Order Service result/error pattern review
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Advisory document and source review.
+- **Prompt:** User supplied API Response and Error Handling Flow and raised resource/debugging concerns about service exception rethrows.
+- **Affected locations:** Order Service active-work record; this disclosure. Application code unchanged.
+- **Key response:** Compared current OrderProblem/global-handler flow with explicit results. Recommended plain error values for expected failures, retained unexpected exceptions and rollback guarantees, and identified public response-envelope incompatibility requiring a user decision. Checked official Java Throwable and Spring rollback documentation. No runtime tests performed.
+- **Author verification:** Proposed design only; user choice on public JSON envelope pending. Attached examples are reference material, not independent authority to replace the existing API contract.
+
+## Order Service explicit result flow implementation
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-09-29
+- **Mode:** Implementation, test generation, verification and documentation.
+- **Affected locations:** Order Service domain, application, API/contracts, prototype Supplier adapter and tests; README and CHANGE-019/ADR-009 context; this disclosure.
+- **Prompt:** "okie can" approving BaseService/result wrappers internally while preserving public JSON.
+- **Key response:** Added exclusive success/failure ResultWrapper and BaseService helpers. Converted OrderProblem from exception to immutable enum-coded error data; domain operations return rejection values before mutation. Services return expected failures without throwing. API mapping preserves existing JSON/statuses. Explicit rollbackError marks late failure transactions; unexpected exceptions propagate, get logged and produce a generic error. Credit compensation remains registered on transaction rollback.
+- **Verification:** ResultWrapper test initially failed compilation before implementation. Final Maven verify passed 25 tests with zero failures/errors/skips and unchanged coverage gates. PostgreSQL tests cover early error without rollback, explicit rollback after managed mutation, unexpected-exception rollback, successful commit and failed-insert rollback with dummy credit release. Existing six-flow API/OpenAPI tests pass; no var or thrown OrderProblem remains; git diff --check passes. Frontend unchanged and not retested.
+- **Author verification:** Yao Xiang approved the internal-result design and keeping the current wire format. AI implemented and tested it, including correcting a test failure-injection setup. Human review pending. Existing authentication, real peer integration and optional repost limitations remain; no broader feature completion claimed.

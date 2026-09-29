@@ -333,3 +333,33 @@ constructor injection. Keep explicit constructors when they initialise business 
 and retain computed getters and guarded lifecycle methods. Avoid blanket entity setters
 that bypass those rules. Keep declarations and statements on separate lines, with blank
 lines between imports and classes and between methods.
+
+Always declare Java local-variable types explicitly; do not use `var`, including in
+tests. Use enums for lifecycle statuses: `Errand.Status` for listings and
+`Order.Status` for deliveries/checkpoints. API contracts expose their own status enums,
+mapped by MapStruct, with the same JSON strings. JPA persists enum names using
+`EnumType.STRING`. Constructors assign the initial state; enums do not replace checks
+for allowed transitions, ownership, expiry or stale versions.
+
+### Application results and transactions
+
+`ErrandWorkflow` extends `BaseService` and returns `ResultWrapper<T>`. `ok`, `error`
+and `validationError` create one success or failure outcome. `OrderProblem` is plain
+immutable error data with an enum code, message and field details, not an exception.
+Domain transitions and command-receipt validation return optional rejection data;
+they check before mutating. Supplier lookup returns an optional value.
+
+Expected rejections return before writes or managed-entity changes. Locks and
+transactions still cover validation and mutation together. If a future operation
+must return a failure after mutation, call `rollbackError` within the active service
+transaction. It marks rollback explicitly. Unexpected exceptions propagate through
+the transaction boundary; do not catch database exceptions and continue writing.
+The creation rollback callback still releases the prototype credit reservation when
+a database write or commit fails. Real external compensation remains a separate
+integration requirement.
+
+`ResultResponseMapper` maps outcomes to the existing HTTP status and JSON body.
+The wrapper is never serialized. MapStruct still maps successful domain data into
+response DTOs. `OrderExceptionHandler` handles framework/technical exceptions and
+logs unexpected failures with their stack trace while returning a generic 500 message.
+No frontend response-envelope change is required.

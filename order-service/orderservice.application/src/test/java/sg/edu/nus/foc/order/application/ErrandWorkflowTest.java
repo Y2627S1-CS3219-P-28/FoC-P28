@@ -42,7 +42,10 @@ class ErrandWorkflowTest {
         when(credits.reserve(anyString(), anyString(), anyLong())).thenReturn(true);
         when(suppliers.resolve(anyString()))
                 .thenAnswer(
-                        i -> new SupplierGateway.Supplier(i.getArgument(0), "name", "location"));
+                        invocation ->
+                                Optional.of(
+                                        new SupplierGateway.Supplier(
+                                                invocation.getArgument(0), "name", "location")));
     }
 
     @AfterEach
@@ -52,18 +55,18 @@ class ErrandWorkflowTest {
 
     @Test
     void creationRetryValidationAndCompensation() {
-        var created = workflow.create(input).errand();
-        assertThat(created.getStatus()).isEqualTo("OPEN");
-        var synchronization = TransactionSynchronizationManager.getSynchronizations().getFirst();
+        Errand created = workflow.create(input).getData().errand();
+        assertThat(created.getStatus()).isEqualTo(Errand.Status.OPEN);
+        TransactionSynchronization synchronization =
+                TransactionSynchronizationManager.getSynchronizations().getFirst();
         synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
         verify(credits, never()).release(anyString(), anyString());
         synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
         verify(credits).release(created.getId(), "r");
         when(errands.findById(created.getId())).thenReturn(Optional.of(created));
-        assertThat(workflow.create(input).errand()).isSameAs(created);
-        assertThatThrownBy(
-                        () ->
-                                workflow.create(
+        assertThat(workflow.create(input).getData().errand()).isSameAs(created);
+        assertThat(
+                        workflow.create(
                                         new CreateInput(
                                                 "cmd",
                                                 "r",
@@ -72,19 +75,20 @@ class ErrandWorkflowTest {
                                                 "d",
                                                 5,
                                                 30,
-                                                input.expiresAt())))
-                .isInstanceOf(OrderProblem.class);
-        assertThatThrownBy(
-                        () ->
-                                workflow.create(
+                                                input.expiresAt()))
+                                .getError()
+                                .getCode())
+                .isEqualTo(OrderProblem.Code.CONFLICT);
+        assertThat(
+                        workflow.create(
                                         new CreateInput(
-                                                "cmd2", "r", "Bad\ntext", "p", "p", 5, 30, now)))
-                .isInstanceOf(OrderProblem.class)
-                .satisfies(e -> assertThat(((OrderProblem) e).getDetails()).hasSize(3));
+                                                "cmd2", "r", "Bad\ntext", "p", "p", 5, 30, now))
+                                .getError()
+                                .getDetails())
+                .hasSize(3);
         when(credits.reserve(anyString(), anyString(), anyLong())).thenReturn(false);
-        assertThatThrownBy(
-                        () ->
-                                workflow.create(
+        assertThat(
+                        workflow.create(
                                         new CreateInput(
                                                 "cmd3",
                                                 "r",
@@ -93,60 +97,119 @@ class ErrandWorkflowTest {
                                                 "d",
                                                 5,
                                                 30,
-                                                input.expiresAt())))
-                .isInstanceOf(OrderProblem.class);
+                                                input.expiresAt()))
+                                .getError()
+                                .getCode())
+                .isEqualTo(OrderProblem.Code.RESERVATION_REJECTED);
     }
 
     @Test
     void readAcceptProgressAndReplay() {
-        var e =
-                new Errand(
-                        "e",
-                        "r",
-                        "Bring my lunch",
-                        "p",
-                        "d",
-                        5,
-                        30,
-                        now.plusSeconds(1800),
-                        now,
-                        "hash");
-        when(errands.findById("e")).thenReturn(Optional.of(e));
-        when(errands.lockById("e")).thenReturn(Optional.of(e));
-        when(errands.findByStatusAndExpiresAtAfter(eq("OPEN"), eq(now), any()))
-                .thenReturn(new PageImpl<>(List.of(e)));
-        assertThat(workflow.available(1, 20).getTotalElements()).isEqualTo(1);
-        assertThat(workflow.getErrand("e").pickup().id()).isEqualTo("p");
+        Errand errand = listing();
+        when(errands.findById("e")).thenReturn(Optional.of(errand));
+        when(errands.lockById("e")).thenReturn(Optional.of(errand));
+        when(errands.findByStatusAndExpiresAtAfter(eq(Errand.Status.OPEN), eq(now), any()))
+                .thenReturn(new PageImpl<>(List.of(errand)));
+        assertThat(workflow.available(1, 20).getData().getTotalElements()).isEqualTo(1);
+        assertThat(workflow.getErrand("e").getData().pickup().id()).isEqualTo("p");
         when(suppliers.list())
                 .thenReturn(List.of(new SupplierGateway.Supplier("p", "name", "location")));
-        assertThat(workflow.suppliers()).hasSize(1);
-        var accept = new ActionInput("accept", "c", 0);
-        var order = workflow.accept("e", accept).order();
+        assertThat(workflow.suppliers().getData()).hasSize(1);
+        ActionInput accept = new ActionInput("accept", "c", 0);
+        Order order = workflow.accept("e", accept).getData().order();
         when(orders.findById(order.getId())).thenReturn(Optional.of(order));
         when(orders.lockById(order.getId())).thenReturn(Optional.of(order));
-        when(checkpoints.findByOrderIdOrderByOccurredAtAscIdAsc(order.getId()))
-                .thenReturn(List.of());
-        assertThat(workflow.getOrder(order.getId()).order()).isSameAs(order);
-        workflow.progress(
-                order.getId(), new ActionInput("start", "c", 0), Order.Status.IN_PROGRESS);
+        assertThat(workflow.getOrder(order.getId()).getData().order()).isSameAs(order);
+        assertThat(
+                        workflow.progress(
+                                        order.getId(),
+                                        new ActionInput("start", "c", 0),
+                                        Order.Status.IN_PROGRESS)
+                                .isError())
+                .isFalse();
         workflow.progress(order.getId(), new ActionInput("pickup", "c", 0), Order.Status.PICKED_UP);
         workflow.progress(
                 order.getId(), new ActionInput("deliver", "c", 0), Order.Status.DELIVERED);
-        when(commands.findById(anyString())).thenReturn(Optional.of(mock(CommandReceipt.class)));
-        assertThat(workflow.accept("e", accept).order()).isSameAs(order);
+        CommandReceipt receipt = mock(CommandReceipt.class);
+        when(receipt.verify(anyString())).thenReturn(Optional.empty());
+        when(commands.findById(anyString())).thenReturn(Optional.of(receipt));
+        assertThat(workflow.accept("e", accept).getData().order()).isSameAs(order);
         assertThat(
                         workflow.progress(
                                         order.getId(),
                                         new ActionInput("deliver", "c", 0),
                                         Order.Status.DELIVERED)
+                                .getData()
                                 .order())
                 .isSameAs(order);
+        when(receipt.verify(anyString()))
+                .thenReturn(Optional.of(OrderProblem.conflict("Different command")));
+        assertThat(workflow.accept("e", accept).isError()).isTrue();
+        assertThat(workflow.progress(order.getId(), accept, Order.Status.DELIVERED).isError())
+                .isTrue();
         verify(checkpoints, times(4)).save(any());
-        assertThatThrownBy(() -> workflow.getErrand("missing")).isInstanceOf(OrderProblem.class);
-        assertThatThrownBy(() -> workflow.getOrder("missing")).isInstanceOf(OrderProblem.class);
-        assertThatThrownBy(() -> workflow.accept("missing", accept))
-                .isInstanceOf(OrderProblem.class);
-        assertThatThrownBy(() -> workflow.progress("missing", accept, Order.Status.IN_PROGRESS))
-                .isInstanceOf(OrderProblem.class);
+        assertThat(workflow.getErrand("missing").getError().getCode())
+                .isEqualTo(OrderProblem.Code.NOT_FOUND);
+        assertThat(workflow.getOrder("missing").isError()).isTrue();
+        assertThat(workflow.accept("missing", accept).isError()).isTrue();
+        assertThat(workflow.progress("missing", accept, Order.Status.IN_PROGRESS).isError())
+                .isTrue();
+    }
+
+    @Test
+    void rejectedCommandsDoNotMutateOrWrite() {
+        Errand errand = listing();
+        Order order = new Order("o", errand, "c", now);
+        when(errands.lockById("e")).thenReturn(Optional.of(errand));
+        when(errands.findById("e")).thenReturn(Optional.of(errand));
+        when(orders.lockById("o")).thenReturn(Optional.of(order));
+        assertThat(workflow.accept("e", new ActionInput("cmd", "r", 0)).getError().getCode())
+                .isEqualTo(OrderProblem.Code.FORBIDDEN);
+        assertThat(
+                        workflow.progress(
+                                        "o", new ActionInput("cmd", "c", 0), Order.Status.DELIVERED)
+                                .isError())
+                .isTrue();
+        assertThat(errand.getStatus()).isEqualTo(Errand.Status.OPEN);
+        assertThat(order.getStatus()).isEqualTo(Order.Status.ACCEPTED);
+        verify(errands, never()).flush();
+        verifyNoInteractions(checkpoints, credits);
+        verify(orders, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void missingSuppliersAndListingReturnBeforeMutations() {
+        Errand errand = listing();
+        Order order = new Order("o", errand, "c", now);
+        when(errands.lockById("e")).thenReturn(Optional.of(errand));
+        when(orders.lockById("o")).thenReturn(Optional.of(order));
+        assertThat(
+                        workflow.progress(
+                                        "o",
+                                        new ActionInput("cmd", "c", 0),
+                                        Order.Status.IN_PROGRESS)
+                                .isError())
+                .isTrue();
+        when(errands.findById("e")).thenReturn(Optional.of(errand));
+        when(errands.findByStatusAndExpiresAtAfter(any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(errand)));
+        when(suppliers.resolve("p")).thenReturn(Optional.empty());
+        assertThat(workflow.create(input).isError()).isTrue();
+        assertThat(workflow.accept("e", new ActionInput("cmd", "c", 0)).isError()).isTrue();
+        assertThat(workflow.available(1, 20).isError()).isTrue();
+        when(suppliers.resolve("p"))
+                .thenReturn(Optional.of(new SupplierGateway.Supplier("p", "n", "l")));
+        when(suppliers.resolve("d")).thenReturn(Optional.empty());
+        assertThat(workflow.getErrand("e").isError()).isTrue();
+        assertThat(errand.getStatus()).isEqualTo(Errand.Status.OPEN);
+        assertThat(order.getStatus()).isEqualTo(Order.Status.ACCEPTED);
+        verifyNoInteractions(credits, checkpoints);
+        verify(orders, never()).flush();
+        verify(errands, never()).saveAndFlush(any());
+    }
+
+    private Errand listing() {
+        return new Errand(
+                "e", "r", "Bring my lunch", "p", "d", 5, 30, now.plusSeconds(1800), now, "hash");
     }
 }

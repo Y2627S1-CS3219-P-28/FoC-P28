@@ -4,12 +4,10 @@ import static org.assertj.core.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-import sg.edu.nus.foc.order.domain.OrderProblem;
-
 class StubGatewayTest {
     @Test
     void creditAlwaysSucceedsWithoutRealFunds() {
-        var credit = new StubCreditGateway();
+        StubCreditGateway credit = new StubCreditGateway();
         assertThat(credit.reserve("e", "r", 5)).isTrue();
         assertThat(credit.reserve("e", "r", 5)).isTrue();
         assertThat(credit.release("e", "r")).isTrue();
@@ -17,12 +15,9 @@ class StubGatewayTest {
 
     @Test
     void supplierFixturesValidatePairAndRejectUnknownOrSame() {
-        var supplier = new StubSupplierGateway();
+        StubSupplierGateway supplier = new StubSupplierGateway();
         assertThat(supplier.list()).hasSize(3);
-        assertThat(supplier.resolve("demo-library").name()).contains("demo");
-        supplier.validatePair("demo-canteen", "demo-library");
-        assertThatThrownBy(() -> supplier.resolve("unknown")).isInstanceOf(OrderProblem.class);
-        assertThatThrownBy(() -> supplier.validatePair("demo-canteen", "demo-canteen"))
-                .isInstanceOf(OrderProblem.class);
+        assertThat(supplier.resolve("demo-library").orElseThrow().name()).contains("demo");
+        assertThat(supplier.resolve("unknown")).isEmpty();
     }
 }

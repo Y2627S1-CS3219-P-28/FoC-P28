@@ -4,16 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
 
 @SpringBootTest(properties = "spring.profiles.active=test")
 @Import(PostgresTestConfiguration.class)
@@ -24,15 +28,20 @@ class OpenApiDocumentationTest {
 
     @Test
     void everyEndpointIsDocumented() throws Exception {
-        String json = mvc.perform(get("/api/orders/v3/api-docs"))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        var document = mapper.readTree(json);
+        String json =
+                mvc.perform(get("/api/orders/v3/api-docs"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        JsonNode document = mapper.readTree(json);
         assertThat(document.path("openapi").asString()).startsWith("3.");
         assertThat(document.path("paths").has("/api/orders/errands")).isTrue();
-        for (var path : document.path("paths").properties()) {
+        for (Map.Entry<String, JsonNode> path : document.path("paths").properties()) {
             assertThat(path.getKey()).startsWith("/api/orders");
-            for (var operation : path.getValue().properties()) {
-                if (!Set.of("get", "post", "put", "patch", "delete").contains(operation.getKey())) continue;
+            for (Map.Entry<String, JsonNode> operation : path.getValue().properties()) {
+                if (!Set.of("get", "post", "put", "patch", "delete").contains(operation.getKey()))
+                    continue;
                 assertThat(operation.getValue().path("summary").asString("")).isNotBlank();
                 assertThat(operation.getValue().path("responses").propertyNames())
                         .anyMatch(code -> code.startsWith("2"));

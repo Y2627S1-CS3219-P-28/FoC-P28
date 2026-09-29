@@ -9,7 +9,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 public interface ErrandRepository extends JpaRepository<Errand, String> {
-    Page<Errand> findByStatusAndExpiresAtAfter(String status, Instant now, Pageable pageable);
+    Page<Errand> findByStatusAndExpiresAtAfter(
+            Errand.Status status, Instant now, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Errand e where e.id = :id")

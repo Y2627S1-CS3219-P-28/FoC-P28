@@ -7,12 +7,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Entity
 @Table(name = "errands")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Errand {
+    public enum Status {
+        OPEN,
+        ACCEPTED
+    }
+
     @Id
     @Column(length = 36)
     private String id;
@@ -41,8 +47,9 @@ public class Errand {
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String status;
+    private Status status;
 
     @Column(length = 36)
     private String orderId;
@@ -75,18 +82,22 @@ public class Errand {
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
         this.requestFingerprint = requestFingerprint;
-        this.status = "OPEN";
+        this.status = Status.OPEN;
     }
 
-    public void accept(String courierId, String orderId, long expectedVersion, Instant now) {
+    public Optional<OrderProblem> accept(
+            String courierId, String orderId, long expectedVersion, Instant now) {
         if (requesterId.equals(courierId))
-            throw new OrderProblem("FORBIDDEN", "You cannot accept your own errand.");
+            return Optional.of(
+                    new OrderProblem(
+                            OrderProblem.Code.FORBIDDEN, "You cannot accept your own errand."));
         if (getVersion() != expectedVersion)
-            throw OrderProblem.conflict("The errand changed. Refresh and try again.");
-        if (!"OPEN".equals(status) || !now.isBefore(expiresAt) || this.orderId != null)
-            throw OrderProblem.conflict("This errand is no longer available.");
-        this.status = "ACCEPTED";
+            return Optional.of(OrderProblem.conflict("The errand changed. Refresh and try again."));
+        if (status != Status.OPEN || !now.isBefore(expiresAt) || this.orderId != null)
+            return Optional.of(OrderProblem.conflict("This errand is no longer available."));
+        this.status = Status.ACCEPTED;
         this.orderId = orderId;
+        return Optional.empty();
     }
 
     public long getVersion() {

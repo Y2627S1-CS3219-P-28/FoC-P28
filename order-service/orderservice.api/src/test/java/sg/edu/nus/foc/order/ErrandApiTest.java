@@ -73,8 +73,8 @@ class ErrandApiTest {
 
     @Test
     void sixSequencesPersistAndRetriesDoNotDuplicateCheckpoints() throws Exception {
-        var body = posting(command());
-        var errand = post("/api/orders/errands", body, 201);
+        Map<String, Object> body = posting(command());
+        JsonNode errand = post("/api/orders/errands", body, 201);
         String id = errand.path("id").asString();
         assertThat(errand.path("status").asString()).isEqualTo("OPEN");
         assertThat(post("/api/orders/errands", body, 201).path("id").asString()).isEqualTo(id);
@@ -82,8 +82,8 @@ class ErrandApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray());
         post("/api/orders/errands/" + id + "/accept", action("requester-a", 0, command()), 403);
-        var accept = action("courier-b", 0, command());
-        var order = post("/api/orders/errands/" + id + "/accept", accept, 200);
+        Map<String, Object> accept = action("courier-b", 0, command());
+        JsonNode order = post("/api/orders/errands/" + id + "/accept", accept, 200);
         String orderId = order.path("id").asString();
         assertThat(orderId).isNotEqualTo(id);
         assertThat(post("/api/orders/errands/" + id + "/accept", accept, 200).path("id").asString())
@@ -92,7 +92,7 @@ class ErrandApiTest {
         post(base + "/pickup", action("courier-b", 0, command()), 409);
         post(base + "/start", action("someone-else", 0, command()), 403);
         post(base + "/start", action("courier-b", 9, command()), 409);
-        var start = action("courier-b", 0, command());
+        Map<String, Object> start = action("courier-b", 0, command());
         order = post(base + "/start", start, 200);
         String startedAt = order.path("startedAt").asString();
         assertThat(post(base + "/start", start, 200).path("startedAt").asString())
@@ -102,7 +102,8 @@ class ErrandApiTest {
                         base + "/pickup",
                         action("courier-b", order.path("version").asLong(), command()),
                         200);
-        var deliver = action("courier-b", order.path("version").asLong(), command());
+        Map<String, Object> deliver =
+                action("courier-b", order.path("version").asLong(), command());
         order = post(base + "/deliver", deliver, 200);
         assertThat(order.path("status").asString()).isEqualTo("DELIVERED");
         assertThat(order.path("checkpoints").size()).isEqualTo(4);
@@ -122,10 +123,10 @@ class ErrandApiTest {
 
     @Test
     void rejectsInvalidFieldsAndConflictingCommandReuse() throws Exception {
-        var invalid =
+        JsonNode invalid =
                 post("/api/orders/errands", Map.of("description", "bad", "creditAmount", 0), 400);
         assertThat(invalid.path("details").size()).isGreaterThan(3);
-        var body = new java.util.HashMap<>(posting(command()));
+        Map<String, Object> body = new java.util.HashMap<>(posting(command()));
         post("/api/orders/errands", body, 201);
         body.put("creditAmount", 9);
         post("/api/orders/errands", body, 409);
@@ -146,7 +147,7 @@ class ErrandApiTest {
 
     @Test
     void unavailableListingsAndMalformedCommandsAreRejected() throws Exception {
-        var errand = create();
+        JsonNode errand = create();
         String id = errand.path("id").asString();
         jdbc.update(
                 "update errands set expires_at = ? where id = ?",

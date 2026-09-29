@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import sg.edu.nus.foc.order.domain.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /** Sample catalogue only. Real Supplier Service remains authoritative outside this prototype. */
 @Component
@@ -21,25 +22,7 @@ public class StubSupplierGateway implements SupplierGateway {
         return FIXTURES;
     }
 
-    public Supplier resolve(String id) {
-        return FIXTURES.stream()
-                .filter(s -> s.id().equals(id))
-                .findFirst()
-                .orElseThrow(
-                        () ->
-                                new OrderProblem(
-                                        "VALIDATION_ERROR",
-                                        "Choose a supplier from the sample catalogue.",
-                                        List.of(
-                                                new OrderProblem.Detail(
-                                                        "supplierId",
-                                                        "Unknown sample supplier."))));
-    }
-
-    public void validatePair(String pickup, String delivery) {
-        resolve(pickup);
-        resolve(delivery);
-        if (pickup.equals(delivery))
-            throw new OrderProblem("VALIDATION_ERROR", "Pickup and delivery must be different.");
+    public Optional<Supplier> resolve(String id) {
+        return FIXTURES.stream().filter(s -> s.id().equals(id)).findFirst();
     }
 }
