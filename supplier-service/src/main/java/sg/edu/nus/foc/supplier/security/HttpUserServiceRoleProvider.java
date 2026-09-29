@@ -4,13 +4,19 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * Calls the User Service role endpoint (User backlog F6.1):
- * {@code GET {USER_SERVICE_URL}/api/users/{uid}/roles} returning {@code {"roles": ["requester", ...]}}.
- * Unknown role names are ignored so the User Service can add roles without breaking this service.
+ * Calls the User Service role endpoint on the caller's behalf:
+ * {@code GET {USER_SERVICE_URL}/api/users/role-context} with the caller's own bearer token, returning
+ * {@code {"userId": "...", "roles": ["requester", ...]}}.
+ * A caller with no User Service profile yet (404) has no roles. Unknown role names are ignored so the
+ * User Service can add roles without breaking this service.
  */
 public class HttpUserServiceRoleProvider implements RoleProvider {
 
@@ -20,18 +26,26 @@ public class HttpUserServiceRoleProvider implements RoleProvider {
         this.client = client;
     }
 
-    record RolesResponse(List<String> roles) {
+    record RoleContextResponse(String userId, List<String> roles) {
     }
 
     @Override
-    public Set<Role> rolesFor(String uid, String email) {
-        RolesResponse response;
-        try {
-            response = client.get().uri("/api/users/{uid}/roles", uid).retrieve().body(RolesResponse.class);
-        } catch (RestClientException e) {
-            throw new RoleLookupException("User Service role lookup failed for " + uid, e);
-        }
+    public Set<Role> rolesFor(Jwt caller) {
         Set<Role> roles = EnumSet.noneOf(Role.class);
+        RoleContextResponse response;
+        try {
+            response = client.get().uri("/api/users/role-context")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + caller.getTokenValue())
+                    .retrieve()
+                    .body(RoleContextResponse.class);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
+                return roles;
+            }
+            throw new RoleLookupException("User Service role lookup failed for " + caller.getSubject(), e);
+        } catch (RestClientException e) {
+            throw new RoleLookupException("User Service role lookup failed for " + caller.getSubject(), e);
+        }
         if (response != null && response.roles() != null) {
             response.roles().forEach(value -> Role.fromId(value).ifPresent(roles::add));
         }
