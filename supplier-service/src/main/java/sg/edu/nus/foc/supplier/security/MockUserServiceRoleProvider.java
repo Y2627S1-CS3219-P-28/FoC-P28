@@ -6,6 +6,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.security.oauth2.jwt.Jwt;
+
 /**
  * Stand-in for the User Service until its role API exists ({@code USER_SERVICE_MODE=mock}).
  * Mirrors the User Service rules from the backlog: everyone is a requester and a courier
@@ -23,7 +25,8 @@ public class MockUserServiceRoleProvider implements RoleProvider {
     }
 
     @Override
-    public Set<Role> rolesFor(String uid, String email) {
+    public Set<Role> rolesFor(Jwt caller) {
+        String email = caller.getClaimAsString("email");
         Set<Role> roles = EnumSet.of(Role.REQUESTER, Role.COURIER);
         if (email != null && adminEmails.contains(email.strip().toLowerCase(Locale.ROOT))) {
             roles.add(Role.ADMIN);

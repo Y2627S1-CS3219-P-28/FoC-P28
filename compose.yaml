@@ -69,6 +69,13 @@ services:
     stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
     stop_grace_period: 30s # time to export data on shutdown
 
+  mongodb:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
   supplier-service:
     build: ./supplier-service
     ports:
@@ -103,51 +110,13 @@ services:
       start_period: 30s
       retries: 10
 
-  order-postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: order_service_dev
-      POSTGRES_USER: order_dev
-      POSTGRES_PASSWORD: local_dev_only
-    volumes:
-      - order-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U order_dev -d order_service_dev"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  order-service:
-    build:
-      context: ./order-service
-      dockerfile: Dockerfile.local
-    ports:
-      - "127.0.0.1:${ORDER_PORT:-8083}:8080"
-    environment:
-      PORT: "8080"
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      SPRING_PROFILES_ACTIVE: local
-      DB_URL: jdbc:postgresql://order-postgres:5432/order_service_dev
-      DB_USERNAME: order_dev
-      DB_PASSWORD: local_dev_only
-    depends_on:
-      order-postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
-      interval: 10s
-      timeout: 3s
-      start_period: 40s
-      retries: 12
-    stop_grace_period: 30s
-
   user-service:
     build: ./user-service
     ports:
       - "8081:8080"
     environment:
       <<: *backend-env
-      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s
@@ -170,4 +139,4 @@ services:
 
 volumes:
   firebase-data:
-  order-pgdata:
+  mongodb-data:
