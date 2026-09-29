@@ -171,3 +171,35 @@ for failures show credits unavailable
 - **Affected locations:** Frontend navigation configuration, application shell, Dashboard and new
   placeholder routes, the shared coming-soon component, and this usage log.
 - **Author verification:** I have reviewed the code generated and ensured that it complies with the plan I wanted 
+
+## 2026-09-29 — Order Service Cloud SQL and Cloud Run architecture approval
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Architecture research, design comparison, and infrastructure setup assistance.
+- **Exact prompt:**
+
+  > Setup for me, the cloud sql for order microservice.
+
+- **Key response:** Rehydrated the Order Service workflow and compared the unresolved PostgreSQL/
+  Firestore and Kubernetes/Cloud Run authorities, Cloud SQL connection options, billing impact,
+  and existing GCP scripts. The developer reviewed the trade-offs and selected PostgreSQL on one
+  Cloud SQL instance, Cloud Run, separate staging/production databases, public IP with the Cloud
+  SQL Java Connector, automated backups, point-in-time recovery, and deletion protection.
+- **Affected locations:** Order Service architecture/context records, ADR-008, CHANGE-015,
+  `infra/gcp/project.env`, `infra/gcp/bootstrap.sh`, `scripts/ci/check-infra.sh`, environment
+  configuration, and Order Service Cloud Run deployment configuration.
+- **Architecture options considered:** Firestore versus PostgreSQL/Cloud SQL; Kubernetes versus
+  Cloud Run; one shared instance versus separate instances; public connector versus private IP/VPC.
+- **Developer-selected architecture:** PostgreSQL on Cloud SQL and Cloud Run with one shared
+  instance and separate `order_staging`/`order_production` databases, using public IP plus the
+  Cloud SQL Java Connector.
+- **Reason for selection:** Aligns the Order Service relational design with the project’s current
+  Cloud Run deployment while reducing student-project operational and infrastructure cost.
+- **Approved by:** User, 2026-09-29.
+- **Tests run:** No application tests. Infrastructure script inspection and static verification
+  were performed; actual GCP provisioning remains pending an authorized authenticated session.
+- **Test results:** Application tests not applicable to this architecture/setup turn.
+- **Specification or API deviation:** User-approved Order Service deviation from the parent
+  Firestore default; sibling services were not changed.
+- **Related decision or change record:** `order-service/docs/decisions/ADR-008-order-service-cloud-sql-cloud-run.md`,
+  `order-service/changes/CHANGE-015-order-service-cloud-sql-cloud-run.md`.
