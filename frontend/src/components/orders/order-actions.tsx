@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
 import { useApi } from "@/hooks/use-api"
+import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { buildOrderActionPayload, type Order, type OrderMode } from "@/lib/orders"
 
 const ACTIONS = {
@@ -28,6 +29,7 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
         body: buildOrderActionPayload(user.uid, order.version),
       })
       onUpdated(updated)
+      if (path === "complete" || path === "cancel") invalidateCreditBalance()
       toast.success(success)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update this order.")

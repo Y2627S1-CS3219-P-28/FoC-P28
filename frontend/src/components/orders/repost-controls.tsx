@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApi } from "@/hooks/use-api"
+import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { isoToDateTimeLocal, type Order } from "@/lib/orders"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -39,6 +40,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         },
       })
       onUpdated(updated)
+      invalidateCreditBalance()
       toast.success("Order reposted")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not repost this order.")

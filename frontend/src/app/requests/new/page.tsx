@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useApi } from "@/hooks/use-api"
 import { ApiError } from "@/lib/api"
 import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
+import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { supplierOptionLabel, type Page, type Supplier } from "@/lib/suppliers"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -82,6 +83,7 @@ export default function NewRequestPage() {
     setBusy(true)
     try {
       await api<Order>("/api/orders", { method: "POST", body: buildCreateOrderPayload(form, user.uid) })
+      invalidateCreditBalance()
       toast.success("Order posted")
       router.push("/my-requests")
     } catch (error) {

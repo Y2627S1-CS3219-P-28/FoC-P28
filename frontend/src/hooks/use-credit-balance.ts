@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
+import { CREDIT_BALANCE_INVALIDATED_EVENT } from "@/lib/credit-balance-events"
 
 export type CreditBalance = {
   userId: string
@@ -83,6 +84,14 @@ export function useCreditBalance() {
     }
     window.addEventListener("focus", refreshOnFocus)
     return () => window.removeEventListener("focus", refreshOnFocus)
+  }, [refresh, user])
+
+  useEffect(() => {
+    if (!user) return
+
+    const refreshAfterMutation = () => void refresh()
+    window.addEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
+    return () => window.removeEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
   }, [refresh, user])
 
   const ownerId = user?.uid ?? null
