@@ -370,3 +370,12 @@ order creation does not invalidate the shared AppShell balance.
 This turn changed only the requested learning document and traceability
 records. No frontend fix was implemented yet. Use the HTTP-peer override and
 manual Refresh to verify the real reservation path.
+
+## Latest credit UI invalidation guidance — 2026-09-30
+
+CHANGE-040 documents that a broker is not needed to refresh the credit
+sidebar. HTTP Order creation already waits for synchronous Credit reservation;
+the stale value is a frontend cache snapshot. The approved implementation
+direction is a shared credit context or lightweight browser invalidation event
+that refetches `GET /api/credits/me` after successful credit-affecting
+mutations. No application code was changed in this advisory turn.

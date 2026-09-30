@@ -821,3 +821,14 @@ for failures show credits unavailable
 - **Peer boundary:** No peer-service source, API contract, schema, or application source was modified.
 - **Verification:** Static inspection of the Order adapter, Credit endpoint, frontend hook, and Compose configuration. No live browser or Docker state was claimed.
 - **Related change record:** `CHANGE-039-credit-ui-refresh-diagnosis.md`.
+
+## 2026-09-30 - Credit UI invalidation guidance
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Architecture guidance and beginner learning documentation.
+- **Decision guidance:** A durable broker is not required merely to refresh the browser credit summary. Order creation already waits for synchronous Credit reservation; the missing behavior is frontend cache invalidation.
+- **Key response:** Documented a shared credit context or lightweight browser-event pattern that refetches `GET /api/credits/me` after successful credit-affecting mutations, and explained why a broker/WebSocket/SSE/polling loop would add unnecessary complexity.
+- **Affected locations:** CHANGE-040, the Order active-work/change-log records, the requested learning file, and this usage log.
+- **Peer boundary:** No peer-service source, API contract, schema, infrastructure, or application source was modified.
+- **Verification:** Static reasoning from the synchronous Order/Credit call path and frontend `useCreditBalance` behavior; no runtime claim.
+- **Related change record:** `CHANGE-040-credit-ui-invalidation-learning.md`.
