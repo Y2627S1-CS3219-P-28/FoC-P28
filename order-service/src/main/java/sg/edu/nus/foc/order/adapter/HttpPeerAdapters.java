@@ -1,6 +1,7 @@
 package sg.edu.nus.foc.order.adapter;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +16,7 @@ import sg.edu.nus.foc.order.application.UserServicePort;
 @ConditionalOnProperty(name="order.peers.mode", havingValue="http")
 public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, CreditServicePort {
     private final RestClient user; private final RestClient supplier; private final RestClient credit;
+    @Autowired
     public HttpPeerAdapters(@Value("${order.peers.user-url}") String userUrl,
                             @Value("${order.peers.supplier-url}") String supplierUrl,
                             @Value("${order.peers.credit-url}") String creditUrl) {
