@@ -526,3 +526,18 @@ GitHub CI reached the Order Service tests after `mvnw` became executable, but
 configurations so the MVC slice can register the Springdoc resource. The
 pasted CI log is the verification evidence for the diagnosis; local Maven is
 unavailable, so CI must verify the fix.
+
+## Latest OpenAPI CI context completion — 2026-09-30
+
+The next GitHub run showed that Maven, Java compilation, and 42 other tests
+were healthy. The sole failure was `OpenApiDocumentationTest`: its MVC slice
+loaded UI-only `SwaggerConfig`, which required an absent
+`SwaggerUiConfigProperties` bean. CHANGE-049 now imports Springdoc's API
+property, core, and WebMVC configurations only; the unused Swagger UI test
+property was removed.
+
+Verification ran inside an Eclipse Temurin Java 21 Docker image. `mvn verify`
+passed with 43 tests, zero failures/errors/skips, a successful generated
+OpenAPI JSON request, and all JaCoCo coverage checks met. The test-only source
+fix is commit `5f9335f`. No runtime endpoint, API contract, frontend,
+peer-service source, database, or infrastructure configuration changed.

@@ -1067,3 +1067,28 @@ for failures show credits unavailable
 - **Author verification:** Results are recorded as unavailable rather than
   passed where the local runner could not execute the command. The developer
   must rerun the unavailable checks locally or in CI before pushing.
+
+## 2026-09-30 — OpenAPI Springdoc API-only test correction (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-30
+- **Mode:** CI failure diagnosis, implementation, and verification
+- **Prompt:**
+
+  > One last chance to solve this CI issue, maven side is still not working, please inspect the file and determine why and update
+
+- **Key response:** Inspected the supplied GitHub Maven output and determined
+  that Maven and compilation were working; the only error was the OpenAPI MVC
+  test importing UI-only `SwaggerConfig` without its UI properties bean.
+  Replaced that UI configuration with Springdoc's API properties
+  auto-configuration and retained only the core/WebMVC JSON API
+  configurations. Recorded the completed correction in `CHANGE-049`.
+- **Affected locations:**
+  `order-service/src/test/java/sg/edu/nus/foc/order/api/OpenApiDocumentationTest.java`,
+  `order-service/changes/CHANGE-049-openapi-springdoc-test-context.md`, the
+  Order Service change log/active-work record, and this usage log.
+- **Author verification:** The developer supplied the failing CI evidence.
+  The corrected test was verified with Java 21 in Docker: all 43 Maven tests
+  passed with zero failures/errors/skips and the JaCoCo coverage check passed.
+  No runtime API, peer-service source, frontend, persistence, or deployment
+  behavior was changed.

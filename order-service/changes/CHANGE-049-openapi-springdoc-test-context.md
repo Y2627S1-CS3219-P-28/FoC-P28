@@ -1,23 +1,30 @@
 # CHANGE-049 — Restore Springdoc route in OpenAPI test slice
 
 **Date:** 2026-09-30
-**Status:** Implemented; CI verification pending
+**Status:** Implemented; Java 21 Maven verification passed
 **Scope:** Order Service OpenAPI documentation test
 
 ## Finding
 
 After the Maven wrapper permission fix, CI reached the Order Service tests but
-`OpenApiDocumentationTest` failed because `GET /api/orders/v3/api-docs`
-returned 404. The MVC test slice imported the WebMVC and Swagger Springdoc
-configurations without importing the required core `SpringDocConfiguration`.
+`OpenApiDocumentationTest` first failed because `GET
+/api/orders/v3/api-docs` returned 404. Adding only the core
+`SpringDocConfiguration` exposed a second problem: the slice still imported
+UI-only `SwaggerConfig`, whose `swaggerWebMvcConfigurer` required a missing
+`SwaggerUiConfigProperties` bean.
 
 ## Implementation
 
-Added `org.springdoc.core.configuration.SpringDocConfiguration` to the
-test's Springdoc configuration imports. This supplies the core Springdoc bean
-that the WebMVC OpenAPI resource configuration requires, allowing the test to
-register the documentation endpoint before checking its paths, summaries, and
-2xx responses.
+Scoped the MVC test to the Springdoc API auto-configuration required to
+generate OpenAPI JSON:
+
+- `SpringDocConfigProperties`
+- `SpringDocConfiguration`
+- `SpringDocWebMvcConfiguration`
+
+Removed `SwaggerConfig` and the Swagger UI path property from this test. The
+runtime application still includes the Swagger UI starter and its configured
+documentation UI; the structural test only needs the JSON endpoint.
 
 ## Boundary
 
@@ -27,7 +34,16 @@ was modified.
 
 ## Verification
 
-The pasted GitHub log confirms the previous test reached the OpenAPI test and
-failed specifically with a 404 at line 73. `git diff --check` passes after the
-fix. Local Maven execution is unavailable, so GitHub CI must verify the
-updated test context.
+The supplied GitHub log confirmed Maven compilation and 42 other tests passed,
+with only the UI configuration bean preventing this test context from loading.
+The corrected source was then built and verified in an Eclipse Temurin Java 21
+Docker image:
+
+```text
+Tests run: 43, Failures: 0, Errors: 0, Skipped: 0
+All coverage checks have been met.
+BUILD SUCCESS
+```
+
+`OpenApiDocumentationTest` successfully requested the configured JSON route,
+and `git diff --check` passed. Source commit: `5f9335f`.

@@ -1,7 +1,7 @@
 # CHANGE-046 — Add Order Service OpenAPI documentation test
 
 **Date:** 2026-09-30
-**Status:** Implemented; Maven CI verification pending
+**Status:** Implemented; Java 21 Maven verification passed
 **Scope:** Order Service API test coverage
 
 ## Finding
@@ -35,10 +35,10 @@ configuration was changed.
 
 ## Verification
 
-The CI structural condition now finds `class OpenApiDocumentationTest` and
-`git diff --check` passes. The Maven wrapper and system Maven were unavailable
-in this execution environment, so the test itself must still be run by CI or
-locally with Java/Maven available.
+The CI structural condition finds `class OpenApiDocumentationTest`, and
+`git diff --check` passes. After the Springdoc test-slice corrections recorded
+in CHANGE-049, Java 21 `mvn verify` ran successfully in Docker with 43 tests,
+zero failures/errors/skips, and all JaCoCo coverage checks met.
 
 The test's security auto-configuration imports use the Spring Boot 4.1 package
 names, matching the project's Boot version. This correction is recorded in
