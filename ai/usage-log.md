@@ -399,3 +399,44 @@ for failures show credits unavailable
 - **Specification or API deviation:** None approved. The missing list query
   and backend role enforcement are unresolved.
 - **Related decision or change record:** `order-service/changes/CHANGE-018-local-compose-and-frontend-vertical-slice.md`.
+
+## 2026-09-30 - Temporary local MongoDB Compose verification
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Local infrastructure implementation and verification assistance.
+- **Exact prompt:**
+
+  > Do not need the Admin Service Dockerfile. Do not touch the peer User
+  > Service in Compose, but you may add temporary local MongoDB support so the
+  > approved Order Service/frontend stack can be tested.
+
+- **Key response:** Added a temporary `mongo:7` Compose dependency for User
+  Service without changing any file under `user-service/`. The User Service
+  defaults to the internal `user-mongodb:27017` URI, while the host mapping
+  defaults to `27018` after the existing `27017` port was found occupied.
+  Admin Service remains intentionally excluded from this local slice.
+- **Architecture options considered:** Require a peer-managed MongoDB URI;
+  expose the temporary container on the conflicting default port; or add an
+  isolated local MongoDB dependency with an overridable host port. The isolated
+  dependency was selected for local-only verification.
+- **Developer-selected architecture:** Temporary root-Compose MongoDB for
+  local development only; managed/staging User Service configuration remains
+  overridable and unchanged.
+- **Reason for selection:** It enables the approved frontend and gateway path
+  to run locally without modifying peer-owned source or forcing a production
+  database decision.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `compose.yaml`, local Order Service change records,
+  and this AI usage log. No sibling service directory was modified.
+- **Tests run:** `docker compose config --quiet`; targeted Compose startup for
+  MongoDB, User Service, and gateway; Compose service health inspection; User
+  Service readiness request.
+- **Test results:** Compose config passed. MongoDB, User Service, gateway,
+  frontend, Order, PostgreSQL, Credit, Supplier, and Firebase containers were
+  healthy/running. User Service readiness returned HTTP 200. The Admin Service
+  was intentionally not included.
+- **Specification or API deviation:** None. This is a local infrastructure
+  implementation detail; no production User Service configuration or contract
+  was changed.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-023-local-mongodb-compose-dependency.md`.
