@@ -357,3 +357,16 @@ package-private constructor used by adapter tests remains available.
 wrapper/JDK was unavailable, and Docker image verification was blocked by
 inaccessible local Buildx configuration. Rebuild the HTTP-peer profile locally
 before treating the smoke run as verified.
+
+## Latest credit UI refresh diagnosis — 2026-09-30
+
+CHANGE-039 records why a newly reserved credit may not appear immediately in
+the sidebar. In default mock mode, Order Service keeps reservation state in its
+in-memory `MockPeerAdapters`, while the frontend reads the separate Credit
+Service account. In HTTP mode, the real Credit account is updated, but
+`useCreditBalance` only refreshes on mount, browser focus, or manual Refresh;
+order creation does not invalidate the shared AppShell balance.
+
+This turn changed only the requested learning document and traceability
+records. No frontend fix was implemented yet. Use the HTTP-peer override and
+manual Refresh to verify the real reservation path.

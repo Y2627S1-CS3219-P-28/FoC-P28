@@ -810,3 +810,14 @@ for failures show credits unavailable
 - **Peer boundary:** No sibling service source, contract, database schema, or learning file was modified.
 - **Verification:** `git diff --check` passed. Maven and Docker verification were unavailable in this execution environment, so no runtime success was claimed.
 - **Related change record:** `CHANGE-038-http-peer-constructor-injection-fix.md`.
+
+## 2026-09-30 - Credit reservation UI refresh diagnosis
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Runtime-path diagnosis and beginner learning documentation.
+- **Finding:** Default Compose reservations are held in Order Service's in-memory mock adapter, while the sidebar reads the separate Credit Service account. In HTTP-peer mode the Credit account updates, but the frontend `useCreditBalance` hook has no post-order cache invalidation and refreshes only on mount, focus, or manual Refresh.
+- **Key response:** Documented the two Compose modes, the two independent read paths, the stale-client snapshot behavior, and the safe HTTP-peer test procedure in `order-service/learning/gcp-resource-setup-learning.md`.
+- **Affected locations:** CHANGE-039, the Order active-work/change-log records, the requested learning file, and this usage log.
+- **Peer boundary:** No peer-service source, API contract, schema, or application source was modified.
+- **Verification:** Static inspection of the Order adapter, Credit endpoint, frontend hook, and Compose configuration. No live browser or Docker state was claimed.
+- **Related change record:** `CHANGE-039-credit-ui-refresh-diagnosis.md`.
