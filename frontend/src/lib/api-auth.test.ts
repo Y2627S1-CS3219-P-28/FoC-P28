@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest"
+
 import { ApiError, requireBearerToken } from "@/lib/api"
 
 describe("requireBearerToken", () => {
