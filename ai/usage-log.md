@@ -964,3 +964,20 @@ for failures show credits unavailable
   source, peer service, or API contract was modified.
 - **Verification:** Re-inspected `gateway/Dockerfile`, nginx template/proxy,
   `gateway/deploy/env.yaml`, and Compose configuration. No live runtime claim.
+
+## 2026-09-30 - Order OpenAPI CI documentation-test fix
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** CI failure diagnosis and test implementation.
+- **Finding:** CI's structural check found the Order Service OpenAPI dependency
+  but no `OpenApiDocumentationTest` under `src/test`.
+- **Key response:** Added an MVC-slice OpenAPI test that generates
+  `target/openapi.json` and checks service path prefixes, operation summaries,
+  and 2xx responses without requiring PostgreSQL or peer containers.
+- **Affected locations:** The new Order Service test,
+  `CHANGE-046`, the change log, and active-work state.
+- **Peer boundary:** No endpoint behavior, API contract, gateway, peer-service
+  source, or deployment configuration was modified.
+- **Verification:** The structural class check and `git diff --check` passed.
+  Maven wrapper and system Maven were unavailable, so test execution remains
+  pending CI or local Java/Maven verification.

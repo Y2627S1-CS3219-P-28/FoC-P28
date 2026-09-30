@@ -470,3 +470,15 @@ the local `ORDER_SERVICE_URL`, the official nginx entrypoint uses `envsubst` to
 render `default.conf.template` at container startup, `set $upstream` selects
 the rendered destination, and `proxy_pass $upstream` performs the forwarding.
 Cloud Run injects the corresponding HTTPS URL through `gateway/deploy/env.yaml`.
+
+## OpenAPI CI structural fix — 2026-09-30
+
+CI reported that Order Service had no `OpenApiDocumentationTest`. Added the
+MVC-slice test under `order-service/src/test/java/sg/edu/nus/foc/order/api/`.
+It requests `/api/orders/v3/api-docs`, writes `target/openapi.json`, and checks
+path prefix, operation summaries, and 2xx responses while mocking application
+collaborators so PostgreSQL and peer containers are not required.
+
+The structural class check and `git diff --check` pass. The Maven wrapper and
+system Maven were unavailable in this environment, so Maven test execution is
+pending CI or a local Java/Maven setup.
