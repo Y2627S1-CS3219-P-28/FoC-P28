@@ -15,4 +15,7 @@ public class OrderQueryService {
     public OrderQueryService(OrderRepository orders) { this.orders=orders; }
     public Order get(String id) { return orders.findById(id).orElseThrow(() -> OrderProblem.notFound("Order not found.")); }
     public Page<Order> available(int page,int size) { return orders.findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(OrderStatus.OPEN, Instant.now(), PageRequest.of(Math.max(page,0), Math.min(Math.max(size,1),100))); }
+    public Page<Order> requestedBy(String requesterId, int page, int size) { return orders.findByRequesterIdOrderByCreatedAtDesc(requesterId, pageRequest(page, size)); }
+    public Page<Order> courierFor(String courierId, int page, int size) { return orders.findByCourierIdOrderByCreatedAtDesc(courierId, pageRequest(page, size)); }
+    private static PageRequest pageRequest(int page, int size) { return PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)); }
 }

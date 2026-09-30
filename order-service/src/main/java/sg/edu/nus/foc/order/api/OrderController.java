@@ -16,11 +16,18 @@ import sg.edu.nus.foc.order.domain.OrderStatus;
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
-    private final OrderCreationService creation; private final OrderAssignmentService assignment; private final OrderTransitionService transitions; private final OrderQueryService queries; private final OrderRepostService reposts; private final LifecycleProcessingService lifecycle; private final String lifecycleToken;
-    public OrderController(OrderCreationService c,OrderAssignmentService a,OrderTransitionService t,OrderQueryService q,OrderRepostService r,LifecycleProcessingService l,@Value("${order.lifecycle-token}") String lifecycleToken){creation=c;assignment=a;transitions=t;queries=q;reposts=r;lifecycle=l;this.lifecycleToken=lifecycleToken;}
+    private final OrderCreationService creation; private final OrderAssignmentService assignment; private final OrderTransitionService transitions; private final OrderQueryService queries; private final OrderRepostService reposts; private final LifecycleProcessingService lifecycle; private final UserServicePort users; private final String lifecycleToken;
+    public OrderController(OrderCreationService c,OrderAssignmentService a,OrderTransitionService t,OrderQueryService q,OrderRepostService r,LifecycleProcessingService l,UserServicePort u,@Value("${order.lifecycle-token}") String lifecycleToken){creation=c;assignment=a;transitions=t;queries=q;reposts=r;lifecycle=l;users=u;this.lifecycleToken=lifecycleToken;}
     @PostMapping public OrderDtos.View create(@Valid @RequestBody OrderDtos.Create r,@RequestHeader(value="Authorization",required=false) String auth){return OrderDtos.View.of(creation.create(r.commandId(),r.requesterId(),r.itemDescription(),r.pickupSupplierId(),r.deliverySupplierId(),r.offeredCredits(),r.deliveryTimeLimitMinutes(),r.expiresAt(),auth));}
     @GetMapping("/{id}") public OrderDtos.View get(@PathVariable String id){return OrderDtos.View.of(queries.get(id));}
     @GetMapping("/available") public Page<OrderDtos.View> available(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return queries.available(page,size).map(OrderDtos.View::of);}
+    @GetMapping("/mine") public Page<OrderDtos.View> mine(@RequestParam String mode,@RequestParam String userId,@RequestHeader(value="Authorization",required=false) String auth,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){
+        return switch (mode.toLowerCase()) {
+            case "requester" -> { users.verifyRequester(userId, auth); yield queries.requestedBy(userId, page, size).map(OrderDtos.View::of); }
+            case "courier" -> { users.verifyCourier(userId, auth); yield queries.courierFor(userId, page, size).map(OrderDtos.View::of); }
+            default -> throw new OrderProblem("VALIDATION_ERROR", "Mode must be requester or courier.");
+        };
+    }
     @PostMapping("/{id}/accept") public OrderDtos.View accept(@PathVariable String id,@Valid @RequestBody OrderDtos.Actor r,@RequestHeader(value="Authorization",required=false) String auth){return OrderDtos.View.of(assignment.accept(r.commandId(),id,r.actorId(),r.expectedVersion(),auth));}
     @PostMapping("/{id}/start") public OrderDtos.View start(@PathVariable String id,@Valid @RequestBody OrderDtos.Actor r,@RequestHeader(value="Authorization",required=false) String auth){return OrderDtos.View.of(transitions.start(r.commandId(),id,r.actorId(),r.expectedVersion(),auth));}
     @PostMapping("/{id}/pickup") public OrderDtos.View pickup(@PathVariable String id,@Valid @RequestBody OrderDtos.Actor r,@RequestHeader(value="Authorization",required=false) String auth){return OrderDtos.View.of(transitions.pickup(r.commandId(),id,r.actorId(),r.expectedVersion(),auth));}

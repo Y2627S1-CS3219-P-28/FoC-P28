@@ -17,6 +17,10 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     Page<Order> findByStatusOrderByCreatedAtAsc(OrderStatus status, Pageable pageable);
     Page<Order> findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(OrderStatus status, Instant now, Pageable pageable);
 
+    Page<Order> findByRequesterIdOrderByCreatedAtDesc(String requesterId, Pageable pageable);
+
+    Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
+
     List<Order> findByStatusAndExpiresAtLessThanEqual(OrderStatus status, Instant now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
