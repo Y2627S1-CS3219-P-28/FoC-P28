@@ -5,8 +5,8 @@
 The root Compose stack runs this service against the local `order-postgres`
 container. It does not connect to Cloud SQL. Flyway applies the versioned
 migrations from `src/main/resources/db/migration` when the container starts.
-The same stack starts the Firebase emulator and local MongoDB for the existing
-Firestore-backed and User Service containers.
+The same stack starts the existing Firebase emulator used by the Firestore-backed
+services. User Service keeps its existing MongoDB configuration untouched.
 
 From the repository root:
 
@@ -26,7 +26,7 @@ docker compose down
 ```
 
 Add `-v` only when you intentionally want to delete the local PostgreSQL and
-MongoDB and Firebase emulator volumes.
+Firebase emulator volumes.
 
 `admin-service/` is currently an empty placeholder with no runnable application
 or Dockerfile. It is therefore not included as a built service until its owner
