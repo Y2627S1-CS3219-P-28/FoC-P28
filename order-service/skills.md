@@ -1,0 +1,13 @@
+# Repository Skills
+
+## spec-driven-development
+
+Location: `.codex/skills/spec-driven-development/SKILL.md`
+
+Use this skill for every Order Service workflow, architecture, design, implementation, bug fix, behavior-affecting refactor, test, verification, resumption, sprint transition, specification review, advisory/status request, blocked or partial task, decision request, or completion turn. Invoke its context-loading section again on every relevant turn, even in the same conversation; repository state is authoritative. It reads `docs/architecture-review-playbook.md`, `docs/architecture-evolution.md`, `docs/database-migration-workflow.md`, `docs/completion-reporting.md`, `docs/peer-service-api-feedback.md`, `docs/frontend-integration-workflow.md`, `docs/frontend-ui-style-guide.md`, `docs/ai-usage-format.md`, and `docs/event-candidates.md` for detailed review templates, implementation-discovery classification and supersession, versioned local-database migration and peer-handoff rules, mandatory per-turn reporting with meaningful scenario-specific sections, foreign-API compatibility/blocked-resume tracking, shared Next.js/role-mode and visual-style rules, consistent AI disclosure, and stable proposal/decision IDs. It enforces local developer/branch/scope validation, source-drift checks, live shared-frontend inspection, actual peer-service implementation verification, five-result API classification, mismatch approval, shared dependency feedback, detailed architecture approval, architecture-evolution tracking, event-option comparison, shared-developer safety, responsive role/mode testing, per-developer resumable handoffs, Project D1 traceability, test-first development after approval, AI disclosure, the completion gate, change recording, and completion reporting.
+
+The official skill initializer also generated `.codex/skills/spec-driven-development/agents/openai.yaml` so the skill has discoverable UI metadata.
+
+## Codex configuration
+
+No repository `.codex/config.toml` was created. The workflow requires no repository-local Codex configuration, and no unverified configuration keys were invented. The repository-local skill and `AGENTS.md` provide the required behavior.
