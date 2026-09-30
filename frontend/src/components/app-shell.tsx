@@ -172,9 +172,11 @@ function SidebarPanel({
             <span className="flex items-center gap-2"><Repeat2Icon /> {mode === "requester" ? "Requester mode" : "Courier mode"}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>Current function</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setMode("requester")}>Requester</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setMode("courier")}>Courier</DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Current function</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setMode("requester")}>Requester</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMode("courier")}>Courier</DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
         <CreditSummary {...credit} />

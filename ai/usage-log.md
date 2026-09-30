@@ -571,3 +571,33 @@ for failures show credits unavailable
 - **Specification or API deviation:** None.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-027-order-card-supplier-display.md`.
+
+## 2026-09-30 - Requester/Courier mode-menu runtime fix
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Runtime-error diagnosis and frontend implementation assistance.
+- **Exact prompt:**
+
+  > When switching mode from requester to courier, the page shows “This page couldn't load” and
+  > the console reports Base UI error #31.
+
+- **Key response:** Rehydrated the Order Service frontend workflow, correlated the browser error
+  with the installed Base UI source, and confirmed that the mode menu's `DropdownMenuLabel` was
+  rendered without `DropdownMenuGroup` context. Wrapped the label and options in the required
+  group. No backend, peer-service, or contract code changed.
+- **Architecture options considered:** Replace the mode menu; remove its label; or preserve the
+  existing menu and supply the required Base UI group context. The last option was selected.
+- **Developer-selected architecture:** Keep the existing responsive Requester/Courier mode
+  switcher and correct its primitive composition with the smallest frontend-only change.
+- **Reason for selection:** It directly addresses the observed Base UI error without changing
+  approved mode behavior or service boundaries.
+- **Approved by:** Vincent's approved frontend scope and reported runtime defect, 2026-09-30.
+- **Affected locations:** `frontend/src/components/app-shell.tsx` and
+  `order-service/changes/CHANGE-028-mode-menu-group-context-fix.md`.
+- **Tests run:** Static Base UI source inspection and `git diff --check`; Node/npm-based frontend
+  tests and browser retest were unavailable in this session.
+- **Test results:** The source-level fix is applied; runtime completion is not claimed until the
+  frontend is rebuilt and the mode switch is retested.
+- **Specification or API deviation:** None.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-028-mode-menu-group-context-fix.md`.
