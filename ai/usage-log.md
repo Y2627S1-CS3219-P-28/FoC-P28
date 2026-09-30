@@ -203,3 +203,53 @@ for failures show credits unavailable
   Firestore default; sibling services were not changed.
 - **Related decision or change record:** `order-service/docs/decisions/ADR-008-order-service-cloud-sql-cloud-run.md`,
   `order-service/changes/CHANGE-015-order-service-cloud-sql-cloud-run.md`.
+
+## 2026-09-30 — Sprint 1 sequences 1-11 implementation
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Specification review, test-first implementation assistance, and verification assistance.
+- **Exact prompt:**
+
+  > Approve this detailed architecture for implementation of sequences 1–11 on the current branch
+
+- **Key response:** Implemented the approved branch-only Sprint 1 scope using one `Order` aggregate,
+  Flyway PostgreSQL persistence, synchronous credit reservation, User/Supplier/Credit outbound
+  ports and adapters with bearer-token forwarding, lifecycle expiry/reposting services, REST
+  commands/queries, local and production security profiles, and domain tests. Repost event
+  publication remains deferred as approved.
+- **Architecture options considered:** Separate sequence ownership versus combined branch-only
+  implementation; a split errand/order model versus one Order aggregate; schema generation versus
+  Flyway; direct peer calls versus ports/adapters; repost event versus no event in Sprint 1.
+- **Developer-selected architecture:** One Order aggregate, Flyway migrations, adapter-based
+  synchronous peer calls, forwarded Firebase bearer token, and deferred repost events.
+- **Reason for selection:** Matches the approved Sprint 1 diagrams, preserves service ownership,
+  supports independent local databases through a shared migration, and keeps credit reservation
+  authoritative before an order or repost becomes `OPEN`.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `order-service/src/main/java/`, `order-service/src/main/resources/`,
+  `order-service/src/test/java/`, `order-service/pom.xml`, and Order Service traceability/active
+  work records.
+- **Tests run:** `git diff --check` passed. Maven compilation succeeded. `mvn test` passed using
+  IntelliJ's Maven executable with a temporary local repository after the Windows Maven wrapper
+  failed before startup (`Cannot index into a null array`).
+- **Test results:** 5 tests run, 0 failures, 0 errors, 0 skipped. PostgreSQL-backed, peer-contract,
+  acceptance, and Cloud Run integration checks remain pending.
+- **Specification or API deviation:** No approved architecture deviation. Repost event publication
+  is intentionally deferred for Sprint 1. Concrete Order Service endpoint shapes remain implementation
+  details under the approved `/api/orders` resource.
+- **Related decision or change record:** `order-service/changes/CHANGE-017-sprint-1-sequences-1-11-implementation.md`.
+
+## 2026-09-30 — Local Order Service containers and frontend vertical-slice workflow
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow refinement, containerization assistance, and local orchestration assistance.
+- **Exact prompt:**
+
+  > Continue from the remaining issue, setup the associated frontend readable from mobile web client and web client as well related to the backend code generated so far, setup Dockerfile for Order Service with local PostgreSQL, and provide a command to run the whole project in Docker.
+
+- **Key response:** Added a multi-stage Order Service Dockerfile, local PostgreSQL 15 and MongoDB Compose services with Flyway-backed startup configuration, Compose wiring and local environment placeholders, and strengthened the workflow so user-visible backend capabilities require a companion shared Next.js vertical slice or an explicitly recorded backend-only decision.
+- **Affected locations:** `order-service/Dockerfile`, `compose.yaml`, `.env.example`, `order-service/README.md`, Order Service frontend workflow and agent instructions, and CHANGE-018.
+- **Tests run:** Static configuration inspection completed. Docker Compose syntax/build/health verification remains pending.
+- **Test results:** No Docker command was claimed as passed in this turn. Frontend source was not modified because the required application role/mode and detailed UI behavior remain unresolved.
+- **Specification or API deviation:** No approved architecture deviation. Local PostgreSQL is development-only; Cloud SQL remains the approved deployment target. No frontend behavior was invented.
+- **Related decision or change record:** `order-service/changes/CHANGE-018-local-compose-and-frontend-vertical-slice.md`.
