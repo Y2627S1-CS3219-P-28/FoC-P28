@@ -863,12 +863,15 @@ for failures show credits unavailable
   bearer token before reaching the gateway.
 - **Key response:** Added a centralized `useApi()` authentication gate,
   auth-settled guards for Order and Supplier data-loading effects, and a unit
-  test for rejecting absent bearer tokens before `fetch()`.
+  test for rejecting absent bearer tokens before `fetch()`. The Profile page
+  was also routed through `useApi()` so protected browser calls share the same
+  fail-closed token gate.
 - **Affected locations:** `frontend/src/hooks/use-api.ts`,
   `frontend/src/hooks/use-supplier-names.ts`,
   `frontend/src/hooks/use-supplier-permissions.ts`, the Errands and request
-  pages, Supplier browser/detail/editor components, `frontend/src/lib/api.ts`,
-  the focused test, CHANGE-043, active work, and the change log.
+  pages, Profile, Supplier browser/detail/editor components,
+  `frontend/src/lib/api.ts`, the focused test, CHANGE-043, active work, and the
+  change log.
 - **Peer boundary:** No sibling service source, API contract, database,
   gateway, or infrastructure file was changed. Learning files remain
   untracked by project convention.

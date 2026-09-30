@@ -411,6 +411,9 @@ permissions, catalogue, detail, and editor effects also wait for settled
 authentication, preventing hard-refresh requests from reaching the gateway
 without `Authorization: Bearer ...`.
 
+The Profile page also uses `useApi()` instead of constructing a bearer header
+directly, so protected browser calls share the same fail-closed token gate.
+
 A focused bearer-token unit test was added. `git diff --check` passed;
 frontend Vitest/typecheck/lint, Docker rebuild, and authenticated hard-refresh
 browser verification remain pending because this environment cannot run the

@@ -18,6 +18,8 @@ header to reach the gateway and return `401 UNAUTHENTICATED`.
 - Supplier lookup and permission effects wait for settled authentication.
 - The Errands Order fetch and Supplier catalogue/detail/editor effects wait for
   settled authentication.
+- The Profile page now uses the same authenticated `useApi()` path rather than
+  constructing a bearer header directly.
 - A focused unit test verifies that an absent bearer token is rejected before
   a network request can be made.
 
