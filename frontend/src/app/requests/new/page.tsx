@@ -7,7 +7,6 @@ import { toast } from "sonner"
 
 import { RequireAuth } from "@/components/require-auth"
 import { useAuth } from "@/components/providers/auth-provider"
-import { useOrderMode } from "@/components/providers/order-mode-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -42,7 +41,6 @@ export default function NewRequestPage() {
   const api = useApi()
   const router = useRouter()
   const { user } = useAuth()
-  const { mode } = useOrderMode()
   const [form, setForm] = useState(initialForm)
   const [busy, setBusy] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -50,7 +48,7 @@ export default function NewRequestPage() {
   const [suppliersError, setSuppliersError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user || mode !== "requester") {
+    if (!user) {
       setSuppliersLoading(false)
       return
     }
@@ -68,7 +66,7 @@ export default function NewRequestPage() {
       })
       .finally(() => setSuppliersLoading(false))
     return () => controller.abort()
-  }, [api, mode, user])
+  }, [api, user])
 
   function update<K extends keyof CreateOrderForm>(key: K, value: CreateOrderForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -98,8 +96,7 @@ export default function NewRequestPage() {
   return (
     <RequireAuth>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-        <div><p className="text-sm text-muted-foreground">Requester mode</p><h1 className="text-2xl font-semibold tracking-tight">Post a campus request</h1><p className="mt-1 text-muted-foreground">Describe the errand and reserve credits before it becomes available.</p></div>
-        {mode !== "requester" && <Card className="border-dashed"><CardContent className="p-4 text-sm text-muted-foreground">Switch to Requester mode from the sidebar to post a request.</CardContent></Card>}
+        <div><p className="text-sm text-muted-foreground">Request service</p><h1 className="text-2xl font-semibold tracking-tight">Post a campus request</h1><p className="mt-1 text-muted-foreground">Describe the errand and reserve credits before it becomes available.</p></div>
         <form onSubmit={(event) => void submit(event)} className="space-y-6" aria-label="Post request form">
           <Card><CardHeader><CardTitle>Request details</CardTitle><CardDescription>Select suppliers from the active Supplier Service catalogue.</CardDescription></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="item-description">What do you need?</Label><Input id="item-description" required maxLength={100} className={inputClass} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} placeholder="Pick up a parcel from the campus store" /></label>
@@ -118,7 +115,7 @@ export default function NewRequestPage() {
               <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" type="number" min="15" className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} /></label>
             </div>
           </CardContent></Card>
-          <Button type="submit" disabled={busy || mode !== "requester" || suppliersLoading || suppliers.length === 0 || !form.pickupSupplierId || !form.deliverySupplierId}>{busy ? "Posting…" : "Post request"}</Button>
+          <Button type="submit" disabled={busy || suppliersLoading || suppliers.length === 0 || !form.pickupSupplierId || !form.deliverySupplierId}>{busy ? "Posting…" : "Post request"}</Button>
         </form>
       </div>
     </RequireAuth>

@@ -8,8 +8,8 @@ import type { Order } from "@/lib/orders"
 import { formatOrderStatus } from "@/lib/orders"
 
 export function OrderCard({ order, supplierNames = {}, actions, footer }: { order: Order; supplierNames?: Record<string, string>; actions?: React.ReactNode; footer?: React.ReactNode }) {
-  const pickupSupplier = supplierNames[order.pickupSupplierId] ?? order.pickupSupplierId
-  const deliverySupplier = supplierNames[order.deliverySupplierId] ?? order.deliverySupplierId
+  const pickupSupplier = supplierNames[order.pickupSupplierId] ?? "Location unavailable"
+  const deliverySupplier = supplierNames[order.deliverySupplierId] ?? "Location unavailable"
 
   return (
     <Card className="rounded-xl">

@@ -43,5 +43,9 @@ export function useSupplierNames(ids: string[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, requestKey])
 
-  return { names, loading, error }
+  // A card must not render opaque supplier IDs while this lookup is in flight.
+  // The page uses this value to keep the first render stable and human-readable.
+  const ready = uniqueIds.length === 0 || uniqueIds.every((id) => Object.hasOwn(names, id)) || Boolean(error && !loading)
+
+  return { names, loading, ready, error }
 }

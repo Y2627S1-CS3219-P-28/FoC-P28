@@ -37,4 +37,11 @@ describe("OrderCard", () => {
     expect(screen.queryByText("order-1")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept errand" })).toBeInTheDocument()
   })
+
+  it("never exposes opaque supplier IDs while a location is unavailable", () => {
+    render(<OrderCard order={order} />)
+
+    expect(screen.getByText(/Location unavailable.*Location unavailable/)).toBeInTheDocument()
+    expect(screen.queryByText(/store-a|hall-b/)).not.toBeInTheDocument()
+  })
 })
