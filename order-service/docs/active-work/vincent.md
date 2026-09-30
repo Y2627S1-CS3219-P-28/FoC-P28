@@ -21,7 +21,7 @@
 
 ## Current task
 
-Continue CHANGE-017 with CHANGE-018 local container packaging and shared-frontend vertical-slice coordination. CHANGE-019 governs shared-file boundaries and peer-preserving restoration; CHANGE-020 now governs small atomic Git changes and staged verification.
+Continue the approved combined Sprint 1 Sequences 1-11 implementation with CHANGE-032's temporary Credit outcome exception. CHANGE-018 covers local container packaging and shared-frontend vertical-slice coordination; CHANGE-019 governs shared-file boundaries and peer-preserving restoration; CHANGE-020 governs small atomic Git changes and staged verification.
 
 The prior setup-only gate is superseded for this branch by the user's explicit
 approval on 2026-09-30. CHANGE-017 authorizes the combined sequences 1-11
