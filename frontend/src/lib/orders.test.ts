@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest"
+
+import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm } from "@/lib/orders"
+
+describe("Order Service frontend contract helpers", () => {
+  it("builds a requester create payload with an automatic repost plan", () => {
+    const form: CreateOrderForm = {
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 12,
+      deliveryTimeLimitMinutes: 30,
+      expiresAt: "2026-10-01T10:00:00.000Z",
+      automaticRepost: true,
+      repostDueAt: "2026-10-01T11:00:00.000Z",
+      repostCreditAmount: 14,
+      repostDeliveryDurationMinutes: 35,
+    }
+
+    expect(buildCreateOrderPayload(form, "uid-1")).toEqual({
+      commandId: expect.any(String),
+      requesterId: "uid-1",
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 12,
+      deliveryTimeLimitMinutes: 30,
+      expiresAt: "2026-10-01T10:00:00.000Z",
+    })
+  })
+
+  it("creates an authenticated mine query for each approved mode", () => {
+    expect(orderMinePath("requester", "uid-1")).toBe("/api/orders/mine?mode=requester&userId=uid-1&size=20")
+    expect(orderMinePath("courier", "uid-2", 1)).toBe("/api/orders/mine?mode=courier&userId=uid-2&page=1&size=20")
+  })
+
+  it("uses the current order version and Firebase UID for actions", () => {
+    expect(buildOrderActionPayload("uid-2", 4)).toEqual({
+      commandId: expect.any(String),
+      actorId: "uid-2",
+      expectedVersion: 4,
+    })
+  })
+})
