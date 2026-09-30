@@ -253,3 +253,18 @@ for failures show credits unavailable
 - **Test results:** No Docker command was claimed as passed in this turn. Frontend source was not modified because the required application role/mode and detailed UI behavior remain unresolved.
 - **Specification or API deviation:** No approved architecture deviation. Local PostgreSQL is development-only; Cloud SQL remains the approved deployment target. No frontend behavior was invented.
 - **Related decision or change record:** `order-service/changes/CHANGE-018-local-compose-and-frontend-vertical-slice.md`.
+
+## 2026-09-30 — Shared-file boundary and peer-preserving restoration
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow refinement, shared-file conflict review, and restoration assistance.
+- **Exact prompt:**
+
+  > Do not modify files outside Order Service. In shared files, add only Order Service code; preserve peer code and comment out incompatible peer configuration rather than removing it. Restore the last shared-file changes accordingly.
+
+- **Key response:** Added a persistent sibling-read-only/shared-file boundary, restored the peer-owned User Service MongoDB Compose configuration, removed the non-Order local MongoDB additions, and retained only the Order Service PostgreSQL/Docker additions.
+- **Affected locations:** `compose.yaml`, `.env.example`, `order-service/README.md`, Order Service workflow records, and CHANGE-019. No sibling microservice folder was modified.
+- **Tests run:** `docker compose config --quiet` passed after restoration; `git diff --check` passed.
+- **Test results:** Docker image/container verification remains unavailable because Docker Desktop's Linux engine is not running.
+- **Specification or API deviation:** No deviation. Shared-file changes are limited to Order Service additions; peer-owned configuration was restored unchanged.
+- **Related decision or change record:** `order-service/changes/CHANGE-019-shared-file-boundary.md`.
