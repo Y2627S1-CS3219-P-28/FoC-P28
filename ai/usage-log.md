@@ -981,3 +981,6 @@ for failures show credits unavailable
 - **Verification:** The structural class check and `git diff --check` passed.
   Maven wrapper and system Maven were unavailable, so test execution remains
   pending CI or local Java/Maven verification.
+- **Follow-up correction:** Updated the OpenAPI test's excluded security
+  auto-configuration imports to the Spring Boot 4.1 package names used by this
+  service (`4a40c5b`).

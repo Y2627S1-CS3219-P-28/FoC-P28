@@ -482,3 +482,7 @@ collaborators so PostgreSQL and peer containers are not required.
 The structural class check and `git diff --check` pass. The Maven wrapper and
 system Maven were unavailable in this environment, so Maven test execution is
 pending CI or a local Java/Maven setup.
+
+The OpenAPI test was corrected to use the Spring Boot 4.1 security
+auto-configuration package names; commit `4a40c5b` records that test-only
+compatibility correction.

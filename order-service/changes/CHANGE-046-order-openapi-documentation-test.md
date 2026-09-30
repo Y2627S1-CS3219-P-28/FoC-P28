@@ -39,3 +39,7 @@ The CI structural condition now finds `class OpenApiDocumentationTest` and
 `git diff --check` passes. The Maven wrapper and system Maven were unavailable
 in this execution environment, so the test itself must still be run by CI or
 locally with Java/Maven available.
+
+The test's security auto-configuration imports use the Spring Boot 4.1 package
+names, matching the project's Boot version. This correction is recorded in
+commit `4a40c5b`.
