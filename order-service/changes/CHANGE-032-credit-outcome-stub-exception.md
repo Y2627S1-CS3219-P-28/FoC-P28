@@ -9,9 +9,9 @@
 
 Credit settlement and release remain Credit Service-owned and synchronous at
 the Order boundary. Because the provider endpoints are not yet implemented,
-Order Service may use a validating no-op `CreditServicePort` mock for local
-Sequence 1–11 verification. The mock does not transfer balances and must not be
-treated as a production integration.
+Order Service may use a deterministic in-memory `CreditServicePort` mock for
+local Sequence 1–11 verification. The mock models balances and reservations
+for test behavior only and must not be treated as a production integration.
 
 ## Proposed provider contract
 
@@ -32,8 +32,9 @@ responses. `CANCELLED` and `EXPIRED` are valid release outcomes.
 ## Implementation
 
 - `CreditServicePort` now exposes `settle` and `release`.
-- `MockPeerAdapters` validates the command and returns success without changing
-  external state.
+- `MockPeerAdapters` models a 50-credit account, reservation balances,
+  settlement transfer, cancellation/expiry release, and command-id idempotency.
+- The model is Order-local only; it does not write the Credit Service ledger.
 - `HttpPeerAdapters` forwards the proposed request shapes and bearer token.
 - Completion, cancellation, expiry, and automatic repost paths call the port
   before committing their Order-side result.

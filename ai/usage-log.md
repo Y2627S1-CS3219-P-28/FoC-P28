@@ -58,6 +58,34 @@ i need one collection to store each user's balances - including total balance, r
   deployment configuration; `README.md`; `compose.yaml`; `infra/gcp/bootstrap.sh`; and this log.
 - **Author verification:** The author selected the statement that the work was reviewed and tested.
 
+## 2026-09-30 — Verification and temporary Credit outcome model
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Test-specification implementation and verification assistance.
+- **Order Service feature:** Sprint 1 Sequences 7–11 local Credit outcome
+  behavior and cross-service verification.
+- **Developer decision:** Vincent's previously approved temporary Credit
+  exception remains in force. Real settlement/release APIs remain Credit
+  Service-owned and pending; the local mock is permitted only for deterministic
+  Order Service testing.
+- **Key response:** Replaced the validation-only local mock with an in-memory
+  50-credit account/reservation model covering reservation, settlement
+  transfer, cancellation/expiry release, insufficient balance, and command-ID
+  idempotency. Fixed two shared-frontend React effect lint errors without
+  changing peer-service source.
+- **Verification:** Order Java 21/Maven tests passed 12/12; frontend Vitest/RTL
+  passed 11/11, typecheck passed, and ESLint passed with 12 warnings and no
+  errors; Credit pure tests passed 15/15; User Service tests passed 2/2; the
+  Order Docker image rebuilt successfully.
+- **Peer-test limitation:** Credit's full suite (26 tests, 11 errors) and
+  Supplier's suite (92 tests, 21 errors) could not start their
+  Firestore/Testcontainers integration paths because the isolated runner had
+  no Docker socket. This is reported as unavailable verification, not as a
+  peer implementation defect. No peer source or learning file was modified.
+- **Author verification:** Vincent remains responsible for running the
+  Docker-backed peer integration and authenticated browser gates and for
+  replacing the mock after the Credit owner verifies FEEDBACK-001.
+
 ## FR-based commit organization
 
 - **Tool:** OpenAI Codex (GPT-5)

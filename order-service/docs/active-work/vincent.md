@@ -268,3 +268,35 @@ Docker compilation exposed one stale call to the pre-refinement repository
 method in automatic repost processing. CHANGE-033 aligned it with the explicit
 `courierId IS NULL` query. `docker compose build order-service` now passes;
 full stack startup and authenticated browser verification remain pending.
+
+## Latest verification and local Credit model — 2026-09-30
+
+CHANGE-034 replaces the validation-only local Credit mock with a deterministic
+in-memory model for the approved temporary exception. It tracks 50-credit
+accounts, reservations, settlement transfer, cancellation/expiry release,
+insufficient-balance rejection, and command-id idempotency. The model is not a
+production Credit implementation and does not write the peer ledger.
+
+Verification completed:
+
+- Order Service Java 21/Maven tests: 12 passed.
+- Frontend Vitest/RTL: 11 passed; typecheck passed; ESLint passed with 12
+  warnings and no errors.
+- Credit Service pure tests: 15 passed.
+- User Service tests: 2 passed.
+- Order Service Docker image rebuild: passed.
+
+Peer integration limits:
+
+- Credit full suite: 26 tests, 11 errors from Firestore/Testcontainers because
+  the isolated test runner had no Docker socket; pure tests passed.
+- Supplier suite: 92 tests, 21 errors from the same Testcontainers limitation;
+  one seed-file test also lacked its repository-relative CSV fixture.
+- No peer source was changed. The blocked integration runs are not treated as
+  verified peer contracts. Vincent will run the Docker-backed integration and
+  authenticated browser checks locally.
+
+JaCoCo is the Java code-coverage tool configured by peer Maven builds. It
+measures executed lines/branches/methods; it does not prove business
+correctness. Order Service has no JaCoCo plugin in its current `pom.xml`, so
+an Order coverage gate remains outstanding.

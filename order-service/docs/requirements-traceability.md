@@ -47,6 +47,10 @@ claimed from static builds or unit tests.
 - Completion, cancellation, expiry, and automatic repost now call a synchronous `CreditServicePort`
   outcome boundary. The local mock is an explicitly approved Sprint 1 exception; the real Credit
   settlement/release provider contract remains open under FEEDBACK-001, so Sequences 7-9 stay `[~]`.
+- The local mock now models 50-credit accounts, reservation balances, settlement transfer to the
+  courier, release on cancellation/expiry, insufficient-balance rejection, and command-id
+  idempotency. These effects are deterministic test behavior only; Credit Service remains the
+  production owner of balances and ledger state.
 - Lifecycle expiry explicitly selects only `OPEN` orders whose `courierId` is `NULL`, preventing an
   already-accepted order from being expired by the background trigger.
 - Collection responses use the shared `items/page/size/totalItems/totalPages` shape and errors use
