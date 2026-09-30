@@ -54,7 +54,9 @@ services:
       - "${FRONTEND_PORT:-3000}:8080"
     environment:
       FOC_ENVIRONMENT: local
-      FOC_API_BASE_URL: ""
+      # The browser reaches the frontend on :3000, while APIs are exposed by
+      # the host gateway on :8080. Keep this explicit for direct frontend use.
+      FOC_API_BASE_URL: http://localhost:8080
       FOC_FIREBASE_PROJECT_ID: demo-foc
       FOC_FIREBASE_API_KEY: demo-api-key
       # Reached by the browser, so this is the host-mapped port.
