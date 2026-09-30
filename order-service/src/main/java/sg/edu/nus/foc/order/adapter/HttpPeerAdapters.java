@@ -36,6 +36,8 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     }
     public void validatePair(String pickup,String delivery,String auth){supplier.post().uri("/api/suppliers/validate").header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Pair(pickup,delivery)).retrieve().toBodilessEntity();}
     public void reserve(String orderId,String requester,long amount,String auth){credit.put().uri("/api/credits/orders/{id}/reservation",orderId).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Reservation(requester,amount)).retrieve().toBodilessEntity();}
+    public void settle(String commandId,String orderId,String requesterId,String courierId,long amount,long expectedOrderVersion,String auth){credit.post().uri("/api/credits/orders/{id}/settlement",orderId).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Settlement(commandId,requesterId,courierId,amount,expectedOrderVersion)).retrieve().toBodilessEntity();}
+    public void release(String commandId,String orderId,String requesterId,long amount,String outcome,long expectedOrderVersion,String auth){credit.post().uri("/api/credits/orders/{id}/release",orderId).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Release(commandId,requesterId,amount,outcome,expectedOrderVersion)).retrieve().toBodilessEntity();}
     private static <T> T call(RestClient client,String path,String auth,Class<T> responseType){
         return client.get().uri(path).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).retrieve().body(responseType);
     }
@@ -49,6 +51,8 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     }
     private record Pair(String pickupSupplierId,String deliverySupplierId) {}
     private record Reservation(String requesterId,long amount) {}
+    private record Settlement(String commandId,String requesterId,String courierId,long amount,long expectedOrderVersion) {}
+    private record Release(String commandId,String requesterId,long amount,String outcome,long expectedOrderVersion) {}
     private record UserRoleContext(String userId, List<String> roles) {}
     private record CourierEligibility(boolean isCourierEligible) {}
 }

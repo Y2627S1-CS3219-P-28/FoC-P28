@@ -17,11 +17,13 @@ public class OrderCreationService {
     private final UserServicePort users;
     private final SupplierServicePort suppliers;
     private final CreditServicePort credits;
+    private final OrderAuditLogger audit;
 
     public OrderCreationService(OrderRepository orders, CommandReceiptRepository receipts, CheckpointRepository checkpoints,
-                                 UserServicePort users, SupplierServicePort suppliers, CreditServicePort credits) {
+                                 UserServicePort users, SupplierServicePort suppliers, CreditServicePort credits,
+                                 OrderAuditLogger audit) {
         this.orders = orders; this.receipts=receipts; this.checkpoints = checkpoints; this.users = users;
-        this.suppliers = suppliers; this.credits = credits;
+        this.suppliers = suppliers; this.credits = credits; this.audit = audit;
     }
 
     @Transactional
@@ -33,9 +35,11 @@ public class OrderCreationService {
         suppliers.validatePair(pickup, delivery, authorization);
         Order order = Order.open(authenticatedRequester, description, pickup, delivery, amount, duration, Instant.now(), expiresAt, repostPlan);
         credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
+        audit.dependency("credit-service", "reserve", order.getId(), "accepted");
         Order saved = orders.save(order);
         checkpoints.save(new sg.edu.nus.foc.order.domain.OrderCheckpoint(saved.getId(), saved.getStatus(), saved.getCreatedAt(), authenticatedRequester, null));
         receipts.save(new CommandReceipt("CREATE",commandId,saved.getId(),Instant.now()));
+        audit.action("CREATE", saved.getId(), authenticatedRequester, commandId, "accepted");
         return saved;
     }
 }

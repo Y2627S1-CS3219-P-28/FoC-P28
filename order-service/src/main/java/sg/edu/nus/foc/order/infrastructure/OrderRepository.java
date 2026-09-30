@@ -21,7 +21,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
-    List<Order> findByStatusAndExpiresAtLessThanEqual(OrderStatus status, Instant now);
+    List<Order> findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(OrderStatus status, Instant now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")

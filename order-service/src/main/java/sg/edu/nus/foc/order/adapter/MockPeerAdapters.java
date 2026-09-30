@@ -20,5 +20,11 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     public void reserve(String orderId, String requesterId, long amount, String authorization) {
         require(orderId, "order"); require(requesterId, "requester"); if (amount <= 0) throw new IllegalArgumentException("Credit amount must be positive.");
     }
+    public void settle(String commandId, String orderId, String requesterId, String courierId, long amount, long expectedOrderVersion, String authorization) {
+        require(commandId, "credit command"); require(orderId, "order"); require(requesterId, "requester"); require(courierId, "courier"); if (amount <= 0) throw new IllegalArgumentException("Credit amount must be positive.");
+    }
+    public void release(String commandId, String orderId, String requesterId, long amount, String outcome, long expectedOrderVersion, String authorization) {
+        require(commandId, "credit command"); require(orderId, "order"); require(requesterId, "requester"); require(outcome, "credit outcome"); if (amount <= 0) throw new IllegalArgumentException("Credit amount must be positive.");
+    }
     private static void require(String value, String name) { if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required."); }
 }

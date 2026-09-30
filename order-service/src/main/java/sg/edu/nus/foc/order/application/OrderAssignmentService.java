@@ -12,9 +12,9 @@ import sg.edu.nus.foc.order.domain.CommandReceipt;
 
 @Service
 public class OrderAssignmentService {
-    private final OrderRepository orders; private final CheckpointRepository checkpoints; private final CommandReceiptRepository receipts; private final UserServicePort users;
-    public OrderAssignmentService(OrderRepository orders, CheckpointRepository checkpoints, CommandReceiptRepository receipts, UserServicePort users) {
-        this.orders = orders; this.checkpoints = checkpoints; this.receipts=receipts; this.users = users;
+    private final OrderRepository orders; private final CheckpointRepository checkpoints; private final CommandReceiptRepository receipts; private final UserServicePort users; private final OrderAuditLogger audit;
+    public OrderAssignmentService(OrderRepository orders, CheckpointRepository checkpoints, CommandReceiptRepository receipts, UserServicePort users, OrderAuditLogger audit) {
+        this.orders = orders; this.checkpoints = checkpoints; this.receipts=receipts; this.users = users; this.audit = audit;
     }
     @Transactional
     public Order accept(String commandId,String id, String courier, long version, String authorization) {
@@ -22,7 +22,7 @@ public class OrderAssignmentService {
         String authenticatedCourier = users.verifyCourier(courier, authorization);
         Order order = lock(id);
         order.accept(authenticatedCourier, version, Instant.now());
-        checkpoints.save(new OrderCheckpoint(id, order.getStatus(), Instant.now(), authenticatedCourier, null)); Order saved=orders.save(order); receipts.save(new CommandReceipt("ACCEPT",commandId,saved.getId(),Instant.now())); return saved;
+        checkpoints.save(new OrderCheckpoint(id, order.getStatus(), Instant.now(), authenticatedCourier, null)); Order saved=orders.save(order); receipts.save(new CommandReceipt("ACCEPT",commandId,saved.getId(),Instant.now())); audit.action("ACCEPT", saved.getId(), authenticatedCourier, commandId, "accepted"); return saved;
     }
     private Order lock(String id) { return orders.lockById(id).orElseThrow(() -> sg.edu.nus.foc.order.domain.OrderProblem.notFound("Order not found.")); }
 }

@@ -20,8 +20,9 @@ class OrderRepostServiceTest {
         SupplierServicePort suppliers = mock(SupplierServicePort.class);
         CreditServicePort credits = mock(CreditServicePort.class);
         UserServicePort users = mock(UserServicePort.class);
+        OrderAuditLogger audit = mock(OrderAuditLogger.class);
         Instant now = Instant.parse("2026-10-01T00:00:00Z");
-        assertThrows(OrderProblem.class, () -> new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users)
+        assertThrows(OrderProblem.class, () -> new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users, audit)
             .configure("cmd", "order-id", "requester", 0,
                 new RepostPlan(true, now.plusSeconds(7200), 6, 30), "Bearer token"));
     }
