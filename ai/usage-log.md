@@ -326,3 +326,36 @@ for failures show credits unavailable
 - **Specification or API deviation:** None. Full peer-contract, acceptance,
   frontend, and Cloud Run verification remains pending.
 - **Related decision or change record:** `order-service/changes/CHANGE-021-spring-boot-flyway-runtime-fix.md`.
+
+## 2026-09-30 - Frontend sequences 1-11 approval and API-surface review
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Architecture clarification and integration analysis.
+- **Exact prompt:**
+
+  > Implement the Order Service frontend from sequence 1 to sequence 11 and use Vitest and React Testing Library.
+
+- **Key response:** Recorded approval for the shared responsive Next.js
+  frontend scope covering sequences 1-11, Requester/Courier mode switching,
+  Firebase UID identity values, and Vitest plus React Testing Library. Re-read
+  the existing frontend and Order API before implementation and identified an
+  unresolved API-surface gap: the Order Service has no verified requester or
+  courier "my orders" list query required by the approved pages.
+- **Architecture options considered:** Use only existing `/available` and
+  `/{id}` queries; add authenticated requester/courier list queries; or defer
+  the My Requests/My Errands pages. No option was silently selected.
+- **Developer-selected architecture:** Responsive shared frontend with a
+  client-side mode switcher, while the backend remains authoritative. The
+  missing list-query and backend role-enforcement decisions remain pending.
+- **Reason for selection:** Preserves the approved shared-web model and avoids
+  inventing an unsafe client-only authorization contract.
+- **Approved by:** Vincent, 2026-09-30 (frontend scope, mode mapping, UID
+  identity, and test stack).
+- **Affected locations:** Order Service active-work and frontend vertical-slice
+  records; no frontend source or peer service source changed.
+- **Tests run:** Read-only frontend/API inspection only.
+- **Test results:** No implementation tests run because the API-surface gap
+  must be resolved before coding.
+- **Specification or API deviation:** None approved. The missing list query
+  and backend role enforcement are unresolved.
+- **Related decision or change record:** `order-service/changes/CHANGE-018-local-compose-and-frontend-vertical-slice.md`.
