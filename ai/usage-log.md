@@ -539,3 +539,35 @@ for failures show credits unavailable
 - **Specification or API deviation:** None.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-026-gateway-cors-header-deduplication.md`.
+
+## 2026-09-30 - Human-readable supplier display on Order cards
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Test-first frontend implementation assistance.
+- **Exact prompt:**
+
+  > Approve resolving supplier names for Order cards and do not show the internal Order ID in the
+  > UI; keep IDs internally only.
+
+- **Key response:** Rehydrated the Order Service workflow, verified the existing Supplier Service
+  > `POST /api/suppliers/lookup` contract, wrote focused supplier/OrderCard tests first, then added
+  a batched authenticated supplier-name hook for Browse Errands, My Errands, and My Requests.
+  Order cards now display names/buildings, fall back safely to IDs when unresolved, and omit the
+  user-facing Order ID. No peer-service source or backend contract changed.
+- **Architecture options considered:** Change Order Service responses to embed supplier details;
+  issue one Supplier request per card; or batch-resolve references in the shared frontend. The
+  batched provider lookup was selected.
+- **Developer-selected architecture:** Supplier Service remains the source of truth; Order Service
+  stores references; the frontend resolves display labels through the gateway and keeps IDs for
+  action payloads only.
+- **Reason for selection:** Preserves service ownership and avoids N+1 calls or contract changes.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `frontend/src/components/orders/`, `frontend/src/app/errands/`,
+  `frontend/src/app/my-errands/`, `frontend/src/app/my-requests/`, `frontend/src/hooks/`,
+  `frontend/src/lib/suppliers.ts`, and Order Service records.
+- **Tests run:** Test-first files were added, but Vitest/typecheck/lint/build and browser checks
+  are pending because Node/npm and the Docker runtime are unavailable in this session.
+- **Test results:** `git diff --check` and staged checks passed; no runtime completion claim.
+- **Specification or API deviation:** None.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-027-order-card-supplier-display.md`.

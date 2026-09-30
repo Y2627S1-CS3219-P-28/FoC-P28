@@ -28,6 +28,9 @@ creates the profile, then Credit Service receives an authenticated registration 
 - After Firebase signup and User Service registration, the frontend calls Credit Service
   `POST /api/credits/registration-facts` with the Firebase bearer token and
   `{eventId,userId,occurredAt}`. Credit Service owns allocation and idempotency.
+- Order cards resolve their supplier references through one batched Supplier Service lookup,
+  display names/buildings, and keep the opaque IDs only for internal API actions. Internal Order
+  IDs are likewise not part of the user-facing card.
 
 ## Common failure modes
 
@@ -38,6 +41,9 @@ creates the profile, then Credit Service receives an authenticated registration 
 - A supplier dropdown can be empty when Supplier Service has no seeded catalogue or when the
   authenticated request is rejected. Keep a loading/error/empty state and do not accept arbitrary
   IDs as a hidden fallback.
+- A list of cards should not issue one supplier request per card. Deduplicate all pickup/delivery
+  IDs and use the provider's batch lookup; retain a safe ID fallback when a provider record is
+  missing or temporarily unavailable.
 - Signup can create a User Service record before Credit Service succeeds. The current approved
   frontend reports the failure; a later workflow change may add reconciliation or orchestration.
 
@@ -51,5 +57,6 @@ Verify Credit registration payload fields and bearer forwarding with a provider 
 ## Related records
 
 - `order-service/changes/CHANGE-025-supplier-selection-cors-credit-registration.md`
+- `order-service/changes/CHANGE-027-order-card-supplier-display.md`
 - `order-service/docs/frontend-integration-workflow.md`
 - `order-service/docs/requirements-traceability.md`
