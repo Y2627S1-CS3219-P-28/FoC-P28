@@ -22,8 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration;
 import org.springdoc.core.configuration.SpringDocConfiguration;
+import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
-import org.springdoc.webmvc.ui.SwaggerConfig;
 import sg.edu.nus.foc.order.application.LifecycleProcessingService;
 import sg.edu.nus.foc.order.application.OrderAssignmentService;
 import sg.edu.nus.foc.order.application.OrderCreationService;
@@ -47,13 +47,12 @@ import tools.jackson.databind.json.JsonMapper;
     })
 @AutoConfigureMockMvc(addFilters = false)
 @ImportAutoConfiguration({
+    SpringDocConfigProperties.class,
     SpringDocConfiguration.class,
-    SpringDocWebMvcConfiguration.class,
-    SwaggerConfig.class
+    SpringDocWebMvcConfiguration.class
 })
 @TestPropertySource(properties = {
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
-    "springdoc.swagger-ui.path=/api/orders/docs",
     "order.lifecycle-token=test-lifecycle-token"
 })
 class OpenApiDocumentationTest {
