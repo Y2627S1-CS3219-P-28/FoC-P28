@@ -984,3 +984,25 @@ for failures show credits unavailable
 - **Follow-up correction:** Updated the OpenAPI test's excluded security
   auto-configuration imports to the Spring Boot 4.1 package names used by this
   service (`4a40c5b`).
+
+## 2026-09-30 — Frontend supplier-permissions CI lint fix (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-30
+- **Mode:** Implementation and verification
+- **Prompt:**
+
+  > one more fail test in ci
+
+- **Key response:** Diagnosed the CI lint error in
+  `use-supplier-permissions.ts` and changed the hook to associate permission
+  results with the Firebase UID, avoiding a synchronous state update inside an
+  effect while retaining fail-closed behavior during auth transitions. Change
+  record: `CHANGE-047`.
+- **Affected locations:** `frontend/src/hooks/use-supplier-permissions.ts`,
+  `order-service/changes/CHANGE-047-frontend-permissions-lint-fix.md`,
+  `order-service/docs/change-log.md`, and
+  `order-service/docs/active-work/vincent.md`.
+- **Author verification:** The developer must confirm `npm run lint` in CI or
+  a local Node/npm environment. `git diff --check` passed; no peer-service
+  source or learning file was changed.

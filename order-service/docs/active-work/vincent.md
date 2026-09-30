@@ -109,6 +109,16 @@ remains intentionally deferred.
 Frontend typecheck, Vitest, lint, and production build passed. Authenticated
 browser, peer-contract, acceptance, and Cloud Run checks remain pending.
 
+## Latest frontend CI lint fix — 2026-09-30
+
+CHANGE-047 updates `frontend/src/hooks/use-supplier-permissions.ts` to avoid
+the synchronous `setPermissions(null)` effect reset rejected by
+`react-hooks/set-state-in-effect`. The hook now associates fetched permissions
+with the Firebase UID and exposes them only for the matching current user.
+`git diff --check` passed. Node/npm are unavailable in this environment, so
+frontend lint, Vitest, typecheck, and build remain pending CI or local
+verification.
+
 ## Dependencies on Yao Xiang
 
 Combined implementation is explicitly authorized on this branch only; do not modify Yao Xiang's assigned branch. Reconcile the shared `Order` aggregate, persistence abstractions, status-transition interfaces, test fixtures, and service ports in this branch. Both developers must follow ADR-002 for any courier-outcome port or adapter.
