@@ -510,3 +510,32 @@ for failures show credits unavailable
   Supplier and Credit ownership/contracts remain unchanged and no sibling service source changed.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-025-supplier-selection-cors-credit-registration.md`.
+
+## 2026-09-30 - Duplicate local CORS header fix
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Browser-error diagnosis and shared gateway fix.
+- **Exact prompt:**
+
+  > After the frontend changes, signup and login fail; the browser reports multiple
+  > `Access-Control-Allow-Origin` values.
+
+- **Key response:** Rehydrated the Order Service workflow, compared the browser error with the
+  gateway and peer-service CORS configuration, and confirmed that both layers emitted the same
+  origin header. Updated only the shared gateway proxy snippet so the gateway hides upstream CORS
+  headers and emits one allowlisted response. No peer-service source was modified.
+- **Architecture options considered:** Remove gateway CORS; alter each peer service; or retain a
+  single gateway browser boundary and hide upstream duplicates. The last option was selected.
+- **Developer-selected architecture:** Gateway-owned local CORS with explicit localhost origins;
+  peer CORS configuration remains unchanged for direct service access.
+- **Reason for selection:** It fixes browser preflight/response behavior without changing peer
+  service code or the approved service boundaries.
+- **Approved by:** Vincent's prior local CORS approval, 2026-09-30.
+- **Affected locations:** `gateway/snippets/proxy.conf` and Order Service change/active-work
+  records.
+- **Tests run:** `git diff --check` and `docker compose config --quiet` passed. Docker/browser
+  runtime verification remains pending because the Docker engine is inaccessible.
+- **Test results:** Signup must be retried after rebuilding the gateway; no success is claimed yet.
+- **Specification or API deviation:** None.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-026-gateway-cors-header-deduplication.md`.
