@@ -432,3 +432,22 @@ were not included in the production TypeScript type environment. CHANGE-043's
 test now imports `describe`, `it`, and `expect` explicitly. `git diff --check`
 passed. A local Docker rebuild and browser retest remain required; this
 execution environment could not access Docker Buildx.
+
+## Sprint 1 combined-branch handoff — 2026-09-30
+
+Added `order-service/hands-off/README.md` and `CHANGE-044` for Yao Xiang. The
+handoff records the combined `sprint-1/seq-1-to-seq-11` context, the approved
+architecture and UI rules, the high-level class/service flow for each
+sequence, the real HTTP-peer versus deterministic mock Compose commands, and
+the open `FEEDBACK-001` Credit settlement/release dependency.
+
+Current honest status remains `[~]`: Vincent reports sequences 1–6 exercised
+against real local HTTP peers; sequences 7–11 currently rely on the local
+mock for Credit outcomes. Docker/browser/peer-provider evidence still needs to
+be reproduced and recorded. No sibling-service source was changed and the two
+learning files remain untracked.
+
+Next action: Yao Xiang should read the handoff, reproduce the reported smoke
+tests, run the backend/frontend suites, coordinate the Credit contract with
+Annablee through `FEEDBACK-001`, and update traceability before proposing any
+sequence completion marker.

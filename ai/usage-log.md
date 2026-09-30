@@ -899,3 +899,30 @@ for failures show credits unavailable
   be rerun in this execution environment because Docker Buildx configuration
   access was denied; the developer should rerun the frontend build locally.
 - **Related commit:** `c16fac0 test(frontend): type auth guard test with vitest`.
+
+## 2026-09-30 - Sprint 1 sequences 1–11 developer handoff
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow-guided handoff and documentation generation.
+- **Exact task:** Create an Order Service handoff for Yao Xiang describing the
+  combined Sprint 1 branch, sequence flows, UI polishing direction, current
+  real/mock integration status, Credit Service feedback dependency, testing
+  plan, and production-level completion gates.
+- **Key response:** Added a detailed handoff README under
+  `order-service/hands-off/` and recorded CHANGE-044, the active-work update,
+  and the change-log entry.
+- **Affected locations:**
+  `order-service/hands-off/README.md`,
+  `order-service/changes/CHANGE-044-yao-xiang-sprint-1-handoff.md`,
+  `order-service/docs/change-log.md`, and
+  `order-service/docs/active-work/vincent.md`.
+- **Peer boundary:** No sibling-service source or peer-owned contract was
+  modified. The handoff points to `FEEDBACK-001` for Credit settlement/release
+  agreement. Existing learning files remain untracked.
+- **Verification:** Reconciled the handoff against the Order Service workflow,
+  Sprint 1 requirements/contracts/diagrams, frontend workflow/style guide,
+  Compose profiles, peer feedback, and current active-work records. `git diff
+  --check` and repository status checks remain to be run before commit.
+- **Author verification:** The author should review the receiving-developer
+  instructions and confirm whether any exact local/developer file should be
+  handled in a separate approved workflow change.
