@@ -43,6 +43,43 @@ The inspected Credit Service currently exposes `POST /api/credits/registration-f
 cancellation release, or expiry release endpoint was found in its controller,
 service, README, or integration tests.
 
+### Approved temporary Sprint 1 stub contract
+
+Vincent approved a temporary Order-owned mock boundary on 2026-09-30 so the
+Order Service can exercise Sequences 7-9 locally while the Credit Service owner
+implements the real operations. The mock is not evidence that the peer API is
+implemented, and FEEDBACK-001 remains `OPEN`.
+
+The concrete contract requested from the Credit Service owner is:
+
+- `POST /api/credits/orders/{orderId}/settlement`
+  - Request JSON: `commandId`, `requesterId`, `courierId`, `amount`, and
+    `expectedOrderVersion`.
+  - Semantics: atomically transfer the reserved amount to the courier and
+    record a ledger settlement; repeat calls with the same `commandId` must
+    return the original result without a second transfer.
+- `POST /api/credits/orders/{orderId}/release`
+  - Request JSON: `commandId`, `requesterId`, `amount`, `outcome` (`CANCELLED`
+    or `EXPIRED`), and `expectedOrderVersion`.
+  - Semantics: release/refund the reservation and record the outcome; repeat
+    calls with the same `commandId` must be idempotent.
+- Both operations should return a documented success body containing the
+  order/command identity, outcome, and resulting reservation/account state.
+  The provider owns the final response field names.
+- Both operations must define validation, unauthenticated/forbidden,
+  reservation-not-found, duplicate/conflicting-command, invalid-state, and
+  dependency-failure responses using the provider's standard error envelope.
+- Authentication must accept the approved service-to-service credential and
+  must not trust a caller-supplied user ID as proof of identity.
+
+The Order Service currently maps these shapes in `HttpPeerAdapters` and uses a
+validating no-op implementation in `MockPeerAdapters`. The lifecycle trigger
+validates `X-Lifecycle-Token` and forwards an explicit bearer-form internal
+credential to automatic peer calls; this is a local/temporary bridge only.
+Production completion requires the Credit Service owner to agree to the
+credential, response, idempotency, and error details and then implement and
+verify the endpoints. No Credit Service source was modified.
+
 ### Why the existing API is unsuitable or missing
 
 The reservation and lookup operations cannot safely express the required

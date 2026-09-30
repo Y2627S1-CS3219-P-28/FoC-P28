@@ -239,3 +239,25 @@ repost remains available only for an un-reposted `EXPIRED` order. The Order
 create DTO, aggregate, view, frontend payload, and tests were synchronized;
 the legacy configure route returns a conflict for stale clients. Runtime,
 Java/Maven, and frontend Node/npm verification remain pending.
+
+## Latest Credit outcome boundary exception — 2026-09-30
+
+Vincent approved a temporary local Credit mock so the Order Service can exercise
+completion, cancellation, expiry, and automatic-repost paths while the Credit
+Service owner implements the real settlement/release APIs. `CreditServicePort`
+now exposes `settle` and `release`; the HTTP adapter targets the proposed
+provider paths and the mock performs validation only. The lifecycle trigger
+checks its internal token and forwards an explicit bearer-form credential to
+automatic peer calls.
+
+FEEDBACK-001 remains `OPEN`: the provider implementation, exact response/error
+contract, trusted service credential, idempotency behavior, and cross-service
+tests still require peer-owner agreement and verification. Sequences 7-9 and
+the overall Sprint 1 completion gate therefore remain `[~]`; the mock is not a
+production completion claim. No peer-service source or learning file changed.
+
+The same turn added explicit `courierId IS NULL` expiry selection, standard
+pagination/error envelopes, OpenAPI operation/security metadata, authenticated
+manual repost drafts, and structured Order audit logging. Java/Maven, Node/npm,
+Docker, browser, and coverage verification remain pending or unavailable in
+this environment.

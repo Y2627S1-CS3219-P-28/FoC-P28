@@ -44,3 +44,12 @@ claimed from static builds or unit tests.
   explicit development-only CORS allowlist; deployed origins are unchanged.
 - The post-request form mirrors the Order domain rule that `expiresAt` must be at least 30 minutes
   after creation and explains the constraint before submission; the backend remains authoritative.
+- Completion, cancellation, expiry, and automatic repost now call a synchronous `CreditServicePort`
+  outcome boundary. The local mock is an explicitly approved Sprint 1 exception; the real Credit
+  settlement/release provider contract remains open under FEEDBACK-001, so Sequences 7-9 stay `[~]`.
+- Lifecycle expiry explicitly selects only `OPEN` orders whose `courierId` is `NULL`, preventing an
+  already-accepted order from being expired by the background trigger.
+- Collection responses use the shared `items/page/size/totalItems/totalPages` shape and errors use
+  `status/error/message/path/timestamp/details`; OpenAPI operations declare the bearer requirement.
+- Order lifecycle actions emit structured service-local audit events without logging credentials or
+  credit secrets (NFR4 implementation detail; sink configuration remains deployment-owned).

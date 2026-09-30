@@ -238,6 +238,23 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Related ADR/override: None; this is a developer-approved clarification of NTH4 behavior.
 - Related traceability: `docs/requirements-traceability.md`, Sequences 1, 10, and 11.
 
+## ARCH-EVO-005: Temporary Credit outcome stub boundary
+
+- Change ID: CHANGE-032
+- Date: 2026-09-30
+- Developer: Vincent
+- Feature: Credit settlement/release for completion, cancellation, expiry, and automatic repost
+- Discovery classification: Architecture or specification change, explicitly approved as a temporary Sprint 1 exception
+- Status: APPROVED (temporary; provider implementation pending)
+- Approved change: Order Service may invoke a validating no-op `CreditServicePort` for local verification while Credit Service implements the provider-owned settlement and release endpoints. The real boundary remains synchronous and Credit-owned.
+- Proposed contracts: `POST /api/credits/orders/{orderId}/settlement` and `POST /api/credits/orders/{orderId}/release`, with command identity, order/requester identity, amount, outcome where applicable, and expected order version. Exact response/error/authentication fields require Credit owner agreement.
+- Security decision: lifecycle calls must first pass the Order-owned lifecycle-token check; an explicit bearer-form internal credential is forwarded to automatic peer calls. Provider acceptance of that credential is not yet verified.
+- Trade-offs: The mock allows Order state-machine and UI work to proceed, but cannot verify balances, ledger transfers, or peer error semantics. Sequences 7-9 remain `[~]`.
+- Alternatives considered: block all outcome flows; invent Order-owned credit mutations; or introduce a broker. The approved temporary stub preserves Credit ownership and the synchronous boundary without inventing peer behavior.
+- Affected architecture chain: Order application port/adapters, completion/cancellation/expiry/repost sequences, peer API feedback, traceability, tests, and active-work records. No peer source or schema changed.
+- Exit criteria: Credit owner agrees and implements both endpoints; actual peer code and tests are re-read; contract/idempotency/authentication/error tests pass; mock is removed or disabled for the verified integration.
+- Related records: `changes/CHANGE-032-credit-outcome-stub-exception.md`, `docs/peer-service-api-feedback.md` FEEDBACK-001.
+
 ## Supersession and synchronization
 
 When a newer rule is approved:

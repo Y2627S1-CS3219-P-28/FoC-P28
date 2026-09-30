@@ -692,3 +692,19 @@ for failures show credits unavailable
 - **Test results:** No runtime completion claim.
 - **Specification or API deviation:** CHANGE-031 records the approved clarification and supersedes the post-creation configuration interpretation in CHANGE-022.
 - **Related decision or change record:** `CHANGE-031-creation-time-repost-choice.md`; `ARCH-EVO-004`.
+
+## 2026-09-30 - Credit outcome stub and completion-gate hardening
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow rehydration, approved exception implementation, contract documentation, and verification assistance.
+- **Order Service feature:** Sprint 1 Sequences 7-11 credit outcomes, lifecycle expiry/repost, API response consistency, OpenAPI metadata, and NFR4 audit logging.
+- **Related FR/NFR/NTH:** D1 credit outcome requirements; NFR4 structured logging; Sprint 1 Sequences 7-11.
+- **AI usage type:** Peer-API feedback / implementation assistance / architecture-evolution tracking / test and verification assistance.
+- **Developer decision:** Vincent approved a temporary validating no-op Credit mock while the Credit Service owner implements settlement and release. Credit ownership, synchronous ordering, and the no-broker decision remain unchanged.
+- **Key response:** Added `CreditServicePort.settle/release`, mock and proposed HTTP adapter calls, synchronous completion/cancellation/expiry/repost invocation, explicit unassigned-order expiry selection, authenticated manual repost-draft verification, standard page/error envelopes, OpenAPI operation/security metadata, and structured Order audit events.
+- **Approved exception:** The mock does not move balances or write a ledger. FEEDBACK-001 remains `OPEN`; Sequences 7-9 remain `[~]` until the actual peer endpoints, credentials, responses, errors, idempotency, and cross-service tests are verified.
+- **Affected locations:** Order Service application/adapters/API/configuration/infrastructure, shared frontend pagination consumers/tests, `docs/peer-service-api-feedback.md`, `CHANGE-032`, architecture evolution, traceability, active work, and this log.
+- **Peer boundary:** No peer-service source, peer contract implementation, schema, or learning file was modified.
+- **Tests run:** Static inspection and patch validation; `git diff --check` was run. Java/Maven (Java 21 required), Node/npm frontend tests, Docker/browser/E2E, and JaCoCo could not be completed in the current environment.
+- **Test results:** No runtime completion claim; the branch remains under the completion gate.
+- **Related decision or change record:** `CHANGE-032-credit-outcome-stub-exception.md`; `ARCH-EVO-005`; `FEEDBACK-001`.
