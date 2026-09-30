@@ -296,6 +296,11 @@ Peer integration limits:
   verified peer contracts. Vincent will run the Docker-backed integration and
   authenticated browser checks locally.
 
+The shared frontend production build compiled and completed TypeScript, but
+the Next.js static-page generation did not complete in the isolated runner and
+was interrupted after it stopped making progress. This is recorded as
+unavailable verification, not a source failure.
+
 JaCoCo is the Java code-coverage tool configured by peer Maven builds. It
 measures executed lines/branches/methods; it does not prove business
 correctness. Order Service has no JaCoCo plugin in its current `pom.xml`, so
