@@ -379,3 +379,15 @@ the stale value is a frontend cache snapshot. The approved implementation
 direction is a shared credit context or lightweight browser invalidation event
 that refetches `GET /api/credits/me` after successful credit-affecting
 mutations. No application code was changed in this advisory turn.
+
+## Latest credit UI invalidation implementation — 2026-09-30
+
+CHANGE-041 implements the approved frontend-only fix. A shared browser event is
+dispatched after successful order creation, manual repost, cancellation, and
+completion. `useCreditBalance` listens for the event and immediately refetches
+`GET /api/credits/me`; no broker or peer-service change was introduced.
+
+Automatic repost is backend-triggered, so focus/manual refresh remains the
+fallback for lifecycle changes that occur without a browser mutation. Frontend
+Vitest and typecheck verification remain pending because `npm` is unavailable
+in this execution environment.

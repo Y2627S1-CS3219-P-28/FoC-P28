@@ -832,3 +832,13 @@ for failures show credits unavailable
 - **Peer boundary:** No peer-service source, API contract, schema, infrastructure, or application source was modified.
 - **Verification:** Static reasoning from the synchronous Order/Credit call path and frontend `useCreditBalance` behavior; no runtime claim.
 - **Related change record:** `CHANGE-040-credit-ui-invalidation-learning.md`.
+
+## 2026-09-30 - Credit UI invalidation implementation
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Approved frontend vertical-slice implementation and test addition.
+- **Key response:** Added a shared browser invalidation event, wired `useCreditBalance` to refetch the authoritative Credit balance, and emitted the event after successful order creation, manual repost, cancellation, and completion.
+- **Affected locations:** `frontend/src/lib/credit-balance-events.ts`, its Vitest test, the credit hook, Order creation/actions/repost components, CHANGE-041, active-work/change-log records, the learning file, and this usage log.
+- **Peer boundary:** No peer-service source, API contract, schema, broker, or infrastructure was modified.
+- **Verification:** Static inspection passed. Frontend Vitest/typecheck could not run because `npm` was unavailable in this execution environment; no runtime success was claimed.
+- **Related change record:** `CHANGE-041-credit-ui-invalidation-implementation.md`.
