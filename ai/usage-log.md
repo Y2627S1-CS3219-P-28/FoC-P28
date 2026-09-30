@@ -799,3 +799,14 @@ for failures show credits unavailable
 - **Peer boundary:** No sibling service source, peer contract, database schema, or learning file was modified.
 - **Verification:** The override was statically reviewed. Live Docker/browser verification remains pending because it requires the developer's local Docker engine, Firebase-emulator account, and browser session.
 - **Related change record:** `CHANGE-037-http-peer-smoke-profile.md`; `FEEDBACK-001` remains open.
+
+## 2026-09-30 - HTTP-peer adapter startup fix
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Runtime-log diagnosis and Order Service bug-fix assistance.
+- **Finding:** The HTTP-peer Compose run failed during Spring context creation because `HttpPeerAdapters` exposed both a production URL constructor and a test constructor without an explicit injection marker; Spring searched for a missing no-argument constructor.
+- **Key response:** Annotated the URL-based production constructor with `@Autowired`; test construction and peer contracts remain unchanged.
+- **Affected locations:** `order-service/src/main/java/sg/edu/nus/foc/order/adapter/HttpPeerAdapters.java`, CHANGE-038, the Order active-work/change-log records, and this usage log.
+- **Peer boundary:** No sibling service source, contract, database schema, or learning file was modified.
+- **Verification:** `git diff --check` passed. Maven and Docker verification were unavailable in this execution environment, so no runtime success was claimed.
+- **Related change record:** `CHANGE-038-http-peer-constructor-injection-fix.md`.

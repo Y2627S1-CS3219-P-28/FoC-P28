@@ -345,3 +345,15 @@ automatic-repost outcomes live because FEEDBACK-001 remains open for the
 Credit Service outcome APIs. A valid Firebase-emulator bearer token and a
 provisioned Credit account are required. No peer-service source or learning
 file was changed, and no live Docker/browser verification is claimed yet.
+
+## Latest HTTP-peer startup fix — 2026-09-30
+
+The HTTP-peer Compose run failed before serving requests because Spring saw two
+`HttpPeerAdapters` constructors and attempted to find a no-argument constructor.
+CHANGE-038 marks the URL-based production constructor with `@Autowired`; the
+package-private constructor used by adapter tests remains available.
+
+`git diff --check` passed. Maven could not run here because the Maven
+wrapper/JDK was unavailable, and Docker image verification was blocked by
+inaccessible local Buildx configuration. Rebuild the HTTP-peer profile locally
+before treating the smoke run as verified.
