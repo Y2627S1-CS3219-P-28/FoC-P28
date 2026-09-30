@@ -601,3 +601,41 @@ for failures show credits unavailable
 - **Specification or API deviation:** None.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-028-mode-menu-group-context-fix.md`.
+
+## 2026-09-30 - Unified dashboard and stable supplier locations
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow rehydration, integration diagnosis, security-boundary refinement, and implementation assistance.
+- **Exact prompt:**
+
+  > Remove mode switching, prevent requesters from accepting their own orders,
+  > and show supplier locations without a transient supplier-ID mapping.
+
+- **Key response:** Re-read the Order Service workflow and actual User, Supplier,
+  and Credit Service implementations. Confirmed that `GET /api/credits/me`
+  exists and that `404 ACCOUNT_NOT_FOUND` indicates missing registration-fact
+  provisioning. Removed the client-side mode switcher, exposed both dashboard
+  functions, filtered self-orders from the browse view, bound Order-side actors
+  to User Service-confirmed identities, and prevented supplier-ID flashes while
+  preserving Supplier Service ownership.
+- **Architecture options considered:** Keep the mode switcher; embed supplier
+  names in Order responses; or resolve supplier references in the shared
+  frontend. The user selected a unified dashboard and the existing provider-
+  backed reference-resolution boundary.
+- **Developer-selected architecture:** One shared dashboard, backend-authoritative
+  identity, Supplier Service as catalogue source of truth, and stable location
+  rendering while asynchronous lookup completes.
+- **Reason for selection:** It matches the requested user experience without
+  changing peer contracts, database ownership, or service boundaries.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `frontend/src/components/app-shell.tsx`, frontend
+  routes/layout/providers/hooks/components/tests, Order Service UserServicePort,
+  adapters/application callers, and CHANGE-029/workflow records.
+- **Tests run:** Static source inspection and patch review. `git diff --check`,
+  Node/npm frontend checks, Java/Maven tests, Docker startup, and authenticated
+  browser verification remain pending or unavailable in this session.
+- **Test results:** No runtime completion claim.
+- **Specification or API deviation:** User-approved frontend behavior refinement;
+  no peer-service source or public API contract was changed.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-029-dashboard-without-mode-switch-and-location-stability.md`.
