@@ -8,6 +8,12 @@ Use this skill for every Order Service workflow, architecture, design, implement
 
 The official skill initializer also generated `.codex/skills/spec-driven-development/agents/openai.yaml` so the skill has discoverable UI metadata.
 
+The skill also supports an on-demand pre-push CI rehearsal. When explicitly
+triggered, it runs only the applicable Order Service backend checks, approved
+shared-frontend checks, and relevant container/configuration checks once. It
+does not push changes or run sibling-service, Cloud IAM, or browser checks by
+default.
+
 ## Codex configuration
 
 No repository `.codex/config.toml` was created. The workflow requires no repository-local Codex configuration, and no unverified configuration keys were invented. The repository-local skill and `AGENTS.md` provide the required behavior.

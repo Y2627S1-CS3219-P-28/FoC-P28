@@ -53,6 +53,9 @@ conversation_history_is_authoritative = false
 implementation_before_architecture_approval_allowed = false
 implementation_tests_before_architecture_approval_allowed = false
 technology_conflict_open = false
+on_demand_pre_push_ci_rehearsal = true
+pre_push_ci_rehearsal_default = "explicit-trigger-only"
+pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
 [sources]
 project_d1 = "../../../Project-D1.pdf"

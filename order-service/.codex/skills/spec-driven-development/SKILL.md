@@ -62,6 +62,42 @@ Begin this section only after the feature design and all relevant interaction/AP
 5. Add and run applicable integration, contract, persistence, frontend, and regression tests. Frontend verification includes role/mode, unauthorized/incorrect-mode, and applicable responsive behavior plus `npm run lint` and `npm run typecheck`.
 6. Keep backend and approved frontend support in the same feature slice. Do not invent UI while its specification is absent.
 
+## On-demand pre-push CI rehearsal
+
+Do not run this rehearsal automatically on every chat turn or every code
+change. Run it once only when the developer explicitly asks to run the
+Order-Service pre-push CI check, local CI rehearsal, or equivalent. The
+rehearsal validates the Order Service slice before the developer pushes; it
+does not push, commit, reset, or otherwise mutate Git history.
+
+Scope the rehearsal to the current Order Service branch and approved shared
+frontend vertical slice. Do not run sibling-service jobs merely because the
+repository contains them. First inspect `git status --short` and the current
+diff, then run the applicable checks below:
+
+1. **Order Service backend** (when `order-service/` or its directly required
+   shared configuration changed): run the OpenAPI structural guard used by CI,
+   then `./mvnw -B -ntp verify` from `order-service/`. This includes the Java
+   tests and the configured JaCoCo gate.
+2. **Shared frontend** (when `frontend/` changed or the approved Order Service
+   vertical slice includes frontend changes): from `frontend/`, run
+   `npm ci --no-audit --no-fund`, `npm run lint --if-present`,
+   `npm run typecheck --if-present`, and `npm test --if-present`.
+3. **Container build**: build the changed Order Service image with its
+   `Dockerfile`; also build the frontend image when frontend files changed or
+   the vertical slice requires it. If Compose or gateway configuration changed,
+   run `docker compose -f compose.yaml config --quiet` as a configuration
+   check, then report that peer-service images were not part of this scoped
+   rehearsal.
+
+Report each command as passed, failed, skipped, or unavailable. A missing
+runtime (for example Java, Node/npm, Docker, or GCP credentials) is a real
+verification limitation and must not be reported as a pass. The rehearsal
+does not replace GitHub CI: it does not run the full peer-service matrix,
+Cloud infrastructure/IAM checks, actionlint, shellcheck, or authenticated
+browser tests unless the developer explicitly requests those additional
+checks.
+
 ## Preserve persistent memory
 
 Record approved changes under `changes/`, append `docs/change-log.md`, update `docs/architecture-evolution.md` for design discoveries/supersession, and update affected context, ADRs, sprint files, contracts, diagrams, and tests. Update `../ai/usage-log.md` after approved architecture decisions and meaningful implementation, test-generation, or verification assistance, using `docs/ai-usage-format.md` and accurately attributing the developer's judgment. Update only the current developer's file under `docs/active-work/` at the beginning and end of every task. Never delete prior sprint records. For schema-affecting work, record the migration identifier, purpose, expected schema version, clean/upgrade verification, peer handoff, and rollback/recovery considerations in the related change or active-work record; cloud infrastructure provisioning does not replace application schema migrations.

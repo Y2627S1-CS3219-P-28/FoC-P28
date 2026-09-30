@@ -119,6 +119,15 @@ with the Firebase UID and exposes them only for the matching current user.
 frontend lint, Vitest, typecheck, and build remain pending CI or local
 verification.
 
+## Latest on-demand CI rehearsal workflow — 2026-09-30
+
+CHANGE-048 adds an explicit-trigger-only pre-push CI rehearsal to the local
+Order Service skill. It scopes verification to the Order Service backend, the
+approved shared frontend vertical slice, and relevant container/configuration
+checks. It does not push or mutate Git history and does not run sibling,
+Cloud-IAM, or browser checks by default. No rehearsal was triggered in this
+turn.
+
 ## Dependencies on Yao Xiang
 
 Combined implementation is explicitly authorized on this branch only; do not modify Yao Xiang's assigned branch. Reconcile the shared `Order` aggregate, persistence abstractions, status-transition interfaces, test fixtures, and service ports in this branch. Both developers must follow ADR-002 for any courier-outcome port or adapter.

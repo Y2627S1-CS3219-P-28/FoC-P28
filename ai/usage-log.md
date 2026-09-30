@@ -1006,3 +1006,24 @@ for failures show credits unavailable
 - **Author verification:** The developer must confirm `npm run lint` in CI or
   a local Node/npm environment. `git diff --check` passed; no peer-service
   source or learning file was changed.
+
+## 2026-09-30 — On-demand Order Service CI rehearsal workflow
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-30
+- **Mode:** Workflow design and documentation
+- **Prompt:**
+
+  > Can we run one time ci on our order service and if it is ok then onlt we push to gh, make this part of our current project workflow skill and is trigger based on demand, just pick those related to order service ci component and run one time ourself if i tirgger this skill
+
+- **Key response:** Added CHANGE-048 and documented an explicit-trigger-only
+  local CI rehearsal covering Order Service Maven/OpenAPI/JaCoCo checks, the
+  approved shared frontend npm checks, and relevant container/configuration
+  checks. The rehearsal does not push or mutate Git history and excludes peer,
+  Cloud IAM, and browser checks by default.
+- **Affected locations:** The local Order Service skill, `skills.md`,
+  `docs/ai-project-context.toml`, `CHANGE-048`, the change log, and active-work
+  records.
+- **Author verification:** The developer selected the pre-push rehearsal
+  workflow and may explicitly trigger it in a later turn. No application or
+  peer-service source was changed.
