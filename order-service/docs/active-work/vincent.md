@@ -303,5 +303,13 @@ unavailable verification, not a source failure.
 
 JaCoCo is the Java code-coverage tool configured by peer Maven builds. It
 measures executed lines/branches/methods; it does not prove business
-correctness. Order Service has no JaCoCo plugin in its current `pom.xml`, so
-an Order coverage gate remains outstanding.
+correctness. Before CHANGE-035, Order Service had no JaCoCo plugin and its
+coverage gate was outstanding.
+
+## Latest Order JaCoCo setup — 2026-09-30
+
+CHANGE-035 added JaCoCo 0.8.15 to `order-service/pom.xml`, generates reports
+during `verify`, and enforces the existing 80% line-and-branch requirement.
+The 12 Order tests pass, but the gate currently fails at 128/318 lines
+(40.25%) and 60/209 branches (28.71%). The threshold was not weakened.
+Additional Order unit/controller/integration/contract tests are required.

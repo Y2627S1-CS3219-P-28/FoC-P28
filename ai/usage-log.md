@@ -745,3 +745,17 @@ for failures show credits unavailable
 - **Key response:** Updated automatic repost selection to call `findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull` and recorded CHANGE-033.
 - **Verification:** `docker compose build order-service` completed successfully through Maven compilation and Spring Boot layered-jar extraction.
 - **Peer boundary:** No peer-service or learning file changed.
+
+## 2026-09-30 - Order Service JaCoCo coverage gate
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Build verification and test-coverage configuration assistance.
+- **Order Service feature:** Maven verification for Sprint 1 Order Service.
+- **Key response:** Added JaCoCo 0.8.15 to `order-service/pom.xml`, configured
+  HTML/XML reporting, and enforced the project-required 80% line and branch
+  thresholds without excluding production classes beyond the application
+  bootstrap class.
+- **Verification:** All 12 Order tests passed. The JaCoCo check then failed at
+  40.25% line coverage (128/318) and 28.71% branch coverage (60/209).
+- **Author verification:** Vincent remains responsible for selecting and
+  reviewing additional tests needed to satisfy the approved coverage gate.
