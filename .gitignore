@@ -55,6 +55,9 @@ yarn-error.log*
 .firebase/
 emulator-data/
 
+# Order Service personal learning notes
+order-service/learning/
+
 # ─── IDEs ───────────────────────────────────────────────────
 .idea/
 *.iml
