@@ -21,6 +21,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration;
+import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springdoc.webmvc.ui.SwaggerConfig;
 import sg.edu.nus.foc.order.application.LifecycleProcessingService;
@@ -45,7 +46,11 @@ import tools.jackson.databind.json.JsonMapper;
         OAuth2ResourceServerAutoConfiguration.class
     })
 @AutoConfigureMockMvc(addFilters = false)
-@ImportAutoConfiguration({SpringDocWebMvcConfiguration.class, SwaggerConfig.class})
+@ImportAutoConfiguration({
+    SpringDocConfiguration.class,
+    SpringDocWebMvcConfiguration.class,
+    SwaggerConfig.class
+})
 @TestPropertySource(properties = {
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
     "springdoc.swagger-ui.path=/api/orders/docs",
