@@ -254,6 +254,45 @@ for failures show credits unavailable
 - **Specification or API deviation:** No approved architecture deviation. Local PostgreSQL is development-only; Cloud SQL remains the approved deployment target. No frontend behavior was invented.
 - **Related decision or change record:** `order-service/changes/CHANGE-018-local-compose-and-frontend-vertical-slice.md`.
 
+## 2026-09-30 - Order Service frontend sequences 1-11 (Order Service / shared frontend)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Test-driven implementation assistance and verification assistance.
+- **Exact prompt:**
+
+  > Implement the approved frontend from sequence 1 to sequence 11, add authenticated requester/courier list endpoints, enable automatic repost controls when creating and viewing orders, and use Vitest and React Testing Library.
+
+- **Key response:** Added the approved responsive Next.js vertical slice for
+  requester and courier modes, including request creation, available errands,
+  acceptance, courier lifecycle actions, requester completion/cancellation,
+  automatic repost configuration, and manual repost review. Added Vitest and
+  React Testing Library setup and Order API contract helpers. Added Order
+  Service requester/courier list queries and requester authorization for repost
+  configuration.
+- **Architecture options considered:** Existing coming-soon pages versus a
+  shared responsive vertical slice; client-only lists versus authenticated
+  Order Service list queries; unprotected repost configuration versus User
+  Service requester verification. The approved responsive and authenticated
+  choices were implemented.
+- **Developer-selected architecture:** Existing AppShell, Geist, shadcn/Base
+  UI, Lucide, Firebase token forwarding, and gateway-relative `useApi()` with
+  one responsive desktop/mobile web implementation.
+- **Reason for selection:** Preserves the shared frontend visual baseline and
+  keeps business authorization and lifecycle state in Order/User Services.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `frontend/src/app/`, `frontend/src/components/orders/`,
+  `frontend/src/components/providers/order-mode-provider.tsx`, frontend test
+  configuration and package manifests, plus Order Service query/repost source
+  and tests.
+- **Tests run:** Frontend typecheck, Vitest, ESLint, Next.js production build,
+  and Docker Maven Order Service tests.
+- **Test results:** Frontend typecheck passed; Vitest passed with 3 tests;
+  ESLint passed with 12 pre-existing warnings and no errors; Next.js build
+  passed; Order Service tests passed after the API changes.
+- **Specification or API deviation:** None approved. Live Firebase/browser,
+  peer-contract, acceptance, and Cloud Run verification remain pending.
+- **Related decision or change record:** `order-service/changes/CHANGE-022-order-frontend-sequences-1-11.md`.
+
 ## 2026-09-30 — Shared-file boundary and peer-preserving restoration
 
 - **Tool:** OpenAI Codex (GPT-5)
