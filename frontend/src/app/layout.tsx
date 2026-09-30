@@ -5,6 +5,7 @@ import { connection } from "next/server"
 import { AppShell } from "@/components/app-shell"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { ConfigProvider } from "@/components/providers/config-provider"
+import { OrderModeProvider } from "@/components/providers/order-mode-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { readPublicConfig } from "@/lib/runtime-config"
@@ -37,10 +38,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full bg-background text-foreground">
         <ConfigProvider config={config}>
           <AuthProvider>
-            <TooltipProvider>
-              <AppShell>{children}</AppShell>
-              <Toaster richColors position="top-center" />
-            </TooltipProvider>
+            <OrderModeProvider>
+              <TooltipProvider>
+                <AppShell>{children}</AppShell>
+                <Toaster richColors position="top-center" />
+              </TooltipProvider>
+            </OrderModeProvider>
           </AuthProvider>
         </ConfigProvider>
       </body>

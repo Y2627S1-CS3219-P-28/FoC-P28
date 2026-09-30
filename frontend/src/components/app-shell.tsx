@@ -17,11 +17,13 @@ import {
   MenuIcon,
   PackageIcon,
   RefreshCwIcon,
+  Repeat2Icon,
   UserIcon,
 } from "lucide-react"
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useConfig } from "@/components/providers/config-provider"
+import { useOrderMode } from "@/components/providers/order-mode-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -142,12 +144,16 @@ function SidebarPanel({
   onNavigate,
   onSignOut,
   pathname,
+  mode,
+  setMode,
 }: {
   credit: CreditSummaryProps
   email: string | null
   onNavigate?: () => void
   onSignOut: () => Promise<void>
   pathname: string
+  mode: "requester" | "courier"
+  setMode: (mode: "requester" | "courier") => void
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar text-sidebar-foreground">
@@ -161,6 +167,16 @@ function SidebarPanel({
       <SidebarNavigation pathname={pathname} onNavigate={onNavigate} />
 
       <div className="mt-auto p-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" className="mb-3 w-full justify-between" />}>
+            <span className="flex items-center gap-2"><Repeat2Icon /> {mode === "requester" ? "Requester mode" : "Courier mode"}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Current function</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setMode("requester")}>Requester</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setMode("courier")}>Courier</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <CreditSummary {...credit} />
       </div>
       <div className="flex flex-col gap-3 border-t border-sidebar-border p-4">
@@ -184,6 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const credit = useCreditBalance()
+  const { mode, setMode } = useOrderMode()
 
   async function handleSignOut() {
     setMobileOpen(false)
@@ -200,6 +217,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             email={user.email}
             onSignOut={handleSignOut}
             pathname={pathname}
+            mode={mode}
+            setMode={setMode}
           />
         </aside>
       )}
@@ -227,6 +246,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     onNavigate={() => setMobileOpen(false)}
                     onSignOut={handleSignOut}
                     pathname={pathname}
+                    mode={mode}
+                    setMode={setMode}
                   />
                 </SheetContent>
               </Sheet>
