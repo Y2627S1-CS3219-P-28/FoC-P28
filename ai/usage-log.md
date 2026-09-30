@@ -286,7 +286,8 @@ for failures show credits unavailable
   and tests.
 - **Tests run:** Frontend typecheck, Vitest, ESLint, Next.js production build,
   and Docker Maven Order Service tests.
-- **Test results:** Frontend typecheck passed; Vitest passed with 3 tests;
+- **Test results:** Frontend typecheck passed; Vitest passed with 4 tests,
+  including an RTL OrderCard render test;
   ESLint passed with 12 pre-existing warnings and no errors; Next.js build
   passed; Order Service tests passed after the API changes.
 - **Specification or API deviation:** None approved. Live Firebase/browser,
