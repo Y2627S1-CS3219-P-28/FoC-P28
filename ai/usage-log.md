@@ -440,3 +440,34 @@ for failures show credits unavailable
   was changed.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-023-local-mongodb-compose-dependency.md`.
+
+## 2026-09-30 - Local frontend gateway API-base correction
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Configuration diagnosis and implementation assistance.
+- **Exact prompt:**
+
+  > I approve it.
+
+- **Key response:** After a signup request returned `404` from
+  `http://localhost:3000/api/users`, traced the request path and identified
+  that the direct frontend port was being used as the API origin. Updated the
+  local Compose frontend configuration to use the gateway origin
+  `http://localhost:8080`.
+- **Architecture options considered:** Require users to open only the gateway;
+  configure the direct frontend container with the gateway API origin; or add a
+  Next.js API proxy. The explicit local runtime configuration was selected.
+- **Developer-selected architecture:** Local frontend remains available at
+  port 3000, while browser API calls target the gateway at port 8080.
+- **Reason for selection:** It fixes direct local frontend testing without
+  adding a second API proxy or changing deployed gateway behavior.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `compose.yaml`, local Order Service change records,
+  and this AI usage log. No sibling service source was modified.
+- **Tests run:** Compose configuration validation, frontend container
+  recreation, gateway health and `/api/users` route checks.
+- **Test results:** `docker compose config --quiet` passed; gateway health and
+  `/api/users` read-only checks returned HTTP 200.
+- **Specification or API deviation:** None. This is a local configuration fix.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-024-local-frontend-gateway-api-base.md`.
