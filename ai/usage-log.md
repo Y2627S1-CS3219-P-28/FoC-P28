@@ -947,3 +947,20 @@ for failures show credits unavailable
   Compose files, frontend auth/API code, Order Controller, creation service,
   domain aggregate, peer adapters, and Spring configuration. No live runtime
   verification was claimed.
+
+## 2026-09-30 - Gateway URL substitution clarification
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Beginner learning-document clarification.
+- **Exact task:** Clarify which code forwards `/api/orders`, where
+  `ORDER_SERVICE_URL` comes from, and whether the Dockerfile environment is
+  substituted into the nginx template.
+- **Key response:** Expanded the Sequence 1 learning note with the Dockerfile
+  `ENV` → container environment → nginx `envsubst` → rendered `set
+  $upstream` → `proxy_pass` chain, plus the Cloud Run deployment override.
+- **Affected locations:** The existing learning note, CHANGE-045, and the
+  Order active-work record.
+- **Peer boundary:** No gateway behavior, Compose configuration, application
+  source, peer service, or API contract was modified.
+- **Verification:** Re-inspected `gateway/Dockerfile`, nginx template/proxy,
+  `gateway/deploy/env.yaml`, and Compose configuration. No live runtime claim.

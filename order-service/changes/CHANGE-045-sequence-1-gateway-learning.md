@@ -19,6 +19,9 @@ or HTTP peer adapters.
   - browser preflight/authenticated request flow;
   - Order Controller → application service → domain aggregate → peer ports →
     PostgreSQL → response flow;
+  - Dockerfile defaults, nginx image startup `envsubst`, rendered nginx
+    configuration, `set $upstream`, and `proxy_pass` forwarding;
+  - local Compose versus Cloud Run `ORDER_SERVICE_URL` substitution;
   - `ORDER_PEERS_MODE` mock/HTTP selection;
   - Compose interpolation versus container environment versus Spring
     placeholders;

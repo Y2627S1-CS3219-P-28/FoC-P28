@@ -464,3 +464,9 @@ Compose `ORDER_PEERS_MODE` becomes the Spring `order.peers.mode` property.
 
 No application or peer-service behavior changed. Runtime Docker/browser
 walkthrough remains for the developer to reproduce locally.
+
+The learning note was expanded to explain that the gateway Dockerfile provides
+the local `ORDER_SERVICE_URL`, the official nginx entrypoint uses `envsubst` to
+render `default.conf.template` at container startup, `set $upstream` selects
+the rendered destination, and `proxy_pass $upstream` performs the forwarding.
+Cloud Run injects the corresponding HTTPS URL through `gateway/deploy/env.yaml`.
