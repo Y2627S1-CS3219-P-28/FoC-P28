@@ -853,3 +853,30 @@ for failures show credits unavailable
 - **Peer boundary:** No peer-service source, API contract, schema, or infrastructure was modified.
 - **Verification:** Static inspection of `useSupplierNames`, `RequireAuth`, `useApi`, Firebase auth state, and the supplied network response. No runtime claim.
 - **Related change record:** `CHANGE-042-supplier-lookup-auth-race-diagnosis.md`.
+
+## 2026-09-30 - Supplier lookup authentication gate
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Approved frontend bug-fix implementation and verification planning.
+- **Exact task:** Prevent `401 UNAUTHENTICATED` responses when refreshing the
+  Order Service `/errands` route by ensuring browser requests carry a Firebase
+  bearer token before reaching the gateway.
+- **Key response:** Added a centralized `useApi()` authentication gate,
+  auth-settled guards for Order and Supplier data-loading effects, and a unit
+  test for rejecting absent bearer tokens before `fetch()`.
+- **Affected locations:** `frontend/src/hooks/use-api.ts`,
+  `frontend/src/hooks/use-supplier-names.ts`,
+  `frontend/src/hooks/use-supplier-permissions.ts`, the Errands and request
+  pages, Supplier browser/detail/editor components, `frontend/src/lib/api.ts`,
+  the focused test, CHANGE-043, active work, and the change log.
+- **Peer boundary:** No sibling service source, API contract, database,
+  gateway, or infrastructure file was changed. Learning files remain
+  untracked by project convention.
+- **Verification:** `git diff --check` passed. Vitest, typecheck, lint,
+  Docker rebuild, and authenticated browser verification remain pending because
+  Node/Docker/browser runtime access is unavailable in this execution
+  environment.
+- **Author verification:** The author should rebuild the frontend and confirm
+  a hard refresh of `/errands` sends a bearer-authenticated request without a
+  401 response.
+- **Related change record:** `CHANGE-043-supplier-lookup-auth-gate.md`.

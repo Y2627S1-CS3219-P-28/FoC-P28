@@ -401,3 +401,22 @@ lookup reaches the gateway without a valid bearer and receives 401. The CORS
 headers are present; this is not a CORS failure. The frontend hook and initial
 Order fetch should be gated on settled authentication before a future fix is
 implemented.
+
+## Latest Supplier lookup authentication gate — 2026-09-30
+
+CHANGE-043 implements the approved frontend-only fix. `useApi()` now refuses
+to invoke `fetch()` while Firebase auth is loading, without a current user, or
+without a non-null ID token. The Errands Order fetch, Supplier lookup,
+permissions, catalogue, detail, and editor effects also wait for settled
+authentication, preventing hard-refresh requests from reaching the gateway
+without `Authorization: Bearer ...`.
+
+A focused bearer-token unit test was added. `git diff --check` passed;
+frontend Vitest/typecheck/lint, Docker rebuild, and authenticated hard-refresh
+browser verification remain pending because this environment cannot run the
+local Node/Docker/browser stack.
+
+## Next action after CHANGE-043
+
+Rebuild the frontend locally, hard-refresh `/errands`, and confirm the first
+Order and Supplier requests contain an Authorization header and no 401 occurs.
