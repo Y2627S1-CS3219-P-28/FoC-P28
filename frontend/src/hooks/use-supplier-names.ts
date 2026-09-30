@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react"
 
+import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
 import { supplierLookupPath, supplierLookupPayload, supplierOptionLabel, type SupplierLookupResponse } from "@/lib/suppliers"
 
 export function useSupplierNames(ids: string[]) {
   const api = useApi()
+  const { user, loading: authLoading } = useAuth()
   const uniqueIds = useMemo(() => Array.from(new Set(ids.filter(Boolean))), [ids])
   const requestKey = uniqueIds.join("\u001f")
   const [names, setNames] = useState<Record<string, string>>({})
@@ -14,7 +16,7 @@ export function useSupplierNames(ids: string[]) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (uniqueIds.length === 0) return
+    if (authLoading || !user || uniqueIds.length === 0) return
 
     const controller = new AbortController()
     void api<SupplierLookupResponse>(supplierLookupPath(), {
@@ -34,7 +36,7 @@ export function useSupplierNames(ids: string[]) {
     return () => controller.abort()
     // requestKey intentionally represents the de-duplicated ID list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, requestKey])
+  }, [api, authLoading, requestKey, user])
 
   // A card must not render opaque supplier IDs while this lookup is in flight.
   // The page uses this value to keep the first render stable and human-readable.

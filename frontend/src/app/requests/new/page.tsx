@@ -42,7 +42,7 @@ const initialForm: CreateOrderForm = {
 export default function NewRequestPage() {
   const api = useApi()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [form, setForm] = useState(initialForm)
   const [busy, setBusy] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -51,7 +51,7 @@ export default function NewRequestPage() {
   const [postError, setPostError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (authLoading || !user) return
 
     const controller = new AbortController()
     void api<Page<Supplier>>("/api/suppliers?status=active&page=1&size=100&sort=name&order=asc", {
@@ -64,7 +64,7 @@ export default function NewRequestPage() {
       })
       .finally(() => setSuppliersLoading(false))
     return () => controller.abort()
-  }, [api, user])
+  }, [api, authLoading, user])
 
   function update<K extends keyof CreateOrderForm>(key: K, value: CreateOrderForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))

@@ -15,7 +15,7 @@ import { buildOrderActionPayload, orderAvailablePath, type Order, type OrderPage
 
 export default function ErrandsPage() {
   const api = useApi()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const supplierIds = useMemo(() => orders.flatMap((order) => [order.pickupSupplierId, order.deliverySupplierId]), [orders])
@@ -23,6 +23,7 @@ export default function ErrandsPage() {
   const availableOrders = useMemo(() => user ? orders.filter((order) => order.requesterId !== user.uid) : orders, [orders, user])
 
   const load = useCallback(async () => {
+    if (authLoading || !user) return
     setLoading(true)
     try {
       const page = await api<OrderPage>(orderAvailablePath())
@@ -32,7 +33,7 @@ export default function ErrandsPage() {
     } finally {
       setLoading(false)
     }
-  }, [api])
+  }, [api, authLoading, user])
 
   // Fetching remote Order state is an external synchronization step.
   // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -21,6 +21,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Every authenticated browser request must have a Firebase ID token before
+ * it reaches the gateway. Keeping this check beside the request primitives
+ * makes accidental unauthenticated calls fail locally instead of becoming a
+ * network 401.
+ */
+export function requireBearerToken(token: string | null): string {
+  if (!token) throw new ApiError(401, "UNAUTHENTICATED", "Sign in to continue.")
+  return token
+}
+
 export type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   body?: unknown
