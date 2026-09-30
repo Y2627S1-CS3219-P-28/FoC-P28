@@ -291,3 +291,38 @@ for failures show credits unavailable
 - **Specification or API deviation:** None. The local stack continues to use Order Service's
   local PostgreSQL container; peer-owned configuration remains preserved.
 - **Related decision or change record:** `order-service/changes/CHANGE-020-small-atomic-change-practice.md`.
+
+## 2026-09-30 - Order Service Flyway runtime verification
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Verification assistance and implementation assistance.
+- **Exact prompt:**
+
+  > Settle all the remaining issue according to the workflow for the development from seq-1 to seq 11.
+
+- **Key response:** Diagnosed the clean-container startup failure where Hibernate
+  could not find `command_receipts`, identified the missing Spring Boot 4
+  Flyway auto-configuration module, and added `spring-boot-flyway` to the Order
+  Service build. No sibling service source or peer-owned Compose section was
+  changed.
+- **Architecture options considered:** Keep schema validation without Flyway;
+  enable Flyway through the Boot 4 auto-configuration module; or replace the
+  migration workflow. The existing approved Flyway workflow was retained.
+- **Developer-selected architecture:** Existing Flyway migrations with the
+  Spring Boot 4 auto-configuration module enabled.
+- **Reason for selection:** It preserves the approved versioned migration
+  workflow and makes a clean local PostgreSQL container reproducible for both
+  developers.
+- **Approved by:** Existing Sprint 1 implementation approval; runtime fix is
+  limited to the Order Service build.
+- **Affected locations:** `order-service/pom.xml` and local Order Service
+  verification/change records.
+- **Tests run:** Docker image rebuild; clean PostgreSQL/Firebase/Order startup;
+  readiness and OpenAPI smoke checks; database schema inspection; Docker Maven
+  test run.
+- **Test results:** 5 tests run, 0 failures, 0 errors, 0 skipped. Flyway
+  created `orders`, `order_checkpoints`, `command_receipts`, and
+  `flyway_schema_history`; readiness returned `UP`.
+- **Specification or API deviation:** None. Full peer-contract, acceptance,
+  frontend, and Cloud Run verification remains pending.
+- **Related decision or change record:** `order-service/changes/CHANGE-021-spring-boot-flyway-runtime-fix.md`.
