@@ -391,3 +391,13 @@ Automatic repost is backend-triggered, so focus/manual refresh remains the
 fallback for lifecycle changes that occur without a browser mutation. Frontend
 Vitest and typecheck verification remain pending because `npm` is unavailable
 in this execution environment.
+
+## Latest Supplier lookup 401 diagnosis — 2026-09-30
+
+CHANGE-042 records a hard-refresh authentication race. The Orders page invokes
+`useSupplierNames` before the `RequireAuth` JSX guard can display its loading
+state. Firebase may not yet have restored `currentUser`/the ID token, so the
+lookup reaches the gateway without a valid bearer and receives 401. The CORS
+headers are present; this is not a CORS failure. The frontend hook and initial
+Order fetch should be gated on settled authentication before a future fix is
+implemented.

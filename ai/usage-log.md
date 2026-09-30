@@ -842,3 +842,14 @@ for failures show credits unavailable
 - **Peer boundary:** No peer-service source, API contract, schema, broker, or infrastructure was modified.
 - **Verification:** Static inspection passed. Frontend Vitest/typecheck could not run because `npm` was unavailable in this execution environment; no runtime success was claimed.
 - **Related change record:** `CHANGE-041-credit-ui-invalidation-implementation.md`.
+
+## 2026-09-30 - Supplier lookup authentication-race diagnosis
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Browser-network diagnosis and beginner learning documentation.
+- **Finding:** A hard refresh can trigger the frontend Supplier lookup before Firebase restores the signed-in user/token. The gateway returns `401 UNAUTHENTICATED`; CORS is present and is not the cause.
+- **Key response:** Documented the React hook/`RequireAuth` timing boundary and the recommended auth-settled guard without changing the Supplier API or peer source.
+- **Affected locations:** CHANGE-042, the Order active-work/change-log records, the requested learning file, and this usage log.
+- **Peer boundary:** No peer-service source, API contract, schema, or infrastructure was modified.
+- **Verification:** Static inspection of `useSupplierNames`, `RequireAuth`, `useApi`, Firebase auth state, and the supplied network response. No runtime claim.
+- **Related change record:** `CHANGE-042-supplier-lookup-auth-race-diagnosis.md`.
