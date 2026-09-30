@@ -128,6 +128,18 @@ checks. It does not push or mutate Git history and does not run sibling,
 Cloud-IAM, or browser checks by default. No rehearsal was triggered in this
 turn.
 
+## On-demand CI rehearsal result — 2026-09-30
+
+The explicitly requested rehearsal ran on branch
+`sprint-1/seq-1-to-seq-11`. The Order Service OpenAPI structural guard passed.
+Maven verification was unavailable because the checked-in Windows Maven
+wrapper failed before Maven startup. Frontend npm checks were unavailable
+because Node/npm are not installed in this runner. Compose configuration
+validation passed, with Docker configuration-access warnings. Docker image
+build was unavailable because the Docker daemon/buildx pipe denied access even
+with an isolated temporary Docker config. No Git history or learning file was
+changed.
+
 ## Dependencies on Yao Xiang
 
 Combined implementation is explicitly authorized on this branch only; do not modify Yao Xiang's assigned branch. Reconcile the shared `Order` aggregate, persistence abstractions, status-transition interfaces, test fixtures, and service ports in this branch. Both developers must follow ADR-002 for any courier-outcome port or adapter.

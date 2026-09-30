@@ -1027,3 +1027,22 @@ for failures show credits unavailable
 - **Author verification:** The developer selected the pre-push rehearsal
   workflow and may explicitly trigger it in a later turn. No application or
   peer-service source was changed.
+
+## 2026-09-30 — On-demand CI rehearsal execution (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-30
+- **Mode:** Verification
+- **Prompt:**
+
+  > Run the Order Service pre-push CI rehearsal now.
+
+- **Key response:** Ran the scoped rehearsal on
+  `sprint-1/seq-1-to-seq-11`. The OpenAPI structural guard and Compose config
+  validation passed. Maven, npm, and Docker image checks were unavailable due
+  to the local wrapper/runtime and Docker daemon permission limitations.
+- **Affected locations:** Order Service verification only; no application,
+  peer-service, or learning file was changed.
+- **Author verification:** Results are recorded as unavailable rather than
+  passed where the local runner could not execute the command. The developer
+  must rerun the unavailable checks locally or in CI before pushing.
