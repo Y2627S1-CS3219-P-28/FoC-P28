@@ -176,6 +176,7 @@ services:
 
   # ---- Backend service template ------------------------------------------
   # Copy, uncomment and rename once <name>-service has a working Dockerfile.
+  # admin-service is currently an empty placeholder, so it is intentionally not built here.
   # Host ports: user 8081, supplier 8082, order 8083, credit 8084, admin 8085.
   #
   # <name>-service:
