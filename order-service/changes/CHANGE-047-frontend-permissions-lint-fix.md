@@ -1,7 +1,7 @@
 # CHANGE-047 — Fix frontend supplier-permissions lint failure
 
-**Date:** 2026-09-30  
-**Status:** Implemented; local npm verification unavailable  
+**Date:** 2026-09-30
+**Status:** Implemented; local npm verification unavailable
 **Scope:** Shared frontend authentication/permission hook
 
 ## Finding
