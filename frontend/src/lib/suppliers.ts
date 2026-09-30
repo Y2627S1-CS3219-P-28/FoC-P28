@@ -136,6 +136,12 @@ export function formatLocation(supplier: Pick<Supplier, "building" | "floor">): 
   return supplier.floor ? `${supplier.building}, level ${supplier.floor}` : supplier.building
 }
 
+/** Compact human-readable label for selecting a supplier while preserving its stable ID. */
+export function supplierOptionLabel(supplier: Pick<Supplier, "name" | "building">): string {
+  return supplier.building ? `${supplier.name} — ${supplier.building}` : supplier.name
+}
+
+
 export function mapsUrl(supplier: Pick<Supplier, "latitude" | "longitude">): string {
   return `https://www.google.com/maps/search/?api=1&query=${supplier.latitude},${supplier.longitude}`
 }
