@@ -28,12 +28,12 @@ public class OrderCreationService {
                         long amount, int duration, Instant expiresAt, String authorization) {
         var previous=receipts.findByOperationAndCommandId("CREATE",commandId);
         if(previous.isPresent()) return orders.findById(previous.get().getOrderId()).orElseThrow();
-        users.verifyRequester(requesterId, authorization);
+        String authenticatedRequester = users.verifyRequester(requesterId, authorization);
         suppliers.validatePair(pickup, delivery, authorization);
-        Order order = Order.open(requesterId, description, pickup, delivery, amount, duration, Instant.now(), expiresAt);
-        credits.reserve(order.getId(), requesterId, amount, authorization);
+        Order order = Order.open(authenticatedRequester, description, pickup, delivery, amount, duration, Instant.now(), expiresAt);
+        credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
         Order saved = orders.save(order);
-        checkpoints.save(new sg.edu.nus.foc.order.domain.OrderCheckpoint(saved.getId(), saved.getStatus(), saved.getCreatedAt(), requesterId, null));
+        checkpoints.save(new sg.edu.nus.foc.order.domain.OrderCheckpoint(saved.getId(), saved.getStatus(), saved.getCreatedAt(), authenticatedRequester, null));
         receipts.save(new CommandReceipt("CREATE",commandId,saved.getId(),Instant.now()));
         return saved;
     }

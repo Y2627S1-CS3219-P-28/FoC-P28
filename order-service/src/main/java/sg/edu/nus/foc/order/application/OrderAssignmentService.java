@@ -19,8 +19,10 @@ public class OrderAssignmentService {
     @Transactional
     public Order accept(String commandId,String id, String courier, long version, String authorization) {
         var previous=receipts.findByOperationAndCommandId("ACCEPT",commandId); if(previous.isPresent()) return orders.findById(previous.get().getOrderId()).orElseThrow();
-        users.verifyCourier(courier, authorization); Order order = lock(id); order.accept(courier, version, Instant.now());
-        checkpoints.save(new OrderCheckpoint(id, order.getStatus(), Instant.now(), courier, null)); Order saved=orders.save(order); receipts.save(new CommandReceipt("ACCEPT",commandId,saved.getId(),Instant.now())); return saved;
+        String authenticatedCourier = users.verifyCourier(courier, authorization);
+        Order order = lock(id);
+        order.accept(authenticatedCourier, version, Instant.now());
+        checkpoints.save(new OrderCheckpoint(id, order.getStatus(), Instant.now(), authenticatedCourier, null)); Order saved=orders.save(order); receipts.save(new CommandReceipt("ACCEPT",commandId,saved.getId(),Instant.now())); return saved;
     }
     private Order lock(String id) { return orders.lockById(id).orElseThrow(() -> sg.edu.nus.foc.order.domain.OrderProblem.notFound("Order not found.")); }
 }

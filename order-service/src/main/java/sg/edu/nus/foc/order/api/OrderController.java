@@ -23,8 +23,8 @@ public class OrderController {
     @GetMapping("/available") public Page<OrderDtos.View> available(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return queries.available(page,size).map(OrderDtos.View::of);}
     @GetMapping("/mine") public Page<OrderDtos.View> mine(@RequestParam String mode,@RequestParam String userId,@RequestHeader(value="Authorization",required=false) String auth,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){
         return switch (mode.toLowerCase()) {
-            case "requester" -> { users.verifyRequester(userId, auth); yield queries.requestedBy(userId, page, size).map(OrderDtos.View::of); }
-            case "courier" -> { users.verifyCourier(userId, auth); yield queries.courierFor(userId, page, size).map(OrderDtos.View::of); }
+            case "requester" -> { String authenticatedUser = users.verifyRequester(userId, auth); yield queries.requestedBy(authenticatedUser, page, size).map(OrderDtos.View::of); }
+            case "courier" -> { String authenticatedUser = users.verifyCourier(userId, auth); yield queries.courierFor(authenticatedUser, page, size).map(OrderDtos.View::of); }
             default -> throw new OrderProblem("VALIDATION_ERROR", "Mode must be requester or courier.");
         };
     }

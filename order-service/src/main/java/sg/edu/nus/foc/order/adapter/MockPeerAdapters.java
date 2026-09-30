@@ -11,8 +11,8 @@ import sg.edu.nus.foc.order.application.UserServicePort;
 @Profile("!http")
 @ConditionalOnProperty(name="order.peers.mode", havingValue="mock", matchIfMissing=true)
 public class MockPeerAdapters implements UserServicePort, SupplierServicePort, CreditServicePort {
-    public void verifyRequester(String userId, String authorization) { require(userId, "requester"); }
-    public void verifyCourier(String userId, String authorization) { require(userId, "courier"); }
+    public String verifyRequester(String userId, String authorization) { require(userId, "requester"); return userId; }
+    public String verifyCourier(String userId, String authorization) { require(userId, "courier"); return userId; }
     public void validatePair(String pickupSupplierId, String deliverySupplierId, String authorization) {
         require(pickupSupplierId, "pickup supplier"); require(deliverySupplierId, "delivery supplier");
         if (pickupSupplierId.equals(deliverySupplierId)) throw new IllegalArgumentException("Supplier locations must differ.");

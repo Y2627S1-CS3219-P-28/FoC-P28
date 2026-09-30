@@ -1,5 +1,6 @@
 package sg.edu.nus.foc.order.adapter;
 
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
@@ -19,11 +20,35 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
                             @Value("${order.peers.credit-url}") String creditUrl) {
         user=RestClient.builder().baseUrl(userUrl).build(); supplier=RestClient.builder().baseUrl(supplierUrl).build(); credit=RestClient.builder().baseUrl(creditUrl).build();
     }
-    public void verifyRequester(String id,String auth){call(user,"/api/users/role-context",auth,id);}
-    public void verifyCourier(String id,String auth){call(user,"/api/users/courier-eligibility",auth,id);}
+    public String verifyRequester(String id,String auth){
+        UserRoleContext context = call(user,"/api/users/role-context",auth,UserRoleContext.class);
+        requireMatchingRole(context, id, "requester");
+        return context.userId();
+    }
+    public String verifyCourier(String id,String auth){
+        CourierEligibility eligibility = call(user,"/api/users/courier-eligibility",auth,CourierEligibility.class);
+        if (eligibility == null || !eligibility.isCourierEligible()) {
+            throw new IllegalStateException("Courier is not eligible to accept orders.");
+        }
+        UserRoleContext context = call(user,"/api/users/role-context",auth,UserRoleContext.class);
+        requireMatchingRole(context, id, "courier");
+        return context.userId();
+    }
     public void validatePair(String pickup,String delivery,String auth){supplier.post().uri("/api/suppliers/validate").header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Pair(pickup,delivery)).retrieve().toBodilessEntity();}
     public void reserve(String orderId,String requester,long amount,String auth){credit.put().uri("/api/credits/orders/{id}/reservation",orderId).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).body(new Reservation(requester,amount)).retrieve().toBodilessEntity();}
-    private static void call(RestClient client,String path,String auth,String id){client.get().uri(path).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).header("X-User-Id",id).retrieve().toBodilessEntity();}
+    private static <T> T call(RestClient client,String path,String auth,Class<T> responseType){
+        return client.get().uri(path).header(HttpHeaders.AUTHORIZATION,auth==null?"":auth).retrieve().body(responseType);
+    }
+    private static void requireMatchingRole(UserRoleContext context, String requestedId, String role) {
+        if (context == null || context.userId() == null || context.userId().isBlank()
+                || !context.userId().equals(requestedId)
+                || context.roles() == null
+                || context.roles().stream().noneMatch(value -> role.equalsIgnoreCase(value))) {
+            throw new IllegalStateException("Authenticated user does not match the requested " + role + " identity.");
+        }
+    }
     private record Pair(String pickupSupplierId,String deliverySupplierId) {}
     private record Reservation(String requesterId,long amount) {}
+    private record UserRoleContext(String userId, List<String> roles) {}
+    private record CourierEligibility(boolean isCourierEligible) {}
 }

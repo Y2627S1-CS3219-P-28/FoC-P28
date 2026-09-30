@@ -26,6 +26,7 @@ class OrderRepostServiceTest {
         when(receipts.findByOperationAndCommandId("CONFIGURE_REPOST", "cmd")).thenReturn(Optional.empty());
         when(orders.lockById(order.getId())).thenReturn(Optional.of(order));
         when(orders.save(order)).thenReturn(order);
+        when(users.verifyRequester("requester", "Bearer token")).thenReturn("requester");
 
         new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users)
             .configure("cmd", order.getId(), "requester", 0,
