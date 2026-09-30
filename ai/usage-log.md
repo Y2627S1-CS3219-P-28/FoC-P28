@@ -247,7 +247,7 @@ for failures show credits unavailable
 
   > Continue from the remaining issue, setup the associated frontend readable from mobile web client and web client as well related to the backend code generated so far, setup Dockerfile for Order Service with local PostgreSQL, and provide a command to run the whole project in Docker.
 
-- **Key response:** Added a multi-stage Order Service Dockerfile, local PostgreSQL 15 and MongoDB Compose services with Flyway-backed startup configuration, Compose wiring and local environment placeholders, and strengthened the workflow so user-visible backend capabilities require a companion shared Next.js vertical slice or an explicitly recorded backend-only decision.
+- **Key response:** Added a multi-stage Order Service Dockerfile, a local PostgreSQL 15 Compose service with Flyway-backed startup configuration, Order-only Compose wiring and local environment placeholders, and strengthened the workflow so user-visible backend capabilities require a companion shared Next.js vertical slice or an explicitly recorded backend-only decision while preserving peer-owned shared configuration.
 - **Affected locations:** `order-service/Dockerfile`, `compose.yaml`, `.env.example`, `order-service/README.md`, Order Service frontend workflow and agent instructions, and CHANGE-018.
 - **Tests run:** Static configuration inspection completed. Docker Compose syntax/build/health verification remains pending.
 - **Test results:** No Docker command was claimed as passed in this turn. Frontend source was not modified because the required application role/mode and detailed UI behavior remain unresolved.
