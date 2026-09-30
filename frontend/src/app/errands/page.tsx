@@ -26,7 +26,7 @@ export default function ErrandsPage() {
     setLoading(true)
     try {
       const page = await api<OrderPage>(orderAvailablePath())
-      setOrders(page.content)
+      setOrders(page.items)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load available errands.")
     } finally {

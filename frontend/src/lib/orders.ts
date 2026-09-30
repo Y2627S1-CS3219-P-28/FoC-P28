@@ -32,13 +32,11 @@ export type Order = {
 }
 
 export type OrderPage = {
-  content: Order[]
-  number: number
+  items: Order[]
+  page: number
   size: number
-  totalElements: number
+  totalItems: number
   totalPages: number
-  first: boolean
-  last: boolean
 }
 
 export type CreateOrderForm = {
@@ -108,15 +106,15 @@ export function validateCreateOrderForm(form: CreateOrderForm, now = new Date())
 
 const commandId = () => crypto.randomUUID()
 
-export function orderMinePath(mode: OrderMode, userId: string, page = 0): string {
+export function orderMinePath(mode: OrderMode, userId: string, page = 1): string {
   const params = new URLSearchParams({ mode, userId })
-  if (page > 0) params.set("page", String(page))
+  params.set("page", String(Math.max(1, page)))
   params.set("size", "20")
   return `/api/orders/mine?${params.toString()}`
 }
 
-export function orderAvailablePath(page = 0): string {
-  return `/api/orders/available?page=${Math.max(0, page)}&size=20`
+export function orderAvailablePath(page = 1): string {
+  return `/api/orders/available?page=${Math.max(1, page)}&size=20`
 }
 
 export function buildCreateOrderPayload(form: CreateOrderForm, requesterId: string): CreateOrderPayload {

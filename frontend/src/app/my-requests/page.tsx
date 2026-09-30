@@ -28,7 +28,7 @@ export default function MyRequestsPage() {
     setLoading(true)
     try {
       const page = await api<OrderPage>(orderMinePath("requester", user.uid))
-      setOrders(page.content)
+      setOrders(page.items)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load your requests.")
     } finally {

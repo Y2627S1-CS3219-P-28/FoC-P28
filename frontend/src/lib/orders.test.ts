@@ -34,7 +34,7 @@ describe("Order Service frontend contract helpers", () => {
   })
 
   it("creates an authenticated mine query for each approved mode", () => {
-    expect(orderMinePath("requester", "uid-1")).toBe("/api/orders/mine?mode=requester&userId=uid-1&size=20")
+    expect(orderMinePath("requester", "uid-1")).toBe("/api/orders/mine?mode=requester&userId=uid-1&page=1&size=20")
     expect(orderMinePath("courier", "uid-2", 1)).toBe("/api/orders/mine?mode=courier&userId=uid-2&page=1&size=20")
   })
 
