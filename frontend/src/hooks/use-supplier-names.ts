@@ -14,16 +14,9 @@ export function useSupplierNames(ids: string[]) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (uniqueIds.length === 0) {
-      setNames({})
-      setLoading(false)
-      setError(null)
-      return
-    }
+    if (uniqueIds.length === 0) return
 
     const controller = new AbortController()
-    setLoading(true)
-    setError(null)
     void api<SupplierLookupResponse>(supplierLookupPath(), {
       method: "POST",
       body: supplierLookupPayload(uniqueIds),
@@ -45,7 +38,10 @@ export function useSupplierNames(ids: string[]) {
 
   // A card must not render opaque supplier IDs while this lookup is in flight.
   // The page uses this value to keep the first render stable and human-readable.
-  const ready = uniqueIds.length === 0 || uniqueIds.every((id) => Object.hasOwn(names, id)) || Boolean(error && !loading)
+  const visibleNames = uniqueIds.length === 0 ? {} : names
+  const visibleLoading = uniqueIds.length > 0 && loading
+  const visibleError = uniqueIds.length === 0 ? null : error
+  const ready = uniqueIds.length === 0 || uniqueIds.every((id) => Object.hasOwn(visibleNames, id)) || Boolean(visibleError && !visibleLoading)
 
-  return { names, loading, ready, error }
+  return { names: visibleNames, loading: visibleLoading, ready, error: visibleError }
 }

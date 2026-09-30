@@ -50,14 +50,9 @@ export default function NewRequestPage() {
   const [postError, setPostError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
-      setSuppliersLoading(false)
-      return
-    }
+    if (!user) return
 
     const controller = new AbortController()
-    setSuppliersLoading(true)
-    setSuppliersError(null)
     void api<Page<Supplier>>("/api/suppliers?status=active&page=1&size=100&sort=name&order=asc", {
       signal: controller.signal,
     })
