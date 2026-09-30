@@ -268,3 +268,26 @@ for failures show credits unavailable
 - **Test results:** Docker image/container verification remains unavailable because Docker Desktop's Linux engine is not running.
 - **Specification or API deviation:** No deviation. Shared-file changes are limited to Order Service additions; peer-owned configuration was restored unchanged.
 - **Related decision or change record:** `order-service/changes/CHANGE-019-shared-file-boundary.md`.
+
+## 2026-09-30 - Small atomic Git practice and local-stack recheck
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow refinement and verification assistance.
+- **Exact prompt:**
+
+  > Set up small size atomic git practice upon every file changes. Preserve peer service sections in shared files and verify that the restored Docker setup can run the project locally.
+
+- **Key response:** Persisted a small atomic-change protocol requiring explicit-path staging,
+  one coherent concern per commit, staged diff checks, the smallest applicable deterministic
+  check, and commit-hash handoff. Rechecked the restored root Compose configuration and retained
+  the peer User Service/MongoDB section while keeping only Order Service PostgreSQL additions in
+  shared files.
+- **Affected locations:** Local Order Service workflow records, `compose.yaml`, `.env.example`,
+  and this AI usage log; no sibling service directory was modified.
+- **Tests run:** `docker compose config --quiet` passed and Compose services were enumerated.
+  `docker version` could not connect to the Docker daemon, so image builds, container startup,
+  health checks, and peer MongoDB connectivity were not verified.
+- **Test results:** Static Compose validation passed; runtime verification remains unavailable.
+- **Specification or API deviation:** None. The local stack continues to use Order Service's
+  local PostgreSQL container; peer-owned configuration remains preserved.
+- **Related decision or change record:** `order-service/changes/CHANGE-020-small-atomic-change-practice.md`.
