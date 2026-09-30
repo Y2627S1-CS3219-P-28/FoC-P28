@@ -708,3 +708,12 @@ for failures show credits unavailable
 - **Tests run:** Static inspection and patch validation; `git diff --check` was run. Java/Maven (Java 21 required), Node/npm frontend tests, Docker/browser/E2E, and JaCoCo could not be completed in the current environment.
 - **Test results:** No runtime completion claim; the branch remains under the completion gate.
 - **Related decision or change record:** `CHANGE-032-credit-outcome-stub-exception.md`; `ARCH-EVO-005`; `FEEDBACK-001`.
+
+## 2026-09-30 - Lifecycle repository-method compile correction
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Build-failure diagnosis, implementation assistance, and Docker verification.
+- **Finding:** `LifecycleProcessingService.repostDue` still referenced the removed short expiry-query method after the explicit unassigned-order repository refinement.
+- **Key response:** Updated automatic repost selection to call `findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull` and recorded CHANGE-033.
+- **Verification:** `docker compose build order-service` completed successfully through Maven compilation and Spring Boot layered-jar extraction.
+- **Peer boundary:** No peer-service or learning file changed.

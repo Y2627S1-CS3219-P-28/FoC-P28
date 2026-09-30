@@ -261,3 +261,10 @@ pagination/error envelopes, OpenAPI operation/security metadata, authenticated
 manual repost drafts, and structured Order audit logging. Java/Maven, Node/npm,
 Docker, browser, and coverage verification remain pending or unavailable in
 this environment.
+
+## Latest lifecycle query compile fix — 2026-09-30
+
+Docker compilation exposed one stale call to the pre-refinement repository
+method in automatic repost processing. CHANGE-033 aligned it with the explicit
+`courierId IS NULL` query. `docker compose build order-service` now passes;
+full stack startup and authenticated browser verification remain pending.
