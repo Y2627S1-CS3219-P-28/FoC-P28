@@ -517,3 +517,12 @@ pending CI or a local Java/Maven setup.
 The OpenAPI test was corrected to use the Spring Boot 4.1 security
 auto-configuration package names; commit `4a40c5b` records that test-only
 compatibility correction.
+
+## Latest OpenAPI CI 404 fix — 2026-09-30
+
+GitHub CI reached the Order Service tests after `mvnw` became executable, but
+`OpenApiDocumentationTest` received 404 for `/api/orders/v3/api-docs`. CHANGE-
+049 imports the core `SpringDocConfiguration` alongside the WebMVC and Swagger
+configurations so the MVC slice can register the Springdoc resource. The
+pasted CI log is the verification evidence for the diagnosis; local Maven is
+unavailable, so CI must verify the fix.

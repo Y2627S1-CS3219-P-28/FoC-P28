@@ -1028,6 +1028,27 @@ for failures show credits unavailable
   workflow and may explicitly trigger it in a later turn. No application or
   peer-service source was changed.
 
+## 2026-09-30 — OpenAPI test Springdoc context fix (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-09-30
+- **Mode:** CI failure diagnosis and test implementation
+- **Prompt:**
+
+  > The maven error still occurs when running ci
+
+- **Key response:** Inspected the pasted GitHub log and identified a new
+  failure after the executable-bit fix: `OpenApiDocumentationTest` returned
+  404 for `/api/orders/v3/api-docs`. Added the missing core
+  `SpringDocConfiguration` import and recorded the fix as `CHANGE-049`.
+- **Affected locations:**
+  `order-service/src/test/java/sg/edu/nus/foc/order/api/OpenApiDocumentationTest.java`,
+  `order-service/changes/CHANGE-049-openapi-springdoc-test-context.md`, the
+  Order Service change log/active-work records, and this usage log.
+- **Author verification:** The developer supplied the CI evidence. The fix is
+  pending GitHub Maven verification; no peer-service or runtime API source was
+  modified.
+
 ## 2026-09-30 — On-demand CI rehearsal execution (Order Service)
 
 - **Tool:** OpenAI Codex (GPT-5)
