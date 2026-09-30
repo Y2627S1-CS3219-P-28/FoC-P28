@@ -639,3 +639,20 @@ for failures show credits unavailable
   no peer-service source or public API contract was changed.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-029-dashboard-without-mode-switch-and-location-stability.md`.
+
+## 2026-09-30 - Credit outcome API gap inspection
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Peer-service API verification and dependency-gap analysis.
+- **Order Service feature:** Sprint 1 Sequences 7-9 credit consequences.
+- **Related FR/NFR/NTH:** Project D1 F7.1, F10.1.4, F11.1.2, F11.2.3; approved synchronous Credit boundary.
+- **AI usage type:** Research / design comparison / verification assistance.
+- **Architecture options considered:** Reuse reservation lookup; invent an Order-side balance update; or request explicit Credit-owned settlement/release operations. The first two were rejected because they do not satisfy Credit ownership or outcome semantics.
+- **Developer-selected architecture:** Record the missing provider capability as `FEEDBACK-001` and do not invent or implement a peer API.
+- **Reason for selection:** The actual Credit Service implements registration, self-balance lookup, reservation, and reservation lookup, but no settlement/release operations for completed, cancelled, or expired orders.
+- **Approved by:** Vincent requested the compliance investigation; the missing API remains an open peer-owner decision.
+- **Files changed:** `order-service/docs/peer-service-api-feedback.md` and local active-work records.
+- **Tests run:** Read-only inspection of Credit Service controller, service, README, security configuration, and integration tests.
+- **Test results:** Existing reservation/registration endpoints were confirmed; outcome operations were not found. No peer source was modified.
+- **Specification or API deviation:** Sprint 1 deferment conflicts with the broader approved synchronous Credit boundary; unresolved.
+- **Related decision or change record:** `FEEDBACK-001`; `CHANGE-029-dashboard-without-mode-switch-and-location-stability.md`.
