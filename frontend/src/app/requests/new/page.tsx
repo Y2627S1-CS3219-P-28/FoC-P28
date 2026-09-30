@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApi } from "@/hooks/use-api"
-import { buildCreateOrderPayload, buildRepostConfigPayload, type CreateOrderForm, type Order } from "@/lib/orders"
+import { ApiError } from "@/lib/api"
+import { buildCreateOrderPayload, buildRepostConfigPayload, minOrderExpiryDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
 import { supplierOptionLabel, type Page, type Supplier } from "@/lib/suppliers"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -46,6 +47,7 @@ export default function NewRequestPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [suppliersLoading, setSuppliersLoading] = useState(true)
   const [suppliersError, setSuppliersError] = useState<string | null>(null)
+  const [postError, setPostError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) {
@@ -75,6 +77,13 @@ export default function NewRequestPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!user) return
+    const validationError = validateCreateOrderForm(form)
+    if (validationError) {
+      setPostError(validationError)
+      toast.error(validationError)
+      return
+    }
+    setPostError(null)
     setBusy(true)
     try {
       const created = await api<Order>("/api/orders", { method: "POST", body: buildCreateOrderPayload(form, user.uid) })
@@ -87,7 +96,11 @@ export default function NewRequestPage() {
       toast.success("Order posted")
       router.push("/my-requests")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not post this request.")
+      const message = error instanceof ApiError && error.status === 400
+        ? "The request details are invalid. Expiry must be at least 30 minutes from now; credits must be at least 1; delivery time must be at least 15 minutes; and pickup and delivery suppliers must differ."
+        : error instanceof Error ? error.message : "Could not post this request."
+      setPostError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -97,6 +110,7 @@ export default function NewRequestPage() {
     <RequireAuth>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
         <div><p className="text-sm text-muted-foreground">Request service</p><h1 className="text-2xl font-semibold tracking-tight">Post a campus request</h1><p className="mt-1 text-muted-foreground">Describe the errand and reserve credits before it becomes available.</p></div>
+        {postError && <Alert variant="destructive" role="alert"><AlertTitle>Request could not be posted</AlertTitle><AlertDescription>{postError}</AlertDescription></Alert>}
         <form onSubmit={(event) => void submit(event)} className="space-y-6" aria-label="Post request form">
           <Card><CardHeader><CardTitle>Request details</CardTitle><CardDescription>Select suppliers from the active Supplier Service catalogue.</CardDescription></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="item-description">What do you need?</Label><Input id="item-description" required maxLength={100} className={inputClass} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} placeholder="Pick up a parcel from the campus store" /></label>
@@ -105,7 +119,7 @@ export default function NewRequestPage() {
             <label className="space-y-1 text-sm"><Label htmlFor="delivery-supplier">Delivery supplier</Label><Select items={Object.fromEntries(suppliers.map((supplier) => [supplier.id, supplierOptionLabel(supplier)]))} value={form.deliverySupplierId} onValueChange={(value) => update("deliverySupplierId", String(value ?? ""))} disabled={suppliersLoading || suppliers.length === 0}><SelectTrigger id="delivery-supplier" aria-label="Delivery supplier" className="h-9 w-full"><SelectValue placeholder={suppliersLoading ? "Loading suppliers…" : "Select a delivery supplier"} /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.id} value={supplier.id}>{supplierOptionLabel(supplier)}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1 text-sm"><Label htmlFor="credits">Offered credits</Label><Input id="credits" required type="number" min="1" className={inputClass} value={form.offeredCredits} onChange={(event) => update("offeredCredits", Number(event.target.value))} /></label>
             <label className="space-y-1 text-sm"><Label htmlFor="delivery-limit">Delivery time limit (minutes)</Label><Input id="delivery-limit" required type="number" min="15" className={inputClass} value={form.deliveryTimeLimitMinutes} onChange={(event) => update("deliveryTimeLimitMinutes", Number(event.target.value))} /></label>
-            <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="expires-at">Order expiry</Label><Input id="expires-at" required type="datetime-local" className={inputClass} value={form.expiresAt} onChange={(event) => update("expiresAt", event.target.value)} /></label>
+            <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="expires-at">Order expiry</Label><Input id="expires-at" required type="datetime-local" min={minOrderExpiryDateTimeLocal()} aria-describedby="expiry-help" className={inputClass} value={form.expiresAt} onChange={(event) => { setPostError(null); update("expiresAt", event.target.value) }} /><span id="expiry-help" className="text-xs text-muted-foreground">Choose an expiry at least 30 minutes from now. Shorter expiries are rejected by Order Service.</span></label>
           </CardContent></Card>
           <Card><CardHeader><CardTitle>Automatic repost</CardTitle><CardDescription>Optional NTH4 behavior. The new order is created and credited only when the repost is due.</CardDescription></CardHeader><CardContent className="space-y-4">
             <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.automaticRepost} onChange={(event) => update("automaticRepost", event.target.checked)} />Enable automatic repost if no courier accepts</label>

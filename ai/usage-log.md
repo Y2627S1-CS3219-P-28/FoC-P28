@@ -656,3 +656,20 @@ for failures show credits unavailable
 - **Test results:** Existing reservation/registration endpoints were confirmed; outcome operations were not found. No peer source was modified.
 - **Specification or API deviation:** Sprint 1 deferment conflicts with the broader approved synchronous Credit boundary; unresolved.
 - **Related decision or change record:** `FEEDBACK-001`; `CHANGE-029-dashboard-without-mode-switch-and-location-stability.md`.
+
+## 2026-09-30 - Order expiry validation feedback
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Implementation assistance and verification assistance.
+- **Order Service feature:** Post-request expiry validation for the Sequence 1 frontend flow.
+- **Related FR/NFR/NTH:** Sprint 1 Sequence 1; Order domain creation rule requiring expiry at least 30 minutes after creation.
+- **AI usage type:** Test assistance / implementation assistance / verification assistance.
+- **Architecture options considered:** Leave rejection to the backend; change the backend minimum; or mirror the existing backend rule in the frontend while retaining backend authority.
+- **Developer-selected architecture:** Mirror the existing 30-minute rule in the shared frontend with an HTML minimum, pre-submit validation, inline feedback, and a boundary unit test.
+- **Reason for selection:** Prevents avoidable HTTP 400 responses without changing the approved domain rule or any service contract.
+- **Approved by:** Vincent requested clear expiry feedback; no architecture or API deviation was introduced.
+- **Files changed:** `frontend/src/app/requests/new/page.tsx`, `frontend/src/lib/orders.ts`, `frontend/src/lib/orders.test.ts`, and `order-service/changes/CHANGE-030-order-expiry-validation.md` plus synchronized workflow records.
+- **Tests run:** Static inspection and staged diff checks; frontend Vitest/typecheck remain pending because Node/npm are unavailable in this environment.
+- **Test results:** `git diff --check` passed after the change; no runtime completion claim.
+- **Specification or API deviation:** None.
+- **Related decision or change record:** `CHANGE-030-order-expiry-validation.md`.

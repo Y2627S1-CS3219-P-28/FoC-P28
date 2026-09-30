@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm } from "@/lib/orders"
+import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm, validateCreateOrderForm } from "@/lib/orders"
 
 describe("Order Service frontend contract helpers", () => {
   it("builds a requester create payload with an automatic repost plan", () => {
@@ -40,5 +40,35 @@ describe("Order Service frontend contract helpers", () => {
       actorId: "uid-2",
       expectedVersion: 4,
     })
+  })
+
+  it("requires order expiry to be at least 30 minutes after creation", () => {
+    const now = new Date("2026-09-30T07:00:00.000Z")
+
+    expect(validateCreateOrderForm({
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 1,
+      deliveryTimeLimitMinutes: 15,
+      expiresAt: "2026-09-30T07:29:59.000Z",
+      automaticRepost: false,
+      repostDueAt: "2026-09-30T08:00:00.000Z",
+      repostCreditAmount: 1,
+      repostDeliveryDurationMinutes: 15,
+    }, now)).toBe("Order expiry must be at least 30 minutes from now. Choose a later time.")
+
+    expect(validateCreateOrderForm({
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 1,
+      deliveryTimeLimitMinutes: 15,
+      expiresAt: "2026-09-30T07:30:00.000Z",
+      automaticRepost: false,
+      repostDueAt: "2026-09-30T08:00:00.000Z",
+      repostCreditAmount: 1,
+      repostDeliveryDurationMinutes: 15,
+    }, now)).toBeNull()
   })
 })

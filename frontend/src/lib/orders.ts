@@ -77,6 +77,21 @@ export type OrderActionPayload = {
   expectedVersion: number
 }
 
+export const MIN_ORDER_EXPIRY_MINUTES = 30
+
+export function minOrderExpiryDateTimeLocal(now = new Date()): string {
+  return isoToDateTimeLocal(new Date(now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000).toISOString())
+}
+
+export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
+  const expiry = new Date(form.expiresAt)
+  if (Number.isNaN(expiry.getTime())) return "Choose an order expiry time."
+  if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) {
+    return "Order expiry must be at least 30 minutes from now. Choose a later time."
+  }
+  return null
+}
+
 const commandId = () => crypto.randomUUID()
 
 export function orderMinePath(mode: OrderMode, userId: string, page = 0): string {

@@ -220,3 +220,11 @@ Run `git diff --check`, frontend typecheck/Vitest/lint/build, Order Service
 tests with Java 21/Maven, and an authenticated local-browser check when the
 required runtimes and Docker engine are available. Rebuild the local stack so
 the running images include the current frontend and Order Service changes.
+
+## Latest expiry-validation feedback change — 2026-09-30
+
+The post-request frontend now prevents an expiry shorter than the Order domain's
+30-minute minimum and reports the constraint inline and in a toast. The backend
+rule remains authoritative. CHANGE-030 records the change; frontend Vitest,
+typecheck, and browser verification remain pending because Node/npm are not
+available in the current execution environment.

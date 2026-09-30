@@ -38,3 +38,5 @@ claimed from static builds or unit tests.
   credit policy and account persistence remain owned by Credit Service.
 - Local browser calls from `http://localhost:3000` to the gateway on `http://localhost:8080` use an
   explicit development-only CORS allowlist; deployed origins are unchanged.
+- The post-request form mirrors the Order domain rule that `expiresAt` must be at least 30 minutes
+  after creation and explains the constraint before submission; the backend remains authoritative.
