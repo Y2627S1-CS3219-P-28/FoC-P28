@@ -29,6 +29,11 @@ export type Page<T> = {
   message?: string
 }
 
+export type SupplierLookupResponse = {
+  items: Supplier[]
+  missingIds: string[]
+}
+
 export type SupplierPermissions = {
   uid: string
   email: string | null
@@ -62,6 +67,14 @@ export const STATUS_LABELS = { active: "Active", inactive: "Inactive", all: "All
 export type StatusKey = keyof typeof STATUS_LABELS
 
 export const PAGE_SIZE = 12
+
+export function supplierLookupPath(): string {
+  return "/api/suppliers/lookup"
+}
+
+export function supplierLookupPayload(ids: readonly string[]): { ids: string[] } {
+  return { ids: Array.from(new Set(ids.filter(Boolean))) }
+}
 
 /** Catalogue view state, kept in the URL so searches are shareable and survive back/forward. */
 export type SupplierQuery = {

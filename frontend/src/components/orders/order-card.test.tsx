@@ -22,12 +22,19 @@ const order: Order = {
 }
 
 describe("OrderCard", () => {
-  it("renders the order facts and action area for desktop and mobile layouts", () => {
-    render(<OrderCard order={order} actions={<button type="button">Accept errand</button>} />)
+  it("renders supplier names and keeps the order ID out of the user-facing card", () => {
+    render(
+      <OrderCard
+        order={order}
+        supplierNames={{ "store-a": "Campus Store", "hall-b": "Residential Hall" }}
+        actions={<button type="button">Accept errand</button>}
+      />,
+    )
 
     expect(screen.getByText("Pick up a parcel")).toBeInTheDocument()
     expect(screen.getByText("Open")).toBeInTheDocument()
-    expect(screen.getByText("store-a → hall-b")).toBeInTheDocument()
+    expect(screen.getByText(/Campus Store.*Residential Hall/)).toBeInTheDocument()
+    expect(screen.queryByText("order-1")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept errand" })).toBeInTheDocument()
   })
 })

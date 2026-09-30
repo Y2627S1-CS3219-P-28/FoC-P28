@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { OrderCard } from "@/components/orders/order-card"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
+import { useSupplierNames } from "@/hooks/use-supplier-names"
 import { buildOrderActionPayload, orderAvailablePath, type Order, type OrderPage } from "@/lib/orders"
 
 export default function ErrandsPage() {
@@ -19,6 +20,8 @@ export default function ErrandsPage() {
   const { mode } = useOrderMode()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const supplierIds = useMemo(() => orders.flatMap((order) => [order.pickupSupplierId, order.deliverySupplierId]), [orders])
+  const { names: supplierNames } = useSupplierNames(supplierIds)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -52,7 +55,7 @@ export default function ErrandsPage() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
         <div><p className="text-sm text-muted-foreground">Courier mode</p><h1 className="text-2xl font-semibold tracking-tight">Browse errands</h1><p className="mt-1 text-muted-foreground">Accept an open request, then manage it from My Errands.</p></div>
         {mode !== "courier" && <Card className="border-dashed"><CardContent className="p-4 text-sm text-muted-foreground">Switch to Courier mode from the sidebar to accept errands.</CardContent></Card>}
-        {loading ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">No open errands are available right now.</CardContent></Card> : <div className="grid gap-4 md:grid-cols-2">{orders.map((order) => <OrderCard key={order.id} order={order} actions={<Button size="sm" onClick={() => void accept(order)} disabled={mode !== "courier"}>Accept errand</Button>} />)}</div>}
+        {loading ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">No open errands are available right now.</CardContent></Card> : <div className="grid gap-4 md:grid-cols-2">{orders.map((order) => <OrderCard key={order.id} order={order} supplierNames={supplierNames} actions={<Button size="sm" onClick={() => void accept(order)} disabled={mode !== "courier"}>Accept errand</Button>} />)}</div>}
       </div>
     </RequireAuth>
   )
