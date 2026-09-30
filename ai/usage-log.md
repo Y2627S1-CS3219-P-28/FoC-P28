@@ -471,3 +471,42 @@ for failures show credits unavailable
 - **Specification or API deviation:** None. This is a local configuration fix.
 - **Related decision or change record:**
   `order-service/changes/CHANGE-024-local-frontend-gateway-api-base.md`.
+
+## 2026-09-30 - Supplier selection, local CORS, and credit registration
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Test-first implementation assistance and integration verification planning.
+- **Exact prompt:**
+
+  > Approve the local gateway CORS allowlist, supplier-name dropdowns that submit supplier IDs,
+  > and a frontend Credit Service registration-fact call when the peer endpoint exists. Always
+  > invoke the current Order Service workflow and modify only the Order Service scope.
+
+- **Key response:** Rehydrated the Order Service workflow and inspected the actual Supplier and
+  Credit Service contracts. Added active Supplier Service-backed pickup and delivery selectors,
+  explicit local gateway CORS preflight handling, and authenticated Credit Service registration
+  facts after User Service signup. No sibling service directory was changed.
+- **Architecture options considered:** Manual supplier ID entry versus provider-backed selection;
+  gateway CORS allowlist versus gateway-only access; deferred credit provisioning versus the
+  existing authenticated registration-fact contract. The developer approved provider-backed
+  selectors, the local allowlist, and the existing Credit endpoint.
+- **Developer-selected architecture:** The shared Next.js frontend uses `useApi()` and stable
+  supplier IDs; the gateway allows only localhost development origins; Credit Service remains the
+  owner of credit account creation and idempotency.
+- **Reason for selection:** It removes manual identifier entry, fixes the approved direct local
+  frontend path without wildcard CORS, and uses the already implemented peer contract without
+  modifying peer code.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** `frontend/src/app/requests/new/page.tsx`,
+  `frontend/src/components/providers/auth-provider.tsx`,
+  `frontend/src/lib/suppliers.ts`, `frontend/src/lib/registration.ts` and tests,
+  `gateway/templates/default.conf.template`, and Order Service change/learning records.
+- **Tests run:** Focused Vitest execution was attempted before implementation, but `node`/`npm`
+  is not available on this Windows session. `git diff --check` passed. Docker Compose and browser
+  verification were not run because the Docker engine is inaccessible.
+- **Test results:** Implementation tests, typecheck, lint, production build, CORS preflight, and
+  authenticated peer-contract checks remain pending until Node/npm and Docker are available.
+- **Specification or API deviation:** None. This is an approved frontend integration refinement;
+  Supplier and Credit ownership/contracts remain unchanged and no sibling service source changed.
+- **Related decision or change record:**
+  `order-service/changes/CHANGE-025-supplier-selection-cors-credit-registration.md`.
