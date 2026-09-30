@@ -26,6 +26,10 @@ describe("Order Service frontend contract helpers", () => {
       offeredCredits: 12,
       deliveryTimeLimitMinutes: 30,
       expiresAt: "2026-10-01T10:00:00.000Z",
+      automaticRepost: true,
+      repostDueAt: "2026-10-01T11:00:00.000Z",
+      repostCreditAmount: 14,
+      repostDeliveryDurationMinutes: 35,
     })
   })
 
@@ -70,5 +74,33 @@ describe("Order Service frontend contract helpers", () => {
       repostCreditAmount: 1,
       repostDeliveryDurationMinutes: 15,
     }, now)).toBeNull()
+  })
+
+  it("validates automatic repost details only when enabled at creation", () => {
+    expect(validateCreateOrderForm({
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 1,
+      deliveryTimeLimitMinutes: 15,
+      expiresAt: "2026-09-30T08:00:00.000Z",
+      automaticRepost: true,
+      repostDueAt: "",
+      repostCreditAmount: 1,
+      repostDeliveryDurationMinutes: 15,
+    }, new Date("2026-09-30T07:00:00.000Z"))).toBe("Choose a repost time when automatic repost is enabled.")
+
+    expect(validateCreateOrderForm({
+      itemDescription: "Pick up a parcel",
+      pickupSupplierId: "store-a",
+      deliverySupplierId: "hall-b",
+      offeredCredits: 1,
+      deliveryTimeLimitMinutes: 15,
+      expiresAt: "2026-09-30T08:00:00.000Z",
+      automaticRepost: false,
+      repostDueAt: "",
+      repostCreditAmount: 0,
+      repostDeliveryDurationMinutes: 0,
+    }, new Date("2026-09-30T07:00:00.000Z"))).toBeNull()
   })
 })

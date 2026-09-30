@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApi } from "@/hooks/use-api"
 import { ApiError } from "@/lib/api"
-import { buildCreateOrderPayload, buildRepostConfigPayload, minOrderExpiryDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
+import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
 import { supplierOptionLabel, type Page, type Supplier } from "@/lib/suppliers"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -86,13 +86,7 @@ export default function NewRequestPage() {
     setPostError(null)
     setBusy(true)
     try {
-      const created = await api<Order>("/api/orders", { method: "POST", body: buildCreateOrderPayload(form, user.uid) })
-      if (form.automaticRepost) {
-        await api<Order>(`/api/orders/${created.id}/repost/configure`, {
-          method: "POST",
-          body: buildRepostConfigPayload(form, user.uid, created.version),
-        })
-      }
+      await api<Order>("/api/orders", { method: "POST", body: buildCreateOrderPayload(form, user.uid) })
       toast.success("Order posted")
       router.push("/my-requests")
     } catch (error) {
@@ -124,9 +118,9 @@ export default function NewRequestPage() {
           <Card><CardHeader><CardTitle>Automatic repost</CardTitle><CardDescription>Optional NTH4 behavior. The new order is created and credited only when the repost is due.</CardDescription></CardHeader><CardContent className="space-y-4">
             <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.automaticRepost} onChange={(event) => update("automaticRepost", event.target.checked)} />Enable automatic repost if no courier accepts</label>
             <div className="grid gap-4 sm:grid-cols-3">
-              <label className="space-y-1 text-sm"><Label htmlFor="repost-due">Repost time</Label><Input id="repost-due" type="datetime-local" className={inputClass} value={form.repostDueAt} onChange={(event) => update("repostDueAt", event.target.value)} /></label>
-              <label className="space-y-1 text-sm"><Label htmlFor="repost-credits">Repost credits</Label><Input id="repost-credits" type="number" min="1" className={inputClass} value={form.repostCreditAmount} onChange={(event) => update("repostCreditAmount", Number(event.target.value))} /></label>
-              <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" type="number" min="15" className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} /></label>
+              <label className="space-y-1 text-sm"><Label htmlFor="repost-due">Repost time</Label><Input id="repost-due" type="datetime-local" disabled={!form.automaticRepost} className={inputClass} value={form.repostDueAt} onChange={(event) => update("repostDueAt", event.target.value)} /></label>
+              <label className="space-y-1 text-sm"><Label htmlFor="repost-credits">Repost credits</Label><Input id="repost-credits" type="number" min="1" disabled={!form.automaticRepost} className={inputClass} value={form.repostCreditAmount} onChange={(event) => update("repostCreditAmount", Number(event.target.value))} /></label>
+              <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" type="number" min="15" disabled={!form.automaticRepost} className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} /></label>
             </div>
           </CardContent></Card>
           <Button type="submit" disabled={busy || suppliersLoading || suppliers.length === 0 || !form.pickupSupplierId || !form.deliverySupplierId}>{busy ? "Posting…" : "Post request"}</Button>

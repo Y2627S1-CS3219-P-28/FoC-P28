@@ -21,6 +21,10 @@ claimed from static builds or unit tests.
 ## Cross-cutting
 
 - `Order` is the sole lifecycle aggregate and stores supplier IDs only.
+- Automatic repost choice and plan details are submitted with order creation and
+  are immutable afterward; an `OPEN` order is read-only for repost settings.
+- Manual repost is exposed only for a requester-owned `EXPIRED` order that has
+  not already been reposted.
 - User identity/role/eligibility is obtained through approved User Service adapters.
 - Credit reservation is synchronous before an order or repost becomes `OPEN`.
 - Commands and lifecycle triggers carry IDs; state changes carry expected versions.

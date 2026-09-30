@@ -673,3 +673,22 @@ for failures show credits unavailable
 - **Test results:** `git diff --check` passed after the change; no runtime completion claim.
 - **Specification or API deviation:** None.
 - **Related decision or change record:** `CHANGE-030-order-expiry-validation.md`.
+
+## 2026-09-30 - Creation-time-only automatic repost choice
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow rehydration, specification clarification, implementation assistance, and verification assistance.
+- **Order Service feature:** NTH4 automatic reposting and Sequence 1/10/11 frontend/backend behavior.
+- **Related FR/NFR/NTH:** NTH4; Sprint 1 Sequences 1, 10, and 11.
+- **AI usage type:** Requirements comparison / architecture-evolution tracking / test and implementation assistance.
+- **Finding:** The source context described an automatic plan for an unaccepted order and a requester-reviewed manual repost after expiry, but did not explicitly state whether an `OPEN` order could be edited later. The existing implementation interpreted “available when creating and viewing” as allowing post-creation configuration.
+- **Developer clarification:** Vincent approved creation-time-only selection. If automatic repost is unticked at creation it cannot later be enabled; if enabled, all details are submitted at creation. Only an un-reposted expired order exposes manual repost.
+- **Key response:** Extended the create contract and aggregate persistence, made the former configure route reject mutation, rendered `OPEN` settings read-only, retained the expired manual-repost controls, and added domain/application/frontend coverage.
+- **Architecture options considered:** Keep editable settings; add a disable-only command; or make the creation choice immutable. The immutable creation choice was selected for deterministic lifecycle semantics and no new command state.
+- **Approved by:** Vincent, 2026-09-30.
+- **Affected locations:** Order Service API/application/domain/tests, shared frontend order payload/create page/repost controls/tests, and CHANGE-031 plus synchronized architecture/traceability/active-work records.
+- **Peer boundary:** No peer-service source, supplier/credit contract, database schema, or event behavior was changed.
+- **Tests run:** Static inspection and `git diff --check`; Java/Maven, frontend Vitest/typecheck, Docker, and browser verification remain pending or unavailable.
+- **Test results:** No runtime completion claim.
+- **Specification or API deviation:** CHANGE-031 records the approved clarification and supersedes the post-creation configuration interpretation in CHANGE-022.
+- **Related decision or change record:** `CHANGE-031-creation-time-repost-choice.md`; `ARCH-EVO-004`.

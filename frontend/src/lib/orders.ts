@@ -25,6 +25,10 @@ export type Order = {
   version: number
   originalOrderId: string | null
   repostedOrderId: string | null
+  automaticRepostEnabled?: boolean
+  repostDueAt?: string | null
+  repostCreditAmount?: number
+  repostDeliveryDurationMinutes?: number
 }
 
 export type OrderPage = {
@@ -59,6 +63,10 @@ export type CreateOrderPayload = {
   offeredCredits: number
   deliveryTimeLimitMinutes: number
   expiresAt: string
+  automaticRepost: boolean
+  repostDueAt: string | null
+  repostCreditAmount: number
+  repostDeliveryDurationMinutes: number
 }
 
 export type RepostConfigPayload = {
@@ -89,6 +97,12 @@ export function validateCreateOrderForm(form: CreateOrderForm, now = new Date())
   if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) {
     return "Order expiry must be at least 30 minutes from now. Choose a later time."
   }
+  if (form.automaticRepost) {
+    const repostDueAt = new Date(form.repostDueAt)
+    if (Number.isNaN(repostDueAt.getTime())) return "Choose a repost time when automatic repost is enabled."
+    if (form.repostCreditAmount < 1) return "Repost credits must be at least 1."
+    if (form.repostDeliveryDurationMinutes < 15) return "Repost delivery time must be at least 15 minutes."
+  }
   return null
 }
 
@@ -115,6 +129,10 @@ export function buildCreateOrderPayload(form: CreateOrderForm, requesterId: stri
     offeredCredits: form.offeredCredits,
     deliveryTimeLimitMinutes: form.deliveryTimeLimitMinutes,
     expiresAt: new Date(form.expiresAt).toISOString(),
+    automaticRepost: form.automaticRepost,
+    repostDueAt: form.automaticRepost ? new Date(form.repostDueAt).toISOString() : null,
+    repostCreditAmount: form.automaticRepost ? form.repostCreditAmount : 0,
+    repostDeliveryDurationMinutes: form.automaticRepost ? form.repostDeliveryDurationMinutes : 0,
   }
 }
 

@@ -12,6 +12,7 @@ class OrderAggregateTest {
         assertEquals(OrderStatus.COMPLETED, order.getStatus());
     }
     @Test void requesterCannotAcceptOwnOrder() { Order order=Order.open("u","x","p","d",1,15,start,start.plusSeconds(1800)); assertThrows(OrderProblem.class,()->order.accept("u",0,start)); }
-    @Test void expiryAndRepostAreExplicit() { Order order=Order.open("u","x","p","d",1,15,start,start.plusSeconds(1800)); order.configureReposting(new RepostPlan(true,start.plusSeconds(1800),2,15),"u",0); order.expire(0,start.plusSeconds(1800)); assertTrue(order.eligibleForAutomaticRepost(start.plusSeconds(1801))); Order repost=order.createRepost("x",2,15,start.plusSeconds(1801),start.plusSeconds(3601)); order.linkRepost(repost.getId()); assertEquals(order.getId(),repost.getOriginalOrderId()); }
+    @Test void expiryAndRepostAreExplicit() { Order order=Order.open("u","x","p","d",1,15,start,start.plusSeconds(1800),new RepostPlan(true,start.plusSeconds(1800),2,15)); order.expire(0,start.plusSeconds(1800)); assertTrue(order.eligibleForAutomaticRepost(start.plusSeconds(1801))); Order repost=order.createRepost("x",2,15,start.plusSeconds(1801),start.plusSeconds(3601)); order.linkRepost(repost.getId()); assertEquals(order.getId(),repost.getOriginalOrderId()); }
+    @Test void repostConfigurationCannotBeChangedAfterCreation() { Order order=Order.open("u","x","p","d",1,15,start,start.plusSeconds(1800)); assertThrows(OrderProblem.class,()->order.configureReposting(new RepostPlan(true,start.plusSeconds(1800),2,15),"u",0)); }
     @Test void staleVersionIsRejected() { Order order=Order.open("u","x","p","d",1,15,start,start.plusSeconds(1800)); assertThrows(OrderProblem.class,()->order.cancelOpen("u",1)); }
 }

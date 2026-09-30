@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/components/providers/auth-provider"
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApi } from "@/hooks/use-api"
-import { buildRepostConfigPayload, isoToDateTimeLocal, type Order } from "@/lib/orders"
+import { isoToDateTimeLocal, type Order } from "@/lib/orders"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
 
@@ -17,41 +17,10 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
-  const defaultDueAt = useMemo(() => isoToDateTimeLocal(new Date(new Date(order.expiresAt).getTime() + 60 * 60_000).toISOString()), [order.expiresAt])
-  const [enabled, setEnabled] = useState(false)
-  const [dueAt, setDueAt] = useState(defaultDueAt)
   const [creditAmount, setCreditAmount] = useState(String(order.offeredCredits))
   const [duration, setDuration] = useState(String(order.deliveryTimeLimitMinutes))
   const [description, setDescription] = useState(order.itemDescription)
   const [expiresAt, setExpiresAt] = useState(isoToDateTimeLocal(new Date(new Date(order.expiresAt).getTime() + 2 * 60 * 60_000).toISOString()))
-
-  async function configure() {
-    if (!user) return
-    setBusy(true)
-    try {
-      const updated = await api<Order>(`/api/orders/${order.id}/repost/configure`, {
-        method: "POST",
-        body: buildRepostConfigPayload({
-          itemDescription: order.itemDescription,
-          pickupSupplierId: order.pickupSupplierId,
-          deliverySupplierId: order.deliverySupplierId,
-          offeredCredits: order.offeredCredits,
-          deliveryTimeLimitMinutes: order.deliveryTimeLimitMinutes,
-          expiresAt: order.expiresAt,
-          automaticRepost: enabled,
-          repostDueAt: dueAt,
-          repostCreditAmount: Number(creditAmount),
-          repostDeliveryDurationMinutes: Number(duration),
-        }, user.uid, order.version),
-      })
-      onUpdated(updated)
-      toast.success(enabled ? "Automatic repost enabled" : "Automatic repost disabled")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save repost settings.")
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function manualRepost() {
     if (!user) return
@@ -83,19 +52,22 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
       <Card className="border-dashed bg-muted/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Automatic repost</CardTitle>
-          <CardDescription>Prepare one linked repost if this order expires unaccepted. Credits are reserved only when the repost is created.</CardDescription>
+          <CardDescription>Automatic repost is selected when an order is created. It cannot be enabled or changed after posting.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-            Enable automatic repost
-          </label>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="space-y-1 text-sm"><Label htmlFor={`due-${order.id}`}>Repost time</Label><Input id={`due-${order.id}`} type="datetime-local" className={inputClass} value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label>
-            <label className="space-y-1 text-sm"><Label htmlFor={`credits-${order.id}`}>Repost credits</Label><Input id={`credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>
-            <label className="space-y-1 text-sm"><Label htmlFor={`duration-${order.id}`}>Delivery minutes</Label><Input id={`duration-${order.id}`} type="number" min="15" className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-          </div>
-          <Button size="sm" variant="outline" onClick={() => void configure()} disabled={busy}>{busy ? "Saving…" : "Save repost settings"}</Button>
+          {order.automaticRepostEnabled ? (
+            <>
+              <p className="text-sm font-medium">Automatic repost was configured when this order was created.</p>
+              <div className="grid gap-4 text-sm sm:grid-cols-3">
+                <p><span className="text-muted-foreground">Repost time</span><br />{order.repostDueAt ? new Date(order.repostDueAt).toLocaleString() : "Not available"}</p>
+                <p><span className="text-muted-foreground">Repost credits</span><br />{order.repostCreditAmount ?? 0}</p>
+                <p><span className="text-muted-foreground">Delivery minutes</span><br />{order.repostDeliveryDurationMinutes ?? 0}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">These settings cannot be changed after posting.</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Automatic repost was not enabled when this order was created and cannot be enabled later.</p>
+          )}
         </CardContent>
       </Card>
     )

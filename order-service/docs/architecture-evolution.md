@@ -58,6 +58,7 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 | ARCH-EVO-001 | 2026-09-28 | High-level internal control flow | Design refinement | IMPLEMENTED | Application components invoke outbound ports; domain rules return decisions/data | CHANGE-012 | Previous diagram revision `875238E1...` |
 | ARCH-EVO-002 | 2026-09-29 | Order Service persistence and deployment | Architecture or specification change | APPROVED | Order Service uses PostgreSQL on one Cloud SQL instance and deploys to Cloud Run with a public-IP Cloud SQL Java Connector | CHANGE-015 / ADR-008 | Unresolved PostgreSQL/Firestore and Kubernetes/Cloud Run conflict |
 | ARCH-EVO-003 | 2026-09-30 | Unified Order dashboard and authenticated actor identity | Architecture or specification change | APPROVED | Shared dashboard exposes requester and courier functions without a client-side mode switch; Order uses User Service-confirmed actor IDs; supplier labels never flash opaque IDs | CHANGE-029 | Previous mode-switching frontend slice in CHANGE-022 |
+| ARCH-EVO-004 | 2026-09-30 | Creation-time-only automatic repost choice | Architecture or specification change | IMPLEMENTED | Automatic repost is selected atomically during order creation; `OPEN` orders are read-only; manual repost is available only for un-reposted `EXPIRED` orders | CHANGE-031 | Post-creation configuration wording in CHANGE-022 |
 
 Use stable `ARCH-EVO-NNN` identifiers. The detailed entry and its linked ADR/change record together preserve the decision history; do not copy full ADR contents into this table.
 
@@ -203,6 +204,39 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Superseded by: None
 - Related ADR/override: None; this is a user-approved frontend/security refinement.
 - Related traceability: `docs/requirements-traceability.md`, Sequence 3 and cross-cutting notes.
+
+## ARCH-EVO-004: Creation-time-only automatic repost choice
+
+- Change ID: CHANGE-031
+- Date: 2026-09-30
+- Developer: Vincent
+- Feature: NTH4 automatic and manual reposting
+- Original design or requirement: NTH4 permits an automatic repost plan for an unaccepted order and a requester-reviewed manual repost after expiry. The source context did not explicitly define post-creation mutability.
+- Problem discovered: The earlier frontend and configure route allowed an `OPEN` order to be enabled, disabled, or edited after creation through a second request.
+- Change type: Architecture or specification change
+- Status: IMPLEMENTED
+- Approved change: The developer clarified and approved that the automatic-repost checkbox and all plan details are selected during creation; an order cannot be changed later. Only an eligible `EXPIRED` order without a repost may show the manual repost action.
+- What was added: Create-order repost fields, immutable read-only display, and tests for creation-time persistence and rejected later configuration.
+- What was changed: Order creation stores the plan; the legacy configure route returns a conflict; the frontend no longer offers post-creation automatic-plan editing.
+- What was removed: The `OPEN`-order configure interaction and its second-request mutation behavior.
+- Why the change was necessary: It matches the clarified product behavior and prevents a user from changing the repost decision after an order is already published.
+- Alternatives considered: Keep editable settings until expiry; add a separate disable-only command; or make the creation choice immutable. The approved immutable choice preserves predictable lifecycle semantics and requires no new command state.
+- Trade-offs: A mistaken creation choice requires manual repost after expiry rather than editing the live order; the create request is slightly wider, but the lifecycle is deterministic and idempotent.
+- Affected architecture: Order creation/repost application boundary and frontend request lifecycle.
+- Affected class diagram: `Order` owns the creation-time `RepostPlan`; no new aggregate or peer ownership.
+- Affected sequence diagram: Sequence 1 carries the optional plan; Sequence 10 reads it after expiry; Sequence 11 remains requester-reviewed manual repost.
+- Affected data model: Existing embedded repost-plan columns are reused; no migration.
+- Affected contracts: `POST /api/orders` gains optional repost fields. The legacy configure route remains but rejects mutation with conflict.
+- Affected tests: Domain and repost-service tests updated; frontend payload/validation tests updated.
+- Affected source files: Order API/application/domain classes and shared frontend create/repost controls.
+- Approved by: Vincent
+- Approval date: 2026-09-30
+- Effective from: CHANGE-031 implementation
+- Implementation status: Code and records synchronized; runtime/test gates pending.
+- Supersedes: Post-creation configuration interpretation in CHANGE-022
+- Superseded by: None
+- Related ADR/override: None; this is a developer-approved clarification of NTH4 behavior.
+- Related traceability: `docs/requirements-traceability.md`, Sequences 1, 10, and 11.
 
 ## Supersession and synchronization
 

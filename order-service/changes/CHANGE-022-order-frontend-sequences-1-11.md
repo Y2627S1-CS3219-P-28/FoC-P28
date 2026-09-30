@@ -13,7 +13,9 @@ verification remains pending.
 - A client-side mode switcher is allowed; backend services remain authoritative.
 - Firebase UID is used as the requester or actor identifier.
 - Vitest and React Testing Library are the frontend test stack.
-- Automatic repost settings are available when creating and viewing a request.
+- Automatic repost settings are selected during creation and shown read-only
+  when viewing an `OPEN` request; manual repost settings are available only
+  after expiry.
 
 ## Implemented
 
@@ -26,7 +28,8 @@ verification remains pending.
 - Responsive cards and controls using the existing AppShell, Geist, shadcn/Base
   UI, and Lucide visual baseline.
 - Order Service requester/courier list queries at `/api/orders/mine`.
-- Requester authorization before repost configuration.
+- Requester authorization before manual repost; the former post-creation
+  automatic configuration interaction is superseded by CHANGE-031.
 
 ## Verification
 

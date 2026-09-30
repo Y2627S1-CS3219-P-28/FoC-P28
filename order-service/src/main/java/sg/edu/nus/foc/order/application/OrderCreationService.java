@@ -8,6 +8,7 @@ import sg.edu.nus.foc.order.infrastructure.CheckpointRepository;
 import sg.edu.nus.foc.order.infrastructure.OrderRepository;
 import sg.edu.nus.foc.order.infrastructure.CommandReceiptRepository;
 import sg.edu.nus.foc.order.domain.CommandReceipt;
+import sg.edu.nus.foc.order.domain.RepostPlan;
 
 @Service
 public class OrderCreationService {
@@ -25,12 +26,12 @@ public class OrderCreationService {
 
     @Transactional
     public Order create(String commandId, String requesterId, String description, String pickup, String delivery,
-                        long amount, int duration, Instant expiresAt, String authorization) {
+                        long amount, int duration, Instant expiresAt, RepostPlan repostPlan, String authorization) {
         var previous=receipts.findByOperationAndCommandId("CREATE",commandId);
         if(previous.isPresent()) return orders.findById(previous.get().getOrderId()).orElseThrow();
         String authenticatedRequester = users.verifyRequester(requesterId, authorization);
         suppliers.validatePair(pickup, delivery, authorization);
-        Order order = Order.open(authenticatedRequester, description, pickup, delivery, amount, duration, Instant.now(), expiresAt);
+        Order order = Order.open(authenticatedRequester, description, pickup, delivery, amount, duration, Instant.now(), expiresAt, repostPlan);
         credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
         Order saved = orders.save(order);
         checkpoints.save(new sg.edu.nus.foc.order.domain.OrderCheckpoint(saved.getId(), saved.getStatus(), saved.getCreatedAt(), authenticatedRequester, null));

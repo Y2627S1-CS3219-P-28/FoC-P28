@@ -51,14 +51,21 @@ public class Order {
 
     public static Order open(String requesterId, String description, String pickup, String delivery,
                              long credits, int duration, Instant createdAt, Instant expiresAt) {
+        return open(requesterId, description, pickup, delivery, credits, duration, createdAt, expiresAt, null);
+    }
+
+    public static Order open(String requesterId, String description, String pickup, String delivery,
+                             long credits, int duration, Instant createdAt, Instant expiresAt, RepostPlan repostPlan) {
         if (requesterId == null || requesterId.isBlank() || description == null || description.isBlank()
                 || pickup == null || delivery == null || pickup.equals(delivery) || credits <= 0
                 || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)
                 || expiresAt.isBefore(createdAt.plusSeconds(30 * 60L))) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid order creation data.");
         }
-        return new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
+        Order order = new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
                 credits, duration, createdAt, expiresAt, null);
+        order.repostPlan = repostPlan;
+        return order;
     }
 
     public void accept(String courierId, long expectedVersion, Instant now) {
@@ -98,9 +105,7 @@ public class Order {
     }
 
     public void configureReposting(RepostPlan plan, String actor, long expectedVersion) {
-        requireVersion(expectedVersion); requireStatus(OrderStatus.OPEN);
-        if (!requesterId.equals(actor)) throw OrderProblem.forbidden("Only the requester may configure reposting.");
-        this.repostPlan = plan;
+        throw OrderProblem.conflict("Automatic repost settings must be chosen when the order is created.");
     }
 
     public boolean eligibleForAutomaticRepost(Instant now) {

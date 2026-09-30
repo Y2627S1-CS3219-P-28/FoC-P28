@@ -32,7 +32,9 @@ The courier outcome is encoded by the operation name. These contracts must not u
 
 - Commands: `createOrder`, `acceptOrder`, `startTask`, `markPickedUp`, `markDelivered`, `confirmCompletion`, `cancelOpen`.
 - Queries: `getOrder`, `listOrders`, `listAvailableOrders`, `getCheckpointHistory`, `getOrderFacts`.
-- Reposting: `configureReposting`, `getManualRepostDraft`, `requestManualRepost`.
+- Reposting: creation-time automatic plan, `getManualRepostDraft`, and
+  `requestManualRepost`. The legacy `configureReposting` route is retained for
+  compatibility but rejects post-creation mutation.
 - Lifecycle: `processExpiry`, `processAutoRepost`; future scope may include auto-completion.
 - Admin integration: `placeCompletionHold`, `releaseCompletionHold`, `applyAdministrativeResolution`.
 - Facts: `subscribeToOrderOutcomes`.

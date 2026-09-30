@@ -42,12 +42,13 @@ committed in `ed6aab2`; the lifecycle implementation is committed in
 `43c39c5`; the Flyway runtime fix is recorded under CHANGE-021.
 
 CHANGE-022 is implemented: the shared frontend now covers sequences 1-11 with
-Requester/Courier mode switching, Post Request, Browse Errands, My Errands,
-My Requests, lifecycle actions, and automatic/manual repost controls. The Order
-Service now exposes requester/courier list queries and authorizes repost
-configuration through the User Service port. Frontend Vitest, typecheck, lint,
-and production-build gates passed; live browser and peer-contract verification
-remain pending.
+Post Request, Browse Errands, My Errands, My Requests, lifecycle actions, and
+automatic/manual repost controls. Its earlier mode-switch and post-creation
+repost-editing behavior were superseded by CHANGE-029 and CHANGE-031. The Order
+Service now exposes requester/courier list queries and authorizes manual repost
+through the User Service port. Frontend Vitest, typecheck, lint, and
+production-build gates passed historically; current changes require rerunning
+those gates, while live browser and peer-contract verification remain pending.
 
 Recorded CHANGE-017 and the approved branch-only scope, added the single-aggregate persistence/domain foundation, Flyway migration, peer-service ports/adapters, lifecycle services for sequences 1–11, REST endpoints, local/prod security profiles, and domain tests. Cloud SQL infrastructure remains provisioned; application deployment and integration verification remain pending.
 
@@ -228,3 +229,13 @@ The post-request frontend now prevents an expiry shorter than the Order domain's
 rule remains authoritative. CHANGE-030 records the change; frontend Vitest,
 typecheck, and browser verification remain pending because Node/npm are not
 available in the current execution environment.
+
+## Latest creation-time repost clarification — 2026-09-30
+
+The developer clarified and approved CHANGE-031: automatic repost must be
+selected, with all plan details, in the create-order request. An `OPEN` order
+now displays that choice read-only and cannot be configured afterward. Manual
+repost remains available only for an un-reposted `EXPIRED` order. The Order
+create DTO, aggregate, view, frontend payload, and tests were synchronized;
+the legacy configure route returns a conflict for stale clients. Runtime,
+Java/Maven, and frontend Node/npm verification remain pending.
