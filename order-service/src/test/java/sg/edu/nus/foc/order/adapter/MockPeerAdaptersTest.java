@@ -35,4 +35,49 @@ class MockPeerAdaptersTest {
         assertEquals("RELEASED", peers.reservationState("order-2"));
         assertDoesNotThrow(() -> peers.release("release-2", "order-2", "requester-2", 3, "CANCELLED", 1, "Bearer token"));
     }
+
+    @Test
+    void validatesIdentitySupplierAndReservationInputs() {
+        assertThrows(IllegalArgumentException.class, () -> peers.verifyRequester("", null));
+        assertThrows(IllegalArgumentException.class, () -> peers.verifyCourier(null, null));
+        assertThrows(IllegalArgumentException.class, () -> peers.validatePair("same", "same", null));
+        assertThrows(IllegalArgumentException.class, () -> peers.validatePair("", "delivery", null));
+        assertThrows(IllegalArgumentException.class, () -> peers.reserve("order", "requester", 0, null));
+        assertThrows(IllegalArgumentException.class, () -> peers.reserve(null, "requester", 1, null));
+    }
+
+    @Test
+    void rejectsConflictingAndInsufficientReservations() {
+        peers.reserve("order", "requester", 4, null);
+        assertDoesNotThrow(() -> peers.reserve("order", "requester", 4, null));
+        assertThrows(IllegalStateException.class, () -> peers.reserve("order", "other", 4, null));
+        assertThrows(IllegalStateException.class, () -> peers.reserve("order", "requester", 5, null));
+        peers.reserve("large", "requester", 46, null);
+        assertThrows(IllegalStateException.class, () -> peers.reserve("too-large", "requester", 1, null));
+    }
+
+    @Test
+    void rejectsInvalidSettlementAndReleaseMatches() {
+        assertThrows(IllegalStateException.class,
+            () -> peers.settle("settle", "missing", "requester", "courier", 1, 0, null));
+        peers.reserve("order", "requester", 2, null);
+        assertThrows(IllegalStateException.class,
+            () -> peers.settle("settle", "order", "other", "courier", 2, 0, null));
+        assertThrows(IllegalStateException.class,
+            () -> peers.settle("settle", "order", "requester", "courier", 3, 0, null));
+        peers.settle("settle", "order", "requester", "courier", 2, 0, null);
+        assertDoesNotThrow(() -> peers.settle("settle", "order", "requester", "courier", 2, 0, null));
+        assertThrows(IllegalStateException.class,
+            () -> peers.settle("settle", "different", "requester", "courier", 2, 0, null));
+
+        peers.reserve("release-order", "requester", 2, null);
+        assertThrows(IllegalArgumentException.class,
+            () -> peers.release("release", "release-order", "requester", 2, "PAID", 0, null));
+        assertThrows(IllegalStateException.class,
+            () -> peers.release("release", "release-order", "other", 2, "EXPIRED", 0, null));
+        peers.release("release", "release-order", "requester", 2, "EXPIRED", 0, null);
+        assertDoesNotThrow(() -> peers.release("release", "release-order", "requester", 2, "EXPIRED", 0, null));
+        assertThrows(IllegalStateException.class,
+            () -> peers.release("release", "different", "requester", 2, "EXPIRED", 0, null));
+    }
 }

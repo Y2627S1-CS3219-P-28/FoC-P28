@@ -1,0 +1,151 @@
+package sg.edu.nus.foc.order.domain;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import sg.edu.nus.foc.order.api.OrderDtos;
+
+class OrderDomainBehaviorTest {
+    private static final Instant START = Instant.parse("2026-09-30T00:00:00Z");
+
+    @Test
+    void repostPlanExposesStateAndDueBehavior() {
+        RepostPlan disabled = new RepostPlan(false, null, 0, 0);
+        assertFalse(disabled.enabled());
+        assertNull(disabled.dueAt());
+        assertEquals(0, disabled.creditAmount());
+        assertEquals(0, disabled.deliveryDurationMinutes());
+        assertFalse(disabled.used());
+        assertFalse(disabled.dueAt(START));
+
+        RepostPlan enabled = new RepostPlan(true, START.plusSeconds(60), 4, 20);
+        assertTrue(enabled.enabled());
+        assertFalse(enabled.dueAt(START));
+        assertTrue(enabled.dueAt(START.plusSeconds(60)));
+        enabled.markUsed();
+        assertTrue(enabled.used());
+    }
+
+    @Test
+    void invalidRepostPlansAreRejected() {
+        assertAll(
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, null, 1, 15)),
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 0, 15)),
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 1, 14))
+        );
+    }
+
+    @Test
+    void invalidOrderCreationDataIsRejected() {
+        assertAll(
+            () -> assertThrows(OrderProblem.class, () -> Order.open("", "item", "p", "d", 1, 15, START, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "", "p", "d", 1, 15, START, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "p", 1, 15, START, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "d", 0, 15, START, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "d", 1, 14, START, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "d", 1, 15, START, null)),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "d", 1, 15, START, START.plusSeconds(10))),
+            () -> assertThrows(OrderProblem.class, () -> Order.open("u", "item", "p", "d", 1, 15, START, START))
+        );
+    }
+
+    @Test
+    void lifecycleRejectsWrongActorsStatesVersionsAndTimes() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
+        assertAll(
+            () -> assertThrows(OrderProblem.class, () -> order.accept("courier", 1, START)),
+            () -> assertThrows(OrderProblem.class, () -> order.accept("", 0, START)),
+            () -> assertThrows(OrderProblem.class, () -> order.accept(null, 0, START)),
+            () -> assertThrows(OrderProblem.class, () -> order.accept("courier", 0, START.plusSeconds(1800))),
+            () -> assertThrows(OrderProblem.class, () -> order.accept("requester", 0, START)),
+            () -> assertThrows(OrderProblem.class, () -> order.start("courier", 0)),
+            () -> assertThrows(OrderProblem.class, () -> order.confirmCompletion("requester", 0)),
+            () -> assertThrows(OrderProblem.class, () -> order.cancelOpen("other", 0))
+        );
+
+        order.accept("courier", 0, START.plusSeconds(1));
+        assertAll(
+            () -> assertThrows(OrderProblem.class, () -> order.accept("another", 0, START)),
+            () -> assertThrows(OrderProblem.class, () -> order.start("another", 0)),
+            () -> assertThrows(OrderProblem.class, () -> order.start("courier", 1)),
+            () -> assertThrows(OrderProblem.class, () -> order.markPickedUp("courier", 0)),
+            () -> assertThrows(OrderProblem.class, () -> order.cancelOpen("requester", 0))
+        );
+    }
+
+    @Test
+    void cancellationExpiryAndRepostEligibilityRejectInvalidOperations() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
+        assertThrows(OrderProblem.class, () -> order.expire(0, START.plusSeconds(1)));
+        order.expire(0, START.plusSeconds(1800));
+        assertFalse(order.eligibleForAutomaticRepost(START.plusSeconds(1800)));
+        assertThrows(OrderProblem.class, () -> order.expire(0, START.plusSeconds(1801)));
+
+        Order repost = order.createRepost("item", 1, 15, START, START.plusSeconds(1800));
+        assertEquals(order.getId(), repost.getOriginalOrderId());
+        order.linkRepost("repost");
+        assertThrows(OrderProblem.class, () -> order.createRepost("item", 1, 15, START, START.plusSeconds(1800)));
+        assertThrows(OrderProblem.class, () -> order.linkRepost("second"));
+    }
+
+    @Test
+    void gettersAndValueObjectsExposePersistedFields() {
+        RepostPlan plan = new RepostPlan(true, START.plusSeconds(1800), 3, 20);
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800), plan);
+        assertNotNull(order.getId());
+        assertEquals("requester", order.getRequesterId());
+        assertNull(order.getCourierId());
+        assertEquals("item", order.getItemDescription());
+        assertEquals("p", order.getPickupSupplierId());
+        assertEquals("d", order.getDeliverySupplierId());
+        assertEquals(2, order.getOfferedCredits());
+        assertEquals(OrderStatus.OPEN, order.getStatus());
+        assertEquals(START, order.getCreatedAt());
+        assertEquals(START.plusSeconds(1800), order.getExpiresAt());
+        assertEquals(15, order.getDeliveryTimeLimitMinutes());
+        assertEquals(0, order.getVersion());
+        assertNull(order.getOriginalOrderId());
+        assertNull(order.getRepostedOrderId());
+        assertSame(plan, order.getRepostPlan());
+
+        OrderCheckpoint checkpoint = new OrderCheckpoint(order.getId(), OrderStatus.OPEN, START, "requester", "p");
+        assertNotNull(checkpoint.getId());
+        assertEquals(order.getId(), checkpoint.getOrderId());
+        assertEquals(OrderStatus.OPEN, checkpoint.getStatus());
+        assertEquals(START, checkpoint.getOccurredAt());
+        assertEquals("requester", checkpoint.getActorId());
+        assertEquals("p", checkpoint.getSupplierId());
+
+        CommandReceipt receipt = new CommandReceipt("CREATE", "command", order.getId(), START);
+        assertEquals(order.getId(), receipt.getOrderId());
+
+        OrderProblem problem = new OrderProblem("VALIDATION_ERROR", "bad", List.of(new OrderProblem.Detail("field", "message")));
+        assertEquals("VALIDATION_ERROR", problem.code());
+        assertEquals("bad", problem.getMessage());
+        assertEquals(List.of(new OrderProblem.Detail("field", "message")), problem.details());
+        assertEquals("CONFLICT", OrderProblem.conflict("x").code());
+        assertEquals("FORBIDDEN", OrderProblem.forbidden("x").code());
+        assertEquals("NOT_FOUND", OrderProblem.notFound("x").code());
+    }
+
+    @Test
+    void dtoViewsAndPagesMapOrders() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800),
+                new RepostPlan(true, START.plusSeconds(2400), 3, 20));
+        OrderDtos.View view = OrderDtos.View.of(order);
+        assertEquals(order.getId(), view.id());
+        assertTrue(view.automaticRepostEnabled());
+        assertEquals(3, view.repostCreditAmount());
+        assertEquals(20, view.repostDeliveryDurationMinutes());
+
+        OrderDtos.PageView<OrderDtos.View> page = OrderDtos.PageView.of(new PageImpl<>(List.of(view), org.springframework.data.domain.PageRequest.of(1, 1), 3));
+        assertEquals(List.of(view), page.items());
+        assertEquals(2, page.page());
+        assertEquals(1, page.size());
+        assertEquals(3, page.totalItems());
+        assertEquals(3, page.totalPages());
+    }
+}

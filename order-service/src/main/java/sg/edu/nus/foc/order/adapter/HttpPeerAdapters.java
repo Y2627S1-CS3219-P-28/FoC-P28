@@ -18,7 +18,12 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     public HttpPeerAdapters(@Value("${order.peers.user-url}") String userUrl,
                             @Value("${order.peers.supplier-url}") String supplierUrl,
                             @Value("${order.peers.credit-url}") String creditUrl) {
-        user=RestClient.builder().baseUrl(userUrl).build(); supplier=RestClient.builder().baseUrl(supplierUrl).build(); credit=RestClient.builder().baseUrl(creditUrl).build();
+        this(RestClient.builder().baseUrl(userUrl).build(),
+            RestClient.builder().baseUrl(supplierUrl).build(),
+            RestClient.builder().baseUrl(creditUrl).build());
+    }
+    HttpPeerAdapters(RestClient user, RestClient supplier, RestClient credit) {
+        this.user = user; this.supplier = supplier; this.credit = credit;
     }
     public String verifyRequester(String id,String auth){
         UserRoleContext context = call(user,"/api/users/role-context",auth,UserRoleContext.class);
