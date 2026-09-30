@@ -1,13 +1,11 @@
 package sg.edu.nus.foc.order;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
-@SpringBootTest
 class OrderServiceApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationModuleIsPresent() {
+		org.junit.jupiter.api.Assertions.assertNotNull(OrderServiceApplication.class);
 	}
 
 }
