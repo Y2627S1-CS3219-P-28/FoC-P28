@@ -325,3 +325,23 @@ during `verify`, and enforces the existing 80% line-and-branch requirement.
 The 12 Order tests pass, but the gate currently fails at 128/318 lines
 (40.25%) and 60/209 branches (28.71%). The threshold was not weakened.
 Additional Order unit/controller/integration/contract tests are required.
+
+## Latest HTTP-peer smoke profile — 2026-09-30
+
+CHANGE-037 implements Vincent's approved Option 2. The default
+`compose.yaml` remains deterministic with `ORDER_PEERS_MODE=mock`. The new
+root `compose.http-peers.yaml` override selects the real HTTP adapters and
+container-network URLs for User, Supplier, and Credit Service, and waits for
+their health checks before starting Order Service.
+
+Use the override only for an authenticated Sequences 1–3 smoke run:
+
+```bash
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build --force-recreate
+```
+
+This profile does not make settlement, release, expiry, cancellation, or
+automatic-repost outcomes live because FEEDBACK-001 remains open for the
+Credit Service outcome APIs. A valid Firebase-emulator bearer token and a
+provisioned Credit account are required. No peer-service source or learning
+file was changed, and no live Docker/browser verification is claimed yet.

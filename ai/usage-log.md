@@ -787,3 +787,15 @@ for failures show credits unavailable
   live peer-service contract, and Cloud Run checks remain environment-dependent
   and are not claimed by this test-only change.
 - **Related change record:** `CHANGE-036-order-coverage-tests.md`.
+
+## 2026-09-30 - Order Service HTTP-peer smoke profile
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Workflow rehydration, approved integration-profile implementation, and traceability documentation.
+- **Exact task:** Add the approved separate Compose profile for real User, Supplier, and Credit HTTP-peer smoke testing while preserving the default mock stack.
+- **Key response:** Added `compose.http-peers.yaml`, selecting `ORDER_PEERS_MODE=http`, container-network peer URLs, and peer health-check dependencies. The default `compose.yaml` remains mock-only.
+- **Scope:** The profile supports authenticated Sequences 1–3 smoke testing. Credit settlement/release remains unavailable under open `FEEDBACK-001`, so no live completion-gate claim was made for Sequences 7–9.
+- **Affected locations:** `compose.http-peers.yaml`, `order-service/changes/CHANGE-037-http-peer-smoke-profile.md`, Order Service change log and active-work record, and this usage log.
+- **Peer boundary:** No sibling service source, peer contract, database schema, or learning file was modified.
+- **Verification:** The override was statically reviewed. Live Docker/browser verification remains pending because it requires the developer's local Docker engine, Firebase-emulator account, and browser session.
+- **Related change record:** `CHANGE-037-http-peer-smoke-profile.md`; `FEEDBACK-001` remains open.
