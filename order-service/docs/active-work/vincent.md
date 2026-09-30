@@ -151,6 +151,7 @@ and authenticated browser verification remains pending.
 - Approved infrastructure decision: PostgreSQL/Cloud SQL, Cloud Run, one shared instance, public IP plus Cloud SQL Java Connector, automated backups, point-in-time recovery, deletion protection, and billing acknowledgement. Application migration-tool and Sprint business decisions remain open.
 - Live verification of the approved frontend application-role mapping against User Service authority responses.
 - PostgreSQL/peer integration results and deployment readiness remain pending; the local PostgreSQL/Flyway and unit gates are complete.
+- The Order Service JaCoCo 80% line/branch gate is satisfied by CHANGE-036; peer-service, authenticated-browser, full Docker-stack, and Cloud Run verification remain pending.
 
 ## Latest local-stack verification — 2026-09-30
 
@@ -221,6 +222,17 @@ Run `git diff --check`, frontend typecheck/Vitest/lint/build, Order Service
 tests with Java 21/Maven, and an authenticated local-browser check when the
 required runtimes and Docker engine are available. Rebuild the local stack so
 the running images include the current frontend and Order Service changes.
+
+## Latest coverage verification — 2026-09-30
+
+CHANGE-036 expanded the Order Service tests across domain rules, application
+services, controller routes, API/error contracts, HTTP peer adapters, and the
+local peer-credit integration path. A clean Java 21 Maven verification passed:
+42 tests, 0 failures, 0 errors, 0 skipped; JaCoCo line coverage is 89.29%
+(300/336) and branch coverage is 83.25% (174/209). The 80% line/branch gate
+introduced by CHANGE-035 now passes. No sibling service or learning file was
+modified. Runtime peer, browser, Docker-stack, and Cloud Run gates remain
+separate and are not claimed by this test-only verification.
 
 ## Latest expiry-validation feedback change — 2026-09-30
 

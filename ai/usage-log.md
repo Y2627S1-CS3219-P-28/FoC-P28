@@ -759,3 +759,31 @@ for failures show credits unavailable
   40.25% line coverage (128/318) and 28.71% branch coverage (60/209).
 - **Author verification:** Vincent remains responsible for selecting and
   reviewing additional tests needed to satisfy the approved coverage gate.
+
+## 2026-09-30 - Order Service coverage test completion
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Test-spec-driven implementation and verification assistance.
+- **Exact task:** Add the Order Service unit, controller, integration, and
+  contract tests required to raise JaCoCo line and branch coverage to at least
+  80%.
+- **Key response:** Added focused domain, application, controller, DTO/error,
+  HTTP peer-adapter contract, local peer-credit integration, and MockPeerAdapters
+  edge-case tests. Added only a package-private RestClient constructor needed
+  to bind deterministic adapter contract-test servers; production construction
+  remains unchanged.
+- **Affected locations:** `order-service/src/test/java/` coverage tests,
+  `order-service/src/main/java/sg/edu/nus/foc/order/adapter/HttpPeerAdapters.java`,
+  `order-service/changes/CHANGE-036-order-coverage-tests.md`, active work,
+  change log, and this usage log.
+- **Peer boundary:** No peer-service source or contract implementation was
+  modified. The two untracked `order-service/learning/` files were left
+  untouched.
+- **Verification:** In a disposable Java 21 container, `./mvnw -B -ntp clean
+  verify` passed with 42 tests, 0 failures, 0 errors, 0 skipped. JaCoCo passed
+  both required thresholds: 89.29% lines (300/336) and 83.25% branches
+  (174/209).
+- **Remaining verification:** Docker-backed runtime, authenticated browser,
+  live peer-service contract, and Cloud Run checks remain environment-dependent
+  and are not claimed by this test-only change.
+- **Related change record:** `CHANGE-036-order-coverage-tests.md`.
