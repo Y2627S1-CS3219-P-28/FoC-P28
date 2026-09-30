@@ -451,3 +451,16 @@ Next action: Yao Xiang should read the handoff, reproduce the reported smoke
 tests, run the backend/frontend suites, coordinate the Credit contract with
 Annablee through `FEEDBACK-001`, and update traceability before proposing any
 sequence completion marker.
+
+## Sequence 1 gateway/request-flow learning — 2026-09-30
+
+Added the untracked learning note
+`order-service/learning/seq1-order-creation-and-gateway-flow.md` and
+`CHANGE-045`. It explains the actual browser CORS preflight, gateway nginx
+`/api/orders` routing, Docker service-name resolution, Spring controller and
+security layers, application orchestration, domain `Order.open(...)`, User/
+Supplier/Credit ports, PostgreSQL persistence, response propagation, and how
+Compose `ORDER_PEERS_MODE` becomes the Spring `order.peers.mode` property.
+
+No application or peer-service behavior changed. Runtime Docker/browser
+walkthrough remains for the developer to reproduce locally.

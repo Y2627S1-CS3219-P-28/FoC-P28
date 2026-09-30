@@ -926,3 +926,24 @@ for failures show credits unavailable
 - **Author verification:** The author should review the receiving-developer
   instructions and confirm whether any exact local/developer file should be
   handled in a separate approved workflow change.
+
+## 2026-09-30 - Sequence 1 gateway and request-flow learning
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Repository-grounded beginner learning documentation.
+- **Exact task:** Explain the gateway forwarding path, browser CORS/auth flow,
+  Order Service class/layer invocation for Sequence 1, peer calls, response
+  propagation, and Compose/Spring environment-variable behavior.
+- **Key response:** Added a detailed untracked learning note under
+  `order-service/learning/` and recorded CHANGE-045.
+- **Affected locations:**
+  `order-service/learning/seq1-order-creation-and-gateway-flow.md`,
+  `order-service/changes/CHANGE-045-sequence-1-gateway-learning.md`,
+  `order-service/docs/change-log.md`, and
+  `order-service/docs/active-work/vincent.md`.
+- **Peer boundary:** No application source, gateway configuration, Compose
+  configuration, peer-service source, or contract was modified.
+- **Verification:** Static inspection matched the gateway template/proxy,
+  Compose files, frontend auth/API code, Order Controller, creation service,
+  domain aggregate, peer adapters, and Spring configuration. No live runtime
+  verification was claimed.
