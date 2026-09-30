@@ -883,3 +883,19 @@ for failures show credits unavailable
   a hard refresh of `/errands` sends a bearer-authenticated request without a
   401 response.
 - **Related change record:** `CHANGE-043-supplier-lookup-auth-gate.md`.
+
+## 2026-09-30 - Frontend test typecheck correction
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Docker-build failure diagnosis and atomic test correction.
+- **Finding:** The frontend Docker build compiled application code but failed
+  TypeScript checking because the new auth-guard test relied on Vitest globals
+  without importing them.
+- **Key response:** Added explicit `describe`, `it`, and `expect` imports from
+  `vitest`; no production behavior or peer-service code changed.
+- **Affected locations:** `frontend/src/lib/api-auth.test.ts`, active work,
+  CHANGE-043, and this usage log.
+- **Verification:** `git diff --check` passed. A local Docker rebuild could not
+  be rerun in this execution environment because Docker Buildx configuration
+  access was denied; the developer should rerun the frontend build locally.
+- **Related commit:** `c16fac0 test(frontend): type auth guard test with vitest`.

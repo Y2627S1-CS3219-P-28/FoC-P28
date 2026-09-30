@@ -31,6 +31,8 @@ authentication contract remains unchanged.
 
 ## Verification
 
-`git diff --check` passed. Frontend Vitest, typecheck, lint, Docker rebuild,
-and hard-refresh browser verification require the local Node/Docker/browser
-runtime and remain pending in this environment.
+`git diff --check` passed. The first Docker frontend build exposed a TypeScript
+configuration issue in the new test (`describe`/`it`/`expect` were not imported
+explicitly); the test now imports those Vitest symbols. A second build and
+hard-refresh browser verification remain pending. The current execution
+environment cannot access the local Docker Buildx configuration.

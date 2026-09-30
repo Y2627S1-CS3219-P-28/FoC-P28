@@ -423,3 +423,12 @@ local Node/Docker/browser stack.
 
 Rebuild the frontend locally, hard-refresh `/errands`, and confirm the first
 Order and Supplier requests contain an Authorization header and no 401 occurs.
+
+## Latest frontend build correction — 2026-09-30
+
+The developer's Docker build reached Next.js compilation but failed during
+TypeScript checking because `api-auth.test.ts` relied on Vitest globals that
+were not included in the production TypeScript type environment. CHANGE-043's
+test now imports `describe`, `it`, and `expect` explicitly. `git diff --check`
+passed. A local Docker rebuild and browser retest remain required; this
+execution environment could not access Docker Buildx.
