@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.PageImpl;
-import sg.edu.nus.foc.order.api.OrderDtos;
+import org.mapstruct.factory.Mappers;
+import sg.edu.nus.foc.order.api.dto.response.OrderPageResponse;
+import sg.edu.nus.foc.order.api.dto.response.OrderResponse;
+import sg.edu.nus.foc.order.api.mapper.OrderMapper;
+import sg.edu.nus.foc.order.domain.repository.OrderPage;
 
 class OrderDomainBehaviorTest {
     private static final Instant START = Instant.parse("2026-09-30T00:00:00Z");
@@ -14,19 +17,19 @@ class OrderDomainBehaviorTest {
     @Test
     void repostPlanExposesStateAndDueBehavior() {
         RepostPlan disabled = new RepostPlan(false, null, 0, 0);
-        assertFalse(disabled.enabled());
-        assertNull(disabled.dueAt());
-        assertEquals(0, disabled.creditAmount());
-        assertEquals(0, disabled.deliveryDurationMinutes());
-        assertFalse(disabled.used());
-        assertFalse(disabled.dueAt(START));
+        assertFalse(disabled.isEnabled());
+        assertNull(disabled.getDueAt());
+        assertEquals(0, disabled.getCreditAmount());
+        assertEquals(0, disabled.getDeliveryDurationMinutes());
+        assertFalse(disabled.isUsed());
+        assertFalse(disabled.isDueAt(START));
 
         RepostPlan enabled = new RepostPlan(true, START.plusSeconds(60), 4, 20);
-        assertTrue(enabled.enabled());
-        assertFalse(enabled.dueAt(START));
-        assertTrue(enabled.dueAt(START.plusSeconds(60)));
+        assertTrue(enabled.isEnabled());
+        assertFalse(enabled.isDueAt(START));
+        assertTrue(enabled.isDueAt(START.plusSeconds(60)));
         enabled.markUsed();
-        assertTrue(enabled.used());
+        assertTrue(enabled.isUsed());
     }
 
     @Test
@@ -123,29 +126,32 @@ class OrderDomainBehaviorTest {
         assertEquals(order.getId(), receipt.getOrderId());
 
         OrderProblem problem = new OrderProblem("VALIDATION_ERROR", "bad", List.of(new OrderProblem.Detail("field", "message")));
-        assertEquals("VALIDATION_ERROR", problem.code());
+        assertEquals("VALIDATION_ERROR", problem.getCode());
         assertEquals("bad", problem.getMessage());
-        assertEquals(List.of(new OrderProblem.Detail("field", "message")), problem.details());
-        assertEquals("CONFLICT", OrderProblem.conflict("x").code());
-        assertEquals("FORBIDDEN", OrderProblem.forbidden("x").code());
-        assertEquals("NOT_FOUND", OrderProblem.notFound("x").code());
+        assertEquals(List.of(new OrderProblem.Detail("field", "message")), problem.getDetails());
+        assertEquals("CONFLICT", OrderProblem.conflict("x").getCode());
+        assertEquals("FORBIDDEN", OrderProblem.forbidden("x").getCode());
+        assertEquals("NOT_FOUND", OrderProblem.notFound("x").getCode());
     }
 
     @Test
     void dtoViewsAndPagesMapOrders() {
+        OrderMapper mapper = Mappers.getMapper(OrderMapper.class);
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800),
                 new RepostPlan(true, START.plusSeconds(2400), 3, 20));
-        OrderDtos.View view = OrderDtos.View.of(order);
-        assertEquals(order.getId(), view.id());
-        assertTrue(view.automaticRepostEnabled());
-        assertEquals(3, view.repostCreditAmount());
-        assertEquals(20, view.repostDeliveryDurationMinutes());
+        OrderResponse view = mapper.toResponse(order);
+        assertEquals(order.getId(), view.getId());
+        assertTrue(view.isAutomaticRepostEnabled());
+        assertEquals(3, view.getRepostCreditAmount());
+        assertEquals(20, view.getRepostDeliveryDurationMinutes());
 
-        OrderDtos.PageView<OrderDtos.View> page = OrderDtos.PageView.of(new PageImpl<>(List.of(view), org.springframework.data.domain.PageRequest.of(1, 1), 3));
-        assertEquals(List.of(view), page.items());
-        assertEquals(2, page.page());
-        assertEquals(1, page.size());
-        assertEquals(3, page.totalItems());
-        assertEquals(3, page.totalPages());
+        OrderPageResponse page = mapper.toResponse(
+                new OrderPage(List.of(order), 1, 1, 3, 3));
+        assertEquals(1, page.getItems().size());
+        assertEquals(view.getId(), page.getItems().getFirst().getId());
+        assertEquals(2, page.getPage());
+        assertEquals(1, page.getSize());
+        assertEquals(3, page.getTotalItems());
+        assertEquals(3, page.getTotalPages());
     }
 }

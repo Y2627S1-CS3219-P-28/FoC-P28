@@ -1,24 +1,100 @@
 package sg.edu.nus.foc.order.api;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import sg.edu.nus.foc.order.api.dto.response.ErrorDetailResponse;
+import sg.edu.nus.foc.order.api.dto.response.ErrorResponse;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 @RestControllerAdvice
 public class OrderExceptionHandler {
     @ExceptionHandler(OrderProblem.class)
-    public org.springframework.http.ResponseEntity<OrderDtos.ErrorResponse> orderProblem(OrderProblem e,HttpServletRequest request){int status=switch(e.code()){case "NOT_FOUND"->404;case "UNAUTHENTICATED"->401;case "FORBIDDEN"->403;case "VALIDATION_ERROR"->400;case "SERVICE_UNAVAILABLE","DEPENDENCY_UNAVAILABLE"->503;default->409;};return response(status,e.code(),e.getMessage(),request,e.details().stream().map(d->new OrderDtos.ErrorDetail(d.field(),d.message())).toList());}
+    public ResponseEntity<ErrorResponse> orderProblem(
+            OrderProblem problem,
+            HttpServletRequest request) {
+        int status = switch (problem.getCode()) {
+            case "NOT_FOUND" -> 404;
+            case "UNAUTHENTICATED" -> 401;
+            case "FORBIDDEN" -> 403;
+            case "VALIDATION_ERROR" -> 400;
+            case "SERVICE_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE" -> 503;
+            default -> 409;
+        };
+
+        List<ErrorDetailResponse> details = problem.getDetails().stream()
+                .map(detail -> new ErrorDetailResponse(detail.getField(), detail.getMessage()))
+                .toList();
+        return response(status, problem.getCode(), problem.getMessage(), request, details);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
-    public org.springframework.http.ResponseEntity<OrderDtos.ErrorResponse> invalid(IllegalArgumentException e,HttpServletRequest request){return response(400,"VALIDATION_ERROR",e.getMessage(),request,List.of());}
+    public ResponseEntity<ErrorResponse> invalid(
+            IllegalArgumentException exception,
+            HttpServletRequest request) {
+        return response(
+                400,
+                "VALIDATION_ERROR",
+                exception.getMessage(),
+                request,
+                List.of());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public org.springframework.http.ResponseEntity<OrderDtos.ErrorResponse> invalidRequest(MethodArgumentNotValidException e,HttpServletRequest request){var details=e.getBindingResult().getFieldErrors().stream().map(error->new OrderDtos.ErrorDetail(error.getField(),error.getDefaultMessage()==null?"Invalid value":error.getDefaultMessage())).toList();return response(400,"VALIDATION_ERROR","Request validation failed.",request,details);}
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
-    public org.springframework.http.ResponseEntity<OrderDtos.ErrorResponse> malformedRequest(Exception e,HttpServletRequest request){return response(400,"VALIDATION_ERROR","Request format is invalid.",request,List.of());}
-    private org.springframework.http.ResponseEntity<OrderDtos.ErrorResponse> response(int status,String error,String message,HttpServletRequest request,List<OrderDtos.ErrorDetail> details){return org.springframework.http.ResponseEntity.status(status).body(new OrderDtos.ErrorResponse(status,error,message,request.getRequestURI(),Instant.now(),details));}
+    public ResponseEntity<ErrorResponse> invalidRequest(
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request) {
+        List<ErrorDetailResponse> details = exception.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> new ErrorDetailResponse(
+                        error.getField(),
+                        error.getDefaultMessage() == null
+                                ? "Invalid value"
+                                : error.getDefaultMessage()))
+                .toList();
+        return response(
+                400,
+                "VALIDATION_ERROR",
+                "Request validation failed.",
+                request,
+                details);
+    }
+
+    @ExceptionHandler({
+            HttpMessageNotReadableException.class,
+            MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<ErrorResponse> malformedRequest(
+            Exception exception,
+            HttpServletRequest request) {
+        return response(
+                400,
+                "VALIDATION_ERROR",
+                "Request format is invalid.",
+                request,
+                List.of());
+    }
+
+    private ResponseEntity<ErrorResponse> response(
+            int status,
+            String error,
+            String message,
+            HttpServletRequest request,
+            List<ErrorDetailResponse> details) {
+        ErrorResponse body = new ErrorResponse(
+                status,
+                error,
+                message,
+                request.getRequestURI(),
+                Instant.now(),
+                details);
+        return ResponseEntity.status(status).body(body);
+    }
 }

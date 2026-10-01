@@ -1,36 +1,34 @@
 package sg.edu.nus.foc.order.application;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.data.domain.PageImpl;
-import sg.edu.nus.foc.order.domain.Order;
-import sg.edu.nus.foc.order.infrastructure.OrderRepository;
+import sg.edu.nus.foc.order.domain.repository.OrderPage;
+import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
 class OrderQueryServiceTest {
     @Test
-    void requestedOrdersUseTheRequesterIndexAndBoundPageSize() {
+    void requestedOrdersUseTheRepositoryBoundary() {
         OrderRepository repository = mock(OrderRepository.class);
-        when(repository.findByRequesterIdOrderByCreatedAtDesc(eq("requester"), any())).thenReturn(new PageImpl<>(List.of()));
+        OrderPage result = new OrderPage(List.of(), 0, 100, 0, 0);
+        when(repository.findRequestedBy("requester", -1, 999)).thenReturn(result);
 
         new OrderQueryService(repository).requestedBy("requester", -1, 999);
 
-        ArgumentCaptor<org.springframework.data.domain.Pageable> page = ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
-        verify(repository).findByRequesterIdOrderByCreatedAtDesc(eq("requester"), page.capture());
-        assertEquals(0, page.getValue().getPageNumber());
-        assertEquals(100, page.getValue().getPageSize());
+        verify(repository).findRequestedBy("requester", -1, 999);
     }
 
     @Test
-    void courierOrdersUseTheCourierIndex() {
+    void courierOrdersUseTheRepositoryBoundary() {
         OrderRepository repository = mock(OrderRepository.class);
-        when(repository.findByCourierIdOrderByCreatedAtDesc(eq("courier"), any())).thenReturn(new PageImpl<>(List.of()));
+        OrderPage result = new OrderPage(List.of(), 2, 20, 0, 0);
+        when(repository.findCourierOrders("courier", 2, 20)).thenReturn(result);
 
         new OrderQueryService(repository).courierFor("courier", 2, 20);
 
-        verify(repository).findByCourierIdOrderByCreatedAtDesc(eq("courier"), argThat(page -> page.getPageNumber() == 2 && page.getPageSize() == 20));
+        verify(repository).findCourierOrders("courier", 2, 20);
     }
 }

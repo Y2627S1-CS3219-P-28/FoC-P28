@@ -2,16 +2,19 @@ package sg.edu.nus.foc.order.domain;
 
 import jakarta.persistence.Embeddable;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Embeddable
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RepostPlan {
     private boolean enabled;
     private Instant dueAt;
     private long creditAmount;
     private int deliveryDurationMinutes;
     private boolean used;
-
-    protected RepostPlan() {}
 
     public RepostPlan(boolean enabled, Instant dueAt, long creditAmount, int deliveryDurationMinutes) {
         if (enabled && (dueAt == null || creditAmount <= 0 || deliveryDurationMinutes < 15)) {
@@ -23,11 +26,11 @@ public class RepostPlan {
         this.deliveryDurationMinutes = deliveryDurationMinutes;
     }
 
-    public boolean enabled() { return enabled; }
-    public Instant dueAt() { return dueAt; }
-    public long creditAmount() { return creditAmount; }
-    public int deliveryDurationMinutes() { return deliveryDurationMinutes; }
-    public boolean used() { return used; }
-    public boolean dueAt(Instant now) { return dueAt != null && !dueAt.isAfter(now); }
-    public void markUsed() { used = true; }
+    public boolean isDueAt(Instant now) {
+        return dueAt != null && !dueAt.isAfter(now);
+    }
+
+    public void markUsed() {
+        used = true;
+    }
 }

@@ -1,11 +1,22 @@
 package sg.edu.nus.foc.order.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "order_checkpoints", uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "status"}))
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderCheckpoint {
     @Id
     private String id = UUID.randomUUID().toString();
@@ -19,15 +30,11 @@ public class OrderCheckpoint {
     private String actorId;
     private String supplierId;
 
-    protected OrderCheckpoint() {}
     public OrderCheckpoint(String orderId, OrderStatus status, Instant occurredAt, String actorId, String supplierId) {
-        this.orderId = orderId; this.status = status; this.occurredAt = occurredAt;
-        this.actorId = actorId; this.supplierId = supplierId;
+        this.orderId = orderId;
+        this.status = status;
+        this.occurredAt = occurredAt;
+        this.actorId = actorId;
+        this.supplierId = supplierId;
     }
-    public String getId() { return id; }
-    public String getOrderId() { return orderId; }
-    public OrderStatus getStatus() { return status; }
-    public Instant getOccurredAt() { return occurredAt; }
-    public String getActorId() { return actorId; }
-    public String getSupplierId() { return supplierId; }
 }

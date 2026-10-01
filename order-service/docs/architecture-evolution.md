@@ -59,6 +59,8 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 | ARCH-EVO-002 | 2026-09-29 | Order Service persistence and deployment | Architecture or specification change | APPROVED | Order Service uses PostgreSQL on one Cloud SQL instance and deploys to Cloud Run with a public-IP Cloud SQL Java Connector | CHANGE-015 / ADR-008 | Unresolved PostgreSQL/Firestore and Kubernetes/Cloud Run conflict |
 | ARCH-EVO-003 | 2026-09-30 | Unified Order dashboard and authenticated actor identity | Architecture or specification change | APPROVED | Shared dashboard exposes requester and courier functions without a client-side mode switch; Order uses User Service-confirmed actor IDs; supplier labels never flash opaque IDs | CHANGE-029 | Previous mode-switching frontend slice in CHANGE-022 |
 | ARCH-EVO-004 | 2026-09-30 | Creation-time-only automatic repost choice | Architecture or specification change | IMPLEMENTED | Automatic repost is selected atomically during order creation; `OPEN` orders are read-only; manual repost is available only for un-reposted `EXPIRED` orders | CHANGE-031 | Post-creation configuration wording in CHANGE-022 |
+| ARCH-EVO-005 | 2026-09-30 | Temporary Credit outcome stub boundary | Architecture or specification change | APPROVED | Local mock may exercise outcome flows while provider settlement/release operations remain pending | CHANGE-032 / FEEDBACK-001 | Blocking all local outcome-flow work |
+| ARCH-EVO-006 | 2026-10-01 | Domain repository boundary and traditional API DTOs | Design refinement | IMPLEMENTED; compile verified | Application services use domain repository interfaces; Spring Data stays in infrastructure; API contracts use named DTO classes | CHANGE-050 | Direct Spring Data injection and nested API DTO records |
 
 Use stable `ARCH-EVO-NNN` identifiers. The detailed entry and its linked ADR/change record together preserve the decision history; do not copy full ADR contents into this table.
 
@@ -254,6 +256,39 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Affected architecture chain: Order application port/adapters, completion/cancellation/expiry/repost sequences, peer API feedback, traceability, tests, and active-work records. No peer source or schema changed.
 - Exit criteria: Credit owner agrees and implements both endpoints; actual peer code and tests are re-read; contract/idempotency/authentication/error tests pass; mock is removed or disabled for the verified integration.
 - Related records: `changes/CHANGE-032-credit-outcome-stub-exception.md`, `docs/peer-service-api-feedback.md` FEEDBACK-001.
+
+## ARCH-EVO-006: Domain repository boundary and traditional API DTOs
+
+- Change ID: CHANGE-050
+- Date: 2026-10-01
+- Developer: Yao Xiang
+- Feature: Cross-cutting Order Service Java structure
+- Original design or requirement: The approved architecture requires application components to invoke an Order persistence abstraction while domain rules remain independent of persistence. The implementation directly injected Spring Data repositories into application services and grouped API contracts into nested records.
+- Problem discovered: Derived query names, Spring Data pagination, and locking methods leaked infrastructure details into application orchestration. Compact nested DTO records and one-line methods also made review and maintenance difficult.
+- Change type: Design refinement
+- Status: IMPLEMENTED; compile verified, tests pending
+- Approved change: Use named API request/response DTO classes, domain repository interfaces, and infrastructure persistence adapters. Use explicit types and Lombok-generated boilerplate with conventional Java formatting.
+- What was added: Domain repository interfaces, an Order page result, JPA repository interfaces, persistence adapters, separate request/response DTO packages, and a Spring-managed MapStruct response mapper.
+- What was changed: Application services now use semantic repository methods; Spring Data calls stay in infrastructure; entity and service boilerplate uses Lombok where access rules permit; controllers delegate domain-to-response conversion to explicit `@Mapping` declarations.
+- What was removed: The nested `OrderDtos` record container, response DTO `from(...)` factory methods, direct application imports of Spring Data repositories, application-layer derived-query calls, and `var` usage.
+- Why the change was necessary: It enforces the approved dependency direction, improves separation of concerns, and makes API contracts and methods easier to review.
+- Alternatives considered: Keep Spring Data repositories in the application layer and only reformat code; add a generic persistence service over Spring Data. The selected repository-port/adaptor structure gives clearer ownership without adding a second business-service layer.
+- Trade-offs: More files and annotation processors provide stronger boundaries, independently named contracts, and compile-time mapping checks. Lombok and MapStruct require annotation processing and `lombok-mapstruct-binding`. Domain entities intentionally avoid public setters so lifecycle invariants remain enforceable.
+- Affected architecture: Internal application, domain repository, and infrastructure persistence boundaries.
+- Affected class diagram: Logical `OrderRepository` responsibility is now represented by a domain interface and infrastructure adapter.
+- Affected sequence diagram: No interaction or ordering change.
+- Affected data model: None; no migration.
+- Affected contracts: JSON field names and HTTP operations are unchanged; Java DTO class names changed internally.
+- Affected tests: Existing source tests were updated for the named DTOs and repository interfaces; execution pending.
+- Affected source files: Order API, application, domain, repository, infrastructure, and directly affected tests.
+- Approved by: Yao Xiang
+- Approval date: 2026-10-01
+- Effective from: CHANGE-050
+- Implementation status: Source and persistent instructions updated; Java 21 production and test-source compilation passed, including generated MapStruct code; test execution pending.
+- Supersedes: Direct Spring Data repository injection and nested API DTO records in the initial Sprint 1 implementation.
+- Superseded by: None
+- Related ADR/override: ARCH-EVO-001 dependency direction
+- Related traceability: Sprint 1 sequences 1-11; no product requirement change.
 
 ## Supersession and synchronization
 

@@ -17,6 +17,8 @@ map $http_origin $cors_origin {
     default "";
     "http://localhost:3000" $http_origin;
     "http://localhost:8080" $http_origin;
+    "http://127.0.0.1:3000" $http_origin;
+    "http://127.0.0.1:8080" $http_origin;
 }
 
 server {

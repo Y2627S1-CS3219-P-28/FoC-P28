@@ -13,17 +13,21 @@ import org.springframework.data.repository.query.Param;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
-public interface OrderRepository extends JpaRepository<Order, String> {
-    Page<Order> findByStatusOrderByCreatedAtAsc(OrderStatus status, Pageable pageable);
-    Page<Order> findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(OrderStatus status, Instant now, Pageable pageable);
+public interface JpaOrderRepository extends JpaRepository<Order, String> {
+    Page<Order> findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(
+            OrderStatus status,
+            Instant now,
+            Pageable pageable);
 
     Page<Order> findByRequesterIdOrderByCreatedAtDesc(String requesterId, Pageable pageable);
 
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
-    List<Order> findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(OrderStatus status, Instant now);
+    List<Order> findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(
+            OrderStatus status,
+            Instant now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")
-    Optional<Order> lockById(@Param("id") String id);
+    Optional<Order> findByIdForUpdate(@Param("id") String id);
 }

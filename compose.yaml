@@ -25,7 +25,7 @@ x-backend-env: &backend-env
   USER_SERVICE_MODE: ${USER_SERVICE_MODE:-mock}
   USER_SERVICE_URL: http://user-service:8080
   MOCK_ADMIN_EMAILS: ${MOCK_ADMIN_EMAILS:-admin@u.nus.edu,e1398851@u.nus.edu}
-  CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+  CORS_ORIGINS: http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080
 
 x-backend-depends: &backend-depends
   firebase-emulator:
@@ -56,11 +56,12 @@ services:
       FOC_ENVIRONMENT: local
       # The browser reaches the frontend on :3000, while APIs are exposed by
       # the host gateway on :8080. Keep this explicit for direct frontend use.
-      FOC_API_BASE_URL: http://localhost:8080
+      # Explicit IPv4 avoids broken localhost IPv6 forwarding on Docker Desktop.
+      FOC_API_BASE_URL: http://127.0.0.1:8080
       FOC_FIREBASE_PROJECT_ID: demo-foc
       FOC_FIREBASE_API_KEY: demo-api-key
       # Reached by the browser, so this is the host-mapped port.
-      FOC_FIREBASE_AUTH_EMULATOR_URL: http://localhost:9099
+      FOC_FIREBASE_AUTH_EMULATOR_URL: http://127.0.0.1:9099
 
   firebase-emulator:
     build: ./infra/firebase-emulator

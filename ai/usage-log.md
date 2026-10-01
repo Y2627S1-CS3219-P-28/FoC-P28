@@ -1092,3 +1092,46 @@ for failures show credits unavailable
   passed with zero failures/errors/skips and the JaCoCo coverage check passed.
   No runtime API, peer-service source, frontend, persistence, or deployment
   behavior was changed.
+
+## 2026-10-01 — Java layering and traditional DTO refactor (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-01
+- **Mode:** Architecture refinement and implementation
+- **Exact implementation prompt:**
+
+  > All your code stick tgt. For some like declared variables, it's fine to stick tgt but for import statements and class, declared methods, all these u should put spaces. And why u use var ? Alywas do typing. And why u dont have the repository class file for the domain. And the response dto and request dto for api. Dont omit them. Use the traditional dtos. U are calling findby straight in the application layer. But u should put those interacts with db in another file cuz we need separation of concern. And always use thespring annotation getter setter and constrructur instead of doing manual declaration. Using spring annotation will guarantee the future support but using manual function no
+
+- **Key response:** The developer selected explicit Java types, conventional
+  formatting, named request/response DTO classes, Lombok-generated boilerplate,
+  domain repository interfaces, and infrastructure JPA adapters. AI assistance
+  implemented the selected structure while preserving domain behavior, HTTP
+  fields, persistence schema, and peer boundaries. Static inspection and Java
+  21 production/test-source compilation passed; the test suite was not run.
+- **Affected locations:** `order-service/AGENTS.md`, CHANGE-050, architecture
+  evolution/change log/active-work records, Order Service API/application/domain/
+  repository/infrastructure Java source, directly affected tests, and this log.
+- **Author verification:** Yao Xiang supplied and selected the structure and style
+  direction. Maven compilation passed; developer review and test execution remain
+  pending.
+
+## 2026-10-01 — MapStruct response mapping refinement (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-01
+- **Mode:** Design refinement, implementation, and compile verification
+- **Exact implementation prompt:**
+
+  > Can u use mapper taht uses @mapping instead of using the from of the response
+
+- **Key response:** The developer selected annotation-driven response mapping.
+  AI assistance added a Spring-managed MapStruct `OrderMapper` with explicit
+  `@Mapping` declarations, removed mapping factories from response DTOs, and
+  injected the mapper into `OrderController`. Generated mapping source was
+  inspected and Java 21 production/test-source compilation passed.
+- **Affected locations:** Order Service `pom.xml`, API mapper/controller/response
+  DTOs, directly affected tests, CHANGE-050, architecture evolution/change log/
+  active-work records, `order-service/AGENTS.md`, and this usage log.
+- **Author verification:** Yao Xiang explicitly requested MapStruct-style
+  `@Mapping`. Public JSON, domain behavior, persistence schema, peer contracts,
+  and frontend behavior remain unchanged. Test execution remains pending.

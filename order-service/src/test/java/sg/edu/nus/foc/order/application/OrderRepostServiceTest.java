@@ -7,15 +7,15 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 import sg.edu.nus.foc.order.domain.RepostPlan;
-import sg.edu.nus.foc.order.infrastructure.CheckpointRepository;
-import sg.edu.nus.foc.order.infrastructure.CommandReceiptRepository;
-import sg.edu.nus.foc.order.infrastructure.OrderRepository;
+import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
+import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
+import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
 class OrderRepostServiceTest {
     @Test
     void configureRejectsPostCreationChanges() {
         OrderRepository orders = mock(OrderRepository.class);
-        CheckpointRepository checkpoints = mock(CheckpointRepository.class);
+        OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         SupplierServicePort suppliers = mock(SupplierServicePort.class);
         CreditServicePort credits = mock(CreditServicePort.class);
