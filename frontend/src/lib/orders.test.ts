@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm, validateCreateOrderForm } from "@/lib/orders"
+import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm, type Order, updateCourierOrderList, validateCreateOrderForm } from "@/lib/orders"
 
 describe("Order Service frontend contract helpers", () => {
   it("builds a requester create payload with an automatic repost plan", () => {
@@ -44,6 +44,13 @@ describe("Order Service frontend contract helpers", () => {
       actorId: "uid-2",
       expectedVersion: 4,
     })
+  })
+
+  it("removes an aborted errand from the courier's assigned list", () => {
+    const assignedOrder = { id: "order-1", status: "ACCEPTED" } as Order
+    const abortedOrder = { id: "order-1", status: "ABORTED" } as Order
+
+    expect(updateCourierOrderList([assignedOrder], abortedOrder)).toEqual([])
   })
 
   it("requires order expiry to be at least 30 minutes after creation", () => {

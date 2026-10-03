@@ -12,12 +12,6 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${FIREBASE_ISSUER_URI:https://securetoken.google.com/local}
-
 server:
   port: ${PORT:8080}
 
@@ -38,9 +32,29 @@ springdoc:
     path: /api/orders/docs
 
 order:
+  security:
+    auth:
+      project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
+      emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+    user-service:
+      mode: ${USER_SERVICE_MODE:mock}
+      base-url: ${USER_SERVICE_URL:http://localhost:8081}
+      mock-admin-emails: ${MOCK_ADMIN_EMAILS:}
+      timeout: ${USER_SERVICE_TIMEOUT:3s}
   peers:
     mode: ${ORDER_PEERS_MODE:mock}
     user-url: ${USER_SERVICE_URL:http://localhost:8081}
     supplier-url: ${SUPPLIER_SERVICE_URL:http://localhost:8082}
     credit-url: ${CREDIT_SERVICE_URL:http://localhost:8084}
   lifecycle-token: ${ORDER_LIFECYCLE_TOKEN:local-lifecycle}
+  messaging:
+    project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
+    emulator-host: ${PUBSUB_EMULATOR_HOST:}
+    publish-timeout: 10s
+    outbox:
+      recovery-cron: ${ORDER_OUTBOX_RECOVERY_CRON:0 * * * * *}
+      batch-size: ${ORDER_OUTBOX_BATCH_SIZE:50}
+    topics:
+      order-completion: ${ORDER_COMPLETION_TOPIC:order-completion-v1}
+      open-order-cancellation: ${ORDER_OPEN_CANCELLATION_TOPIC:open-order-cancellation-v1}
+      accepted-order-cancellation: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:accepted-order-cancellation-v1}

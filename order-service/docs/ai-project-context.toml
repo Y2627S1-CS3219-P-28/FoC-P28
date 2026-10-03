@@ -59,7 +59,7 @@ pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
 [sources]
 project_d1 = "../../../Project-D1.pdf"
-order_service_overall = "../../../Order Service Overall Doc.pdf"
+order_service_overall = "../../../Order Service Overall Doc - Updated.pdf"
 architecture_overall = "../../../High Level Architecture Diagram - FOC.png"
 architecture_order_service = "../../../High Level Architecture Diagram - Order Service.png"
 class_diagram_overall = "../../../Class Diagram - Order Service.png"
@@ -91,11 +91,17 @@ one_repost_per_original = true
 courier_outcome_operations_are_explicit = true
 courier_outcome_discriminator_allowed = false
 courier_outcome_facts_bag_allowed = false
-credit_consequence_processing = "synchronous-before-order-finalization"
+credit_consequence_processing = "transactional-outbox-with-after-commit-dispatch-and-cron-recovery"
 ordinary_progress_transitions_require_credit = false
 penalty_policy_owner = "user-service"
 penalty_fact_signaling_blocks_order_commit = false
-durable_event_broker_approved = false
+overall_design_declares_typed_event_broker = true
+durable_event_broker_implementation_approved = true
+transactional_outbox_implementation_approved = true
+publish_before_status_change_approved = false
+full_order_snapshot_in_events = true
+peer_consumer_implementation_assumed_for_order_scope = true
+same_order_aborted_reopening_implementation_approved = false
 
 [approved_order_service_infrastructure]
 persistence = "PostgreSQL on Google Cloud SQL"
@@ -109,4 +115,5 @@ cloud_sql_deletion_protection = true
 cloud_sql_billing_acknowledged = true
 
 [open_conflicts]
-frontend_role_authority_mapping = "Frontend roles are ADMIN/USER with Requester/Courier USER modes; parent backend conventions currently expose requester/courier/admin authorities. Inspect and approve the mapping before role-sensitive implementation"
+frontend_role_authority_mapping = "RESOLVED for Order Service: Firebase-authenticated role authorities come from User Service role-context; Admin endpoints use ROLE_ADMIN and Supplier-style @PreAuthorize. Frontend role/mode behavior remains backend-authoritative. See CHANGE-057/ADR-012."
+updated_overall_design_vs_sprint_scope = "CHANGE-063/ADR-013 approves atomic Order-state/outbox persistence, immediate after-commit dispatch, and Spring cron recovery for Sequences 5-7. Delivery is at least once; stable event IDs support consumer deduplication. CHANGE-054 selects Pub/Sub; CHANGE-056 unifies completion events. Cloud Run scale-to-zero/request CPU limits in-process cron while idle. Same-order ABORTED reopening remains outside this scope."

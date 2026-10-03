@@ -92,6 +92,9 @@ public class Order {
         if (requesterId.equals(courierId)) {
             throw OrderProblem.forbidden("Requester cannot accept their own order.");
         }
+        if (this.courierId != null) {
+            throw OrderProblem.conflict("Order already has an assigned courier.");
+        }
         if (!now.isBefore(expiresAt)) {
             throw OrderProblem.conflict("Order has expired.");
         }
@@ -124,21 +127,43 @@ public class Order {
     }
 
     public void confirmCompletion(String actor, long expectedVersion) {
+        validateCompletion(actor, expectedVersion);
+        status = OrderStatus.COMPLETED;
+    }
+
+    public void validateCompletion(String actor, long expectedVersion) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.DELIVERED);
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may confirm completion.");
         }
-        status = OrderStatus.COMPLETED;
     }
 
     public void cancelOpen(String actor, long expectedVersion) {
+        validateOpenCancellation(actor, expectedVersion);
+        status = OrderStatus.CANCELLED;
+    }
+
+    public void validateOpenCancellation(String actor, long expectedVersion) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.OPEN);
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may cancel.");
         }
-        status = OrderStatus.CANCELLED;
+    }
+
+    public void cancelAccepted(String actor, long expectedVersion) {
+        validateAcceptedCancellation(actor, expectedVersion);
+        status = OrderStatus.ABORTED;
+        courierId = null;
+    }
+
+    public void validateAcceptedCancellation(String actor, long expectedVersion) {
+        requireVersion(expectedVersion);
+        requireStatus(OrderStatus.ACCEPTED);
+        if (courierId == null || !courierId.equals(actor)) {
+            throw OrderProblem.forbidden("Only the assigned courier may cancel an accepted order.");
+        }
     }
 
     public void expire(long expectedVersion, Instant now) {

@@ -2,7 +2,7 @@
 
 - Date: 2026-10-01
 - Developer: Yao Xiang
-- Status: Implemented; compile verified, tests pending
+- Status: Implemented; full Order Service test suite and JaCoCo coverage verified in CHANGE-054
 - Change type: Design refinement
 - Scope: Order Service Java source and directly affected tests
 
@@ -27,7 +27,7 @@ The developer explicitly required conventional Java spacing, explicit local type
 - Public HTTP paths, JSON field names, validation constraints, lifecycle behavior, peer contracts, persistence schema, and database ownership are unchanged.
 - No Flyway migration is required.
 - The approved application-to-domain-repository-to-infrastructure direction is clearer and now enforced by package dependencies.
-- Existing tests were updated to compile against the named DTOs and repository abstractions. They were not executed during this task.
+- Existing tests were updated to compile against the named DTOs and repository abstractions. The complete Order Service suite passed in CHANGE-054 verification.
 - MapStruct 1.6.3 and its annotation processor generate type-safe response mapping code during compilation. `lombok-mapstruct-binding` preserves Lombok/MapStruct processor interoperability.
 
 ## Affected artifacts
@@ -42,4 +42,4 @@ The developer explicitly required conventional Java spacing, explicit local type
 
 ## Verification
 
-Static inspection confirmed that Order Service application and API packages contain no `var`, nested records, direct Spring Data imports, or derived `findBy...` calls. Java 21 production compilation and test-source compilation passed. The test suite was not executed because testing was not requested in this task.
+Static inspection confirmed that Order Service application and API packages contain no `var`, nested records, direct Spring Data imports, or derived `findBy...` calls. Java 21 production and test-source compilation passed. The full `mvn verify` recorded in CHANGE-054 passed all 57 tests and the configured JaCoCo coverage gates.

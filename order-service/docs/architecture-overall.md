@@ -8,10 +8,11 @@ The existing shared top-level Next.js application is the single responsive web c
 
 ## Cross-service responsibilities
 
-- Order Service asks User Service for identity, roles, and courier eligibility and publishes order facts such as `COMPLETED`, `OVERDUE`, and `ABORTED`.
+- Order Service asks User Service for identity, roles, and courier eligibility and publishes order facts such as `COMPLETED`, overdue completion facts, and `ABORTED`.
 - Order Service asks Supplier Service to validate supplier pairs and resolve current supplier details.
-- Order Service asks Credit Service to reserve/query/settle credits and publishes terminal order outcomes; Credit Service owns the resulting policy.
+- Order Service asks Credit Service to reserve/query and evaluate same-order reopening synchronously. For Sequences 5-7, it commits typed completion/cancellation event intent atomically with matching Order status/checkpoint/receipt, then dispatches after commit; Credit Service owns settlement, release, and resulting policy. CHANGE-063/ADR-013 records the effective outbox behavior.
 - Admin Service monitors orders and may place/release completion holds or apply supported case resolutions through explicit Order Service contracts.
 - Admin Service calls User and Supplier administrative contracts; it does not write their databases.
+- By CHANGE-057/ADR-012, Order Service exposes an admin-authorized paginated all-orders query (optional status filter) to support future NTH1 dashboard integration; the dashboard remains Admin Service-owned.
 
-Technology options shown by the diagram are HTTPS/JSON for request-response and event transport for factual events. These are not concrete repository choices until approved and configured.
+The updated overall design currently has one broker and three typed event flows. Every completion is published once as `OrderCompletionTaskEvent`, with overdue facts for both Credit and User; CHANGE-056 supersedes the former separate overdue completion flow. CHANGE-063/ADR-013 supersedes CHANGE-053's publish-first implementation ordering: Order status, checkpoint, command receipt, and event intent commit atomically; an after-commit listener attempts prompt delivery and Spring cron recovers pending entries. CHANGE-054 selects Google Cloud Pub/Sub; topic IDs remain placeholders. Delivery is at least once, so consumers deduplicate stable event IDs. Cloud Run scale-to-zero/request-based CPU does not guarantee cron while idle.

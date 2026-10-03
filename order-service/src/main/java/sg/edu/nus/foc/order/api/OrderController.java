@@ -176,7 +176,7 @@ public class OrderController {
                 authorization));
     }
 
-    @Operation(summary = "Confirm completion and settle credits")
+    @Operation(summary = "Confirm completion and publish the completion event")
     @PostMapping("/{id}/complete")
     public OrderResponse complete(
             @PathVariable String id,
@@ -190,13 +190,27 @@ public class OrderController {
                 authorization));
     }
 
-    @Operation(summary = "Cancel an open order and release credits")
+    @Operation(summary = "Cancel an open order and publish the cancellation event")
     @PostMapping("/{id}/cancel")
     public OrderResponse cancel(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         return orderMapper.toResponse(transitions.cancel(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Cancel an accepted order and publish the cancellation event")
+    @PostMapping("/{id}/cancel-accepted")
+    public OrderResponse cancelAccepted(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.cancelAccepted(
                 request.getCommandId(),
                 id,
                 request.getActorId(),

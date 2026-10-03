@@ -18,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration;
@@ -31,6 +32,7 @@ import sg.edu.nus.foc.order.application.OrderQueryService;
 import sg.edu.nus.foc.order.application.OrderRepostService;
 import sg.edu.nus.foc.order.application.OrderTransitionService;
 import sg.edu.nus.foc.order.application.UserServicePort;
+import sg.edu.nus.foc.order.api.mapper.OrderMapperImpl;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -40,11 +42,12 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = OrderController.class,
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
     })
+@Import(OrderMapperImpl.class)
 @AutoConfigureMockMvc(addFilters = false)
 @ImportAutoConfiguration({
     SpringDocConfigProperties.class,

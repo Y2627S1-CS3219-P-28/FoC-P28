@@ -19,5 +19,7 @@ public interface OrderRepository {
 
     OrderPage findCourierOrders(String courierId, int page, int size);
 
+    OrderPage findAllOrders(OrderStatus status, int page, int size);
+
     List<Order> findDueUnassigned(OrderStatus status, Instant now);
 }

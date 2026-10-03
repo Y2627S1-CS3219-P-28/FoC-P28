@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -15,6 +16,13 @@ import sg.edu.nus.foc.order.domain.OrderProblem;
 
 @RestControllerAdvice
 public class OrderExceptionHandler {
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> forbidden(
+            AccessDeniedException exception,
+            HttpServletRequest request) {
+        return response(403, "FORBIDDEN", "Administrator access is required.", request, List.of());
+    }
+
     @ExceptionHandler(OrderProblem.class)
     public ResponseEntity<ErrorResponse> orderProblem(
             OrderProblem problem,

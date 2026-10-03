@@ -4,21 +4,24 @@
 |---|---|---|---|
 | 1 | F1.1-F1.3, Sprint 1 diagrams | Validate requester/suppliers/credits and create `OPEN` order | Implementation added; unit/integration verification pending |
 | 2 | F2, Sprint 1 diagrams | List unexpired, unassigned `OPEN` orders | Backend and responsive Browse Errands UI added; live contract verification pending |
-| 3 | F3, F13 | Verify courier eligibility, bind the authenticated courier identity, reject self-acceptance, and atomically accept once | Implementation added; concurrency/contract verification pending |
-| 4 | F4.1.1-F4.1.2 | `ACCEPTED` to `IN_PROGRESS` | Implementation added; verification pending |
-| 5 | F4.1.3 | `IN_PROGRESS` to `PICKED_UP` with checkpoint | Implementation added; verification pending |
-| 6 | F4.1.4 | `PICKED_UP` to `DELIVERED` with checkpoint | Implementation added; verification pending |
-| 7 | F4.1.5, F5.1 | Requester confirms `DELIVERED` to `COMPLETED` | Implementation added; domain test coverage; integration verification pending |
-| 8 | F4.1.7, F5.1 | Requester cancels `OPEN` to `CANCELLED` | Implementation added; domain test coverage; integration verification pending |
+| 3 | F3, F13 | Verify courier eligibility, bind the authenticated courier identity, reject self-acceptance and pre-assigned orders, and atomically accept once | Domain tests cover self-acceptance and assigned-order rejection; all 62 tests and coverage gates pass |
+| 4 | F4.1.1-F4.1.2 | Assigned courier only: `ACCEPTED` to `IN_PROGRESS` | Aggregate ownership guard; suite verification pending |
+| 5 | F4.1.3 | Assigned courier only: `IN_PROGRESS` to `PICKED_UP` with checkpoint | Aggregate ownership guard; suite verification pending |
+| 6 | F4.1.4 | Assigned courier only: `PICKED_UP` to `DELIVERED` with checkpoint | Aggregate ownership guard; suite verification pending |
+| 7 | F4.1.5, F5.1, updated overall Sequence 5, CHANGE-056/063 | Requester confirms `DELIVERED` to `COMPLETED`; atomically commit the resulting Order/checkpoint/receipt and full-Order completion event with overdue facts; dispatch after commit and recover via cron. User and Credit consume every completion. | Transition, event snapshot, dispatch, retry, lease, clean/upgrade migration, JPA persistence and rollback tests pass in `mvn verify`; live Pub/Sub delivery pending. |
+| 8 | F4.1.7, F5.1, updated overall Sequences 6-7, CHANGE-055/061/063, ADR-010/013 | Requester may cancel own `OPEN` order; assigned courier may cancel own `ACCEPTED` order. Atomically commit each resulting status/checkpoint/receipt with its full-Order event; dispatch after commit and recover via cron. The Courier My Errands UI provides a confirmed cancel action for `ACCEPTED` only. | Backend outbox reliability tests pass in `mvn verify`. Frontend tests previously passed for action visibility, confirmation, versioned API request, API error feedback, and removal of `ABORTED` orders; live Pub/Sub/browser verification remains pending. |
 | 9 | F4.1.8, F10, NTH4 | Trusted trigger expires due unaccepted `OPEN` order | Implementation added; lifecycle verification pending |
 | 10 | NTH4 | Eligible expired order creates one linked `OPEN` repost after reservation | Implementation added; peer/idempotency verification pending |
 | 11 | NTH4 | Requester receives draft and submits one linked repost | Backend and responsive manual-repost UI added; peer/idempotency verification pending |
+| NTH1 | CHANGE-057 / ADR-012 (explicit Order-side supporting API) | Admin-only `GET /api/orders`; optional status (omitted returns every status); one-based `Pageable`; newest-first `OrderPageResponse` | Controller/security/persistence tests; `mvn verify` passed 86 tests and coverage gates |
 
 Frontend vertical-slice note: CHANGE-022 covers the approved shared Next.js
 implementation for sequences 1-11. Browser and live peer verification are not
 claimed from static builds or unit tests.
 
 ## Cross-cutting
+
+- CHANGE-057 / ADR-012: explicit Order-side query supporting the NTH1 Admin dashboard. `GET /api/orders` is admin-only, paginated, optionally status-filtered, and returns all statuses by default. Admin Service and frontend dashboard implementation remain outside scope.
 
 - `Order` is the sole lifecycle aggregate and stores supplier IDs only.
 - Automatic repost choice and plan details are submitted with order creation and
@@ -29,7 +32,7 @@ claimed from static builds or unit tests.
 - Credit reservation is synchronous before an order or repost becomes `OPEN`.
 - Commands and lifecycle triggers carry IDs; state changes carry expected versions.
 - Flyway migrations are the schema source of truth; Hibernate only validates.
-- Repost event publication is deferred for Sprint 1.
+- Repost event publication remains deferred for Sprint 1; the updated overall design's three typed completion/cancellation events are a separate architecture update.
 - The approved frontend vertical slice uses active Supplier Service names in pickup and delivery
   selectors while submitting supplier IDs; the authoritative catalogue remains in Supplier Service.
 - Order cards resolve pickup and delivery references through the authenticated Supplier Service
@@ -44,9 +47,18 @@ claimed from static builds or unit tests.
   explicit development-only CORS allowlist; deployed origins are unchanged.
 - The post-request form mirrors the Order domain rule that `expiresAt` must be at least 30 minutes
   after creation and explains the constraint before submission; the backend remains authoritative.
-- Completion, cancellation, expiry, and automatic repost now call a synchronous `CreditServicePort`
-  outcome boundary. The local mock is an explicitly approved Sprint 1 exception; the real Credit
-  settlement/release provider contract remains open under FEEDBACK-001, so Sequences 7-9 stay `[~]`.
+- The updated overall design supersedes the synchronous outcome boundary for Sequences 5-7.
+  CHANGE-063/ADR-013 records the approved transactional outbox: commit status/checkpoint/receipt
+  and event intent together, then dispatch after commit with cron recovery. Delivery is at least
+  once; consumer deduplication uses the stable event ID.
+  Credit reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain
+  synchronous. CHANGE-054 provides the Pub/Sub producer; CHANGE-063 implements transactional state/outbox transitions.
+- The requested `*TaskPublisher` pairs, full resulting Order snapshot, topic placeholders, and
+  transactional-outbox Sequence 5-7 diagrams are captured in CHANGE-053/054/056/063 and linked
+  from Sprint indexes. No peer
+  source is changed; Credit/User consumers are assumed future work per the user. Overdue facts are
+  derived from checkpoint history without schema changes. Live Pub/Sub delivery needs configured
+  topic IDs and an emulator or GCP project.
 - The local mock now models 50-credit accounts, reservation balances, settlement transfer to the
   courier, release on cancellation/expiry, insufficient-balance rejection, and command-id
   idempotency. These effects are deterministic test behavior only; Credit Service remains the

@@ -12,7 +12,7 @@ No peer-service API feedback entry has been recorded yet.
 - Responsible service: Credit Service
 - Affected Order Service feature: Credit consequences for completed, cancelled, and expired orders
 - Affected sequence: 7, 8, and 9
-- Related requirement: Project D1 F7.1, F10.1.4, F11.1.2, F11.2.3; approved synchronous Credit boundary
+- Related requirement: Project D1 F7.1, F10.1.4, F11.1.2, F11.2.3; updated overall design `CHANGE-051` typed event boundary
 - Priority: High
 - Related API decision: Existing reservation API is usable for Sequence 1 and repost creation; outcome operations remain missing
 - Supersedes: None
@@ -20,10 +20,13 @@ No peer-service API feedback entry has been recorded yet.
 
 ### Required capability
 
-Order Service needs synchronous, idempotent Credit Service operations before
-finalizing credit-related outcomes: settle a completed order to the courier,
-release/refund a reservation for cancellation, and release/refund a reservation
-for expiry. The operation must be owned and decided by Credit Service.
+The superseded local exception expected synchronous, idempotent Credit Service
+operations before finalizing credit-related outcomes. The updated overall design
+now requires Order to commit state/checkpoint/outbox atomically and publish typed
+events; Credit consumes completion/cancellation events and owns settlement/release.
+Reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain
+synchronous. The provider still must agree on event schemas, subscription
+authentication, idempotency, retries, and failure handling.
 
 ### Expected contract
 
@@ -33,7 +36,7 @@ for expiry. The operation must be owned and decided by Credit Service.
 - Errors: Validation, unauthenticated/forbidden, reservation not found, duplicate/conflicting command, insufficient/invalid state, and dependency failure.
 - Authorization: Authenticated Order Service trusted identity or approved service-to-service credential.
 - Data semantics: Credit Service owns reservation release, settlement, transfer, balances, and ledger records; Order Service does not calculate credit policy.
-- Synchronous or asynchronous behavior: Synchronous before the Order outcome is committed, according to the approved project boundary.
+- Synchronous or asynchronous behavior: Typed event delivery after the Order state/checkpoint/outbox transaction; at-least-once consumer processing with deduplication. Reservation and `evaluateOpenEntry` remain synchronous.
 
 ### Current peer-service status
 
@@ -84,8 +87,9 @@ verify the endpoints. No Credit Service source was modified.
 
 The reservation and lookup operations cannot safely express the required
 outcome-side transfer/release semantics. Reusing reservation lookup or inventing
-an Order-side balance update would violate Credit Service ownership and the
-approved synchronous boundary.
+an Order-side balance update would violate Credit Service ownership. The current
+`CreditServicePort.settle` and `release` calls also implement the superseded
+synchronous boundary and cannot be treated as the updated event contract.
 
 ### Suggested implementation for the peer developer
 
@@ -107,9 +111,10 @@ outcome endpoint was invented and no peer-service source was modified.
 
 ### Next action
 
-Resolve the Sprint 1 deferment versus the broader approved synchronous Credit
-boundary, then have the Credit Service owner propose and implement the approved
-outcome contracts.
+Resolve the Sprint 1 deferment versus the updated typed-event Credit boundary,
+then have the Credit Service owner propose and implement the event subscription,
+idempotency, authentication, retry, and dead-letter contracts. Reservation and
+same-order `evaluateOpenEntry` remain synchronous.
 
 ### Verification notes
 
@@ -120,6 +125,43 @@ implemented; outcome settlement/release endpoints were not found.
 ### Resolution notes
 
 None.
+
+## FEEDBACK-002: Credit and User Service â€” typed outcome event subscriptions
+
+- Status: OPEN
+- Date: 2026-10-02
+- Requesting service: Order Service
+- Responsible services: Credit Service and User Service
+- Affected Order Service feature: Completion and cancellation consequence delivery
+- Affected updated sequences: 5, 6, 7, and 8
+- Related design: CHANGE-051, CHANGE-052, CHANGE-053, ADR-009
+- Priority: High
+
+### Required capability
+
+Under CHANGE-056, Credit Service must subscribe to `OrderCompletionTaskEvent`, `OpenOrderCancellationTaskEvent`, and `AcceptedOrderCancellationTaskEvent`. User Service must subscribe to `AcceptedOrderCancellationTaskEvent` and every `OrderCompletionTaskEvent`; its completion policy uses the event's `overdue` and `overdueAt` facts. Consumers must process at least once, deduplicate, acknowledge after success, retry independently, and provide dead-letter/recovery handling under the approved event contract. These consumers remain absent in the inspected peer implementations and are not verified.
+
+### Inspected peer implementation
+
+- Credit Service `CreditController` currently exposes registration facts, user balance, reservation, and reservation lookup HTTP operations. No event subscriber or completion/cancellation outcome handler was found.
+- User Service source contains profile/identity HTTP components and no event subscriber or penalty-fact handler was found.
+- Compatibility status: `MISSING` for both requested consumer integrations. Existing synchronous Credit reservation and reservation lookup do not implement completion/cancellation event subscriptions.
+
+### Contract questions for peer owners
+
+- Confirm event envelope, payload fields, schema/version compatibility, and stable deduplication key.
+- Confirm how subscribers authenticate and validate publisher/service identity.
+- Define acknowledgements, timeouts, retry/backoff, poison-message handling, dead-letter ownership, monitoring, and recovery/replay.
+- Confirm Credit settlement/release semantics for each event and how Sequence 7 eligibility/reopening relates to asynchronous event processing.
+- Confirm User's accepted-cancellation and overdue-fact handling without moving penalty policy into Order Service.
+
+### Implementation stopping point
+
+No peer source was modified. The user explicitly authorized the Order-side publisher milestone to assume future Credit/User consumers, so missing consumer implementations do not block the Order producer. This authorization does not verify either peer integration; keep this entry `OPEN` until consumer code/contracts are independently inspected.
+
+### Next action
+
+Peer owners can implement the corresponding consumers later as directed by the user. Before labeling either integration verified, inspect actual consumer code and tests against CHANGE-053/054's event payload and Pub/Sub delivery contract.
 
 ## Status lifecycle
 

@@ -17,3 +17,9 @@ default.
 ## Codex configuration
 
 No repository `.codex/config.toml` was created. The workflow requires no repository-local Codex configuration, and no unverified configuration keys were invented. The repository-local skill and `AGENTS.md` provide the required behavior.
+
+## Event publisher placement
+
+For Order Service event-publisher code, put typed publisher interfaces under `src/main/java/sg/edu/nus/foc/order/messagingpublisher/interfaces/` and matching implementations under `src/main/java/sg/edu/nus/foc/order/messagingpublisher/publisher/`. Use the three effective `*TaskPublisher` pairs: `OrderCompletionTaskPublisher`, `OpenOrderCancellationTaskPublisher`, and `AcceptedOrderCancellationTaskPublisher`. Every completion uses `OrderCompletionTaskEvent` with the full Order snapshot and `overdue`/`overdueAt` facts, as recorded in CHANGE-056/ADR-011. Keep topic placeholders. A real publisher requires a selected transport client; never treat a no-op as success. Peer consumers are future work under the user's explicit scope, not verified integration.
+
+For the effective delivery flow, persist the post-transition event in `OrderEventOutboxRepository` within the same transaction as Order state, checkpoint, and command receipt. Trigger immediate `AFTER_COMMIT` dispatch, and use the Spring cron scheduler only for recovery. Publisher confirmation marks a row published; failure records bounded-backoff retry state without turning a committed transition into a failed response. Use leased claims and stable event IDs; delivery is at least once and consumers must deduplicate. Cloud Run scale-to-zero with request-based CPU does not guarantee in-process cron while idle; do not change cost-affecting deployment settings without separate approval.

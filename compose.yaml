@@ -31,6 +31,12 @@ x-backend-depends: &backend-depends
   firebase-emulator:
     condition: service_healthy
 
+x-order-pubsub-topics: &order-pubsub-topics
+  PUBSUB_PROJECT_ID: demo-foc
+  ORDER_COMPLETION_TOPIC: order-completion-v1
+  ORDER_OPEN_CANCELLATION_TOPIC: open-order-cancellation-v1
+  ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-v1
+
 services:
   gateway:
     build: ./gateway
@@ -159,22 +165,71 @@ services:
       timeout: 5s
       retries: 12
 
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:573.0.0-emulators
+    command:
+      - gcloud
+      - beta
+      - emulators
+      - pubsub
+      - start
+      - --project=demo-foc
+      - --host-port=0.0.0.0:8085
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import socket; connection = socket.create_connection(("127.0.0.1", 8085), 2); connection.close()
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 12
+
+  pubsub-topics-init:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:573.0.0-emulators
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euo pipefail
+        for topic_id in "$${ORDER_COMPLETION_TOPIC}" "$${ORDER_OPEN_CANCELLATION_TOPIC}" "$${ORDER_ACCEPTED_CANCELLATION_TOPIC}"; do
+          topic_url="http://pubsub-emulator:8085/v1/projects/$${PUBSUB_PROJECT_ID}/topics/$${topic_id}"
+          topic_body="{\"name\":\"projects/$${PUBSUB_PROJECT_ID}/topics/$${topic_id}\"}"
+          response_code="$$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --request PUT --header "Content-Type: application/json" --data "$${topic_body}" "$${topic_url}")"
+          if [[ "$${response_code}" == "200" || "$${response_code}" == "201" ]]; then
+            echo "Created Pub/Sub emulator topic $${topic_id}."
+          elif [[ "$${response_code}" == "409" ]] && curl --fail --silent --show-error --request GET "$${topic_url}" > /dev/null; then
+            echo "Pub/Sub emulator topic $${topic_id} already exists."
+          else
+            echo "Could not initialize Pub/Sub emulator topic $${topic_id}; HTTP $${response_code}." >&2
+            exit 1
+          fi
+        done
+    environment: *order-pubsub-topics
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    restart: "no"
+
   order-service:
     build: ./order-service
     ports:
       - "${ORDER_SERVICE_PORT:-8083}:8080"
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *order-pubsub-topics]
       SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/${ORDER_DB_NAME:-order_service}
       SPRING_DATASOURCE_USERNAME: ${ORDER_DB_USERNAME:-order_dev}
       SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:-order_dev_password}
       SPRING_FLYWAY_ENABLED: "true"
       ORDER_PEERS_MODE: mock
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       ORDER_LIFECYCLE_TOKEN: ${ORDER_LIFECYCLE_TOKEN:-local-lifecycle}
     depends_on:
       <<: *backend-depends
       order-postgres:
         condition: service_healthy
+      pubsub-topics-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s

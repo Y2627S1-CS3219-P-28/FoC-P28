@@ -1,14 +1,14 @@
 # CHANGE-032 — Temporary Credit outcome boundary for Sprint 1
 
 - Date: 2026-09-30
-- Status: Approved temporary exception; provider implementation pending
+- Status: Superseded by CHANGE-051 for completion/cancellation delivery; retained as historical Sprint 1 exception
 - Scope: Order Service Sequences 7, 8, 9, and automatic repost credit effects
 - Approved by: Vincent
 
 ## Decision
 
-Credit settlement and release remain Credit Service-owned and synchronous at
-the Order boundary. Because the provider endpoints are not yet implemented,
+Credit settlement and release remain Credit Service-owned. At the time of this
+temporary exception they were synchronous at the Order boundary. Because the provider endpoints were not implemented,
 Order Service may use a deterministic in-memory `CreditServicePort` mock for
 local Sequence 1–11 verification. The mock models balances and reservations
 for test behavior only and must not be treated as a production integration.
@@ -43,7 +43,7 @@ responses. `CANCELLED` and `EXPIRED` are valid release outcomes.
 
 ## Trade-off and exit criteria
 
-This keeps the Order state machine testable and preserves Credit ownership, but
+This kept the Order state machine testable and preserved Credit ownership, but
 cannot verify real balance or ledger behavior. Remove the mock only after the
 Credit owner agrees to the contract, implements both endpoints, and the actual
 peer code passes contract/idempotency/error/authentication verification.
@@ -54,3 +54,9 @@ peer code passes contract/idempotency/error/authentication verification.
 `docs/requirements-traceability.md`, `docs/active-work/vincent.md`,
 `docs/architecture-evolution.md`, and the Order application/adaptor classes.
 No peer-service source or learning file was changed.
+
+The updated overall design in CHANGE-051 supersedes the synchronous outcome
+boundary for Sequences 5-8 with typed events, transactional outbox, and
+independent Credit/User subscribers. The local mock and synchronous
+`CreditServicePort` remain historical implementation state until the updated
+event architecture is approved and implemented.

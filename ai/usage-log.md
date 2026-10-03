@@ -1135,3 +1135,199 @@ for failures show credits unavailable
 - **Author verification:** Yao Xiang explicitly requested MapStruct-style
   `@Mapping`. Public JSON, domain behavior, persistence schema, peer contracts,
   and frontend behavior remain unchanged. Test execution remains pending.
+
+## 2026-10-02 - Updated overall design comparison (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-02
+- **Mode:** Architecture research, comparison, and documentation synchronization
+- **Exact prompt:**
+
+  > Please check the newly added order service overall design-updated. I have updated new seq. Do comparison with the order-service overall design to find the difference and update the required md file and all that. Check the workflow when we have archiutecture update what do we do
+
+- **Key response:** Compared the newly supplied `Order Service Overall Doc - Updated.pdf`
+  with the fingerprinted overall design. Recorded the material changes to Sequences 5-8:
+  typed completion/cancellation events, transactional outbox, shared broker fan-out,
+  independent Credit/User subscribers, at-least-once delivery and recovery rules, and
+  same-order accepted cancellation reopening. Synchronized the source fingerprint,
+  architecture, contracts, event registry, Sprint context, traceability, peer feedback,
+  active work, ADR-009, CHANGE-051, and change log. No application or peer source changed.
+- **Affected locations:** Order Service `docs/`, `changes/CHANGE-051-overall-design-update-comparison.md`,
+  `docs/decisions/ADR-009-updated-overall-event-architecture.md`, and this log.
+- **Author verification:** Yao Xiang supplied the updated design and requested the comparison.
+  PDF text extraction and source/code searches were completed. Poppler visual review was
+  unavailable, and event/outbox/broker implementation remains blocked pending feature-level
+  approval and Sprint 1 reconciliation.
+
+## 2026-10-02 - Messaging publisher layout and sequence diagrams (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Architecture documentation and workflow update
+- **Exact prompt:**
+
+  > ALways invoke the order service work flow before coding for order service  I want new folder like the api folder we have right now and called messagingpublisher. In the messagingPublisher folder we have sub folder like publisher and interfaces. In the interface we will have the IeventPublisher interface. In the publisher,we will have the actual publisher. Please update the agent.md and skill.md to ask ai to store publisher file in this publisher folder. Check the order service overall doc -updated. I want new seq diagrams with these updated info and the class diagrams for those publisher and their interface. Every event gonna have their Ipublisher and publisher. We have publishAcceptedOrderCancellationTask() in AcceptedOrderCancellationPublisher. And the interface we also have publishAcceptedOrderCancellationTask(). And this is in seq 7. User service and Credit Service subscribe to it. We have publishOpenOrderCancellationTask(). And this is in seq 6. Credit Service subscribe to it. We will publish publishOrderCompletionTask() when the task completed is not overdue. Credit Service subscribe to it. And this is in seq 5. We will publish publishOverdueOrderCompletionTask() when the task completed is overdued. And this is new sequence. Credit service subscribe to it. User Service subscribe to it.
+
+- **Key response:** Invoked the Order Service workflow and added publisher package conventions to `AGENTS.md`, the executable skill, and `skills.md`. Added updated sequence diagrams for Sequences 5-8 and a class diagram with four event-specific interface/publisher pairs and requested subscriber routing. Inspected actual Credit and User source; neither has the requested event consumers. Recorded FEEDBACK-002 and CHANGE-052. No Java or test source was changed because event schema, `IEventPublisher` role, broker, outbox migration, and peer consumer contracts remain unresolved.
+- **Affected locations:** Order Service workflow files, Sprint sequence/class diagram indexes and new Mermaid diagrams, `changes/CHANGE-052-messaging-publisher-layout-and-diagrams.md`, `docs/architecture-evolution.md`, `docs/peer-service-api-feedback.md`, Sprint 1 contracts, active-work handoff, and this usage log.
+- **Author verification:** Yao Xiang explicitly requested the package layout, method names, subscriber routing, and diagrams. The package/docs scope is recorded as requested; the open transport and peer contracts are not treated as approved or implemented. Mermaid was not rendered in this environment.
+
+## 2026-10-02 - Publish-before-status publisher design (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Architecture documentation and implementation workflow
+- **Exact prompt:**
+
+  > Invoke the order service work flow before coding. Please put placeholder for the topic. i willadd inside the respective publisher later. And u only need to do in order service. Dont edit the other service. The other service will make the corresponding consumer later. Now u just assume it works. And u put the order info all in the published event. Now let's start doing the changed sequence. Add the publisher and its interface. We have OrderCompletionTaskPublisher and its interface. OverdueOrderCompletionTaskPublisher and its interface. We have OpenOrderCancellationTaskPublisher and its interface. We have AcceptedOrderCancellationTaskPublisher and its interface. Link them its respective sequence flow. Since we have publisher, as long as we successfully published the event then we can assume it is success then proceed to change the status. We dont have to wait for the other microservice reply. We only revert the change of status like the whole process if we didn't manage to publish
+
+- **Key response:** Re-invoked the Order Service workflow and synchronized CHANGE-053, architecture/contract/traceability records, publisher class and sequence diagrams, active-work handoff, and package-placement instructions with publish-before-status, full Order snapshots, topic placeholders, and assumed future consumers. No Java or peer-service source changed because the service has no selected messaging client and the complete snapshot needs checkpoint/overdue persistence support.
+- **Affected locations:** `Foc-P28/order-service/` architecture, workflow, contracts, diagrams, and change records; `Foc-P28/ai/usage-log.md`.
+- **Author verification:** The developer's explicit prompt authorizes the Order-side ordering, payload scope, topic placeholders, and future-consumer assumption. Concrete transport selection and persistence changes remain unresolved; peer integrations are not verified.
+
+## 2026-10-02 — Google Cloud Pub/Sub producer implementation (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Implementation, testing, and verification
+- **Exact prompt:**
+
+  > google pubsub. Please start coding
+
+- **Key response:** Re-invoked the Order Service workflow, used the developer-selected Google Cloud Pub/Sub transport, and implemented the four typed publisher pairs, complete Order/repost/checkpoint event snapshots, placeholder topic configuration, emulator channel setup, publish-confirmation handling, and publish-before-status transitions. Added accepted-order cancellation as an Order Service endpoint and updated architecture/traceability records. AI assisted implementation and verification; the developer selected the transport and authorized the Order-only scope.
+- **Affected locations:** `Foc-P28/order-service/` Pub/Sub dependency/configuration, application/domain/API/infrastructure source, tests, sequence/class diagrams, CHANGE-054, ADR-009, traceability, active-work and architecture records; this usage log.
+- **Author verification:** `mvn verify` passed all 57 tests with no skipped tests and passed configured JaCoCo line and branch coverage gates. Publisher construction and acknowledgment paths were covered with mocks/local channel setup. The developer should configure real topic IDs before use; live broker delivery and Credit/User consumer integration have not been verified. No sibling service or frontend source was changed.
+
+## 2026-10-02 - Order transition requester/courier authorization (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Implementation, testing, and documentation
+- **Exact prompt:**
+
+  > Cancel Accepted which will mark accepted order as aborted, mark order as delivered, mark order as pick up, mark order as in_progress, can only done by the courier and this action can only be done to the order has courier id the same id as their user id which means this action can only be done by courier and to their order. Accept order that mark order as accepted can only be done by courier and they can only accept the order when the courierId is still null and the requester id of the order is not the user id so no one accept yet. The cancel can only be done by requester and we need verify this order has the same requester as their userid. Complete the order can only be done by the requester to their own order as well.
+
+- **Key response:** Re-invoked the Order Service workflow and implemented the approved identity/ownership rules. `Order` now rejects acceptance when a courier is already assigned and limits accepted cancellation to the assigned courier; transition services verify the required requester/courier role before command-receipt replay. Corrected updated overall Sequence 7 and recorded CHANGE-055/ADR-010. Added focused authorization tests.
+- **Affected locations:** Order Service aggregate/application source and tests; updated overall Sequence 7; Sprint requirements/acceptance tests; service contracts; traceability; CHANGE-055; ADR-010; architecture evolution/change log; active-work handoff; this usage log.
+- **Author verification:** The user explicitly approved the behavior in the task prompt. The initial focused suite passed (15 tests); two further ownership/replay tests passed in the final full suite. `mvn verify` passed all 62 tests with no failures/errors/skips and passed JaCoCo line/branch gates. C: had 0 GB free, so tests ran with temporary files redirected to `D:\tmp` (D: had 53 GB free). No peer-service or frontend source changed.
+
+## 2026-10-02 - Unified order completion event (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Architecture update, implementation, tests, and documentation
+- **Exact prompt:**
+
+  > I want to remove the publish the overdueOrderCompletion flow because when the order is completed. We need add penalty score if it is overdued. And minus score when it is not overdued. So user service anyhow need consume the event whenever there's completed order regardless of the overdue status so it doesn't make sense to separate out a overdue order completion event and the logic. I want u to remove that seq diagram if we have the extra seq diagram for overdueordercompletion and remove its publisher and update the business logic as well. So now we just publish only one type of event which is ordercompletiontaskevent whenever we complete the order. Please update all the affected document
+
+- **Key response:** Re-invoked the Order Service workflow. Recorded CHANGE-056/ADR-011; unified completion publication so every completion sends `OrderCompletionTaskEvent` with the full Order snapshot, `overdue`, and `overdueAt`; removed the overdue-only DTO/publisher/topic configuration and Sequence 8 diagram; updated current contracts, diagrams, architecture instructions, and traceability. Only Order Service is in scope; Credit/User consumers remain assumed future work.
+- **Affected locations:** `Foc-P28/order-service/` transition/event source, tests, sequence/class diagrams, architecture/contract/traceability docs, ADR-009 supersession note, ADR-011, CHANGE-056, active-work and change log; this usage log.
+- **Author verification:** Full `mvn verify` passed all 62 tests with no failures/errors/skips and passed JaCoCo line/branch gates. `git diff --check` passed and active-file scans found no overdue-only publisher or Sequence 8 diagram references. The first sandboxed compile attempt failed closing compiler resources while reading a local dependency JAR; retrying outside the sandbox succeeded. No peer-service or frontend source changed. Live Pub/Sub and peer consumer behavior remain unverified.
+
+## 2026-10-02 - Admin paginated Order query (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Implementation, testing, and documentation
+- **Exact prompt:**
+
+  > Can u check the supplier create endpoint and learn how they do admin verification. Then create me the admin controller with the api that return all the orders and support filtering by status. If the status is null, then it will return all order with all types of status in default. Else it will just filter the order by status and return the results page so they need receive pageable parameter from frontend as well
+
+- **Key response:** Inspected Supplier's `@PreAuthorize("hasRole('ADMIN')")` and User Service role-context integration, then added `GET /api/orders` with optional exact status filtering, one-based `Pageable`, newest-first results, and the existing `OrderPageResponse`. User Service role-context is called with the verified caller token in HTTP mode; local mock mode follows Supplier's configured admin email behavior. Recorded CHANGE-057/ADR-012 and approved the synchronous query for EV-3. No Admin Service or frontend source was changed.
+- **Affected locations:** Order Service admin API, query/repository/persistence layers, Firebase/User Service role security and configuration, tests, OpenAPI guard, README, requirements/contracts/traceability, sequence/class diagrams, CHANGE-057, ADR-012, ARCH-EVO-013, EV-DEC-003, active-work, change log; this usage log.
+- **Author verification:** The initial test-first compile failed because the new controller was not yet implemented; focused tests then passed. Full `mvn verify` passed all 86 tests with zero failures/errors/skips and passed JaCoCo line/branch gates. Tests cover 401/403, role-context bearer forwarding, mock admin email mapping, page numbering/size cap, filtering, and persistence branching. The User Service implementation was inspected, but live cross-service authentication was not run. Frontend and sibling service source were unchanged.
+
+## 2026-10-02 - REST client startup bean fix (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Diagnosis, implementation, testing, and verification
+- **Exact prompt:**
+
+  > APPLICATION FAILED TO START: Parameter 4 of method roleProvider in SecurityConfiguration required a bean of type `RestClient.Builder` that could not be found.
+
+- **Key response:** Traced the failure to the missing Spring Boot 4.1.1 `spring-boot-starter-restclient` dependency. Added the starter and a focused auto-configuration test; the existing security context test also started successfully.
+- **Affected locations:** `Foc-P28/order-service/pom.xml`, `src/test/java/sg/edu/nus/foc/order/config/RestClientBuilderAutoConfigurationTest.java`, CHANGE-058, active-work and change-log; this usage log.
+- **Author verification:** Focused test passed. Full `mvn verify` passed all 87 tests with no failures/errors/skips and passed JaCoCo line/branch gates. Docker rebuild/runtime startup was not exercised; the developer can rebuild the Order Service image to apply the dependency. No frontend or peer-service source changed.
+
+## 2026-10-02 - Public Swagger webjar assets (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Diagnosis, implementation, testing, and verification
+- **Exact prompt:**
+
+  > I got this when I try to login the swagger-ui of order service: HTTP 401 for `/webjars/swagger-ui/index.html`.
+
+- **Key response:** Confirmed `/webjars/**` was absent from the Order Service security allowlist. Added it so Swagger's static assets load without Firebase authentication; protected API and admin authorization rules remain unchanged.
+- **Affected locations:** `Foc-P28/order-service/src/main/java/sg/edu/nus/foc/order/config/SecurityConfiguration.java`, the security test, CHANGE-059, active-work and change-log; this usage log.
+- **Author verification:** The new MockMvc check reproduced HTTP 401 before the fix and passed after it. All five security tests passed, including anonymous rejection for `/api/orders`. Full `mvn verify` passed all 88 tests and JaCoCo line/branch gates. Live Docker/browser verification remains pending. No frontend or peer-service source changed.
+
+## 2026-10-02 - Local Pub/Sub emulator (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-02
+- **Mode:** Implementation, runtime verification, and documentation
+- **Exact prompt:**
+
+  > Forgot about the real pub sub flow. Assist me to create the pubsub emulator to mock it. Cuz I have created the actual topic and assign the value in the application.yaml file so once we deploy then it will work. Now just use the pubsub emulator only
+
+- **Key response:** Added the Google Cloud Pub/Sub emulator to the default local Compose stack, configured Order Service to use a local project and emulator endpoint, and initialized its three event topics before startup. Preserved the real Cloud project/topic defaults for deployed runs and kept mock peer-adapter mode independent.
+- **Affected locations:** Root `compose.yaml`; Order Service `application.yaml`, README, CHANGE-054 follow-up, CHANGE-060, change log, active-work; this usage log.
+- **Author verification:** Compose config passed. The emulator and Order Service started, all topics were created and listed, repeat initialization handled already-existing topics, Order Service was healthy with the emulator endpoint and local project, and a local publish was acknowledged with message ID `1`. Docker package build and Spring startup passed. Maven tests could not run: the wrapper failed in PowerShell, and system Maven could not create its configured local repository even with an override. No peer service or consumer source changed; real-cloud publish was not attempted.
+
+## 2026-10-03 - Courier accepted-errand cancellation UI (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Implementation, testing, and verification
+- **Exact prompt:**
+
+  > Check the frontend of cancelling an accepted Task. Do we have frontend for that. If we dont have. Please add it. The courier should be able to cancel the accepted errand if the errand still in accepted status
+
+- **Key response:** Added a confirmation-protected cancel action for assigned couriers on accepted errand cards in My Errands and linked it to the existing versioned Order cancellation endpoint. Successful `ABORTED` responses remove the errand from the courier's active list; failures retain the card and show the API error.
+- **Affected locations:** `frontend/src/components/orders/order-actions.tsx`, its Vitest component test, `frontend/src/app/my-errands/page.tsx`, `frontend/src/lib/orders.ts` and its tests; Order Service acceptance tests, traceability, CHANGE-061, active-work; this usage log. No Order Service backend, API contract, or peer-service source changed.
+- **Author verification:** The new tests failed first because the accepted courier action was missing, then all 18 frontend tests passed. Typecheck and production build passed; lint passed with 12 pre-existing warnings in login/profile files. Authenticated browser and live Pub/Sub checks remain pending.
+
+## 2026-10-03 - Restore Order security profile split
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Implementation, testing, and documentation
+- **Affected locations:** `Foc-P28/order-service/src/main/java/sg/edu/nus/foc/order/config/`, Order security tests, README, ADR-012, architecture evolution, CHANGE-057/059 follow-up notes, CHANGE-062, change log, active-work record; this usage log.
+- **Exact prompt:**
+
+  > Please revert to the initial production and local split. We only ccheck the admin role for admin endpoint when in production. In local, we dont need to do so we dont need authentication in local so please revert back. And only mandate authentication when in production
+
+- **Key response:** Restored anonymous access for non-production profiles and Firebase bearer authentication for production. Isolated method-security activation in the `prod` profile so admin role checks apply only in production.
+- **Author verification:** Ten focused Order security/configuration tests and full `mvn verify` passed (89 tests, zero failures/errors/skips; JaCoCo line/branch gates passed), including local anonymous access and production 401/403/admin-success cases. Docker profile startup remains pending; see CHANGE-062.
+
+## 2026-10-03 - Transactional outbox for Order outcome events (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Implementation, testing, architecture documentation, and verification
+- **Exact follow-up prompts:**
+
+  > Can we just use a cron job cuz it is easier to do exception handling and spring has mature cron job as well
+
+  > why need schedules(fixed delay). I thot we can straightaway run after we commit to the outbox
+
+  > Okie I approved. Start coding
+
+- **Key response:** Implemented the user-approved transactional outbox in Order Service. Completion and both cancellation transitions persist the resulting Order, checkpoint, command receipt, and full event snapshot atomically. An `AFTER_COMMIT` listener immediately dispatches; Spring cron recovers pending/expired-lease rows with bounded retry. Pub/Sub failure does not reverse a committed transition. Delivery remains at least once with stable event IDs for consumer deduplication.
+- **Affected locations:** `Foc-P28/order-service/src/main/java/sg/edu/nus/foc/order/` transition, outbox, persistence, dispatch, and scheduling code; `src/main/resources/db/migration/V2__create_order_event_outbox.sql`; `application.yaml`; outbox/transition/PostgreSQL Testcontainers tests; CHANGE-063, ADR-013, architecture and sequence/class diagrams, requirements traceability, acceptance tests, active-work and workflow records; this usage log. No peer-service or frontend implementation changed.
+- **Author verification:** The developer approved the transactional-outbox approach, immediate post-commit dispatch, and cron recovery. Full `mvn -B -ntp '-Dmaven.repo.local=target/m2-repository' verify` passed 102 tests with zero failures/errors/skips; JaCoCo line and branch gates passed. Testcontainers exercised clean install and V1-to-V2 migration, Hibernate schema validation, lease-aware Postgres claims, persisted retry/publish state, and rollback of both Order and outbox intent. `git diff --check` passed. Live Pub/Sub consumer behavior and Cloud Run idle-time cron execution were not verified; see CHANGE-063.
+
+## 2026-10-03 - Transactional outbox handoff for Vincent (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Documentation and handoff
+- **Exact prompt:**
+
+  > write hand-ff document for Vincent mentioning what have we done. We done testing, implement event driven flow and all that
+
+- **Key response:** Wrote a dedicated Yao-to-Vincent handoff for CHANGE-063 covering atomic Order/outbox persistence, the three completion/cancellation event flows, implementation paths, 102-test verification, and remaining Pub/Sub consumer and Cloud Run cron limitations. Linked it from the existing hands-off README.
+- **Affected locations:** `Foc-P28/order-service/hands-off/CHANGE-063-transactional-outbox-to-vincent.md`, `hands-off/README.md`, Yao Xiang active work; this usage log.
+- **Author verification:** Cross-checked the handoff against CHANGE-063, ADR-013, source, V2 migration, sequence/class diagrams, and the recorded Maven result. No Vincent active-work entry or peer-service source was edited.

@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
+import org.springframework.test.util.ReflectionTestUtils;
 import sg.edu.nus.foc.order.api.dto.response.OrderPageResponse;
 import sg.edu.nus.foc.order.api.dto.response.OrderResponse;
 import sg.edu.nus.foc.order.api.mapper.OrderMapper;
@@ -77,6 +78,53 @@ class OrderDomainBehaviorTest {
             () -> assertThrows(OrderProblem.class, () -> order.markPickedUp("courier", 0)),
             () -> assertThrows(OrderProblem.class, () -> order.cancelOpen("requester", 0))
         );
+    }
+
+    @Test
+    void acceptanceRequiresAnUnassignedOrder() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
+        ReflectionTestUtils.setField(order, "courierId", "previous-courier");
+
+        OrderProblem problem = assertThrows(OrderProblem.class,
+                () -> order.accept("new-courier", 0, START.plusSeconds(1)));
+
+        assertEquals("CONFLICT", problem.getCode());
+        assertEquals(OrderStatus.OPEN, order.getStatus());
+        assertEquals("previous-courier", order.getCourierId());
+    }
+
+    @Test
+    void acceptedCancellationIsLimitedToTheAssignedCourier() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
+        order.accept("courier", 0, START.plusSeconds(1));
+
+        assertAll(
+                () -> assertThrows(OrderProblem.class, () -> order.validateAcceptedCancellation("requester", 0)),
+                () -> assertThrows(OrderProblem.class, () -> order.validateAcceptedCancellation("other-courier", 0)));
+
+        order.cancelAccepted("courier", 0);
+
+        assertEquals(OrderStatus.ABORTED, order.getStatus());
+        assertNull(order.getCourierId());
+    }
+
+    @Test
+    void courierMustOwnTheAssignmentForEveryProgressTransition() {
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
+        order.accept("courier", 0, START.plusSeconds(1));
+
+        assertThrows(OrderProblem.class, () -> order.start("other-courier", 0));
+        order.start("courier", 0);
+        assertThrows(OrderProblem.class, () -> order.markPickedUp("other-courier", 0));
+        order.markPickedUp("courier", 0);
+        assertThrows(OrderProblem.class, () -> order.markDelivered("other-courier", 0));
+        order.markDelivered("courier", 0);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertThrows(OrderProblem.class, () -> order.confirmCompletion("another-requester", 0));
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        order.confirmCompletion("requester", 0);
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
     }
 
     @Test

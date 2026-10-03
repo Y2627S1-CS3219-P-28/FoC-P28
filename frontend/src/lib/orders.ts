@@ -8,6 +8,7 @@ export type OrderStatus =
   | "DELIVERED"
   | "COMPLETED"
   | "CANCELLED"
+  | "ABORTED"
   | "EXPIRED"
 
 export type Order = {
@@ -152,6 +153,14 @@ export function buildOrderActionPayload(actorId: string, expectedVersion: number
 
 export function formatOrderStatus(status: OrderStatus): string {
   return status.replaceAll("_", " ").toLowerCase().replace(/(^| )\S/g, (letter) => letter.toUpperCase())
+}
+
+export function updateCourierOrderList(orders: Order[], updated: Order): Order[] {
+  if (updated.status === "ABORTED") {
+    return orders.filter((order) => order.id !== updated.id)
+  }
+
+  return orders.map((order) => order.id === updated.id ? updated : order)
 }
 
 export function isoToDateTimeLocal(iso: string): string {

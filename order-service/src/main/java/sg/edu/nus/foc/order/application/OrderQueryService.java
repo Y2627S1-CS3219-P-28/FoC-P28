@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderProblem;
+import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.domain.repository.OrderPage;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
@@ -28,5 +29,9 @@ public class OrderQueryService {
 
     public OrderPage courierFor(String courierId, int page, int size) {
         return orders.findCourierOrders(courierId, page, size);
+    }
+
+    public OrderPage allOrders(OrderStatus status, int page, int size) {
+        return orders.findAllOrders(status, page, size);
     }
 }

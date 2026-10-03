@@ -6,6 +6,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
@@ -54,6 +55,18 @@ public class OrderPersistenceAdapter implements OrderRepository {
         Page<Order> result = repository.findByCourierIdOrderByCreatedAtDesc(
                 courierId,
                 pageRequest(page, size));
+        return toOrderPage(result);
+    }
+
+    @Override
+    public OrderPage findAllOrders(OrderStatus status, int page, int size) {
+        PageRequest pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), 100),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> result = status == null
+                ? repository.findAll(pageable)
+                : repository.findByStatusOrderByCreatedAtDesc(status, pageable);
         return toOrderPage(result);
     }
 

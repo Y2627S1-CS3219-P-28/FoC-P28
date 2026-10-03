@@ -23,6 +23,8 @@ public interface JpaOrderRepository extends JpaRepository<Order, String> {
 
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
+    Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
+
     List<Order> findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(
             OrderStatus status,
             Instant now);

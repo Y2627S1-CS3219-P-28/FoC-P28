@@ -96,6 +96,7 @@ class OrderControllerCoverageTest {
         when(transitions.deliver(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
         when(transitions.complete(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
         when(transitions.cancel(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
+        when(transitions.cancelAccepted(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
         when(reposts.configure(eq("config"), eq(order.getId()), eq("actor"), eq(0L), any(RepostPlan.class), eq(AUTH))).thenReturn(order);
         when(reposts.manual(eq("manual"), eq(order.getId()), eq("actor"), eq(0L), anyString(), anyLong(), anyInt(), any(), eq(AUTH))).thenReturn(order);
         assertEquals(order.getId(), controller.accept(order.getId(), actor, AUTH).getId());
@@ -104,6 +105,7 @@ class OrderControllerCoverageTest {
         assertEquals(order.getId(), controller.deliver(order.getId(), actor, AUTH).getId());
         assertEquals(order.getId(), controller.complete(order.getId(), actor, AUTH).getId());
         assertEquals(order.getId(), controller.cancel(order.getId(), actor, AUTH).getId());
+        assertEquals(order.getId(), controller.cancelAccepted(order.getId(), actor, AUTH).getId());
         RepostConfigurationRequest config = new RepostConfigurationRequest("config", "actor", 0, false, START, 1, 15);
         assertEquals(order.getId(), controller.configure(order.getId(), config, AUTH).getId());
         ManualRepostRequest manual = new ManualRepostRequest("manual", "actor", 0, "item", 1, 15, START.plusSeconds(86400));

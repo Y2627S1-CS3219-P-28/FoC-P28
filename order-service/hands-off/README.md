@@ -10,6 +10,14 @@ This document is a working handoff, not a replacement for the requirements,
 architecture diagrams, contracts, or the peer-service feedback record. Read the
 authoritative files before changing code.
 
+## Latest implementation handoff
+
+Yao Xiang's 2026-10-03 transactional-outbox implementation summary for Vincent
+is in [CHANGE-063-transactional-outbox-to-vincent.md](CHANGE-063-transactional-outbox-to-vincent.md).
+It records the completion/cancellation event flow, implementation locations,
+102-test verification result, and remaining Pub/Sub consumer and Cloud Run
+recovery caveats. CHANGE-063/ADR-013 and the updated diagrams are authoritative.
+
 ## 1. Read these sources first
 
 ### Order Service workflow and state

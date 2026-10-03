@@ -4,6 +4,17 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/components/providers/auth-provider"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { useApi } from "@/hooks/use-api"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
@@ -40,8 +51,42 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
 
   if (mode === "courier") {
     const action = ACTIONS[order.status as keyof typeof ACTIONS]
-    if (!action) return null
-    return <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy}>{busy ? "Saving…" : action.label}</Button>
+    if (!action && order.status !== "ACCEPTED") return null
+
+    return (
+      <>
+        {action && (
+          <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy}>
+            {busy ? "Saving…" : action.label}
+          </Button>
+        )}
+        {order.status === "ACCEPTED" && (
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button size="sm" variant="destructive" disabled={busy} />}>
+              Cancel errand
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Cancel this accepted errand?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This ends your assignment and marks the errand as aborted. You will not be able to resume it.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep errand</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => void perform("cancel-accepted", "Errand cancelled")}
+                >
+                  Yes, cancel errand
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </>
+    )
   }
 
   if (mode === "requester" && order.status === "DELIVERED") {

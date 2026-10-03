@@ -1,20 +1,38 @@
 # Sprint 1 Requirements
 
+## User-approved addition - CHANGE-057
+
+NTH1 remains owned by Admin Service. To support its future dashboard, Order Service provides an admin-authorized paginated query over its own order data at `GET /api/orders`, with an optional exact `status` filter. Omitting status returns every status. The endpoint returns `OrderPageResponse` using one-based page numbering. No dashboard or Admin Service source is added in this change.
+
 This file narrows implementation planning; Project D1 and ADR-001 remain authoritative.
 
 ## Sequence 7 - Confirm completion
 
 - Project D1: F4.1.5; F5.1/F5.1.1; F13/F13.1.1.
 - Preconditions: authenticated actor is the original requester; order status is `DELIVERED`; expected order version is current.
-- Result: replace `DELIVERED` with `COMPLETED` and return the committed state.
-- Deferred: completion checkpoint (F6.4 clarification), Credit settlement/outcome, `OVERDUE`, and auto-completion.
+- Result: replace `DELIVERED` with `COMPLETED`, save the completion checkpoint and command receipt, and atomically store one full-snapshot `OrderCompletionTaskEvent` with overdue facts in the outbox; return the committed state.
+- Delivery: attempt publication immediately after commit; retry due rows through the Spring cron poller. A publish failure leaves the transition committed and the event pending. Delivery is at least once; consumers deduplicate by stable event ID.
+- Deferred: Credit settlement policy and auto-completion.
 
 ## Sequence 8 - Cancel an OPEN order
 
 - Project D1: F4.1.7; F5.1/F5.1.1; F13/F13.1.1.
 - Preconditions: authenticated actor is the original requester; order is still `OPEN`; expected version is current.
-- Result: replace `OPEN` with `CANCELLED` and return the committed state.
-- Deferred: cancellation checkpoint and Credit Service cancellation processing under F11.
+- Result: replace `OPEN` with `CANCELLED`, save the cancellation checkpoint and receipt, and atomically store the full-snapshot cancellation event in the outbox; return the committed state.
+- Delivery: attempt immediately after commit and retry due events through cron. Publish failure does not undo the transition; consumers deduplicate at least-once delivery by stable event ID.
+- Deferred: Credit Service cancellation policy under F11.
+
+## Updated overall Sequence 7 - Cancel an ACCEPTED order
+
+- Project D1: F4.1.7; updated overall Sequence 7; CHANGE-055 / ADR-010.
+- Preconditions: authenticated actor is a courier; the order is `ACCEPTED`; its assigned `courierId` matches the User Service-confirmed actor ID; expected version is current.
+- Result: transition to `ABORTED`, clear the courier assignment, and atomically persist the checkpoint, receipt, and full-snapshot cancellation event in the outbox. Attempt dispatch after commit. Do not reopen the order in Sprint 1.
+- Failure: requester or another courier is forbidden. A Pub/Sub failure leaves the committed transition and event in the outbox for retry.
+
+## Courier lifecycle ownership
+
+- Sequences 3-6: a User Service-verified courier may accept only an unassigned `OPEN` order that they did not request. Start, pickup, delivery, and accepted-order cancellation require the authenticated courier ID to match the order's assigned `courierId`.
+- Sequences 5 and 8 of the updated overall design: only the original requester may confirm completion or cancel an `OPEN` order, respectively.
 
 ## Sequence 9 - Expire an unaccepted OPEN order
 

@@ -18,6 +18,16 @@ The initial approved context is recorded in:
 
 ARCH-EVO-001 records the user-supplied correction to the Order Service high-level diagram's application/domain/outbound-port control flow. Existing ADRs remain effective according to their own status and supersession rules.
 
+CHANGE-052 records the requested `messagingpublisher/interfaces/` and `messagingpublisher/publisher/` layout and proposed updated diagrams for the four events in CHANGE-051. CHANGE-053 supplies the approved Order-side full snapshot, topic placeholders, assumed future peer consumers, and publish-before-status behavior.
+
+CHANGE-053 records the user's explicit direction to publish each task event before persisting its Order status. CHANGE-063/ADR-013 later supersedes only that ordering for completion and cancellation: Order state and event intent are committed through a transactional outbox, then an after-commit listener tries delivery immediately and a Spring cron job recovers due rows. Full snapshots, topic placeholders, Pub/Sub, peer-consumer assumptions, and Order-only scope remain effective. Delivery is at least once, with stable IDs for consumer deduplication.
+
+CHANGE-054 records the user's explicit Google Cloud Pub/Sub selection. The Order producer uses Application Default Credentials in production and supports the Pub/Sub emulator by explicit endpoint/channel configuration. Topic IDs stay `TODO_TOPIC` placeholders until the user fills them in.
+
+CHANGE-056 and ADR-011 supersede the separate normal/overdue completion routing from CHANGE-053/ADR-009. The effective completion event is `OrderCompletionTaskEvent` for every completion, with `overdue` and `overdueAt` facts consumed by both User and Credit. The prior records remain historical; the current diagrams and contracts contain no overdue-only publisher.
+
+CHANGE-063 and ADR-013 supersede CHANGE-053's publish-before-status ordering. The post-transition state, checkpoint, receipt, and serialized event now commit atomically; immediate dispatch occurs after commit and cron is recovery only. Cloud Run scale-to-zero/request-based CPU means the in-process scheduler is not guaranteed to execute while idle; deployment billing/minimum-instance changes require a separate cost decision.
+
 ## Change classification
 
 Classify every implementation discovery before acting on it.
@@ -60,7 +70,12 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 | ARCH-EVO-003 | 2026-09-30 | Unified Order dashboard and authenticated actor identity | Architecture or specification change | APPROVED | Shared dashboard exposes requester and courier functions without a client-side mode switch; Order uses User Service-confirmed actor IDs; supplier labels never flash opaque IDs | CHANGE-029 | Previous mode-switching frontend slice in CHANGE-022 |
 | ARCH-EVO-004 | 2026-09-30 | Creation-time-only automatic repost choice | Architecture or specification change | IMPLEMENTED | Automatic repost is selected atomically during order creation; `OPEN` orders are read-only; manual repost is available only for un-reposted `EXPIRED` orders | CHANGE-031 | Post-creation configuration wording in CHANGE-022 |
 | ARCH-EVO-005 | 2026-09-30 | Temporary Credit outcome stub boundary | Architecture or specification change | APPROVED | Local mock may exercise outcome flows while provider settlement/release operations remain pending | CHANGE-032 / FEEDBACK-001 | Blocking all local outcome-flow work |
-| ARCH-EVO-006 | 2026-10-01 | Domain repository boundary and traditional API DTOs | Design refinement | IMPLEMENTED; compile verified | Application services use domain repository interfaces; Spring Data stays in infrastructure; API contracts use named DTO classes | CHANGE-050 | Direct Spring Data injection and nested API DTO records |
+| ARCH-EVO-006 | 2026-10-01 | Domain repository boundary and traditional API DTOs | Design refinement | IMPLEMENTED; full suite verified by CHANGE-054 | Application services use domain repository interfaces; Spring Data stays in infrastructure; API contracts use named DTO classes | CHANGE-050 / CHANGE-054 | Direct Spring Data injection and nested API DTO records |
+| ARCH-EVO-007 | 2026-10-02 | Updated overall sequences 5-8 and typed outcome events | Architecture or specification change | APPROVED SOURCE; implementation ordering restored by ARCH-EVO-015 | Typed completion/cancellation events, broker fan-out, independent Credit/User subscriptions, and same-order accepted reopening are current; atomic outbox consistency applies to Sequences 5-7 | CHANGE-051 | Synchronous Credit outcome boundary and deferred accepted reopening in Sprint 1 records |
+| ARCH-EVO-009 | 2026-10-02 | Publish task event before status persistence | Architecture or specification change | USER-APPROVED; SUPERSEDED BY ARCH-EVO-015 | Historical rule: publish full Order snapshot before status/checkpoint; this ordering no longer applies to completion/cancellation | CHANGE-053 / CHANGE-054 / ADR-009 | Outbox-first ordering in CHANGE-051/ADR-009; superseded by ARCH-EVO-015 |
+| ARCH-EVO-010 | 2026-10-02 | Select Google Cloud Pub/Sub for Order task publishers | Architecture or specification change | USER-APPROVED; IMPLEMENTED; transport choice effective | Use Google's Java Pub/Sub client; await message ID before marking an outbox row published; use explicit emulator channel when configured; leave topic IDs as placeholders | CHANGE-054 / ADR-009/013 | Unselected broker client in CHANGE-053 |
+| ARCH-EVO-012 | 2026-10-02 | Unify order completion publication | Architecture or specification change | USER-APPROVED; IMPLEMENTED; publish-before-status ordering superseded by ARCH-EVO-015 | Publish one completion event for both overdue and on-time orders; include overdue facts for User and Credit | CHANGE-056 / ADR-011 | Separate normal and overdue completion routes in ADR-009/CHANGE-053 |
+| ARCH-EVO-015 | 2026-10-03 | Transactional outbox for outcome events | Architecture or specification change | USER-APPROVED; IMPLEMENTED AND VERIFIED | Commit Order transition plus event intent atomically; attempt delivery after commit; Spring cron recovers due rows; at-least-once delivery; Cloud Run scheduling limitation remains | CHANGE-063 / ADR-013 | Publish-before-status ordering in ARCH-EVO-009 for completion/cancellation |
 
 Use stable `ARCH-EVO-NNN` identifiers. The detailed entry and its linked ADR/change record together preserve the decision history; do not copy full ADR contents into this table.
 
@@ -266,7 +281,7 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Original design or requirement: The approved architecture requires application components to invoke an Order persistence abstraction while domain rules remain independent of persistence. The implementation directly injected Spring Data repositories into application services and grouped API contracts into nested records.
 - Problem discovered: Derived query names, Spring Data pagination, and locking methods leaked infrastructure details into application orchestration. Compact nested DTO records and one-line methods also made review and maintenance difficult.
 - Change type: Design refinement
-- Status: IMPLEMENTED; compile verified, tests pending
+- Status: IMPLEMENTED; full suite verified by CHANGE-054
 - Approved change: Use named API request/response DTO classes, domain repository interfaces, and infrastructure persistence adapters. Use explicit types and Lombok-generated boilerplate with conventional Java formatting.
 - What was added: Domain repository interfaces, an Order page result, JPA repository interfaces, persistence adapters, separate request/response DTO packages, and a Spring-managed MapStruct response mapper.
 - What was changed: Application services now use semantic repository methods; Spring Data calls stay in infrastructure; entity and service boilerplate uses Lombok where access rules permit; controllers delegate domain-to-response conversion to explicit `@Mapping` declarations.
@@ -279,18 +294,256 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Affected sequence diagram: No interaction or ordering change.
 - Affected data model: None; no migration.
 - Affected contracts: JSON field names and HTTP operations are unchanged; Java DTO class names changed internally.
-- Affected tests: Existing source tests were updated for the named DTOs and repository interfaces; execution pending.
+- Affected tests: Existing source tests were updated for the named DTOs and repository interfaces; the complete Order Service suite passed under CHANGE-054.
 - Affected source files: Order API, application, domain, repository, infrastructure, and directly affected tests.
 - Approved by: Yao Xiang
 - Approval date: 2026-10-01
 - Effective from: CHANGE-050
-- Implementation status: Source and persistent instructions updated; Java 21 production and test-source compilation passed, including generated MapStruct code; test execution pending.
+- Implementation status: Source and persistent instructions updated; Java 21 production/test compilation and the full test suite passed under CHANGE-054.
 - Supersedes: Direct Spring Data repository injection and nested API DTO records in the initial Sprint 1 implementation.
 - Superseded by: None
 - Related ADR/override: ARCH-EVO-001 dependency direction
 - Related traceability: Sprint 1 sequences 1-11; no product requirement change.
 
+## ARCH-EVO-007: Updated overall sequences 5-8 and typed outcome events
+
+- Change ID: CHANGE-051
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Updated Order Service overall design comparison
+- Original design or requirement: The previous overall source and Sprint 1 records used a synchronous Credit outcome boundary, deferred accepted-order reopening, and open questions for event transport.
+- Problem discovered: The newly supplied overall design changes Sequences 5-8 to typed asynchronous completion/cancellation events, a transactional outbox, shared broker fan-out, independent Credit/User subscribers, and same-order `ABORTED` reopening before original expiry.
+- Change type: Architecture or specification change
+- Status: APPROVED DESIGN SOURCE; publish ordering superseded by ARCH-EVO-009
+- Approved change: Treat `Order Service Overall Doc - Updated.pdf` as the current overall design source and synchronize persistent Markdown records. Do not change application code until the event/outbox/broker implementation proposal is explicitly approved.
+- What was added: Four typed event contracts, event metadata/delivery rules, transactional-outbox consistency, independent subscriber responsibilities, and same-order reopening conditions.
+- What was changed: Completion/cancellation Credit consequences are asynchronous events; reservation and `evaluateOpenEntry` remain synchronous; User consumes accepted-cancellation and overdue-completion facts.
+- What was removed: The updated design removes the prior assumption that settlement/release must complete synchronously before the Order outcome is committed and removes the assumption that accepted reopening is outside the effective overall design.
+- Why the change was necessary: The developer supplied a newer authoritative design source with materially different sequence, consistency, failure, and cross-service ownership rules.
+- Alternatives considered: Keep the existing synchronous implementation and treat the PDF as advisory; implement broker code immediately from the PDF; synchronize documentation first and hold implementation for a feature-level proposal. The selected option preserves authority while preventing unapproved transport/schema assumptions.
+- Trade-offs: Asynchronous processing improves Order response independence and subscriber isolation but requires outbox durability, event versioning, deduplication, retry/dead-letter recovery, observability, and new peer contracts.
+- Affected architecture: Order application transitions, messaging/outbox boundary, Credit/User integration, and cross-service failure semantics.
+- Affected class diagram: Add four event-specific publisher interfaces/matching publishers and typed event payloads; standalone diagram artifact remains stale and was not overwritten.
+- Affected sequence diagram: Sequences 5-8 are replaced by the updated source flows; Sprint 1 sequence records remain the old implementation subset pending reconciliation.
+- Affected data model: Additive transactional-outbox/event-record design is required; exact schema and migration are not approved.
+- Affected contracts: Credit/User event subscriptions, event metadata, at-least-once delivery, acknowledgement, deduplication, retry, and dead-letter rules.
+- Affected tests: New event publisher, outbox atomicity, consumer idempotency, retry/dead-letter, same-order reopening, and contract tests are required before implementation completion.
+- Affected source files: No application source changed in this documentation synchronization turn; current source remains visibly nonconforming and blocked.
+- Approved by: Yao Xiang supplied the updated design and requested comparison/synchronization; implementation approval is still required.
+- Approval date: 2026-10-02
+- Effective from: CHANGE-051 for architecture records
+- Implementation status: Source fingerprint and Markdown authority chain updated; Java, tests, schema, peer services, frontend, and deployment remain unchanged.
+- Supersedes: Synchronous Credit outcome assumptions in CHANGE-032, FEEDBACK-001 expected behavior, and corresponding Sprint 1 traceability wording.
+- Superseded by: None
+- Related ADR/override: CHANGE-051; no concrete broker technology or event decision ADR yet
+- Related traceability: Project D1 F4.1.5-F4.1.11, F7, F10, F11, F12 amendment, NTH2, NTH4; Sequences 5-8.
+
+## ARCH-EVO-008: Event-specific publisher package and diagrams
+
+- Change ID: CHANGE-052
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Publisher organization and updated Sequences 5-8 diagrams
+- Original design or requirement: CHANGE-051 recorded four typed events and matching publisher responsibilities, but no requested source package convention or standalone updated diagrams had been added.
+- Problem discovered: Future publisher code needs a consistent location and each event needs a separately reviewable interface/implementation pair and sequence flow.
+- Change type: Developer-requested internal design structure; transport/contract implementation remains architecture-gated
+- Status: Structure, requested method names, and diagram routing documented; application code pending unresolved decisions
+- Approved change: Use lowercase Java package `messagingpublisher`, with `interfaces/` and `publisher/` subpackages; model one typed event publisher interface and matching class per event; preserve the same event-specific method name on both.
+- What was added: `IOrderCompletionPublisher`/`OrderCompletionPublisher`, `IOpenOrderCancellationPublisher`/`OpenOrderCancellationPublisher`, `IAcceptedOrderCancellationPublisher`/`AcceptedOrderCancellationPublisher`, and `IOverdueOrderCompletionPublisher`/`OverdueOrderCompletionPublisher` class-diagram entries, plus separate sequence diagrams for updated Sequences 5-8.
+- Why the change was necessary: The developer requested a predictable source layout and explicit diagrams for the four updated event flows.
+- Alternatives considered: One generic publisher for every event (less explicit per-event contract); or one event-specific interface/class pair per event (selected to match the request and keep each method/route visible). A concrete Spring event or broker implementation cannot be selected without contradicting unresolved transport and peer-contract records.
+- Trade-offs: Separate pairs make event-specific behavior easy to discover and test but add classes. Typed parameters carry required facts; exact payload schemas remain open. A shared `IEventPublisher` abstraction is shown as a marker pending confirmation.
+- Affected architecture: Order event publisher package convention and outbox-to-publisher dispatch documentation. No data ownership or public HTTP API changed.
+- Affected class diagram: `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md`.
+- Affected sequence diagrams: `sprints/sprint-1/sequence-diagrams/updated-overall/sequence-5-complete-non-overdue.md` through Sequence 8; see the directory index.
+- Affected data model: No schema designed or migration created; transactional-outbox table/locking remain open.
+- Affected contracts: User-requested Credit/User routing recorded. Actual subscriber schemas/authentication/idempotency/retry/ack contracts remain unverified and are tracked in `FEEDBACK-002`.
+- Affected tests: No tests added. Future implementation requires publisher mapping/dispatch, outbox atomicity, consumer idempotency/retry/recovery, reopen behavior, and provider contract tests.
+- Affected source files: No Java source changed.
+- Approved by: User requested the package structure, per-event pairs, method names, subscribers, and diagrams in this turn. This approval does not extend to unspecified event schemas, transport, outbox migration, or peer-service consumer implementation.
+- Approval date: 2026-10-02
+- Effective from: CHANGE-052 for documentation and package guidance
+- Implementation status: The original layout/diagram request is implemented by CHANGE-054. Topic IDs and peer consumers remain external configuration/future work.
+- Supersedes: None
+- Superseded by: None
+- Related ADR/override: ADR-009; CHANGE-051
+- Related traceability: Updated overall design Sequences 5-8; F7.1, F10.1.4, F11.1.2, F11.2.3, NTH2.
+
+## ARCH-EVO-009: Publish task event before status persistence
+
+- Change ID: CHANGE-053
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Updated overall Sequences 5-8 task publication
+- Original design or requirement: CHANGE-051 and ADR-009 described an atomic Order state/checkpoint/outbox commit followed by asynchronous broker publication. The current `OrderTransitionService` still calls synchronous Credit settlement/release.
+- Problem discovered: The user now explicitly requires each event to publish before the corresponding Order status is committed; a publication failure must leave status/checkpoint unchanged, and Order must not wait for consumer replies.
+- Change type: Architecture/specification change
+- Status: User-approved design; implemented by CHANGE-054.
+- Approved change: Publish full-Order task event first; after transport confirmation, commit the Order status/checkpoint/receipt. On publish failure, do not commit the transition. Leave topic values as placeholders in each event-specific publisher. Treat Credit/User consumers as future peer work; make no peer-service source changes.
+- What was added: Four `*TaskPublisher`/`I*TaskPublisher` pairs, generic `IEventPublisher<T>` transport boundary, complete Order snapshot payload, and publish-before-save sequence diagrams. Pub/Sub classes and transition integration are recorded in CHANGE-054.
+- Why the change was necessary: The developer explicitly selected this ordering and responsibility boundary for the Order-side publisher implementation.
+- Alternatives considered: Transactional outbox then publish (safer consistency but contrary to selected order); publish before save (selected); synchronous peer request/response (contrary to not waiting for the other service).
+- Trade-offs: The selected order makes publisher acceptance the gate for status mutation and avoids consumer-response coupling. It cannot atomically coordinate an external broker with PostgreSQL; a later database failure can leave a consumed event while Order remains unchanged. At-least-once retries and event idempotency do not fix that semantic mismatch.
+- Affected architecture: Transition orchestration, event publisher ports, all four updated event sequences, event payload data, peer-consumer assumption, and database failure semantics.
+- Affected class diagram: `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md` uses `OrderCompletionTaskPublisher`, `OverdueOrderCompletionTaskPublisher`, `OpenOrderCancellationTaskPublisher`, and `AcceptedOrderCancellationTaskPublisher` with matching interfaces.
+- Affected sequence diagrams: Sequences 5-8 now show publish success before status persistence and failure leaving current status unchanged.
+- Affected data model: Full snapshot and overdue facts use Order/checkpoint history; no schema migration was needed.
+- Affected contracts: Each task event carries full Order snapshot and event metadata; topics remain placeholders. No peer contract is verified. User authorizes assuming future consumers for this Order-only milestone.
+- Affected tests: CHANGE-054 adds publisher confirmation/failure/placeholder tests and publish ordering, failure, route, and status tests.
+- Affected source files: CHANGE-054 implements publishers and transition orchestration in Order Service.
+- Approved by: User, in the current request.
+- Approval date: 2026-10-02
+- Effective from: CHANGE-053 for the requested Order-side design.
+- Implementation status: Implemented in CHANGE-054; focused tests/verification are in progress.
+- Supersedes: CHANGE-051/ADR-009 outbox-first publication order for these four events.
+- Superseded by: None.
+- Related ADR/override: ADR-009 updated; CHANGE-053.
+- Related traceability: Updated overall Sequences 5-8; D1 F4.1.5-F4.1.11, F7, F10, F11, F12 amendment, NTH2, NTH4 where applicable.
+
+## ARCH-EVO-010: Select Google Cloud Pub/Sub for Order task publishers
+
+- Change ID: CHANGE-054
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Order Service Sequences 5-8 typed task-event publication
+- Original design or requirement: CHANGE-053 approved publish-before-status ordering, complete Order snapshots, per-publisher topic placeholders, and assumed future consumers, but the transport was not selected.
+- Problem discovered: The publisher and transition workflow cannot return a real publish confirmation without a concrete transport client.
+- Change type: Architecture or specification change
+- Status: USER-APPROVED; IMPLEMENTED; `mvn verify` PASSED; live broker delivery pending
+- Approved change: Use Google Cloud Pub/Sub's Java client, await the Pub/Sub message ID as the success signal, retain `TODO_TOPIC` defaults, and support the Pub/Sub emulator through an explicit endpoint/channel when configured.
+- What was added: Pub/Sub dependency management, a shared transport adapter, four typed publisher pairs, event snapshots, checkpoint-history retrieval, and publish-first transition orchestration.
+- What was changed: Completion/cancellation transitions publish before mutating/saving status. Credit outcome work moves to the future event consumers; synchronous Credit settlement/release is removed from those four transitions.
+- What was removed: Nothing from peer services; they remain outside the scope.
+- Why the change was necessary: The user selected Google Pub/Sub and asked to proceed with implementation.
+- Alternatives considered: Keep transport abstract (cannot actually publish); use another broker (not selected); selected Google Cloud Pub/Sub.
+- Trade-offs: Pub/Sub provides a real broker acknowledgment and managed credentials. A later PostgreSQL commit can still fail after message acceptance, and a timeout can leave publication outcome uncertain. Topics must exist and be configured before live publishing.
+- Affected architecture: Sequences 5-8, application transition orchestration, publisher infrastructure, event mapping, configuration, and Order status/checkpoint writes.
+- Affected class diagram: `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md` and implementation packages under `messagingpublisher/`.
+- Affected sequence diagram: Four diagrams under `sprints/sprint-1/sequence-diagrams/updated-overall/`.
+- Affected data model: No schema migration added. Event snapshots use current Order data plus checkpoint history; overdue facts derive from accepted/delivered checkpoints at completion. `ABORTED` fits the existing status column; same-order reopening is excluded by ADR-001.
+- Affected contracts: JSON typed event bodies include all current Order fields, repost plan, checkpoint history, metadata, and overdue facts where applicable.
+- Affected tests: Added event mapping, publisher acknowledgment/failure/placeholder, transition ordering/failure/status-routing, and API endpoint/context tests. Full `mvn verify` passed all 57 tests and the configured line/branch coverage gates.
+- Affected source files: Order Service only. No peer service or frontend source changed.
+- Approved by: User ("google pubsub. Please start coding")
+- Approval date: 2026-10-02
+- Effective from: CHANGE-054
+- Implementation status: Code is in progress; Maven verification pending after the initial compile found checked `IOException` handling that is being corrected.
+- Supersedes: Unselected transport in CHANGE-053.
+- Superseded by: None.
+- Related ADR/override: ADR-009; CHANGE-053.
+- Related traceability: D1 F4.1.5-F4.1.11, F7, F10, F11, and completion-time overdue amendment.
+
 ## Supersession and synchronization
+
+## ARCH-EVO-011: Bind order transitions to requester/courier ownership
+
+- Change ID: CHANGE-055
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Order acceptance, progress, accepted cancellation, open cancellation, and completion authorization
+- Original design or requirement: The aggregate bound courier progress to `courierId`, requester completion/open cancellation to `requesterId`, but accepted cancellation was documented and implemented as requester-owned; acceptance checked `OPEN` status but did not reject a stale non-null assignment.
+- Problem discovered: Accepted cancellation must be performed by the assigned courier, acceptance must not overwrite an existing assignment, and receipt replay returned an order before the caller's role was revalidated.
+- Change type: Architecture or specification change, explicitly approved by the user's request and recorded in ADR-010.
+- Status: USER-APPROVED; IMPLEMENTED; full Maven verification passed (62 tests; coverage gates passed).
+- Current rule: User Service verifies requester/courier identity and eligibility; the aggregate verifies requester ID or assigned courier ID. Acceptance requires an unassigned `OPEN` order and rejects self-acceptance. Accepted cancellation is courier-owned. Completion and `OPEN` cancellation remain requester-owned.
+- Alternatives considered: Controller-only ownership checks (rejected because domain transition safety would rely on an outer layer); new ownership/schema fields (unnecessary with existing requester/courier identifiers).
+- Trade-offs: Domain checks preserve invariant enforcement regardless of caller; role lookup before receipt replay may require User Service availability for command retries.
+- Affected artifacts: `Order`, `OrderAssignmentService`, `OrderTransitionService`, aggregate/application tests, ADR-010, CHANGE-055, updated overall Sequence 7, Sprint requirements/acceptance tests, service contracts, traceability, current sprint and usage log. No schema or peer contract changes.
+- Approved by: User, explicit request on 2026-10-02.
+- Effective from: CHANGE-055.
+- Supersedes: The requester-as-actor wording for accepted cancellation in the updated overall Sequence 7 document and previous implementation.
+- Related traceability: D1 F3, F4.1.1-F4.1.7, F5.1, F13 and updated overall Sequence 7.
+
+## Supersession and synchronization
+
+## ARCH-EVO-012: Unify completion publication
+
+- Change ID: CHANGE-056
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Completion publication and overdue-dependent peer policy
+- Original design or requirement: CHANGE-053/ADR-009 separated non-overdue completion for Credit and overdue completion for Credit and User.
+- Problem discovered: User Service needs every completion to apply either the late penalty or on-time score decrease; separate routing omitted on-time completions.
+- Change type: Architecture or specification change
+- Status: USER-APPROVED; IMPLEMENTED; full `mvn verify` passed (62 tests; line/branch gates passed)
+- Approved change: Publish one `OrderCompletionTaskEvent` for every successful completion, with the full Order snapshot, `overdue`, and `overdueAt`. Credit and User consume the event and apply their own policy. At the time of CHANGE-056, publish-before-status remained effective; CHANGE-063/ADR-013 later supersedes that ordering. Order never awaits peer replies.
+- What was added: Overdue facts on the shared completion DTO, unified completion tests, sequence/class diagrams and peer contract coverage for both subscribers.
+- What was changed: Completion flow, publisher inventory (four pairs to three), and completion subscriber routing.
+- What was removed: The overdue-only DTO, interface, publisher, topic setting, and extra Sequence 8 completion diagram.
+- Why the change was necessary: User must receive all completions regardless of whether the delivery exceeded its time limit.
+- Alternatives considered: Keep split messages and subscribe User to both (two routes and schemas); unified event selected for one stable completion contract with an explicit overdue flag.
+- Trade-offs: Consumers branch on the overdue fact; both branches share event identity, versioning, and full Order data.
+- Affected architecture: Completion orchestration, Pub/Sub event payload, User/Credit consumer expectations; no database schema, frontend, topic ID, or peer source change.
+- Affected class diagram: `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md`.
+- Affected sequence diagram: Generic completion is `sprints/sprint-1/sequence-diagrams/updated-overall/sequence-5-complete-order.md`; old overdue-only Sequence 8 removed.
+- Affected contracts: `docs/service-contracts.md`, `docs/peer-service-api-feedback.md`, and Sprint 1 contracts.
+- Affected tests: Factory mapping and transition publication tests cover overdue true/false in the same event type; full Maven verification passed 62 tests with line/branch gates.
+- Affected source files: Order Service only; peer consumers remain absent/unverified.
+- Approved by: User, explicit request on 2026-10-02.
+- Effective from: CHANGE-056.
+- Supersedes: Separate completion routes in ADR-009/CHANGE-053; Pub/Sub remains effective; publish-before-status was later superseded by ARCH-EVO-015.
+- Related ADR/override: ADR-011.
+- Related traceability: Updated overall Sequence 5 and D1 completion requirement.
+
+## ARCH-EVO-013: Add admin-authorized paginated Order query
+
+- Change ID: CHANGE-057
+- Date: 2026-10-02
+- Developer: Yao Xiang
+- Feature: Order Service all-orders admin query
+- Original design or requirement: NTH1 assigns the administrator dashboard to Admin Service; Sprint 1 excluded Admin Service integration and Order's contract had no admin list operation.
+- Problem discovered: dashboard data must be read from the Order data owner, and the local Order security chain permits all requests while production does not map User Service roles to method authorities.
+- Change type: User-approved Order-side API addition; security implementation refinement.
+- Status: USER-APPROVED; IMPLEMENTED; local-profile security behavior superseded by ARCH-EVO-014; production admin role requirement remains effective.
+- Approved change: admin-only `GET /api/orders`, optional status, one-based pageable response, and Supplier-style User Service role lookup with local mock configuration.
+- Alternatives considered: Admin Service direct database access (rejected by ownership); event projection (unnecessary for a direct paginated query); unprotected query (rejected); synchronous Order-owned query (selected).
+- Trade-offs: each HTTP-mode request resolves current roles through User Service; lookup outages fail closed; local mock configuration is for local development.
+- Affected artifacts: ADR-012, CHANGE-057, EV-DEC-003, Order security, controller/query/repository/persistence, tests, contracts, diagrams, traceability, change log, active work, usage log. No schema or peer source changes.
+- Approved by: User, explicit request on 2026-10-02.
+- Effective from: CHANGE-057.
+- Related traceability: NTH1, `docs/requirements-traceability.md`.
+
+## ARCH-EVO-014: Restore local/production security profile split
+
+- Change ID: CHANGE-062
+- Date: 2026-10-03
+- Developer: Yao Xiang
+- Feature: Order Service API authentication profile behavior
+- Original design or requirement: the committed Order security configuration permitted all requests outside `prod` and required Firebase bearer authentication in `prod`; CHANGE-057 later enabled admin-role checks while adding the admin order query.
+- Problem discovered: the current uncommitted security configuration applied authentication and method-level admin checks locally as well as in production, blocking the requested unauthenticated local workflow.
+- Change type: User-approved restoration of the established environment-specific security behavior.
+- Status: USER-APPROVED; IMPLEMENTED; full `mvn verify` passed (89 tests; line and branch coverage gates passed).
+- Approved change: restore `permitAll()` for non-production profiles and enable OAuth2 bearer authentication plus method-level `ROLE_ADMIN` checks only in `prod`. Public health and Swagger paths remain accessible in production.
+- Alternatives considered: keep Firebase authentication locally (rejected by the user); remove the admin role check in all environments (rejected); profile-gate the security chain and method security (selected).
+- Trade-offs: local API behavior is convenient for development but does not exercise authentication/authorization; production remains protected and must be verified with valid Firebase tokens and roles.
+- Affected artifacts: Order `SecurityConfiguration`, production-only method security configuration, admin security tests, README, ADR-012, CHANGE-057/059 follow-up notes, change log, active-work record, and AI usage log. No API shape, diagrams, data model, persistence, Compose, or peer-service source changed.
+- Approved by: User, explicit request on 2026-10-03.
+- Effective from: CHANGE-062.
+- Related traceability: NTH1 and ADR-012 admin query; production-only authentication/role authorization.
+
+## ARCH-EVO-015: Transactional outbox for outcome events
+
+- Change ID: CHANGE-063
+- Date: 2026-10-03
+- Developer: Yao Xiang
+- Feature: Order completion and cancellation event delivery
+- Original design or requirement: CHANGE-053 instructed Order to publish before persisting the related status transition, leaving a possible event for an unchanged Order if the later database commit failed.
+- Problem discovered: PostgreSQL and Pub/Sub cannot commit atomically; publish-first can expose outcome facts for a transition that never commits.
+- Change type: User-approved architecture/specification change
+- Status: USER-APPROVED; implemented; full Maven verification and focused PostgreSQL migration/JPA checks passed (final full-suite count recorded in active work).
+- Approved change: Commit resulting Order state, checkpoint, command receipt, and serialized outbox event together. Dispatch immediately after commit and use a Spring cron job to recover due rows. Pub/Sub failure does not undo a committed transition. Use lease-based claims, bounded exponential retry, stable event IDs, and at-least-once consumer deduplication.
+- Alternatives considered: retain publish-first (rejected for the resulting database/broker gap); after-commit callback only (rejected because a process crash could lose the only attempt); transactional outbox with post-commit fast path and cron recovery (selected).
+- Trade-offs: adds a table, migration, relay, retries, and retained published rows; duplicates remain possible after Pub/Sub accepts and before the published marker commits. Cron reduces latency only as recovery; Cloud Run scale-to-zero/request-based CPU may not run it while idle.
+- Affected artifacts: V2 migration, outbox entity/domain repository/JPA adapter, transition service, event snapshot mapping, after-commit listener, dispatcher, scheduler, tests, updated Sequences 5-7/class diagram, service and project contracts, traceability, current-sprint context, ADR/change indexes, AGENTS/skills, AI usage log.
+- Affected data model: additive `order_event_outbox` table with event payload, publication state, attempts, retry time, lease, published time, and last error.
+- Affected contracts: typed event payload unchanged except it now represents resulting post-transition state and the incremented Order version; delivery is at least once.
+- Affected tests: transition/event payload tests, dispatcher retry/claim tests, persistence mapping tests, and clean/upgrade PostgreSQL Flyway migration tests.
+- Approved by: User, explicit approval in the preceding conversation turn.
+- Effective from: CHANGE-063.
+- Supersedes: ARCH-EVO-009 publish-before-status ordering for completion/cancellation; preserve full snapshots, event types, Pub/Sub, topic placeholders, and peer-service boundary.
+- Related decision: ADR-013.
+- Related traceability: Project D1 F4.1.5/F4.1.7/F5.1 and Sequences 5-7.
+- Remaining deployment issue: current Cloud Run min-instances-zero/request-based CPU does not guarantee cron recovery while idle; no cost-affecting deployment setting was changed.
 
 When a newer rule is approved:
 

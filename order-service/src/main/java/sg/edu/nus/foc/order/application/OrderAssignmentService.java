@@ -29,6 +29,7 @@ public class OrderAssignmentService {
             String courier,
             long version,
             String authorization) {
+        String authenticatedCourier = users.verifyCourier(courier, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "ACCEPT",
                 commandId);
@@ -36,7 +37,6 @@ public class OrderAssignmentService {
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
-        String authenticatedCourier = users.verifyCourier(courier, authorization);
         Order order = findForUpdate(id);
         Instant acceptedAt = Instant.now();
         order.accept(authenticatedCourier, version, acceptedAt);

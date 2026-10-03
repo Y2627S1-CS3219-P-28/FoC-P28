@@ -13,7 +13,8 @@ No production code was created as part of the workflow setup.
 The following source paths are relative to the repository root.
 
 - Product backlog and platform NFRs: `../../../Project-D1.pdf`
-- Overall Order Service FR/NTH design, diagrams, amendments, and logical contracts: `../../../Order Service Overall Doc.pdf`
+- Current overall Order Service FR/NTH design, diagrams, amendments, and logical contracts: `../../../Order Service Overall Doc - Updated.pdf`
+- Superseded overall design retained for comparison: `../../../Order Service Overall Doc.pdf`
 - Overall platform architecture: `../../../High Level Architecture Diagram - FOC.png`
 - Order Service architecture: `../../../High Level Architecture Diagram - Order Service.png`
 - Overall Order Service class diagram: `../../../Class Diagram - Order Service.png`
@@ -40,7 +41,7 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 - The parent backend convention currently names requester/courier/admin authorities. The exact mapping between those authorities and the frontend `ADMIN`/`USER` plus mode model is unresolved and must be inspected and approved before role-sensitive implementation.
 - Each microservice exclusively owns and writes its own database.
 - Cross-service behavior uses explicit authenticated contracts and stable identifiers.
-- The architecture uses inbound contracts, application services, Order-owned domain rules, outbound ports, and Order-owned persistence. HTTPS/JSON and event transport are documented as technology options, not yet locked repository implementations.
+- The architecture uses inbound contracts, application services, Order-owned domain rules, outbound ports, Order-owned persistence, and three typed task-event publishers for completion/cancellation. CHANGE-063/ADR-013 specifies an atomic transactional outbox with immediate after-commit dispatch and cron recovery; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 unifies completion into one event type with overdue facts.
 - The corrected Order Service high-level diagram establishes that application components orchestrate and invoke persistence/external-service/publication ports. Order-owned domain rules validate and return decisions/status/flag/checkpoint data; they do not invoke outbound ports directly.
 
 ## Detailed architecture approval workflow
@@ -53,8 +54,8 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 - Every foreign API is classified as matching, different but potentially usable, similar but unsuitable, missing, or incomplete/incompatible after comparing the actual implementation's operation, request/response, authorization, errors/statuses, communication style, semantics, tests, and sequence fitness.
 - `docs/peer-service-api-feedback.md` is the single shared append-only record for missing, unsuitable, incomplete, or incompatible dependencies. ADR-006 supersedes the unused planned `docs/integration-api-gaps.md` location; no prior gap entry required migration.
 - Peer confirmation is not verification. Re-read the actual provider code/tests before setting feedback `VERIFIED` or resuming integration. Approved prototypes/stubs retain an explicit unimplemented-contract risk unless the user approves a contract-stub milestone.
-- For event candidates, compare synchronous request-response, query/polling, in-process events, and durable broker events. No broker or concrete event is approved merely by appearing in an overall diagram or candidate list.
-- `docs/event-candidates.md` is the persistent proposal registry for D1-supported candidates. Its `EV-1` through `EV-7` IDs are stable; architecture decisions use separate `EV-DEC-NNN` IDs. The registry does not approve an event or broker, and its Credit entry records a synchronous boundary rather than an event approval.
+- For event candidates, compare synchronous request-response, query/polling, in-process events, and durable broker events. The current Order design has three typed event flows for Sequences 5-7; CHANGE-063/ADR-013 approves the transactional outbox with immediate after-commit dispatch and cron recovery, CHANGE-054 selects Google Cloud Pub/Sub, and CHANGE-056 unifies completion event routing.
+- `docs/event-candidates.md` is the persistent proposal registry for D1-supported candidates. Its `EV-1` through `EV-7` IDs are stable; architecture decisions use separate `EV-DEC-NNN` IDs. CHANGE-053/054/056/063 record the event flows, full snapshots, unified completion payload, Pub/Sub transport, and at-least-once outbox delivery.
 - `docs/architecture-review-playbook.md` preserves the peer-inspection, API-mismatch, detailed-proposal, deviation, AI-disclosure, required-response, and post-approval templates used at the feature gate.
 - Label proposal content as approved architecture, existing peer implementation, proposed design, unresolved decision, or user-approved deviation. Record approvals before implementation.
 
@@ -84,11 +85,11 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 
 ## Approved communication boundaries
 
-- Credit reservation and credit-related `COMPLETED`, `EXPIRED`, `CANCELLED`, and `ABORTED` processing are synchronous before the associated Order operation is finalized. The ordinary `ACCEPTED -> IN_PROGRESS`, `IN_PROGRESS -> PICKED_UP`, and `PICKED_UP -> DELIVERED` transitions do not require Credit Service unless a later approved requirement says otherwise.
+- Credit reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain synchronous. Under user-approved CHANGE-063/ADR-013, updated Sequence 5-7 transitions commit with their outbox rows; an after-commit listener tries immediate publication and cron retries due rows. A publish failure does not undo a committed Order transition; delivery is at least once and no Credit/User consumer reply is awaited.
 - Order Service owns lifecycle/status. Credit Service owns balances, reservations, releases, transfers, settlement, deductions, and credit policy.
-- Penalty policy remains in User Service. After committing a relevant Order outcome, Order Service may send approved completed, overdue, or aborted facts without deciding points, scores, or suspension. This non-blocking boundary is approved; the concrete event schema, transport, and any durable broker still require feature-level approval.
+- Penalty policy remains in User Service. Under CHANGE-063/ADR-013, Order Service commits factual event intent with the corresponding outcome, then publishes through Google Cloud Pub/Sub; it does not decide points, scores, or suspension. Stable event IDs support consumer deduplication.
 - Immediate validation, courier acceptance/concurrency, authoritative transitions, and operations needing immediate success/failure are synchronous.
-- Dashboards, history, available-order queries, internal time-based lifecycle work, expiry, and reposting do not require a broker by default.
+- Dashboards, history, available-order queries, and ordinary internal queries do not require a broker. The updated design specifically assigns typed broker events to completion/cancellation consequences in Sequences 5-7.
 
 ## Service ownership
 
@@ -99,6 +100,8 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 - Admin Service independently owns monitoring, reports/cases, administrative decisions, user administration, and supplier/catalogue administration.
 
 Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to User Service; NTH4 belongs to Order Service; NTH5 belongs to the platform/deployment process.
+
+- CHANGE-057/ADR-012 explicitly approve an Order-owned, admin-authorized, paginated `GET /api/orders` query to support future NTH1 dashboard integration. The Admin Service still owns the dashboard; its implementation and frontend UI are not included.
 
 ## Persistent approved amendments
 
@@ -112,8 +115,8 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 
 ### ABORTED reopening
 
-- Do not implement `ABORTED` to `OPEN` reopening in Sprint 1 unless explicitly added by a later approved decision.
-- Do not infer it from Project D1 F4.1.10 or F11.2.4.
+- The updated overall design explicitly permits `ABORTED` to `OPEN` reopening on the same order when it remains unexpired and Credit confirms the open-entry condition. If it reaches original expiry while still `ABORTED`, it becomes `EXPIRED`.
+- CHANGE-053 records user approval of the Order-side publisher behavior; CHANGE-054 selects Pub/Sub. The complete snapshot uses existing Order data plus checkpoint history; overdue facts are derived at completion without new persisted columns.
 - Reopening reuses an order ID; NTH4 reposting creates a distinct linked order.
 
 ### Penalty ownership
@@ -122,13 +125,13 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 - Order Service publishes relevant facts; Admin Service investigates and issues decisions.
 - Order Service and Admin Service must not calculate penalty points.
 
-### Courier outcome contracts
+### Typed outcome event contracts
 
-- Notify User Service through separate `acceptCourierCompleted`, `acceptCourierOverdue`, and `acceptCourierAborted` operations.
-- Do not use a generic courier `outcomeType` discriminator or an open-ended `facts` property bag.
-- Each operation carries `eventId`, `orderId`, `courierId`, `occurredAt`, and `orderVersion` for correlation, deduplication, and ordering.
-- Completion and overdue are independent notifications because a completed order can also be overdue.
-- This approved clarification supersedes the generic courier-outcome operations shown in the current overall class diagram until that source is regenerated.
+- The current Order design defines three typed Order events: open-order cancellation, accepted-order cancellation, and one completion event carrying `overdue` and `overdueAt` for every completion.
+- CHANGE-053 directs each event to carry the full Order snapshot and use a topic placeholder within its publisher. CHANGE-054 selects Google Cloud Pub/Sub. The user authorizes Order Service-only changes and assumes peer consumers will be implemented later; the peer assumption is not a verified integration.
+- Each payload carries `eventId`, `eventVersion`, `orderId`, `orderVersion`, event-specific facts, actor IDs, and `occurredAt`; consumers deduplicate at-least-once delivery.
+- Credit consumes the relevant credit events; User consumes accepted-cancellation and every `OrderCompletionTaskEvent`, applying policy from its `overdue` facts. Subscriber acknowledgements and retries are independent. This supersedes the former overdue-only completion event split (CHANGE-056/ADR-011).
+- Each event carries the complete resulting Order snapshot, with a topic placeholder in its publisher. The outbox commits event intent with the lifecycle transition, then dispatches after commit and recovers due rows through cron. Delivery is at least once and consumers must deduplicate by stable event ID. No generic outcome discriminator or open-ended facts bag is permitted.
 
 ### Supplier ownership
 
@@ -146,11 +149,11 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 ## Cross-cutting contract rules
 
 - Carry authenticated actor context or trusted service identity.
-- Carry command IDs for idempotent create/reserve/transition/outcome/expiry/repost operations.
+- Carry command IDs for idempotent create/reserve/transition/expiry/repost operations and globally unique event IDs/versions for published event delivery.
 - Include expected order version for status-changing commands; stale requests produce a conflict.
 - Distinguish validation, unauthorized, not found, conflict, dependency unavailable, reservation rejection, and accepted-for-processing outcomes.
 - Published facts contain event ID and order version for deduplication and ordering.
-- Courier completed, overdue, and aborted notifications are distinct operations; the operation name supplies the outcome and no generic `facts` map is allowed.
+- Completion/cancellation event types are distinct contracts; payloads carry event/version/order correlation and event-specific facts, with no generic `facts` map or outcome discriminator.
 
 ## Quality rules
 

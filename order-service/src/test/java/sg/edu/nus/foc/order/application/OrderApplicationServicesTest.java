@@ -8,14 +8,21 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
+import org.springframework.context.ApplicationEventPublisher;
 import sg.edu.nus.foc.order.adapter.MockPeerAdapters;
 import sg.edu.nus.foc.order.domain.*;
 import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
+import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderCancellationTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
 class OrderApplicationServicesTest {
-    private static final Instant START = Instant.parse("2026-09-30T00:00:00Z");
+    private static final Instant START = Instant.parse("2026-10-03T00:00:00Z");
     private static final String AUTH = "Bearer token";
 
     @Test
@@ -33,7 +40,7 @@ class OrderApplicationServicesTest {
 
         Order result = new OrderCreationService(orders, receipts, checkpoints, users, suppliers, credits, audit)
             .create("create-1", "requester", "item", "pickup", "delivery", 3, 15,
-                START.plusSeconds(86400), null, AUTH);
+                Instant.now().plusSeconds(86400), null, AUTH);
 
         assertEquals(OrderStatus.OPEN, result.getStatus());
         verify(suppliers).validatePair("pickup", "delivery", AUTH);
@@ -98,7 +105,15 @@ class OrderApplicationServicesTest {
         UserServicePort users = mock(UserServicePort.class);
         CreditServicePort credits = mock(CreditServicePort.class);
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
-        OrderTransitionService service = new OrderTransitionService(orders, checkpoints, receipts, users, credits, audit);
+        OrderTransitionService service = new OrderTransitionService(
+            orders,
+            checkpoints,
+            receipts,
+            users,
+            mock(OrderEventOutboxRepository.class),
+            mock(ApplicationEventPublisher.class),
+            new OrderTaskEventFactory(checkpoints, Mappers.getMapper(OrderTaskEventMapper.class)),
+            audit);
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         order.accept("courier", 0, START.plusSeconds(1));
         when(users.verifyCourier("courier", AUTH)).thenReturn("courier");
@@ -113,15 +128,18 @@ class OrderApplicationServicesTest {
         verify(checkpoints, times(3)).save(any(OrderCheckpoint.class));
 
         when(users.verifyRequester("requester", AUTH)).thenReturn("requester");
+        when(checkpoints.findByOrderId(order.getId())).thenReturn(List.of(
+            new OrderCheckpoint(order.getId(), OrderStatus.ACCEPTED, START.plusSeconds(60), "courier", null),
+            new OrderCheckpoint(order.getId(), OrderStatus.DELIVERED, START.plusSeconds(10 * 60L), "courier", null)));
         service.complete("complete", order.getId(), "requester", 0, AUTH);
         assertEquals(OrderStatus.COMPLETED, order.getStatus());
-        verify(credits).settle("complete", order.getId(), "requester", "courier", 2, 0, AUTH);
+        verify(credits, never()).settle(anyString(), anyString(), anyString(), anyString(), anyLong(), anyLong(), anyString());
 
         Order cancelled = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         when(orders.getForUpdate("cancelled")).thenReturn(Optional.of(cancelled));
         service.cancel("cancel", "cancelled", "requester", 0, AUTH);
         assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
-        verify(credits).release("cancel", cancelled.getId(), "requester", 2, "CANCELLED", 0, AUTH);
+        verify(credits, never()).release(anyString(), anyString(), anyString(), anyLong(), anyString(), anyLong(), anyString());
     }
 
     @Test
@@ -132,8 +150,16 @@ class OrderApplicationServicesTest {
         OrderRepository orders = mock(OrderRepository.class);
         when(receipts.findExisting("COMPLETE", "same")).thenReturn(Optional.of(receipt));
         when(orders.get(existing.getId())).thenReturn(Optional.of(existing));
-        OrderTransitionService service = new OrderTransitionService(orders, mock(OrderCheckpointRepository.class), receipts,
-            mock(UserServicePort.class), mock(CreditServicePort.class), mock(OrderAuditLogger.class));
+        OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
+        OrderTransitionService service = new OrderTransitionService(
+            orders,
+            checkpoints,
+            receipts,
+            mock(UserServicePort.class),
+            mock(OrderEventOutboxRepository.class),
+            mock(ApplicationEventPublisher.class),
+            new OrderTaskEventFactory(checkpoints, Mappers.getMapper(OrderTaskEventMapper.class)),
+            mock(OrderAuditLogger.class));
         assertSame(existing, service.complete("same", existing.getId(), "requester", 0, AUTH));
     }
 

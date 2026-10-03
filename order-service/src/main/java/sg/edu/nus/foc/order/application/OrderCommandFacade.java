@@ -65,4 +65,13 @@ public class OrderCommandFacade {
             String authorization) {
         return transitions.cancel(commandId, id, actor, version, authorization);
     }
+
+    public Order cancelAccepted(
+            String commandId,
+            String id,
+            String actor,
+            long version,
+            String authorization) {
+        return transitions.cancelAccepted(commandId, id, actor, version, authorization);
+    }
 }

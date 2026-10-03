@@ -1,6 +1,6 @@
 # Order Service Architecture
 
-Authoritative sources: `../../../High Level Architecture Diagram - Order Service.png` and `../../../Class Diagram - Order Service.png`.
+Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../../../High Level Architecture Diagram - Order Service.png`, and `../../../Class Diagram - Order Service.png`. The updated overall design informed Sequences 5-7 and typed event contracts; CHANGE-056 supersedes its separate overdue completion flow. Standalone diagrams remain separately fingerprinted artifacts.
 
 ## Layers and ports
 
@@ -8,7 +8,8 @@ Authoritative sources: `../../../High Level Architecture Diagram - Order Service
 2. Inbound contracts: commands, queries, admin integration, expiry, auto-completion, and auto-repost triggers.
 3. Application components: creation, assignment, transitions, queries/history, completion-time overdue evaluation, expiry, and reposting.
 4. Order-owned domain rules: lifecycle/status, authorization, checkpoints/history, one-time overdue evaluation, and repost policy.
-5. Outbound ports: Order persistence, User/Supplier/Credit contracts, and factual outcome publication.
+5. Outbound ports: Order persistence, event-outbox persistence, User/Supplier/Credit contracts, and three typed event publishers.
+6. Messaging infrastructure: a transactionally persisted outbox, immediate after-commit relay, Spring cron recovery relay, and three typed publisher implementations backed by Google Cloud Pub/Sub, with topic placeholders. Peer subscriptions are future work and are not awaited by Order Service.
 
 Order Service owns only Order data: status, assignment, checkpoints, flags, supplier references, and repost links.
 
@@ -24,8 +25,9 @@ Firestore convention; it does not change sibling-service persistence.
 
 - Inbound contracts dispatch the selected command, query, or lifecycle use case to an application component.
 - Application components ask Order-owned domain rules to validate and decide. Domain rules return decision, status, flag, and checkpoint data to the application layer.
-- Application components invoke `OrderRepository`, User/Supplier/Credit service ports, and factual outcome-publication ports. Domain rules do not call repository or external-service ports directly.
-- Outbound ports return records, responses, or publication acknowledgements to the application layer, which returns the command/query result through the inbound contract.
+- Application components invoke `OrderRepository`, User/Supplier/Credit service ports, and typed event publishers. Domain rules do not call repository, broker, or external-service ports directly.
+- For Sequences 5-7, the application commits the resulting Order state, checkpoint, command receipt, and complete typed event in one PostgreSQL transaction. An `AFTER_COMMIT` listener immediately attempts Pub/Sub publication; a Spring cron poller retries due outbox entries. Publish failures do not roll back the committed transition. Delivery is at least once; stable event IDs let consumers deduplicate. Completion always publishes `OrderCompletionTaskEvent`, which carries `overdue` and `overdueAt` for User/Credit policy.
+- Order Service does not wait for Credit or User subscriber responses. Consumer delivery, deduplication, retries, and dead-letter recovery belong to future peer work and are not verified by this Order-only change.
 
 This direction keeps domain rules independent of persistence and peer-service integration while application components own orchestration.
 
@@ -33,15 +35,18 @@ This direction keeps domain rules independent of persistence and peer-service in
 
 - `OrderCommandInterface` and `OrderCommandFacade` route creation, acceptance, transitions, cancellation, and repost commands.
 - `OrderQueryInterface`/`OrderQueryService` provide available, current, account, and checkpoint/history views as their sprint scope permits.
+- CHANGE-057 adds an admin-only all-orders query through `AdminOrderController` -> `OrderQueryService` -> `OrderRepository` -> persistence adapter; the controller never accesses JPA directly.
 - `LifecycleTrigger`/`LifecycleProcessingService` handle expiry, auto-completion, and automatic repost processing when in scope.
 - Specialized application services handle creation, assignment, transitions, administration, and reposting.
 - `OrderRepository` is the only Order persistence abstraction.
-- `UserServicePort`, `SupplierServicePort`, and `CreditServicePort` isolate external calls.
-- `UserServicePort` sends separate courier completed, overdue, and aborted notifications; it does not send a generic outcome flag or property bag.
-- `OrderOutcomePublisher` publishes status, hold, repost, and resolution facts without transferring ownership. Any courier-outcome publication exposed through it must also use separate completed, overdue, and aborted operations.
+- `UserServicePort`, `SupplierServicePort`, and `CreditServicePort` isolate synchronous external calls. Credit reservation and `evaluateOpenEntry` remain synchronous; completion/cancellation consequences use typed events.
+- `OrderTransitionService` owns the transition facts and creates the typed event snapshot through `OrderTaskEventFactory`; `OrderOutboxDispatcher` uses the three event-specific publisher ports for completion and cancellation.
+- `OrderTransitionService` records the post-transition event through `OrderEventOutboxRepository` in the same transaction as the Order, checkpoint, and command receipt. `OrderOutboxAfterCommitListener` requests immediate delivery before the transactional service call returns; `OrderOutboxScheduler` invokes the recovery dispatcher on its configured cron. `OrderOutboxDispatcher` claims rows with leases, calls the typed publisher, and records success or bounded-backoff retry state.
+- Matching publishers emit one event type to a shared broker. Credit consumes settlement/release events and User consumes accepted-cancellation and every completion event, applying completion policy based on overdue facts. Neither subscriber writes Order data.
+- Accepted cancellation may reopen the same `ABORTED` order before original expiry when `evaluateOpenEntry` permits it; otherwise the order expires and the reservation is released asynchronously.
 
 The diagrams are logical architecture, not permission to implement future-sprint operations.
 
-## Diagram reconciliation
+## Updated design reconciliation
 
-ADR-002 supersedes the generic `submitCourierOutcomeFlag()` and `publishCourierOutcomeFlag()` operation names in the current overall class diagram. When an editable source becomes available, regenerate the class diagram and overall design pack with explicit completed, overdue, and aborted operations. Until then, use ADR-002 and `docs/service-contracts.md` as the effective contract.
+The updated overall design supersedes the previous generic outcome/synchronous consequence description for Sequences 5-7. CHANGE-063/ADR-013 supersedes the publish-first ordering in CHANGE-053 with a transactional outbox, after-commit fast path, and cron recovery. The full Order snapshot, topic placeholders, Google Cloud Pub/Sub, and future-consumer assumption remain. Delivery is at least once; Cloud Run scale-to-zero/request-based CPU limits cron recovery while idle.
