@@ -5,6 +5,13 @@
 - Scope: Approved combined Order Service sequences/features 1-11 handoff
 - Branch: `order-service/sprint-1/yx-seq1-to-seq11`
 
+## Current task - Pub/Sub publisher factory CI test (2026-10-03)
+
+- Request: fix CI failure in `GoogleCloudPubSubPublisherFactoryTest.reusesPublisherForAProductionTopicAndClosesIt`.
+- Scope: User explicitly authorized this focused test-only change on the current branch despite the shared allocation/profile mismatch; no wider sequence ownership was inferred.
+- Change: the cache/lifecycle test now uses the emulator transport instead of building a production publisher that requires Google Application Default Credentials. Renamed the test to describe the behavior it actually verifies.
+- Verification: `git diff --check` passed. Focused Maven test did not reach test execution: javac failed with `Cannot close compiler resources` while compiling production sources on the local Windows environment. Direct drive inspection showed 5.18 GB free on C: and 27.79 GB on D:, so disk space is not the cause. CI result after the change remains pending.
+
 ## Current task - accepted-cancellation hybrid flow (2026-10-03)
 
 - Request: assigned courier cancellation reopens an unexpired accepted errand only after synchronous Credit hold confirmation; expired cancellation remains event-driven. Clarify Credit/User subscriber actions and document the missing Credit API.

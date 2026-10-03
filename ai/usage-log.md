@@ -1344,3 +1344,16 @@ for failures show credits unavailable
 - **Key response:** Implemented the Order-side deadline split, direct `ACCEPTED -> OPEN` after synchronous hold confirmation, and expired `ACCEPTED -> ABORTED` outbox flow. Updated the peer dependency contract, subscriber action details, UI response feedback, diagrams, architecture/decision records, and acceptance criteria. No Credit or User source was edited.
 - **Affected locations:** `Foc-P28/order-service` transition/domain/peer adapter code, tests, CHANGE-064, ADR-014, sequence 5-7 and publisher class diagrams, architecture/service contracts, FEEDBACK-002/003, sprint acceptance/traceability, Yao active work and handoff indexes; `Foc-P28/frontend` accepted-cancellation action and list behavior; this usage log.
 - **Author verification:** Order Service `mvn verify` passed 107 tests with no failures/errors/skips and both JaCoCo gates. Focused backend tests passed 39 tests before the final HTTP-202 rejection assertion; the final full verification includes it. Frontend Vitest passed 11 tests; `npm run typecheck` and ESLint on changed frontend files passed. Live Credit hold API, Credit/User event consumers, Pub/Sub delivery, and browser verification remain pending. Credit/User repositories were not modified.
+
+## 2026-10-03 - Make Pub/Sub publisher factory unit test credential-independent (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Test maintenance and verification
+- **Exact prompt:**
+
+  > yes fix the test
+
+- **Key response:** Changed the publisher factory cache/lifecycle test to use the emulator transport instead of constructing a production publisher that requests Application Default Credentials. The test no longer requires Google credentials or a live Pub/Sub service.
+- **Affected locations:** `Foc-P28/order-service/src/test/java/sg/edu/nus/foc/order/messagingpublisher/publisher/GoogleCloudPubSubPublisherFactoryTest.java`, `Foc-P28/order-service/docs/active-work/yao-xiang.md`; this usage log.
+- **Author verification:** The diff was inspected and `git diff --check` passed. The focused Maven test did not execute: local Maven compilation failed with `Cannot close compiler resources` while compiling production sources. Direct drive inspection showed 5.18 GB free on C: and 27.79 GB on D:, so disk space is not the cause. CI verification after this change remains pending.

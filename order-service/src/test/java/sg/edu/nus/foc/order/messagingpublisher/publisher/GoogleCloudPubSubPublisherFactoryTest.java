@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class GoogleCloudPubSubPublisherFactoryTest {
     @Test
-    void reusesPublisherForAProductionTopicAndClosesIt() {
-        GoogleCloudPubSubPublisherFactory factory = new GoogleCloudPubSubPublisherFactory("");
+    void reusesPublisherByTopicAndClosesIt() {
+        GoogleCloudPubSubPublisherFactory factory = new GoogleCloudPubSubPublisherFactory("localhost:8085");
 
         Publisher first = factory.forTopic("local-project", "orders");
         Publisher second = factory.forTopic("local-project", "orders");
