@@ -2,6 +2,7 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-064](../changes/CHANGE-064-accepted-cancellation-reopen-or-event.md) | 2026-10-03 | Implemented and verified; peer Credit contract open | Split accepted cancellation by expiry: synchronously hold Credit and reopen before expiry; publish after expiry for Credit refund and User penalty; document subscriber responsibilities |
 | [CHANGE-062](../changes/CHANGE-062-restore-security-profile-split.md) | 2026-10-03 | Implemented; `mvn verify` passed (89 tests; coverage gates passed) | Restore anonymous local API access and production-only Firebase authentication/admin-role enforcement |
 | [CHANGE-060](../changes/CHANGE-060-local-pubsub-emulator.md) | 2026-10-02 | Implemented; Compose/runtime verification passed; Maven tests unavailable | Add a local Pub/Sub emulator, initialize Order event topics, and configure the default Compose stack to publish locally without Google credentials |
 | [CHANGE-059](../changes/CHANGE-059-public-swagger-webjars.md) | 2026-10-02 | Implemented; `mvn verify` passed (88 tests; coverage gates passed) | Permit unauthenticated access to Swagger UI's `/webjars/**` assets while keeping protected Order APIs authenticated |

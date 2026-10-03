@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import sg.edu.nus.foc.order.application.CreditServicePort;
@@ -93,6 +95,32 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
                 .body(new CreditReservationRequest(requester, amount))
                 .retrieve()
                 .toBodilessEntity();
+    }
+
+    @Override
+    public void holdForReopen(
+            String commandId,
+            String orderId,
+            String requesterId,
+            String courierId,
+            long amount,
+            long expectedOrderVersion,
+            String authorization) {
+        CreditReopenHoldRequest request = new CreditReopenHoldRequest(
+                commandId,
+                requesterId,
+                courierId,
+                amount,
+                expectedOrderVersion);
+        ResponseEntity<Void> response = credit.post()
+                .uri("/api/credits/orders/{id}/hold-for-reopen", orderId)
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+        if (!response.getStatusCode().equals(HttpStatus.OK)) {
+            throw new IllegalStateException("Credit Service did not synchronously confirm the reopen hold.");
+        }
     }
 
     @Override
@@ -188,6 +216,18 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     private static class CreditReservationRequest {
         private String requesterId;
         private long amount;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class CreditReopenHoldRequest {
+        private String commandId;
+        private String requesterId;
+        private String courierId;
+        private long amount;
+        private long expectedOrderVersion;
     }
 
     @Getter

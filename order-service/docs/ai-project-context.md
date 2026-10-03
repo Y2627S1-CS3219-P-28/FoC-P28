@@ -85,7 +85,7 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 
 ## Approved communication boundaries
 
-- Credit reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain synchronous. Under user-approved CHANGE-063/ADR-013, updated Sequence 5-7 transitions commit with their outbox rows; an after-commit listener tries immediate publication and cron retries due rows. A publish failure does not undo a committed Order transition; delivery is at least once and no Credit/User consumer reply is awaited.
+- Credit reservation before `OPEN` and synchronous hold/reset before unexpired accepted-order reopening remain synchronous. Under CHANGE-063/ADR-013, event-producing transitions commit with their outbox rows; an after-commit listener tries immediate publication and cron retries due rows. A publish failure does not undo a committed Order transition; delivery is at least once and no event subscriber reply is awaited. CHANGE-064/ADR-014 defines the accepted-cancellation expiry split.
 - Order Service owns lifecycle/status. Credit Service owns balances, reservations, releases, transfers, settlement, deductions, and credit policy.
 - Penalty policy remains in User Service. Under CHANGE-063/ADR-013, Order Service commits factual event intent with the corresponding outcome, then publishes through Google Cloud Pub/Sub; it does not decide points, scores, or suspension. Stable event IDs support consumer deduplication.
 - Immediate validation, courier acceptance/concurrency, authoritative transitions, and operations needing immediate success/failure are synchronous.
@@ -113,11 +113,12 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 - Order Service records/publishes the fact; User and Credit Services apply their own policies.
 - This amendment supersedes the continuous monitoring language in Project D1 F12.1-F12.1.4.
 
-### ABORTED reopening
+### Accepted-order cancellation and reopening
 
-- The updated overall design explicitly permits `ABORTED` to `OPEN` reopening on the same order when it remains unexpired and Credit confirms the open-entry condition. If it reaches original expiry while still `ABORTED`, it becomes `EXPIRED`.
-- CHANGE-053 records user approval of the Order-side publisher behavior; CHANGE-054 selects Pub/Sub. The complete snapshot uses existing Order data plus checkpoint history; overdue facts are derived at completion without new persisted columns.
-- Reopening reuses an order ID; NTH4 reposting creates a distinct linked order.
+- Under CHANGE-064/ADR-014, only the assigned courier may cancel an accepted order. Before `expiresAt`, Order synchronously waits for Credit to hold/reset the transaction without refund; only success permits direct `ACCEPTED -> OPEN` with the same order ID and cleared courier assignment.
+- At/after expiry, Order changes `ACCEPTED -> ABORTED` and emits the accepted-cancellation event; Credit refunds and User applies the courier penalty. If expiry passes during the hold request, recheck and use this event path.
+- This does not implement `ABORTED -> OPEN`; ADR-001 continues to prohibit that separate transition. NTH4 reposting creates a distinct linked order.
+- Completion and open cancellation remain event-driven: Credit transfers completion credits/refunds open-cancellation reservation; User handles completion overdue penalty or on-time score reduction. User does not subscribe to open cancellation.
 
 ### Penalty ownership
 
@@ -130,7 +131,7 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 - The current Order design defines three typed Order events: open-order cancellation, accepted-order cancellation, and one completion event carrying `overdue` and `overdueAt` for every completion.
 - CHANGE-053 directs each event to carry the full Order snapshot and use a topic placeholder within its publisher. CHANGE-054 selects Google Cloud Pub/Sub. The user authorizes Order Service-only changes and assumes peer consumers will be implemented later; the peer assumption is not a verified integration.
 - Each payload carries `eventId`, `eventVersion`, `orderId`, `orderVersion`, event-specific facts, actor IDs, and `occurredAt`; consumers deduplicate at-least-once delivery.
-- Credit consumes the relevant credit events; User consumes accepted-cancellation and every `OrderCompletionTaskEvent`, applying policy from its `overdue` facts. Subscriber acknowledgements and retries are independent. This supersedes the former overdue-only completion event split (CHANGE-056/ADR-011).
+- Credit refunds `OpenOrderCancellationTaskEvent`, refunds `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation, and transfers credits for every `OrderCompletionTaskEvent`. User applies a courier penalty for expired accepted cancellation and, for every completion, an overdue penalty or the existing on-time score reduction. User does not consume open-cancellation events. Subscribers own independent acknowledgments and retries. This supersedes the former overdue-only completion event split (CHANGE-056/ADR-011) and follows CHANGE-064/ADR-014.
 - Each event carries the complete resulting Order snapshot, with a topic placeholder in its publisher. The outbox commits event intent with the lifecycle transition, then dispatches after commit and recovers due rows through cron. Delivery is at least once and consumers must deduplicate by stable event ID. No generic outcome discriminator or open-ended facts bag is permitted.
 
 ### Supplier ownership

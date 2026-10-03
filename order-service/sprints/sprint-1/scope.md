@@ -23,6 +23,10 @@ Sequences 1-6 are prerequisites represented by the Sprint 1 pack, but they are n
 - Simultaneous acceptance edge case F3.2.1.
 - 48-hour auto-completion.
 - `ABORTED` to `OPEN` reopening.
+
+CHANGE-064/ADR-014 permits the distinct `ACCEPTED -> OPEN` transition for an
+unexpired accepted errand after synchronous Credit hold confirmation. It does
+not include or authorize `ABORTED -> OPEN`.
 - Account order history and shared checkpoint views.
 - Completion checkpoint and terminal Credit outcome processing.
 - `OVERDUE` evaluation.

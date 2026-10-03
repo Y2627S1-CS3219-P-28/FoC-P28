@@ -64,10 +64,10 @@ describe("OrderActions accepted cancellation", () => {
     expect(screen.queryByRole("button", { name: "Cancel errand" })).not.toBeInTheDocument()
   })
 
-  it("confirms cancellation, calls the existing versioned API, and returns the aborted order", async () => {
-    const abortedOrder = { ...acceptedOrder, status: "ABORTED", courierId: null } as unknown as Order
+  it("confirms cancellation, calls the existing versioned API, and reports a reopened errand", async () => {
+    const reopenedOrder = { ...acceptedOrder, status: "OPEN", courierId: null } as unknown as Order
     const onUpdated = vi.fn()
-    mocks.api.mockResolvedValue(abortedOrder)
+    mocks.api.mockResolvedValue(reopenedOrder)
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={onUpdated} />)
 
@@ -86,8 +86,19 @@ describe("OrderActions accepted cancellation", () => {
         }),
       })
     })
-    expect(onUpdated).toHaveBeenCalledWith(abortedOrder)
-    expect(mocks.success).toHaveBeenCalledWith("Errand cancelled")
+    expect(onUpdated).toHaveBeenCalledWith(reopenedOrder)
+    expect(mocks.success).toHaveBeenCalledWith("Errand reopened for other couriers")
+  })
+
+  it("reports a final cancellation when the API returns an aborted errand", async () => {
+    const abortedOrder = { ...acceptedOrder, status: "ABORTED", courierId: null } as unknown as Order
+    mocks.api.mockResolvedValue(abortedOrder)
+
+    render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Cancel errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, cancel errand" }))
+
+    await waitFor(() => expect(mocks.success).toHaveBeenCalledWith("Expired errand cancelled"))
   })
 
   it("shows the API error when an accepted cancellation cannot be completed", async () => {

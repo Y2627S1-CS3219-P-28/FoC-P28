@@ -4,7 +4,7 @@ This registry preserves D1-supported communication candidates for architecture r
 
 ## Updated overall design source
 
-The updated source originally declared separate completion event flows. The current effective Order contract has three typed events across Sequences 5-7: one `OrderCompletionTaskEvent` for every completion with overdue facts, plus open and accepted cancellation events. CHANGE-056 records the completion unification. CHANGE-063/ADR-013 replaces publish-before-status with an atomic state/outbox commit and after-commit dispatch plus cron recovery. Delivery is at least once and consumers deduplicate by stable event ID.
+The updated source originally declared separate completion event flows. The current effective Order contract has three typed events across Sequences 5-7: one `OrderCompletionTaskEvent` for every completion with overdue facts, plus open and expired accepted-cancellation events. CHANGE-056 records completion unification. CHANGE-063/ADR-013 replaces publish-before-status with atomic state/outbox commit and after-commit dispatch plus cron recovery. CHANGE-064/ADR-014 says an unexpired accepted cancellation uses synchronous Credit hold and publishes no cancellation event. Delivery is at least once and consumers deduplicate by stable event ID. Subscriber actions are documented in FEEDBACK-002.
 
 ## Status and ID rules
 

@@ -41,7 +41,11 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
       })
       onUpdated(updated)
       if (path === "complete" || path === "cancel") invalidateCreditBalance()
-      toast.success(success)
+      if (path === "cancel-accepted") {
+        toast.success(updated.status === "OPEN" ? "Errand reopened for other couriers" : "Expired errand cancelled")
+      } else {
+        toast.success(success)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update this order.")
     } finally {
@@ -69,7 +73,7 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
               <AlertDialogHeader>
                 <AlertDialogTitle>Cancel this accepted errand?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This ends your assignment and marks the errand as aborted. You will not be able to resume it.
+                  If the errand has not expired, it will reopen for other couriers. If it has expired, the cancellation is final.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

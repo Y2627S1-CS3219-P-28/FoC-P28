@@ -156,7 +156,7 @@ export function formatOrderStatus(status: OrderStatus): string {
 }
 
 export function updateCourierOrderList(orders: Order[], updated: Order): Order[] {
-  if (updated.status === "ABORTED") {
+  if (updated.status === "ABORTED" || (updated.status === "OPEN" && updated.courierId === null)) {
     return orders.filter((order) => order.id !== updated.id)
   }
 

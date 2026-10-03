@@ -1331,3 +1331,16 @@ for failures show credits unavailable
 - **Key response:** Wrote a dedicated Yao-to-Vincent handoff for CHANGE-063 covering atomic Order/outbox persistence, the three completion/cancellation event flows, implementation paths, 102-test verification, and remaining Pub/Sub consumer and Cloud Run cron limitations. Linked it from the existing hands-off README.
 - **Affected locations:** `Foc-P28/order-service/hands-off/CHANGE-063-transactional-outbox-to-vincent.md`, `hands-off/README.md`, Yao Xiang active work; this usage log.
 - **Author verification:** Cross-checked the handoff against CHANGE-063, ADR-013, source, V2 migration, sequence/class diagrams, and the recorded Maven result. No Vincent active-work entry or peer-service source was edited.
+
+## 2026-10-03 - Accepted-cancellation expiry split and peer contracts (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Order Service workflow, implementation, tests, and documentation
+- **Exact prompt:**
+
+  > Please update the Cancel Accepted Errand flow and related documentation based on the following logic. Only the assigned courier may cancel. Before expiry, synchronously ask Credit Service to hold/reset the transaction without refund and reopen only after Credit confirms. After expiry, publish the accepted-cancellation event for Credit to refund and User Service to penalize the courier. Verify the open-cancel and completion subscribers and document the missing synchronous Credit endpoint in the peer API document.
+
+- **Key response:** Implemented the Order-side deadline split, direct `ACCEPTED -> OPEN` after synchronous hold confirmation, and expired `ACCEPTED -> ABORTED` outbox flow. Updated the peer dependency contract, subscriber action details, UI response feedback, diagrams, architecture/decision records, and acceptance criteria. No Credit or User source was edited.
+- **Affected locations:** `Foc-P28/order-service` transition/domain/peer adapter code, tests, CHANGE-064, ADR-014, sequence 5-7 and publisher class diagrams, architecture/service contracts, FEEDBACK-002/003, sprint acceptance/traceability, Yao active work and handoff indexes; `Foc-P28/frontend` accepted-cancellation action and list behavior; this usage log.
+- **Author verification:** Order Service `mvn verify` passed 107 tests with no failures/errors/skips and both JaCoCo gates. Focused backend tests passed 39 tests before the final HTTP-202 rejection assertion; the final full verification includes it. Frontend Vitest passed 11 tests; `npm run typecheck` and ESLint on changed frontend files passed. Live Credit hold API, Credit/User event consumers, Pub/Sub delivery, and browser verification remain pending. Credit/User repositories were not modified.

@@ -21,6 +21,6 @@ Order transition commands must enforce both the caller's User Service-confirmed 
 
 ## Consequences
 
-The application layer passes the provider-confirmed identity into the domain. The aggregate enforces order ownership and assignment, protecting the transition even when a request body supplies another actor ID. An assigned `OPEN` order cannot be overwritten by a later acceptance. Under the current CHANGE-063/ADR-013 delivery flow, accepted cancellation commits the full resulting Order event intent with the status change; Pub/Sub failure leaves the committed `ABORTED` state and pending event for retry.
+The application layer passes the provider-confirmed identity into the domain. The aggregate enforces order ownership and assignment, protecting the transition even when a request body supplies another actor ID. An assigned `OPEN` order cannot be overwritten by a later acceptance. Under CHANGE-064/ADR-014, only the assigned courier may cancel an accepted order. If unexpired, Order waits for synchronous Credit hold confirmation and transitions directly to `OPEN`; if expired, it transitions to `ABORTED` and commits accepted-cancellation event intent for Credit refund and User penalty. This does not reopen an already `ABORTED` order.
 
 No schema, event schema, endpoint shape, peer service, or frontend change is required. Sprint 1 still does not reopen an `ABORTED` order.

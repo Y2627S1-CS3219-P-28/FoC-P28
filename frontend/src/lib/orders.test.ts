@@ -53,6 +53,13 @@ describe("Order Service frontend contract helpers", () => {
     expect(updateCourierOrderList([assignedOrder], abortedOrder)).toEqual([])
   })
 
+  it("removes a reopened unassigned errand from the former courier's list", () => {
+    const assignedOrder = { id: "order-1", status: "ACCEPTED", courierId: "courier-1" } as Order
+    const reopenedOrder = { id: "order-1", status: "OPEN", courierId: null } as Order
+
+    expect(updateCourierOrderList([assignedOrder], reopenedOrder)).toEqual([])
+  })
+
   it("requires order expiry to be at least 30 minutes after creation", () => {
     const now = new Date("2026-09-30T07:00:00.000Z")
 

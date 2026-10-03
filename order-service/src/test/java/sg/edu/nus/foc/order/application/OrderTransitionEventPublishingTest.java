@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -114,24 +115,77 @@ class OrderTransitionEventPublishingTest {
     }
 
     @Test
-    void acceptedCancellationCommitsAbortedStateAndClearedCourierToOutbox() {
-        Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15, START, START.plusSeconds(3600));
-        order.accept("courier-1", 0, START.plusSeconds(1));
+    void unexpiredAcceptedCancellationHoldsCreditBeforeReopeningWithoutPublishing() {
+        Instant now = Instant.now();
+        Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15,
+                now.minusSeconds(60), now.plusSeconds(3600));
+        order.accept("courier-1", 0, now.minusSeconds(30));
         TestDependencies dependencies = dependencies(
                 order,
                 "CANCEL_ACCEPTED",
                 "cancel-accepted-1",
-                List.of(checkpoint(order, OrderStatus.ACCEPTED, START.plusSeconds(1))));
+                List.of(checkpoint(order, OrderStatus.ACCEPTED, now.minusSeconds(30))));
 
         Order result = service(dependencies).cancelAccepted(
                 "cancel-accepted-1", order.getId(), "courier-1", 0, AUTHORIZATION);
 
+        assertEquals(OrderStatus.OPEN, result.getStatus());
+        assertEquals(null, result.getCourierId());
+        InOrder sequence = inOrder(dependencies.credits, dependencies.checkpoints, dependencies.orders, dependencies.receipts);
+        sequence.verify(dependencies.credits).holdForReopen(
+                "cancel-accepted-1:HOLD_FOR_REOPEN", order.getId(), "requester-1", "courier-1", 3, 0, AUTHORIZATION);
+        sequence.verify(dependencies.checkpoints).save(any(OrderCheckpoint.class));
+        sequence.verify(dependencies.orders).save(order);
+        sequence.verify(dependencies.receipts).save(any(CommandReceipt.class));
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void expiredAcceptedCancellationPublishesWithoutCreditHold() {
+        Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15,
+                START, START.plusSeconds(3600));
+        order.accept("courier-1", 0, START.plusSeconds(1));
+        TestDependencies dependencies = dependencies(
+                order,
+                "CANCEL_ACCEPTED",
+                "cancel-accepted-expired",
+                List.of(checkpoint(order, OrderStatus.ACCEPTED, START.plusSeconds(1))));
+
+        Order result = service(dependencies).cancelAccepted(
+                "cancel-accepted-expired", order.getId(), "courier-1", 0, AUTHORIZATION);
+
         assertEquals(OrderStatus.ABORTED, result.getStatus());
+        verify(dependencies.credits, never()).holdForReopen(
+                any(), any(), any(), any(), anyLong(), anyLong(), any());
         ArgumentCaptor<AcceptedOrderCancellationTaskEvent> event =
                 ArgumentCaptor.forClass(AcceptedOrderCancellationTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
         assertEquals(OrderStatus.ABORTED, event.getValue().getOrder().getStatus());
         assertEquals(null, event.getValue().getOrder().getCourierId());
+    }
+
+    @Test
+    void creditHoldFailureLeavesAcceptedOrderUnchangedAndDoesNotWriteCancellation() {
+        Instant now = Instant.now();
+        Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15,
+                now.minusSeconds(60), now.plusSeconds(3600));
+        order.accept("courier-1", 0, now.minusSeconds(30));
+        TestDependencies dependencies = dependencies(order, "CANCEL_ACCEPTED", "cancel-credit-fail", List.of());
+        doThrow(new IllegalStateException("Credit unavailable"))
+                .when(dependencies.credits).holdForReopen(any(), any(), any(), any(), anyLong(), anyLong(), any());
+
+        assertThrows(IllegalStateException.class,
+                () -> service(dependencies).cancelAccepted(
+                        "cancel-credit-fail", order.getId(), "courier-1", 0, AUTHORIZATION));
+
+        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+        assertEquals("courier-1", order.getCourierId());
+        verify(dependencies.checkpoints, never()).save(any(OrderCheckpoint.class));
+        verify(dependencies.orders, never()).save(any(Order.class));
+        verify(dependencies.receipts, never()).save(any(CommandReceipt.class));
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
     }
 
     @Test
@@ -147,6 +201,8 @@ class OrderTransitionEventPublishingTest {
                         "cancel-accepted-requester", order.getId(),  "requester-1", 0, AUTHORIZATION));
 
         assertEquals("FORBIDDEN", problem.getCode());
+        verify(dependencies.credits, never()).holdForReopen(
+                any(), any(), any(), any(), anyLong(), anyLong(), any());
         verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
         verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
     }
@@ -160,6 +216,7 @@ class OrderTransitionEventPublishingTest {
         OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         UserServicePort users = mock(UserServicePort.class);
+        CreditServicePort credits = mock(CreditServicePort.class);
         OrderEventOutboxRepository outbox = mock(OrderEventOutboxRepository.class);
         ApplicationEventPublisher applicationEvents = mock(ApplicationEventPublisher.class);
         List<OrderCheckpoint> history = new ArrayList<>(initialHistory);
@@ -174,7 +231,7 @@ class OrderTransitionEventPublishingTest {
             history.add(checkpoint);
             return checkpoint;
         }).when(checkpoints).save(any(OrderCheckpoint.class));
-        return new TestDependencies(orders, checkpoints, receipts, users, outbox, applicationEvents);
+        return new TestDependencies(orders, checkpoints, receipts, users, credits, outbox, applicationEvents);
     }
 
     private OrderTransitionService service(TestDependencies dependencies) {
@@ -183,6 +240,7 @@ class OrderTransitionEventPublishingTest {
                 dependencies.checkpoints,
                 dependencies.receipts,
                 dependencies.users,
+                dependencies.credits,
                 dependencies.outbox,
                 dependencies.applicationEvents,
                 new OrderTaskEventFactory(
@@ -215,6 +273,7 @@ class OrderTransitionEventPublishingTest {
             OrderCheckpointRepository checkpoints,
             CommandReceiptRepository receipts,
             UserServicePort users,
+            CreditServicePort credits,
             OrderEventOutboxRepository outbox,
             ApplicationEventPublisher applicationEvents) {
     }

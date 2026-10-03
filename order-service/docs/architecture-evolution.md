@@ -1,5 +1,17 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-016: Accepted cancellation holds Credit before reopening (2026-10-03)
+
+- Discovery classification: User-directed architecture refinement; the user's request explicitly approves the design and implementation.
+- Approver: User.
+- Effective rule: Only the assigned courier may cancel. Before `expiresAt`, Order synchronously asks Credit to hold/reset the existing transaction without refund; only confirmed success allows direct `ACCEPTED -> OPEN` and clears the assignment. At/after expiry, Order transitions to `ABORTED` and emits the cancellation event for Credit refund and User penalty. Recheck expiry after a slow Credit response.
+- Alternatives considered: Publish an event for all cancellations (rejected because asynchronous consumption can race a new courier's acceptance); always abort/refund (rejected because an unexpired errand should be available again); use synchronous hold after expiry (unnecessary because the expired outcome stays event-driven).
+- Trade-offs: Synchronous confirmation protects reopening order but adds Credit latency and needs idempotency/reconciliation if Credit succeeds before the Order database commit. Expired cancellation stays decoupled through the outbox.
+- Constraints: Order Service and shared frontend only; no Credit/User source edits. Credit lacks the endpoint, so local mock mode is supported and the proposed HTTP endpoint is tracked in `FEEDBACK-003`; production HTTP-peer verification remains pending.
+- Affected design chain: requirement `CHANGE-064`; `ADR-014`; service/architecture/peer contracts; updated Sequence 7 and publisher class diagram; no schema/data-model change; Credit endpoint contract pending; application/domain/mock/HTTP adapter and frontend tests.
+- Migration/rollback: No database migration. Rollback is a code/configuration rollback; do not restore the unconditional event path without a replacement rule. Any confirmed Credit hold must be safely idempotent and reconcilable.
+- Status: Order-side implementation verified by 107 passing Maven tests and frontend checks. Peer endpoint and subscriber implementations remain unverified.
+
 This is the persistent register for architecture and design discoveries made while implementing the Order Service. It complements, but does not replace, `docs/change-log.md`, `changes/`, ADRs, specifications, diagrams, contracts, traceability, or Git history.
 
 Read this file at the beginning of every implementation-affecting turn. Follow the latest approved and effective design, not an original design that a later entry supersedes. Chat history is not authoritative.

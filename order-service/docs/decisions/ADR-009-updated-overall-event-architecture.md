@@ -8,7 +8,7 @@
 
 ## Decision
 
-The updated overall design source informed Order Service Sequences 5-8. CHANGE-053 historically selected publish-before-status behavior. CHANGE-063/ADR-013 supersedes that ordering for completion and cancellation with a transactional outbox and post-commit dispatch. CHANGE-056/ADR-011 supersedes the original completion-event split. Pub/Sub and the event contracts remain effective. Credit reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain synchronous.
+The updated overall design source informed Order Service Sequences 5-8. CHANGE-053 historically selected publish-before-status behavior. CHANGE-063/ADR-013 supersedes that ordering for completion and cancellation with a transactional outbox and post-commit dispatch. CHANGE-056/ADR-011 supersedes the original completion-event split. Pub/Sub and event contracts remain effective. Credit reservation before `OPEN` remains synchronous. CHANGE-064/ADR-014 now requires synchronous Credit hold/reset before an unexpired accepted cancellation transitions directly `ACCEPTED -> OPEN`; expired cancellation publishes the refund/penalty event. `ABORTED -> OPEN` remains prohibited.
 
 The original four declared event types were:
 

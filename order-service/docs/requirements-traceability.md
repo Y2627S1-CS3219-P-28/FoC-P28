@@ -9,7 +9,7 @@
 | 5 | F4.1.3 | Assigned courier only: `IN_PROGRESS` to `PICKED_UP` with checkpoint | Aggregate ownership guard; suite verification pending |
 | 6 | F4.1.4 | Assigned courier only: `PICKED_UP` to `DELIVERED` with checkpoint | Aggregate ownership guard; suite verification pending |
 | 7 | F4.1.5, F5.1, updated overall Sequence 5, CHANGE-056/063 | Requester confirms `DELIVERED` to `COMPLETED`; atomically commit the resulting Order/checkpoint/receipt and full-Order completion event with overdue facts; dispatch after commit and recover via cron. User and Credit consume every completion. | Transition, event snapshot, dispatch, retry, lease, clean/upgrade migration, JPA persistence and rollback tests pass in `mvn verify`; live Pub/Sub delivery pending. |
-| 8 | F4.1.7, F5.1, updated overall Sequences 6-7, CHANGE-055/061/063, ADR-010/013 | Requester may cancel own `OPEN` order; assigned courier may cancel own `ACCEPTED` order. Atomically commit each resulting status/checkpoint/receipt with its full-Order event; dispatch after commit and recover via cron. The Courier My Errands UI provides a confirmed cancel action for `ACCEPTED` only. | Backend outbox reliability tests pass in `mvn verify`. Frontend tests previously passed for action visibility, confirmation, versioned API request, API error feedback, and removal of `ABORTED` orders; live Pub/Sub/browser verification remains pending. |
+| 8 | F4.1.7, F5.1, updated overall Sequences 6-7, CHANGE-055/061/063/064, ADR-010/013/014 | Requester may cancel own `OPEN` order; assigned courier may cancel own `ACCEPTED` order. Before expiry, synchronous Credit hold confirmation precedes direct `ACCEPTED -> OPEN` with no event; at/after expiry transition to `ABORTED` and commit the full-Order event for refund/penalty. Completion and cancellation event dispatch uses the outbox. Courier UI removes reopened/aborted orders and reports resulting state. | Application tests verify hold-before-open, hold-failure no writes, and expired outbox without hold. Mock/HTTP adapter tests verify hold behavior. Frontend tests cover both returned states. Live Credit endpoint, Pub/Sub, and browser verification remain pending. |
 | 9 | F4.1.8, F10, NTH4 | Trusted trigger expires due unaccepted `OPEN` order | Implementation added; lifecycle verification pending |
 | 10 | NTH4 | Eligible expired order creates one linked `OPEN` repost after reservation | Implementation added; peer/idempotency verification pending |
 | 11 | NTH4 | Requester receives draft and submits one linked repost | Backend and responsive manual-repost UI added; peer/idempotency verification pending |
@@ -29,7 +29,7 @@ claimed from static builds or unit tests.
 - Manual repost is exposed only for a requester-owned `EXPIRED` order that has
   not already been reposted.
 - User identity/role/eligibility is obtained through approved User Service adapters.
-- Credit reservation is synchronous before an order or repost becomes `OPEN`.
+- Credit reservation is synchronous before an order or repost becomes `OPEN`; Credit hold/reset is synchronous before an unexpired accepted order can return to `OPEN`.
 - Commands and lifecycle triggers carry IDs; state changes carry expected versions.
 - Flyway migrations are the schema source of truth; Hibernate only validates.
 - Repost event publication remains deferred for Sprint 1; the updated overall design's three typed completion/cancellation events are a separate architecture update.
@@ -51,8 +51,9 @@ claimed from static builds or unit tests.
   CHANGE-063/ADR-013 records the approved transactional outbox: commit status/checkpoint/receipt
   and event intent together, then dispatch after commit with cron recovery. Delivery is at least
   once; consumer deduplication uses the stable event ID.
-  Credit reservation before `OPEN` and `evaluateOpenEntry` for same-order reopening remain
+  Credit reservation before `OPEN` and hold/reset before unexpired accepted-order reopening remain
   synchronous. CHANGE-054 provides the Pub/Sub producer; CHANGE-063 implements transactional state/outbox transitions.
+- CHANGE-064/ADR-014 and Sequence 7 document the deadline split: unexpired accepted cancellation waits on Credit and reopens, while expired cancellation publishes for Credit refund and User penalty. FEEDBACK-003 tracks the missing Credit endpoint.
 - The requested `*TaskPublisher` pairs, full resulting Order snapshot, topic placeholders, and
   transactional-outbox Sequence 5-7 diagrams are captured in CHANGE-053/054/056/063 and linked
   from Sprint indexes. No peer

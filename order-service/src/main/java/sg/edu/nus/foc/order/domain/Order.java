@@ -152,8 +152,20 @@ public class Order {
         }
     }
 
-    public void cancelAccepted(String actor, long expectedVersion) {
+    public void reopenAfterAcceptedCancellation(String actor, long expectedVersion, Instant now) {
         validateAcceptedCancellation(actor, expectedVersion);
+        if (!now.isBefore(expiresAt)) {
+            throw OrderProblem.conflict("Expired order cannot be reopened.");
+        }
+        status = OrderStatus.OPEN;
+        courierId = null;
+    }
+
+    public void abortAfterAcceptedCancellation(String actor, long expectedVersion, Instant now) {
+        validateAcceptedCancellation(actor, expectedVersion);
+        if (now.isBefore(expiresAt)) {
+            throw OrderProblem.conflict("Unexpired order must be reopened after Credit confirms the hold.");
+        }
         status = OrderStatus.ABORTED;
         courierId = null;
     }

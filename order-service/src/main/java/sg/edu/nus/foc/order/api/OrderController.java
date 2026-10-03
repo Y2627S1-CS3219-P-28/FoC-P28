@@ -204,7 +204,7 @@ public class OrderController {
                 authorization));
     }
 
-    @Operation(summary = "Cancel an accepted order and publish the cancellation event")
+    @Operation(summary = "Cancel an accepted order; reopen before expiry or publish cancellation after expiry")
     @PostMapping("/{id}/cancel-accepted")
     public OrderResponse cancelAccepted(
             @PathVariable String id,

@@ -84,6 +84,12 @@ classDiagram
     class OpenOrderCancellationTaskEvent
     class AcceptedOrderCancellationTaskEvent
     class OrderTransitionService
+    class CreditServicePort {
+        <<interface>>
+        +holdForReopen(commandId, orderId, requesterId, courierId, amount, expectedOrderVersion)
+    }
+    class MockPeerAdapters
+    class HttpPeerAdapters
     class OrderTaskEventFactory
     class OrderTaskEventMapper
     class OrderEventOutboxRepository {
@@ -131,6 +137,9 @@ classDiagram
     GoogleCloudPubSubEventPublisher ..|> IEventPublisher
     GoogleCloudPubSubEventPublisher --> GoogleCloudPubSubPublisherFactory
     OrderTransitionService --> OrderTaskEventFactory
+    OrderTransitionService --> CreditServicePort : synchronous hold before unexpired reopen
+    CreditServicePort <|.. MockPeerAdapters
+    CreditServicePort <|.. HttpPeerAdapters
     OrderTaskEventFactory --> OrderTaskEventMapper
     OrderTransitionService --> OrderEventOutboxRepository : transactional save
     OrderEventOutboxRepository <|.. OrderEventOutboxPersistenceAdapter
@@ -152,9 +161,9 @@ classDiagram
     OrderEventSnapshot --> RepostPlanSnapshot
     OrderCompletionTaskEvent --> CreditServiceConsumer
     OrderCompletionTaskEvent --> UserServiceConsumer
-    AcceptedOrderCancellationTaskEvent --> UserServiceConsumer
+    AcceptedOrderCancellationTaskEvent --> UserServiceConsumer : expired cancellation penalty
     OpenOrderCancellationTaskEvent --> CreditServiceConsumer
-    AcceptedOrderCancellationTaskEvent --> CreditServiceConsumer
+    AcceptedOrderCancellationTaskEvent --> CreditServiceConsumer : expired cancellation refund
 ```
 
 Each task publisher owns a topic placeholder to be filled later, as requested. `GoogleCloudPubSubEventPublisher` serializes the typed event as JSON, adds event metadata as Pub/Sub attributes, and waits for the Pub/Sub message ID before returning. Every outbox row stores the serialized post-transition event atomically with Order state, checkpoint, and command receipt. An after-commit listener attempts immediate dispatch; a cron scheduler recovers due rows. Claims use expiring leases and delivery uses bounded retry backoff. Delivery is at least once, so peer consumers must deduplicate the stable `eventId`. Cloud Run scale-to-zero/request-based CPU means cron recovery is not guaranteed while idle; no billing change is included. Peer consumers remain future work and are not modified here.

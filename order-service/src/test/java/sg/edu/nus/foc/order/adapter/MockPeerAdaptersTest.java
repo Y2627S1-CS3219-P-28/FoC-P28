@@ -37,6 +37,28 @@ class MockPeerAdaptersTest {
     }
 
     @Test
+    void holdsCreditForReopenWithoutRefundAndAllowsLaterSettlementOrRefund() {
+        peers.reserve("reopen-order", "requester-reopen", 7, null);
+
+        peers.holdForReopen("hold-1", "reopen-order", "requester-reopen", "courier", 7, 0, null);
+
+        assertEquals(new MockPeerAdapters.CreditSnapshot(50, 7, 43), peers.creditSnapshot("requester-reopen"));
+        assertEquals("HELD_FOR_REOPEN", peers.reservationState("reopen-order"));
+        assertDoesNotThrow(() -> peers.holdForReopen(
+                "hold-1", "reopen-order", "requester-reopen", "courier", 7, 0, null));
+        assertThrows(IllegalStateException.class, () -> peers.holdForReopen(
+                "hold-1", "reopen-order", "requester-reopen", "courier", 8, 0, null));
+        assertDoesNotThrow(() -> peers.settle(
+                "settle-after-reopen", "reopen-order", "requester-reopen", "courier", 7, 0, null));
+        assertEquals(new MockPeerAdapters.CreditSnapshot(43, 0, 43), peers.creditSnapshot("requester-reopen"));
+
+        peers.reserve("reopen-cancel-order", "requester-cancel", 4, null);
+        peers.holdForReopen("hold-cancel", "reopen-cancel-order", "requester-cancel", "courier", 4, 0, null);
+        peers.release("release-after-reopen", "reopen-cancel-order", "requester-cancel", 4, "EXPIRED", 0, null);
+        assertEquals(new MockPeerAdapters.CreditSnapshot(50, 0, 50), peers.creditSnapshot("requester-cancel"));
+    }
+
+    @Test
     void validatesIdentitySupplierAndReservationInputs() {
         assertThrows(IllegalArgumentException.class, () -> peers.verifyRequester("", null));
         assertThrows(IllegalArgumentException.class, () -> peers.verifyCourier(null, null));

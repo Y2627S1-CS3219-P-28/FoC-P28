@@ -80,6 +80,10 @@ class HttpPeerAdaptersTest {
         creditServer.expect(requestTo("/api/credits/orders/order/reservation"))
             .andExpect(method(org.springframework.http.HttpMethod.PUT))
             .andRespond(withSuccess());
+        creditServer.expect(requestTo("/api/credits/orders/order/hold-for-reopen"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json("{\"commandId\":\"hold\",\"requesterId\":\"requester\",\"courierId\":\"courier\",\"amount\":2,\"expectedOrderVersion\":0}"))
+                .andRespond(withSuccess());
         creditServer.expect(requestTo("/api/credits/orders/order/settlement"))
             .andExpect(method(org.springframework.http.HttpMethod.POST))
             .andRespond(withSuccess());
@@ -89,10 +93,29 @@ class HttpPeerAdaptersTest {
 
         adapters.validatePair("p", "d", null);
         adapters.reserve("order", "requester", 2, null);
+        adapters.holdForReopen("hold", "order", "requester", "courier", 2, 0, null);
         adapters.settle("settle", "order", "requester", "courier", 2, 0, null);
         adapters.release("release", "order", "requester", 2, "EXPIRED", 0, null);
 
         supplierServer.verify();
+        creditServer.verify();
+    }
+
+    @Test
+    void rejectsAcceptedButUnconfirmedCreditReopenHoldResponse() {
+        RestClient.Builder creditBuilder = RestClient.builder();
+        MockRestServiceServer creditServer = MockRestServiceServer.bindTo(creditBuilder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(),
+                RestClient.builder().build(),
+                creditBuilder.build());
+        creditServer.expect(requestTo("/api/credits/orders/order/hold-for-reopen"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.ACCEPTED));
+
+        assertThrows(IllegalStateException.class, () -> adapters.holdForReopen(
+                "hold", "order", "requester", "courier", 2, 0, "Bearer token"));
+
         creditServer.verify();
     }
 }

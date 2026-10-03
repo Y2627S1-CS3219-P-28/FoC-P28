@@ -23,6 +23,7 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
     private final Map<String, Reservation> reservations = new ConcurrentHashMap<>();
     private final Map<String, Outcome> outcomes = new ConcurrentHashMap<>();
+    private final Map<String, ReopenHold> reopenHolds = new ConcurrentHashMap<>();
 
     @Override
     public String verifyRequester(String userId, String authorization) {
@@ -119,6 +120,47 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     }
 
     @Override
+    public synchronized void holdForReopen(
+            String commandId,
+            String orderId,
+            String requesterId,
+            String courierId,
+            long amount,
+            long expectedOrderVersion,
+            String authorization) {
+        require(commandId, "credit command");
+        require(orderId, "order");
+        require(requesterId, "requester");
+        require(courierId, "courier");
+        requireAmount(amount);
+
+        Outcome previous = outcomes.get(commandId);
+        if (previous != null) {
+            ReopenHold priorHold = reopenHolds.get(commandId);
+            if (!previous.getOrderId().equals(orderId)
+                    || !previous.getKind().equals("HELD_FOR_REOPEN")
+                    || priorHold == null
+                    || !priorHold.matches(orderId, requesterId, courierId, amount, expectedOrderVersion)) {
+                throw new IllegalStateException("Credit command conflicts with an earlier outcome.");
+            }
+            return;
+        }
+
+        Reservation reservation = reservations.get(orderId);
+        if (reservation == null
+                || (reservation.getState() != ReservationState.RESERVED
+                    && reservation.getState() != ReservationState.HELD_FOR_REOPEN)
+                || !reservation.getRequesterId().equals(requesterId)
+                || reservation.getAmount() != amount) {
+            throw new IllegalStateException("Credit reservation does not match the order being reopened.");
+        }
+        reservations.put(orderId, new Reservation(requesterId, amount, ReservationState.HELD_FOR_REOPEN));
+        outcomes.put(commandId, new Outcome(orderId, "HELD_FOR_REOPEN"));
+        reopenHolds.put(commandId, new ReopenHold(
+                orderId, requesterId, courierId, amount, expectedOrderVersion));
+    }
+
+    @Override
     public synchronized void release(
             String commandId,
             String orderId,
@@ -174,7 +216,9 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     private void requireReservation(String orderId, String requesterId, long amount) {
         Reservation reservation = reservations.get(orderId);
-        if (reservation == null || reservation.getState() != ReservationState.RESERVED) {
+        if (reservation == null
+                || (reservation.getState() != ReservationState.RESERVED
+                    && reservation.getState() != ReservationState.HELD_FOR_REOPEN)) {
             throw new IllegalStateException("No active credit reservation exists for order.");
         }
         if (!reservation.getRequesterId().equals(requesterId)
@@ -216,8 +260,31 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
         ReservationState state;
     }
 
+    @Value
+    private static class ReopenHold {
+        String orderId;
+        String requesterId;
+        String courierId;
+        long amount;
+        long expectedOrderVersion;
+
+        private boolean matches(
+                String orderId,
+                String requesterId,
+                String courierId,
+                long amount,
+                long expectedOrderVersion) {
+            return this.orderId.equals(orderId)
+                    && this.requesterId.equals(requesterId)
+                    && this.courierId.equals(courierId)
+                    && this.amount == amount
+                    && this.expectedOrderVersion == expectedOrderVersion;
+        }
+    }
+
     private enum ReservationState {
         RESERVED,
+        HELD_FOR_REOPEN,
         SETTLED,
         RELEASED
     }

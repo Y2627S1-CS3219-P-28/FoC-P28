@@ -27,6 +27,7 @@ public class OrderTransitionService {
     private final OrderCheckpointRepository checkpoints;
     private final CommandReceiptRepository receipts;
     private final UserServicePort users;
+    private final CreditServicePort credits;
     private final OrderEventOutboxRepository outbox;
     private final ApplicationEventPublisher applicationEvents;
     private final OrderTaskEventFactory eventFactory;
@@ -126,8 +127,35 @@ public class OrderTransitionService {
 
         Order order = findForUpdate(id);
         order.validateAcceptedCancellation(authenticatedActor, version);
+        Instant cancellationRequestedAt = Instant.now();
+        if (cancellationRequestedAt.isBefore(order.getExpiresAt())) {
+            credits.holdForReopen(
+                    commandId + ":HOLD_FOR_REOPEN",
+                    order.getId(),
+                    order.getRequesterId(),
+                    authenticatedActor,
+                    order.getOfferedCredits(),
+                    version,
+                    authorization);
+
+            Instant reopenedAt = Instant.now();
+            if (reopenedAt.isBefore(order.getExpiresAt())) {
+                order.reopenAfterAcceptedCancellation(authenticatedActor, version, reopenedAt);
+                checkpoints.save(new OrderCheckpoint(
+                        order.getId(),
+                        OrderStatus.OPEN,
+                        reopenedAt,
+                        authenticatedActor,
+                        null));
+                Order saved = orders.save(order);
+                receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), reopenedAt));
+                audit.action("CANCEL_ACCEPTED", saved.getId(), authenticatedActor, commandId, "reopened");
+                return saved;
+            }
+        }
+
         Instant cancelledAt = Instant.now();
-        order.cancelAccepted(authenticatedActor, version);
+        order.abortAfterAcceptedCancellation(authenticatedActor, version, cancelledAt);
         checkpoints.save(new OrderCheckpoint(
                 order.getId(),
                 OrderStatus.ABORTED,

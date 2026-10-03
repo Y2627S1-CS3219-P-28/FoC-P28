@@ -34,14 +34,18 @@ The criteria below define expected behavior. CHANGE-063 tests include a PostgreS
 
 ## Updated overall Sequence 7 - Cancel ACCEPTED
 
-- Assigned courier changes `ACCEPTED` to `ABORTED`; clear assignment and commit checkpoint, receipt, and cancellation event intent atomically.
+- Only the courier whose authenticated ID matches `courierId` may cancel the `ACCEPTED` order.
+- Before `expiresAt`, Order synchronously calls Credit to hold/reset the existing transaction without refunding. A successful response must precede `ACCEPTED -> OPEN`; clear `courierId`, write an `OPEN` checkpoint and receipt, and publish no accepted-cancellation event.
+- If Credit rejects/fails, keep status `ACCEPTED`, retain the assignment, and write no checkpoint, receipt, or cancellation event.
+- At/after `expiresAt`, skip the hold, change `ACCEPTED -> ABORTED`, clear assignment, and atomically write checkpoint, receipt, and accepted-cancellation event intent.
+- If expiry passes during the synchronous Credit call, recheck after its response and use the expired event path rather than reopening.
+- The expired cancellation event asks Credit to refund and User to apply the courier cancellation penalty. The unexpired path has no subscribers because it publishes no event.
 - Requester and a different courier are forbidden; no event, checkpoint, receipt, or status write occurs.
-- An accepted cancellation requires the authenticated courier ID to match the order's `courierId`.
-- A Pub/Sub failure leaves the `ABORTED` transition committed and the event pending for retry.
+- A Pub/Sub failure leaves the expired `ABORTED` transition committed and the event pending for retry.
 - The after-commit listener attempts immediately; the cron recovery poller reclaims due pending or expired-lease entries.
 - A crash after broker acceptance may cause duplicate delivery; event ID remains stable.
-- In `USER` Courier mode, My Errands offers cancellation only for an `ACCEPTED` assigned errand, alongside the start action; requester mode and other statuses do not show it.
-- Require confirmation before calling `POST /api/orders/{id}/cancel-accepted` with the current actor and expected version. On success, remove the now-`ABORTED` order from My Errands; on API failure, retain it and show the existing error feedback.
+- In Courier mode, My Errands offers cancellation only for an `ACCEPTED` assigned errand, alongside the start action; requester mode and other statuses do not show it.
+- Require confirmation before calling `POST /api/orders/{id}/cancel-accepted` with the current actor and expected version. On success, remove either reopened (`OPEN`, no courier) or aborted order from the former courier's list and show a response-state-specific success message; on API failure, retain it and show the error.
 
 ## Courier ownership - Accept and progress
 

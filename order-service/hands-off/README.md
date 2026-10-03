@@ -12,6 +12,14 @@ authoritative files before changing code.
 
 ## Latest implementation handoff
 
+The current accepted-cancellation update is documented in
+[CHANGE-064](../changes/CHANGE-064-accepted-cancellation-reopen-or-event.md)
+and [ADR-014](../docs/decisions/ADR-014-accepted-cancellation-hybrid-flow.md).
+Before expiry, the assigned courier's cancellation waits for Credit to hold the
+transaction before reopening the order; at/after expiry, it uses the
+Credit-refund/User-penalty event. The older CHANGE-063 handoff below is historical
+for this flow and is superseded.
+
 Yao Xiang's 2026-10-03 transactional-outbox implementation summary for Vincent
 is in [CHANGE-063-transactional-outbox-to-vincent.md](CHANGE-063-transactional-outbox-to-vincent.md).
 It records the completion/cancellation event flow, implementation locations,

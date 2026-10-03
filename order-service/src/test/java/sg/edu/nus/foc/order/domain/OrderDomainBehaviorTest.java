@@ -102,8 +102,25 @@ class OrderDomainBehaviorTest {
                 () -> assertThrows(OrderProblem.class, () -> order.validateAcceptedCancellation("requester", 0)),
                 () -> assertThrows(OrderProblem.class, () -> order.validateAcceptedCancellation("other-courier", 0)));
 
-        order.cancelAccepted("courier", 0);
+        order.reopenAfterAcceptedCancellation("courier", 0, START.plusSeconds(2));
 
+        assertEquals(OrderStatus.OPEN, order.getStatus());
+        assertNull(order.getCourierId());
+    }
+
+    @Test
+    void acceptedCancellationAtExpiryMustAbortInsteadOfReopening() {
+        Instant expiresAt = START.plusSeconds(1800);
+        Order order = Order.open("requester", "item", "p", "d", 2, 15, START, expiresAt);
+        order.accept("courier", 0, START.plusSeconds(1));
+
+        OrderProblem reopenProblem = assertThrows(OrderProblem.class,
+                () -> order.reopenAfterAcceptedCancellation("courier", 0, expiresAt));
+        assertEquals("CONFLICT", reopenProblem.getCode());
+        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+        assertEquals("courier", order.getCourierId());
+
+        order.abortAfterAcceptedCancellation("courier", 0, expiresAt);
         assertEquals(OrderStatus.ABORTED, order.getStatus());
         assertNull(order.getCourierId());
     }

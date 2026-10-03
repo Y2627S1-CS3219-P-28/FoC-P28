@@ -7,6 +7,8 @@
 - **Change:** [CHANGE-063](../changes/CHANGE-063-transactional-outbox.md)
 - **Decision:** [ADR-013](../docs/decisions/ADR-013-transactional-outbox.md)
 
+> **Superseded for accepted-cancellation behavior:** [CHANGE-064](../changes/CHANGE-064-accepted-cancellation-reopen-or-event.md) / [ADR-014](../docs/decisions/ADR-014-accepted-cancellation-hybrid-flow.md) now require synchronous Credit hold then direct `ACCEPTED -> OPEN` before expiry, and the cancellation event only at/after expiry. The following handoff records the original CHANGE-063 milestone; use CHANGE-064 and the updated Sequence 7 for current behavior.
+
 ## What is implemented
 
 Completion and cancellation outcome events now use a transactional outbox. For each supported transition, Order Service writes the resulting Order, checkpoint, command receipt, and serialized full-Order event into PostgreSQL in the same transaction. A database rollback removes both the state change and its event intent.
@@ -19,7 +21,7 @@ The implemented event cases are:
 
 - **Completion:** every successful completion emits one `OrderCompletionTaskEvent`, whether on time or overdue. It carries the full resulting Order snapshot plus `overdue` and `overdueAt` facts. Credit and User consumers are assumed future work.
 - **OPEN cancellation:** requester cancellation emits `OpenOrderCancellationTaskEvent`; Credit is the assumed future consumer.
-- **Accepted-order cancellation:** the assigned courier transitions the order to `ABORTED` and emits `AcceptedOrderCancellationTaskEvent`; Credit and User are the assumed future consumers.
+- **Accepted-order cancellation at CHANGE-063 time:** the assigned courier transitioned the order to `ABORTED` and emitted `AcceptedOrderCancellationTaskEvent`; this rule is superseded by CHANGE-064.
 
 No separate overdue-completion event exists. Existing HTTP endpoint contracts are unchanged. Expiry/repost events and peer consumer implementations are outside this change.
 

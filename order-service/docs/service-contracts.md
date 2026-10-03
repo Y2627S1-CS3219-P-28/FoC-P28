@@ -1,6 +1,6 @@
 # Service Contracts
 
-These are logical approved contracts. CHANGE-053/054 approve complete Order snapshots, placeholder topics, and Google Cloud Pub/Sub. CHANGE-056 defines three event types; every completion uses one `OrderCompletionTaskEvent` with `overdue` and `overdueAt` facts. CHANGE-063/ADR-013 approves atomic Order/outbox persistence, after-commit dispatch, and cron recovery with at-least-once delivery.
+These are logical approved contracts. CHANGE-053/054 approve complete Order snapshots, placeholder topics, and Google Cloud Pub/Sub. CHANGE-056 defines three event types; every completion uses one `OrderCompletionTaskEvent` with `overdue` and `overdueAt` facts. CHANGE-063/ADR-013 approves atomic Order/outbox persistence, after-commit dispatch, and cron recovery with at-least-once delivery. CHANGE-064/ADR-014 adds a synchronous Credit hold before an unexpired accepted errand returns to `OPEN`; expired accepted cancellation remains event-driven.
 
 ## Order Service consumes
 
@@ -12,7 +12,7 @@ These are logical approved contracts. CHANGE-053/054 approve complete Order snap
 - `getRoleContext(userId)`: return requester/courier/admin role context.
 - `getCourierEligibility(userId)`: return whether a courier may accept new errands.
 - `getUserSummary(userId)`: minimal display identity for authorized views.
-- User consumes `AcceptedOrderCancellationTaskEvent`: evaluate cancellation policy from the full Order snapshot, actor, and event time.
+- User consumes `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation: apply the configured penalty to the cancelling courier (`actorId`). User does not subscribe to open cancellation.
 - User consumes `OrderCompletionTaskEvent` for every completion: use `overdue` and `overdueAt` to apply the configured penalty when late or decrease the score when on time. Penalty/score policy remains User-owned.
 - These are event subscriptions, not blocking Order-to-User requests. Payloads carry `eventId`, `eventVersion`, top-level `orderId`/`orderVersion`, the complete Order/repost/checkpoint snapshot, `actorId`, and `occurredAt`; consumers deduplicate at-least-once delivery.
 
@@ -24,10 +24,11 @@ These are logical approved contracts. CHANGE-053/054 approve complete Order snap
 ### Credit Service
 
 - `reserveCredits(orderId, requesterId, amount)`: reserve before an original or repost becomes `OPEN`.
-- `evaluateOpenEntry(orderId)`: future-sprint credit condition for `ABORTED` reopening.
-- Credit consumes `OpenOrderCancellationTaskEvent`: release the full reserved amount after a requester cancels an `OPEN` order.
-- Credit consumes `AcceptedOrderCancellationTaskEvent`: apply `ABORTED` rules, retain the reservation while same-order reopening remains possible, and release it when the order expires.
-- Credit consumes `OrderCompletionTaskEvent` for every completion and uses its overdue facts to settle according to the applicable overdue policy.
+- `holdForReopen(commandId, orderId, requesterId, courierId, amount, expectedOrderVersion)`: synchronously hold/reset the existing transaction without refunding it. Order waits for success before changing the accepted Order to `OPEN`; failure leaves it `ACCEPTED`.
+- Credit consumes `OpenOrderCancellationTaskEvent`: refund/release the reserved amount after requester cancellation of an `OPEN` order. User is not involved.
+- Credit consumes `AcceptedOrderCancellationTaskEvent` only when cancellation occurs at or after `expiresAt`: refund/release the reserved amount.
+- Credit consumes every `OrderCompletionTaskEvent`: transfer/settle the reserved credits to the courier.
+- Same-order direct `ACCEPTED -> OPEN` is distinct from prohibited `ABORTED -> OPEN`. The hold endpoint is missing from the inspected Credit API; see FEEDBACK-003.
 - `getReservationStatus(orderId)`: recovery/idempotency query after uncertain reservation responses.
 
 ## Order Service provides
@@ -53,4 +54,4 @@ Only contracts listed by the active sprint are implementable. See `sprints/sprin
 - Stable order, user, and supplier identifiers; never exchange database entities.
 - Distinct validation, unauthorized, not found, conflict, dependency unavailable, reservation rejection, and accepted-for-processing failures.
 - Event payloads contain event ID/version, order ID/version, actor IDs, event-specific facts, and occurred-at time without unnecessary private data.
-- For Sequences 5-7, Order commits state/checkpoint/receipt and event intent together, then dispatches after commit and retries due rows through cron. Order does not wait for peer-consumer replies. Delivery is at least once; consumers deduplicate stable event IDs. Future consumer guarantees are not verified by this Order-only milestone.
+- Completion, open cancellation, and expired accepted cancellation commit state/checkpoint/receipt and event intent together, then dispatch after commit and retry due rows through cron. For unexpired accepted cancellation, Order synchronously waits for Credit's hold confirmation before persisting `OPEN` and emits no cancellation event. Pub/Sub consumers are asynchronous; Order does not wait for event subscriber replies. Delivery is at least once; consumers deduplicate stable event IDs. Future consumer guarantees are not verified by this Order-only milestone.

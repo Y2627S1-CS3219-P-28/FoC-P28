@@ -5,6 +5,15 @@
 - Scope: Approved combined Order Service sequences/features 1-11 handoff
 - Branch: `order-service/sprint-1/yx-seq1-to-seq11`
 
+## Current task - accepted-cancellation hybrid flow (2026-10-03)
+
+- Request: assigned courier cancellation reopens an unexpired accepted errand only after synchronous Credit hold confirmation; expired cancellation remains event-driven. Clarify Credit/User subscriber actions and document the missing Credit API.
+- Workflow: Order Service hands-off/spec workflow, profile/work allocation/branch checks, peer feedback, architecture docs, and actual Credit/User APIs were inspected before coding. Yao Xiang is assigned Developer 1 on the combined sequences 1-11 branch.
+- Approval: user supplied and approved the behavior. No Credit or User source is changed. Shared frontend cancellation feedback/list behavior is included in this vertical slice.
+- Peer findings: Credit has reservation APIs but no hold/reset endpoint; neither peer has the requested event consumers. `FEEDBACK-003` records the proposed `POST /api/credits/orders/{orderId}/hold-for-reopen` contract. `FEEDBACK-002` now specifies each consumer action.
+- Implementation: Order adds direct `ACCEPTED -> OPEN` after successful synchronous mock/HTTP hold when still unexpired; failed hold writes no transition/checkpoint/receipt/event. Expired cancellation skips hold and atomically writes `ABORTED` plus accepted-cancellation outbox event. Completion/open/expired-accepted subscriber responsibilities are documented. No schema change is planned.
+- Verification: full Maven `verify` passed 107 tests with no failures/errors/skips and both JaCoCo gates passed. The focused cancellation/adapter suite passed 39 tests before a final HTTP-202 assertion; full verification includes the assertion. Frontend Vitest passed (11), typecheck passed, and ESLint passed for modified frontend files. Live Credit HTTP endpoint, Pub/Sub consumers, and browser verification remain pending external implementation/runtime.
+
 ## Feature status
 
 - [x] CHANGE-056 - Unify completion publication; 62 tests and coverage gates passed
@@ -95,7 +104,7 @@ The combined-branch handoff authorizes Yao Xiang to preserve and continue sequen
 - Source: Order Service only. No peer-service or frontend changes.
 - Verification: `mvn verify` passed all 62 tests and coverage gates; `git diff --check` passed and active-file scans found no overdue-only publisher or Sequence 8 diagram references. Peer consumers and live Pub/Sub delivery remain unverified.
 
-The implementation now uses Pub/Sub for completion and cancellation outcomes and derives overdue facts from checkpoint history. Accepted cancellation transitions to `ABORTED`; same-order reopening remains excluded under ADR-001. No schema migration was needed. Pub/Sub topic IDs remain placeholders and runtime publishing still requires valid topics/project credentials or a configured emulator.
+The implementation uses Pub/Sub for completion, open cancellation, and expired accepted-cancellation outcomes and derives overdue facts from checkpoint history. The accepted-cancellation rule in this earlier status note is superseded by CHANGE-064/ADR-014: before expiry, synchronous Credit hold precedes direct `ACCEPTED -> OPEN`; after expiry, the order becomes `ABORTED` and publishes. `ABORTED -> OPEN` remains excluded under ADR-001. No schema migration is needed. Pub/Sub topic IDs remain placeholders and runtime publishing still requires valid topics/project credentials or a configured emulator.
 
 ## Blockers
 
