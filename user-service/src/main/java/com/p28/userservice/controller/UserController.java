@@ -2,6 +2,7 @@ package com.p28.userservice.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -140,9 +141,19 @@ public class UserController {
     @Operation(summary = "Add user into database")
     @PostMapping
     public ResponseEntity<User> addUser(
-            @RequestBody AddUserRequest request) {
+            @RequestBody AddUserRequest request,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Missing or invalid Authorization header"
+            );
+        }
+        
+        String token = authorization.substring(7);
 
-        User user = userService.addUser(request);
+        User user = userService.addUser(request, token);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
@@ -190,35 +201,35 @@ public class UserController {
     }
 
     // PUT routes for order outcomes
-    @Operation(summary = "Update user penalty from normal completion")
-    @PutMapping("/{courierId}/outcome-completed")
-    public ResponseEntity<User> acceptCourierOutcomeCompleted(
-            @PathVariable String courierId) {
+    // @Operation(summary = "Update user penalty from normal completion")
+    // @PutMapping("/{courierId}/outcome-completed")
+    // public ResponseEntity<User> acceptCourierOutcomeCompleted(
+            // @PathVariable String courierId) {
 
-        return ResponseEntity.ok(
-            userService.acceptCourierOutcomeCompleted(courierId)
-        );
-    }
+        // return ResponseEntity.ok(
+            // userService.acceptCourierOutcomeCompleted(courierId)
+        // );
+    // }
 
-    @Operation(summary = "Update user penalty from normal completion")
-    @PutMapping("/{courierId}/outcome-aborted")
-    public ResponseEntity<User> acceptCourierOutcomeAborted(
-            @PathVariable String courierId) {
+    // @Operation(summary = "Update user penalty from normal completion")
+    // @PutMapping("/{courierId}/outcome-aborted")
+    // public ResponseEntity<User> acceptCourierOutcomeAborted(
+            // @PathVariable String courierId) {
 
-        return ResponseEntity.ok(
-            userService.acceptCourierOutcomeAborted(courierId)
-        );
-    }
+        // return ResponseEntity.ok(
+            // userService.acceptCourierOutcomeAborted(courierId)
+        // );
+    // }
 
-    @Operation(summary = "Update user penalty from normal completion")
-    @PutMapping("/{courierId}/outcome-overdue")
-    public ResponseEntity<User> acceptCourierOutcomeOverdue(
-            @PathVariable String courierId) {
+    // @Operation(summary = "Update user penalty from normal completion")
+    // @PutMapping("/{courierId}/outcome-overdue")
+    // public ResponseEntity<User> acceptCourierOutcomeOverdue(
+            // @PathVariable String courierId) {
 
-        return ResponseEntity.ok(
-            userService.acceptCourierOutcomeOverdue(courierId)
-        );
-    }
+        // return ResponseEntity.ok(
+            // userService.acceptCourierOutcomeOverdue(courierId)
+        // );
+    // }
 
     // DELETE /api/users/:id
     @Operation(summary = "Delete specified user from database")

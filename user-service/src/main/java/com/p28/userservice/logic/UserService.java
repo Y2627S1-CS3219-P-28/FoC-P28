@@ -5,9 +5,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
 import com.p28.userservice.model.User;
 import com.p28.userservice.repository.UserRepository;
@@ -17,11 +19,14 @@ import com.p28.userservice.authentication.FirebaseAuthService;
 public class UserService {
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
+    private final CreditServiceClient creditServiceClient;
 
     public UserService(UserRepository userRepository, 
-            FirebaseAuthService firebaseAuthService) {
+            FirebaseAuthService firebaseAuthService,
+            CreditServiceClient creditServiceClient) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
+        this.creditServiceClient = creditServiceClient;
     }
 
     public List<User> fetchAllUsers() {
@@ -59,20 +64,17 @@ public class UserService {
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
 
-        Date now = new Date();
+        Instant now = Instant.now();
 
         return new CourierElgibility(
                 !(user.getPenalty() >= 10
                 && user.getSuspensionEndDate() != null
-                && user.getSuspensionEndDate().after(now))
+                && user.getSuspensionEndDate().isAfter(now))
             );
     }
 
     public UserSummary getUserSummary(String userId) {
-        User user = userRepository
-                .findByUserId(userId)
-                .orElseThrow(() -> 
-                        new RuntimeException("User not found"));
+        User user = getUserByUserId(userId);
 
         return new UserSummary(
             user.getUsername(), 
@@ -84,7 +86,7 @@ public class UserService {
             user.getSuspensionEndDate());
     }
 
-    public User addUser(AddUserRequest request) {
+    public User addUser(AddUserRequest request, String token) {
         if (request.getUserId() == null ||
             request.getEmail() == null) {
 
@@ -103,7 +105,17 @@ public class UserService {
         user.setRoles(roles);
 
         try {
-            return userRepository.save(user);
+            UUID eventId = UUID.randomUUID();
+
+            User savedUser = userRepository.save(user);
+
+            // Add initial credits
+            creditServiceClient.registerUser(
+                token,
+                savedUser.getUserId(),
+                eventId);
+
+            return savedUser;
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
@@ -112,17 +124,14 @@ public class UserService {
     // Currently, users can only update their email and username
     // TODO: update password
     public User updateUser(String userId, UpdateUserRequest request) {
-        User user = userRepository
-                .findByUserId(userId)
-                .orElseThrow(() -> 
-                    new RuntimeException("User not found"));
+        User user = getUserByUserId(userId);
 
         String email = request.getEmail();
         String username = request.getUsername();
 
         if (email != null && !email.equals(user.getEmail())) {
-            firebaseAuthService.updateUserEmail(userId, email);
             user.setEmail(email);
+            firebaseAuthService.updateUserEmail(userId, email);
         }
 
         if (username != null) {
@@ -139,60 +148,69 @@ public class UserService {
         userRepository.delete(user);
     }
 
-    public User acceptCourierOutcomeCompleted(String courierId) {
-        User courier = userRepository
-                .findByUserId(courierId)
-                .orElseThrow(() -> 
-                        new RuntimeException("Courier not found"));
+    // public User acceptCourierOutcomeCompleted(String courierId) {
+       // User courier = getUserByUserId(courierId);
 
-        int newPenalty = courier.getPenalty() - 2;
+       // adjustPenalty(courier, -1);
+
+       // return userRepository.save(courier);
+    // }
+
+    // public User acceptCourierOutcomeAborted(String courierId) {
+       // User courier = getUserByUserId(courierId);
+
+        // adjustPenalty(courier, 2);
+
+        // return userRepository.save(courier);
+    // }
+
+    public void verifyIdentity(Object accessContext) {
+        // TODO: implement
+    }
+
+    // Single method to update a user's penalty
+    // Accepts negative and positive penalty.
+    public User adjustPenalty(String userId, int penalty) {
+        User user = getUserByUserId(userId);
+        int newPenalty = user.getPenalty() + penalty;
+        System.out.println(String.format("Penalty is %d", newPenalty));
 
         if (newPenalty < 0) {
             newPenalty = 0;
         }
 
-        courier.setPenalty(newPenalty);
-
-        return userRepository.save(courier);
-    }
-
-    public User acceptCourierOutcomeOverdue(String courierId) {
-        User courier = userRepository
-                .findByUserId(courierId)
-                .orElseThrow(() -> 
-                        new RuntimeException("Courier not found"));
-
-        int newPenalty = courier.getPenalty() + 1;
-
         if (newPenalty >= 10) {
             newPenalty = 10;
 
-            // TODO: apply suspension
+            // Applies suspension
+            System.out.println(String.format("Applying suspension to user %s", user.getEmail()));
+
+            List<String> roles = user.getRoles();
+            roles.remove("courier");
+            user.setRoles(roles);
+            user.setIsCourierSuspended(true);
+            user.setSuspensionEndDate(Instant.now().plus(1, ChronoUnit.MONTHS));
         }
 
-        courier.setPenalty(newPenalty);
+        user.setPenalty(newPenalty);
 
-        return userRepository.save(courier);
+        return userRepository.save(user);
     }
 
-    public User acceptCourierOutcomeAborted(String courierId) {
-        User courier = userRepository.findByUserId(courierId)
-                .orElseThrow(() -> new RuntimeException("Courier not found"));
+    private User refreshSuspensionStatus(User user) {
+        if (user.getIsCourierSuspended()
+                && user.getSuspensionEndDate() != null
+                && Instant.now().isAfter(user.getSuspensionEndDate())) {
 
-        int newPenalty = courier.getPenalty() + 2;
+            user.setIsCourierSuspended(false);
+            user.setSuspensionEndDate(null);
+            List<String> roles = user.getRoles();
+            roles.add("courier");
+            user.setRoles(roles);
 
-        if (newPenalty >= 10) {
-            newPenalty = 10;
-
-            // TODO: apply suspension
+            return userRepository.save(user);
         }
 
-        courier.setPenalty(newPenalty);
-
-        return userRepository.save(courier);
-    }
-
-    public void verifyIdentity(Object accessContext) {
-        // TODO: implement
+        return user;
     }
 }
