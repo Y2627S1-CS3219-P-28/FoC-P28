@@ -66,3 +66,8 @@ Only contracts listed by the active sprint are implementable. See `sprints/sprin
 ## UI time selection and background cadence
 
 CHANGE-077/ADR-022 restricts Requester creation/repost UI clock minutes to 00/15/30/45 and rounds suggestions upward. It does not add a backend/API quarter-hour constraint or change ISO timestamp/event fields. Expiry scans all DB-due OPEN unassigned orders every 15 minutes, outbox recovery runs hourly, and 48-hour delivered auto-completion stays every minute. Every committed outcome still attempts immediate publication. These intervals are defaults rather than guaranteed delivery/expiry SLAs, especially under the existing Cloud Run idle CPU settings.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

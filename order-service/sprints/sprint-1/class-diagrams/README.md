@@ -20,3 +20,8 @@ CHANGE-068/ADR-017 adds `CreditServicePort.assignCourier` to the acceptance path
 ## Updated overall-design publisher classes
 
 See [updated-overall/publisher-class-diagram.md](updated-overall/publisher-class-diagram.md) for the event-specific publisher interfaces, matching implementations, outbox repository/relay, and recovery scheduler. Sequence 5 uses one completion event with overdue facts for both consumers. Per CHANGE-067/ADR-016, event snapshots omit checkpoint history while retaining resulting Order/repost fields. CHANGE-053/054/056/063 define event metadata, Google Cloud Pub/Sub, atomic outbox persistence, after-commit dispatch, and at-least-once retry; CHANGE-073/ADR-021 defines the real-cloud dev/prod topic and credential setup.
+
+
+## Central authorization — CHANGE-079 / ADR-024
+
+See [updated-overall/order-authorization.md](updated-overall/order-authorization.md) for the production token/role annotation boundary and reuse of verified caller facts. This applies across the existing human API flows; locked Order ownership, state and scheduler/system paths remain.

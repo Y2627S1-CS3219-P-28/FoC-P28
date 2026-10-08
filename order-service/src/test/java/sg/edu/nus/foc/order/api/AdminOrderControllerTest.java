@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import sg.edu.nus.foc.order.api.dto.response.OrderPageResponse;
 import sg.edu.nus.foc.order.api.mapper.OrderMapper;
@@ -65,9 +66,10 @@ class AdminOrderControllerTest {
 
     @Test
     void endpointRequiresTheAdminAuthority() throws NoSuchMethodException {
-        PreAuthorize authorization = AdminOrderController.class
-                .getMethod("listOrders", OrderStatus.class, org.springframework.data.domain.Pageable.class)
-                .getAnnotation(PreAuthorize.class);
+        PreAuthorize authorization = AnnotatedElementUtils.findMergedAnnotation(
+                AdminOrderController.class.getMethod(
+                        "listOrders", OrderStatus.class, org.springframework.data.domain.Pageable.class),
+                PreAuthorize.class);
 
         assertNotNull(authorization);
         assertEquals("hasRole('ADMIN')", authorization.value());

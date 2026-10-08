@@ -44,4 +44,6 @@ classDiagram
     SecurityConfiguration --> FirebaseRoleAuthoritiesConverter
 ```
 
-`@PreAuthorize("hasRole('ADMIN')")` protects the controller operation. Database access stays in the infrastructure adapter. The User Service remains authoritative for roles; the mock implementation is restricted to local/mock configuration.
+`@RequireAdminRole` (a Spring `@PreAuthorize` meta-annotation) protects the controller operation. Database access stays in the infrastructure adapter. The User Service remains authoritative for roles; the mock implementation is restricted to local/mock configuration.
+
+Under CHANGE-079/ADR-024, production defaults to HTTP User Service roles independently of sibling mock settings. See order-authorization.md for the shared authorization components.

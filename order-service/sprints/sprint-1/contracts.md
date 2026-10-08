@@ -44,3 +44,8 @@ The updated publisher pairs and method names are diagrammed in CHANGE-053/056. T
 - Exact operational monitoring/alerting thresholds for repeated outbox delivery failures.
 - Topic/subscription names, event versioning, deduplication, retry/dead-letter monitoring, and subscriber authentication.
 - PostgreSQL schema, identifier types, timestamps, and version representation.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

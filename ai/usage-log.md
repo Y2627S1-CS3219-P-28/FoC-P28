@@ -1571,3 +1571,58 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** User supplied a RoleAspect/SecurityHelper/BaseSecurityHelper reference and requested a recommendation for clean API methods with centralized role annotations for courier, requester, and admin.
 - **Key response:** Read the entire supplied reference and current Order/User security implementation. Confirmed the reference checks existing SecurityContext roles and its User cache serves display names. Recommended three Spring Security meta-annotations with central verified actor/role context, token-based User role lookup, complete role-set membership, separate courier eligibility, and locked Order ownership guards. Called out current mock Spring-role versus HTTP application-verification mode so checks are not accidentally removed. Proposed design is unapproved/unimplemented.
 - **Author verification:** Human review is pending. AI inspected repository/reference/official Spring documentation and ran a review-record whitespace check; no tests, live authentication calls, source edits, or deployment occurred.
+
+
+## Contextual role annotations implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Architecture refinement, implementation, testing, verification and documentation
+- **Affected locations:** Order Service API/security/adapters, application-prod.yaml, authorization tests, ADR-024/CHANGE-079/ARCH-EVO-026, context/Sprint/contracts/diagrams/README/handoff/active-work/indexes; Order-specific .env.example setting. No sibling service or frontend source changes.
+- **Prompt:** Yeah We need do based on our context. The file provided previously is just for reference. Cuz in every endpoint eventually we need call the suer service to verify the role regardless it is the admin endpoint anot so we can wrap in the annotation
+- **Key response:** Implemented requester/courier/admin Spring role meta-annotations and shared-read policy; production defaults to real User Service roles once per request and validates response identity against verified JWT subject. Reuses confirmed roles in adapters, preserving local mock identities, fresh courier eligibility and locked ownership guards. Added traditional role DTO and fail-closed JSON 403/503 handling. Initial tests exposed three authorization failures; refined focused 37 tests pass, full suite has 134 passes and six skipped Docker PostgreSQL checks. Fresh coverage 91.21% lines/82.19% branches and configured 80% gate pass. Git diff check passes; live peer/cloud verification was not performed.
+- **Author verification:** The developer selected the contextual annotation architecture and production User Service verification; AI assisted source comparison and implementation. Original PDFs remain absent; approved Markdown and actual User endpoints inspected. Human code review, hosted Docker checks and live deployment verification remain pending; no commit/push/deployment performed.
+
+
+## Courier eligibility and locked ownership explanation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Source inspection and explanation
+- **Affected locations:** order-service/docs/active-work/yao-xiang.md and ai/usage-log.md; application source inspected only
+- **Prompt:** Courier eligibility and locked order ownership checks remain separate. (what this means
+- **Key response:** Distinguished confirmed courier role, current User Service eligibility and per-order ownership/state guards under the transaction row lock. Explained that another courier cannot act on an assigned order and a suspended courier can retain the role while failing eligibility. Acceptance retains its separate unassigned OPEN-order checks. No application behavior changed; no tests or live calls run.
+- **Author verification:** Explanation checked against current HttpPeerAdapters, OrderAssignmentService, OrderTransitionService and Order aggregate. Existing approved architecture retained; human review of the explanation is pending.
+
+
+## Authorization change scope explanation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Source review and explanation
+- **Affected locations:** Order Service source/tests/design records and active-work review; no new source modifications this turn
+- **Prompt:** Tell me what have u done for error checking and why need change so many files. When u just create a wrapper
+- **Key response:** Explained the meta-annotations/controller placements, production switch from mock to actual User Service roles, identity re-use, retained courier eligibility/locked ownership, 401/403/503 mapping, related tests and required architecture records. Clarified the implementation exceeds a wrapper-only code change because the user requested real User Service role verification on every production API request.
+- **Author verification:** Compared the current working-tree diff and source behavior. Developer review of whether to reduce this scope remains open; no files were reverted or behavior changed during the explanation.
+
+
+## Previous production authentication behavior explanation (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Source review and explanation
+- **Affected locations:** Order Service security configuration, role providers, controllers, peer adapters, environment configuration and active-work notes; no application code changed
+- **Prompt:** Previously before your changes how the endpoint do authentication in prod
+- **Key response:** Explained that the committed baseline required Firebase JWT authentication for non-public production routes. Authorities in the security filter came from the mock role provider configured in the deployment env (requester/courier defaults and ADMIN email allowlist). Specific application operations separately called User Service via HTTP for requester/courier identity and eligibility; AdminOrderController used an ADMIN role preauthorization. Local profile permitted requests.
+- **Author verification:** Compared committed source and staging/production environment configuration. No tests or live service calls were run.
+
+
+## Staging/production real-peer configuration review (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Configuration and peer-source inspection; advisory answer
+- **Affected locations:** Deployment workflows/script/env files, Order configuration/adapters, Supplier role configuration and Credit/User routes reviewed; Order active-work and this disclosure updated
+- **Prompt:** When we put the project on stage or deploy on prod, will it automatically use all the actual endpoint and set up all the thing when we stage. We dont have to do extra stuff. Cuz those mock should only be used locally for testing
+- **Key response:** Explained automatic deployment wiring (prod profile, HTTP peers and current Order HTTP role default, environment URLs, Cloud SQL/secret injection, attached runtime identity and dev/prod topics). Identified shared USER_SERVICE_MODE=mock still enabling Supplier mock roles, missing Credit assignment/hold endpoints and Credit/User event consumers, and the recorded scheduling limitation. HTTP mode has no automatic mock fallback. Deploy health checks cannot establish full end-to-end readiness.
+- **Author verification:** Read current repository configurations and peer source. No live deployment, cloud permissions/subscriptions, or end-to-end tests verified. No application or infrastructure configuration modified; user review of deployment readiness remains pending.

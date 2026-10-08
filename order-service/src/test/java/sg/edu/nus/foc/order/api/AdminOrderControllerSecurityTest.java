@@ -74,6 +74,20 @@ class AdminOrderControllerSecurityTest {
     }
 
     @Test
+    void administratorRoleAlsoComesFromUserServiceForTheVerifiedToken() throws Exception {
+        org.springframework.security.oauth2.jwt.Jwt caller = org.springframework.security.oauth2.jwt.Jwt
+                .withTokenValue("admin-token").header("alg", "RS256").subject("admin").build();
+        when(jwtDecoder.decode("admin-token")).thenReturn(caller);
+        when(roleProvider.rolesFor(caller)).thenReturn(java.util.Set.of(sg.edu.nus.foc.order.security.Role.ADMIN));
+        when(queries.allOrders(null, 0, 20)).thenReturn(new OrderPage(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get("/api/orders").header("Authorization", "Bearer admin-token"))
+                .andExpect(status().isOk());
+
+        verify(roleProvider).rolesFor(caller);
+    }
+
+    @Test
     void statusFilterIsBoundAndLargePageSizeIsCapped() throws Exception {
         when(queries.allOrders(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt()))

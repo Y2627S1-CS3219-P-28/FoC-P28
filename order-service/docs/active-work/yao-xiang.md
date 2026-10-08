@@ -1,5 +1,33 @@
 # Yao Xiang - Sprint 1 Active Work
 
+## Current request - explain authorization change scope (2026-10-08)
+
+- Request: explain error handling and why the central role-annotation change touched many files. Advisory review only; no code change requested.
+- Workflow: reloaded mandatory context, developer profile/branch, and inspected current role annotations, role provider, caller helper, adapters, security filters, handlers, tests and the 33 tracked diff paths.
+- Findings: the annotations/controller placements are the wrapper itself. The broader Order-only change makes production roles come from User Service HTTP (the previous config used mock roles), validates role-context identity, reuses the same verified request principal in adapters, retains fresh courier eligibility and local mock access, and maps 401/403/503 errors. Tests and architecture/workflow documentation were updated under the Order Service process.
+- Assessment: the broad scope is explained by the requested production role source and project workflow, but it is more than a wrapper-only implementation. No source changes made during this explanation.
+- Verification: source/diff inspection only; no tests run this turn. Existing uncommitted implementation remains intact.
+
+
+## Current request - explain separate eligibility and ownership guards (2026-10-08)
+
+- Request: explain what preserving separate courier eligibility and locked Order ownership checks means after the annotation refactor. Explanation only; no behavior change.
+- Workflow: reloaded 58 mandatory instruction/context/Sprint/decision records, developer profile/combined branch and live adapter/application/domain guards. Existing pending implementation preserved; original PDFs remain unavailable as previously recorded.
+- Findings: annotations check confirmed role membership. HttpPeerAdapters still calls User Service courier-eligibility independently. Application methods lock the Order before aggregate guards compare the actor to its assigned courier or original requester and validate status/version. A valid courier role cannot authorize another courier's assigned order, and suspension can make a courier ineligible even when the role remains. Acceptance has separate OPEN/unassigned/non-self acceptance rules.
+- Verification/status: inspected current source; explanation complete. No source, API, architecture, diagram, test or configuration changes; no tests/live peer calls executed this turn. Only this work record and AI disclosure updated.
+
+
+## Current request - contextual role annotations (2026-10-08)
+
+- User approved implementation of centralized User Service role verification and role annotations in our context. ADR-024 / CHANGE-079 record the detailed design before source changes.
+- Scope: Order Service only plus authorized AI disclosure; local anonymous/mock behavior, HTTP courier eligibility, locked ownership guards, internal schedulers and API DTOs remain. Production Order-specific role lookup uses HTTP; shared sibling role configuration is untouched.
+- Workflow: mandatory context and frontend baseline inspected; developer/profile/combined branch match. Original source PDFs remain absent; effective approved Markdown contracts apply. User role/eligibility source matches the existing contract; live peer verification remains pending.
+- Implementation: three command role meta-annotations plus a shared-read role annotation; production HTTP roles once per request, response identity validation, central typed JWT caller guard, fresh courier eligibility, generic 403 and dependency 503. Traditional top-level role DTO; application/domain locked ownership guards, API/event schema and local/system behavior preserved.
+- Verification: initial 7-test run had three expected failures; refined focused 37 tests pass. Full suite: 140 tests, zero failures/errors, six Docker-dependent PostgreSQL checks skipped (named-pipe access denied), 134 passed. Fresh coverage: 91.21% lines / 82.19% branches; configured 80% check passes after aligning the local check with fresh execution data. OpenAPI and diff checks pass.
+- Persistent updates: ADR-024 / CHANGE-079 / ARCH-EVO-026, context/TOML, requirements/contracts/acceptance/traceability, architecture, class/sequence diagrams, README/handoff/indexes and AI usage. Root .env.example only receives an Order-specific setting/note. Frontend and sibling source/config remain unchanged.
+- Status: source implementation and local non-Docker verification complete, uncommitted for review; no push/deploy requested. Live User role/eligibility calls, production admin provisioning and the six Docker checks remain unverified.
+
+
 ## Current request - supplied RoleAspect reference review (2026-10-08)
 
 - Request: assess the supplied RoleAspect/SecurityHelper/BaseSecurityHelper example and recommend centralized role annotations so API methods contain application delegation instead of authentication code. Advisory-only follow-up; implementation is not requested.
@@ -376,3 +404,19 @@ The implementation uses Pub/Sub for completion, open cancellation, and expired a
 - Verification: `mvn -B -ntp '-Dmaven.repo.local=target/m2-repository' verify` passed 102 tests with zero failures/errors/skips; JaCoCo line and branch gates passed. PostgreSQL Testcontainers checks exercise Flyway from clean and V1 schemas, Hibernate validation, `FOR UPDATE SKIP LOCKED`, persisted publish/retry state, and atomic rollback of Order plus outbox intent. `git diff --check` passed.
 - Operational note: Cloud Run currently scales to zero with request-based CPU; a Spring scheduler cannot provide continuous recovery under that setting. No cost-affecting deployment change is authorized; this will be reported as a remaining deployment decision.
 - Handoff: prepared `hands-off/CHANGE-063-transactional-outbox-to-vincent.md` for Vincent and linked it from `hands-off/README.md`. It summarizes the three event flows, implementation locations, 102-test verification, consumer deduplication requirement, Cloud Run cron limitation, retained-row growth, and the uncommitted-worktree caution. Vincent's active-work record was not edited.
+
+
+## Previous production authentication behavior — 2026-10-08
+
+Reviewed the committed pre-refactor security configuration and current production environment settings to explain how authentication and role checks previously worked. Production required a valid Firebase JWT globally; Spring authorities came from the configured mock role provider in the staging/production env files, with ADMIN granted by the configured email allowlist. Separately, selected requester/courier application operations used the HTTP User Service adapter for identity, role, and courier eligibility checks. Local profile permitted requests. No source behavior changed.
+
+
+## Staging/production real-peer configuration review — 2026-10-08
+
+- Request: confirm whether staging/production automatically uses actual endpoints and reserves mocks for local testing.
+- Context: parent/service instructions, Order workflow skill, profile/allocation, active Sprint 1 documents, architecture/contracts/traceability/decisions and AI disclosure context loaded. Yao Xiang, combined sequences 1–11 on the user-approved branch order-service/sprint-1/yx-seq1-to-seq11; the historical allocation mismatch is already covered by the branch-specific approval. Referenced PDF/image sources remain absent, so their fingerprints cannot be rechecked.
+- Review started: tracing environment rendering, service URLs/identity and conditional adapter selection; preserving pending CHANGE-079 source/configuration work.
+
+- Outcome: deployment automatically renders real peer URLs, sets SPRING_PROFILES_ACTIVE=prod and ORDER_PEERS_MODE=http, injects Cloud SQL configuration/password secret, and attaches foc-order-service@protean-vigil-509704-q4.iam.gserviceaccount.com. Pending CHANGE-079 application-prod.yaml defaults Order role lookup to HTTP despite the shared USER_SERVICE_MODE=mock. Staging uses dev topics and production prod topics; local ADC is not used by Cloud Run.
+- Gaps: shared staging/production role mode remains mock (confirmed Supplier consumes it); mock adapters are selected by flags rather than strictly excluded by prod. Credit courier-assignment and hold-for-reopen routes and Credit/User Pub/Sub consumers remain missing from inspected source. HTTP mode does not fall back to the mock. Successful health checks do not verify these peer flows. The existing idle Cloud Run scheduling limitation remains recorded.
+- Verification: inspected deploy workflows/script/templates, Order configurations/adapter conditions, Supplier role configuration, actual Credit/User routes and source searches for consumers. No live deployment, tests, cloud IAM or subscription validation was performed. Source artifacts remain unavailable for fingerprint checks. No application/infrastructure behavior changed; only this record and the AI usage disclosure were updated.

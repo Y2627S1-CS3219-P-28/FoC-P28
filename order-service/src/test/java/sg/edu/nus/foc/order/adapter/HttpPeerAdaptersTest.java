@@ -29,7 +29,7 @@ class HttpPeerAdaptersTest {
 
         assertEquals("requester", adapters.verifyRequester("requester", "Bearer token"));
         assertEquals("courier", adapters.verifyCourier("courier", "Bearer token"));
-        assertThrows(IllegalStateException.class, () -> adapters.verifyRequester("requester", "Bearer token"));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> adapters.verifyRequester("requester", "Bearer token"));
         userServer.verify();
     }
 
@@ -40,7 +40,7 @@ class HttpPeerAdaptersTest {
         HttpPeerAdapters adapters = new HttpPeerAdapters(userBuilder.build(), RestClient.builder().build(), RestClient.builder().build());
         userServer.expect(requestTo("/api/users/courier-eligibility"))
             .andRespond(withSuccess("{\"isCourierEligible\":false}", MediaType.APPLICATION_JSON));
-        assertThrows(IllegalStateException.class, () -> adapters.verifyCourier("courier", "Bearer token"));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> adapters.verifyCourier("courier", "Bearer token"));
         userServer.verify();
     }
 
@@ -60,11 +60,55 @@ class HttpPeerAdaptersTest {
         userServer.expect(requestTo("/api/users/role-context"))
             .andRespond(withSuccess("{\"userId\":\"courier\",\"roles\":[\"courier\"]}", MediaType.APPLICATION_JSON));
 
-        assertThrows(IllegalStateException.class, () -> adapters.verifyRequester("requester", null));
-        assertThrows(IllegalStateException.class, () -> adapters.verifyRequester("requester", null));
-        assertThrows(IllegalStateException.class, () -> adapters.verifyRequester("requester", null));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> adapters.verifyRequester("requester", null));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> adapters.verifyRequester("requester", null));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> adapters.verifyRequester("requester", null));
         assertEquals("courier", adapters.verifyCourier("courier", null));
         userServer.verify();
+    }
+
+    @Test
+    void productionCallerReusesConfirmedRolesButStillChecksCourierEligibility() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                builder.build(), RestClient.builder().build(), RestClient.builder().build());
+        org.springframework.security.oauth2.jwt.Jwt caller = org.springframework.security.oauth2.jwt.Jwt
+                .withTokenValue("token").header("alg", "RS256").subject("u1").build();
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authentication =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                        caller, java.util.List.of(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_REQUESTER"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_COURIER")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            server.expect(requestTo("/api/users/courier-eligibility"))
+                    .andRespond(withSuccess("{\"isCourierEligible\":true}", MediaType.APPLICATION_JSON));
+
+            assertEquals("u1", adapters.verifyRequester("u1", "Bearer token"));
+            assertEquals("u1", adapters.verifyCourier("u1", "Bearer token"));
+            assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class,
+                    () -> adapters.verifyRequester("other", "Bearer token"));
+            server.verify();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void courierEligibilityDependencyFailureIsReportedAsUnavailable() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                builder.build(), RestClient.builder().build(), RestClient.builder().build());
+        server.expect(requestTo("/api/users/courier-eligibility")).andRespond(withServerError());
+
+        sg.edu.nus.foc.order.domain.OrderProblem problem = assertThrows(
+                sg.edu.nus.foc.order.domain.OrderProblem.class,
+                () -> adapters.verifyCourier("courier", "Bearer token"));
+
+        assertEquals("SERVICE_UNAVAILABLE", problem.getCode());
+        server.verify();
     }
 
     @Test

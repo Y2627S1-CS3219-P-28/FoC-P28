@@ -1,14 +1,18 @@
 package sg.edu.nus.foc.order.adapter;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+
 import lombok.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+
 import sg.edu.nus.foc.order.application.CreditServicePort;
 import sg.edu.nus.foc.order.application.SupplierServicePort;
 import sg.edu.nus.foc.order.application.UserServicePort;
+import sg.edu.nus.foc.order.security.Role;
+import sg.edu.nus.foc.order.security.VerifiedOrderCaller;
 
 /** Local-only peer adapter with an in-memory credit reservation lifecycle. */
 @Component
@@ -18,6 +22,7 @@ import sg.edu.nus.foc.order.application.UserServicePort;
         havingValue = "mock",
         matchIfMissing = true)
 public class MockPeerAdapters implements UserServicePort, SupplierServicePort, CreditServicePort {
+
     private static final long INITIAL_CREDITS = 50;
 
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
@@ -26,6 +31,7 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     @Override
     public String verifyRequester(String userId, String authorization) {
+        userId = VerifiedOrderCaller.identityFor(Role.REQUESTER, userId).orElse(userId);
         require(userId, "requester");
         account(userId);
         return userId;
@@ -33,6 +39,7 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     @Override
     public String verifyCourier(String userId, String authorization) {
+        userId = VerifiedOrderCaller.identityFor(Role.COURIER, userId).orElse(userId);
         require(userId, "courier");
         account(userId);
         return userId;

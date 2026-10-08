@@ -49,6 +49,23 @@ class HttpUserServiceRoleProviderTest {
         server.verify();
     }
 
+    @Test
+    void rejectsRoleContextForAnotherIdentityOrMissingFields() {
+        for (String body : List.of(
+                "{\"userId\":\"other\",\"roles\":[\"admin\"]}",
+                "{\"userId\":\"u1\",\"roles\":null}",
+                "{}")) {
+            RestClient.Builder builder = RestClient.builder().baseUrl("http://user-service");
+            MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+            server.expect(requestTo(ROLE_CONTEXT_URL))
+                    .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+            HttpUserServiceRoleProvider provider = new HttpUserServiceRoleProvider(builder.build());
+
+            assertThrows(RoleLookupException.class, () -> provider.rolesFor(jwt()));
+            server.verify();
+        }
+    }
+
     private Jwt jwt() {
         return Jwt.withTokenValue("verified-token").header("alg", "none").subject("u1").build();
     }

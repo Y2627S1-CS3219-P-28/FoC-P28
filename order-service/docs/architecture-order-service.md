@@ -60,3 +60,8 @@ The updated overall design supersedes the previous generic outcome/synchronous c
 The shared frontend QuarterHourDateTimePicker owns local date/hour/quarter-minute presentation; orders helpers own rounding and client validation; Post Request/RepostControls coordinate the existing authenticated API calls. Order application/domain layers retain API validation and authoritative deadlines. No backend class dependencies or data-model fields change.
 
 OrderExpiryScheduler uses a 15-minute default, OrderOutboxScheduler recovers pending events hourly, and OrderAutoCompletionScheduler remains minute-based. Immediate outbox dispatch and repository DB cutoff/locking remain unchanged. Legacy/direct API deadlines can wait for the next expiry pass; a failed publish may wait nearly an hour for recovery while the service is running. See CHANGE-078 for the current cadence and Cloud Run scale-to-zero limitation.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

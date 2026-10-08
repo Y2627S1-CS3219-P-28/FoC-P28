@@ -28,3 +28,8 @@ These diagrams reflect event-specific publisher pairs, resulting Order/repost fi
 
 
 CHANGE-077/ADR-022 updates scheduling notes: expiry every 15 minutes, pending-event recovery hourly (ADR-023), auto-completion every minute; immediate after-commit publication and all sequence interactions remain. CHANGE-073/076 configure actual dev/prod topic destinations; older placeholder/emulator references are historical.
+
+
+## Central authorization — CHANGE-079 / ADR-024
+
+See [updated-overall/order-authorization.md](updated-overall/order-authorization.md) for the production token/role annotation boundary and reuse of verified caller facts. This applies across the existing human API flows; locked Order ownership, state and scheduler/system paths remain.

@@ -117,3 +117,8 @@ For any later approved frontend slice, follow `docs/frontend-integration-workflo
 - Expiry cron's next pass after 10:01 is 10:15, including rollover to the next hour; recovery's next pass is 10:05; auto-completion's next pass after 10:01:20 is 10:02.
 - Immediate dispatch is still attempted after commit, and cron only recovers failures/interrupted deliveries. Legacy due timestamps remain eligible through the existing DB <= cutoff query.
 - Validate the shared UI at 320-1920px with existing design tokens, date/hour/minute labels, keyboard/touch selection, and no overflow. Browser verification is pending when no browser is connected; component tests alone do not prove responsiveness.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

@@ -96,3 +96,13 @@ Requester creation and repost date/time controls use local clock minutes 00, 15,
 | ORDER_AUTO_COMPLETION_CRON | 0 * * * * * | Complete DELIVERED orders at least 48 hours old every minute |
 
 Publication is attempted immediately after the transaction commits; the hourly outbox cron only recovers missed/failed attempts. A failed publish may wait nearly an hour for recovery while the service is running; Cloud Run scale-to-zero may delay it further. Existing/direct API deadlines can wait until the next expiry pass for status/refund processing. Availability/acceptance checks continue to enforce the actual deadline. Override these variables in local .env or the deployment environment file if needed. Cloud Run's current scale-to-zero/request-based CPU does not guarantee Spring scheduling while idle.
+
+## Role authorization
+
+With the prod Spring profile, every authenticated API request validates the Firebase token and resolves roles through User Service before reaching the controller. RequireRequesterRole protects create/complete/open cancellation/repost operations; RequireCourierRole protects accept/start/pickup/deliver/accepted cancellation; RequireAdminRole protects the all-orders query. Shared reads use RequireOrderRole for any recognized role. /mine additionally verifies its selected requester/courier mode and caller ID.
+
+Production uses GET /api/users/role-context with the caller's verified token and requires its userId to match JWT subject. The confirmed role set is reused for that request, while courier eligibility is still checked separately. Orders retain ownership/state checks under their row locks. Missing tokens produce 401; missing roles or forged actor IDs produce 403; role/eligibility dependency failures produce 503.
+
+The production Order-specific variable ORDER_USER_SERVICE_MODE defaults to http and takes precedence over the shared USER_SERVICE_MODE mock configuration. Explicit mock overrides are for controlled tests only. Production administrators need admin in their stored User Service roles; MOCK_ADMIN_EMAILS has no effect in HTTP mode. Ensure USER_SERVICE_URL points to the deployed User Service and the caller has a registered User profile.
+
+The default local/non-production profile remains anonymous: role annotations are inactive, mock peers use the supplied per-user actor IDs, and local HTTP peers continue their existing token-based User Service checks. Swagger assets remain public; scheduler/system flows keep their existing separate authorization. See ADR-024 and the shared authorization diagrams for details.

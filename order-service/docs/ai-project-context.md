@@ -198,3 +198,8 @@ CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order ca
 ## Current time-selection and scheduler defaults (CHANGE-077 / ADR-022)
 
 USER Requester creation/repost clock minutes are 00/15/30/45; local defaults/minimum suggestions round up, with at least 30 minutes before expiry. API callers and existing rows retain arbitrary valid timestamps. Expiry runs every 15 minutes; pending outbox recovery hourly under ADR-023; delivered auto-completion every minute with the unrounded delivered checkpoint. Immediate after-commit publication stays active. Configuration is synchronized across application defaults, Compose, .env.example and both cloud environment files/template. Browser/Cloud Run idle scheduling remain unverified; scale-to-zero/request CPU limits are unchanged.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

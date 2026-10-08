@@ -1,7 +1,8 @@
 package sg.edu.nus.foc.order.adapter;
 
+import java.util.Optional;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,14 +15,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+
 import sg.edu.nus.foc.order.adapter.dto.CreditCourierAssignmentRequest;
 import sg.edu.nus.foc.order.application.CreditServicePort;
 import sg.edu.nus.foc.order.application.SupplierServicePort;
 import sg.edu.nus.foc.order.application.UserServicePort;
+import sg.edu.nus.foc.order.domain.OrderProblem;
+import sg.edu.nus.foc.order.security.dto.UserRoleContextResponse;
+import sg.edu.nus.foc.order.security.Role;
+import sg.edu.nus.foc.order.security.VerifiedOrderCaller;
 
 @Component
 @ConditionalOnProperty(name = "order.peers.mode", havingValue = "http")
 public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, CreditServicePort {
+
     private final RestClient user;
     private final RestClient supplier;
     private final RestClient credit;
@@ -45,31 +53,41 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     @Override
     public String verifyRequester(String id, String authorization) {
-        UserRoleContext context = call(
+        Optional<String> verifiedIdentity = VerifiedOrderCaller.identityFor(Role.REQUESTER, id);
+        if (verifiedIdentity.isPresent()) {
+            return verifiedIdentity.get();
+        }
+
+        UserRoleContextResponse context = call(
                 user,
                 "/api/users/role-context",
                 authorization,
-                UserRoleContext.class);
+                UserRoleContextResponse.class);
         requireMatchingRole(context, id, "requester");
         return context.getUserId();
     }
 
     @Override
     public String verifyCourier(String id, String authorization) {
+        Optional<String> verifiedIdentity = VerifiedOrderCaller.identityFor(Role.COURIER, id);
         CourierEligibility eligibility = call(
                 user,
                 "/api/users/courier-eligibility",
                 authorization,
                 CourierEligibility.class);
         if (eligibility == null || !eligibility.isCourierEligible()) {
-            throw new IllegalStateException("Courier is not eligible to accept orders.");
+            throw OrderProblem.forbidden("Courier is not eligible to perform this action.");
         }
 
-        UserRoleContext context = call(
+        if (verifiedIdentity.isPresent()) {
+            return verifiedIdentity.get();
+        }
+
+        UserRoleContextResponse context = call(
                 user,
                 "/api/users/role-context",
                 authorization,
-                UserRoleContext.class);
+                UserRoleContextResponse.class);
         requireMatchingRole(context, id, "courier");
         return context.getUserId();
     }
@@ -155,11 +173,15 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
             String path,
             String authorization,
             Class<T> responseType) {
-        return client.get()
-                .uri(path)
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
-                .retrieve()
-                .body(responseType);
+        try {
+            return client.get()
+                    .uri(path)
+                    .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
+                    .retrieve()
+                    .body(responseType);
+        } catch (RestClientException exception) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "User Service verification is unavailable.");
+        }
     }
 
     private static String authorizationHeader(String authorization) {
@@ -167,7 +189,7 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     }
 
     private static void requireMatchingRole(
-            UserRoleContext context,
+            UserRoleContextResponse context,
             String requestedId,
             String role) {
         if (context == null
@@ -176,7 +198,7 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
                 || !context.getUserId().equals(requestedId)
                 || context.getRoles() == null
                 || context.getRoles().stream().noneMatch(value -> role.equalsIgnoreCase(value))) {
-            throw new IllegalStateException(
+            throw OrderProblem.forbidden(
                     "Authenticated user does not match the requested " + role + " identity.");
         }
     }
@@ -208,15 +230,6 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
         private String requesterId;
         private String courierId;
         private long amount;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class UserRoleContext {
-        private String userId;
-        private List<String> roles;
     }
 
     @Getter

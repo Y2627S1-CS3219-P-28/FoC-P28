@@ -1,26 +1,29 @@
 package sg.edu.nus.foc.order.api;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
-import org.springframework.http.ResponseEntity;
+
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
 import sg.edu.nus.foc.order.api.dto.response.ErrorDetailResponse;
 import sg.edu.nus.foc.order.api.dto.response.ErrorResponse;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 @RestControllerAdvice
 public class OrderExceptionHandler {
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> forbidden(
             AccessDeniedException exception,
             HttpServletRequest request) {
-        return response(403, "FORBIDDEN", "Administrator access is required.", request, List.of());
+        return response(403, "FORBIDDEN", "The required role is missing.", request, List.of());
     }
 
     @ExceptionHandler(OrderProblem.class)

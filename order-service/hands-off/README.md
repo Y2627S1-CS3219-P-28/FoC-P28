@@ -484,3 +484,8 @@ This handoff is complete when the receiving developer can reproduce the
 current branch, identify every mock/real boundary, communicate the open Credit
 contract, and continue toward production-level Sprint 1 verification without
 changing peer-owned source.
+
+
+## CHANGE-079 authorization handoff
+
+Human command APIs now declare requester/courier/admin role annotations; shared reads accept any recognized role. Production role lookup defaults to real User Service via ORDER_USER_SERVICE_MODE=http, independently of the shared mock mode. Before deployment, ensure admin users have stored admin roles and USER_SERVICE_URL is valid. Local !prod anonymous/mock behavior and system scheduler paths remain. The adapter reuses verified JWT subject/roles and retains fresh courier eligibility and locked ownership guards. See ADR-024 and the shared authorization diagrams. Verification results are recorded in CHANGE-079.

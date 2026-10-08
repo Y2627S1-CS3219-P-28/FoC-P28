@@ -3,25 +3,26 @@ package sg.edu.nus.foc.order.security;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import sg.edu.nus.foc.order.api.dto.response.ErrorResponse;
-import sg.edu.nus.foc.order.api.dto.response.ErrorDetailResponse;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Writes JSON 401/403 responses and fail-closed 503 role-provider failures. */
-public class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDeniedHandler {
-    private final JsonMapper mapper;
+import sg.edu.nus.foc.order.api.dto.response.ErrorDetailResponse;
+import sg.edu.nus.foc.order.api.dto.response.ErrorResponse;
 
-    public JsonSecurityHandlers(JsonMapper mapper) {
-        this.mapper = mapper;
-    }
+/** Writes JSON 401/403 responses and fail-closed 503 role-provider failures. */
+@RequiredArgsConstructor
+public class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDeniedHandler {
+
+    private final JsonMapper mapper;
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
@@ -45,7 +46,7 @@ public class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDen
         write(response, new ErrorResponse(
                 403,
                 "FORBIDDEN",
-                "Administrator access is required.",
+                "The required role is missing.",
                 request.getRequestURI(),
                 Instant.now(),
                 List.<ErrorDetailResponse>of()));

@@ -16,13 +16,16 @@ import org.springframework.data.web.config.PageableHandlerMethodArgumentResolver
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler;
 import org.springframework.web.client.RestClient;
 import sg.edu.nus.foc.order.security.EmulatorJwtDecoder;
 import sg.edu.nus.foc.order.security.FirebaseRoleAuthoritiesConverter;
@@ -59,6 +62,9 @@ public class SecurityConfiguration {
             HttpSecurity http,
             JwtAuthenticationConverter jwtAuthenticationConverter,
             JsonSecurityHandlers handlers) throws Exception {
+        AuthenticationEntryPointFailureHandler failureHandler = new AuthenticationEntryPointFailureHandler(handlers);
+        failureHandler.setRethrowAuthenticationServiceException(false);
+
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -66,10 +72,18 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth -> oauth
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
-                        .authenticationEntryPoint(handlers)
-                        .accessDeniedHandler(handlers))
+                .oauth2ResourceServer(oauth -> {
+                    oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                            .authenticationEntryPoint(handlers)
+                            .accessDeniedHandler(handlers);
+                    oauth.addObjectPostProcessor(new ObjectPostProcessor<BearerTokenAuthenticationFilter>() {
+                        @Override
+                        public <O extends BearerTokenAuthenticationFilter> O postProcess(O filter) {
+                            filter.setAuthenticationFailureHandler(failureHandler);
+                            return filter;
+                        }
+                    });
+                })
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers));

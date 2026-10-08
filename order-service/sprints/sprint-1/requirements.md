@@ -79,3 +79,8 @@ This file narrows implementation planning; Project D1 and ADR-001 remain authori
 - This is a UI selection/validation rule; API timestamp shapes and existing/direct API arbitrary valid deadlines remain supported. Availability and acceptance enforce the actual expiry time independently of the scheduler.
 - Default Spring expiry cron is 0 */15 * * * *; outbox recovery cron is 0 0 * * * * under ADR-023; delivered auto-completion remains 0 * * * * *. Immediate after-commit dispatch remains mandatory.
 - Local/cloud configuration must expose the same defaults. Due selection stays in PostgreSQL; no full-table/in-memory filtering. See ADR-022.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.

@@ -28,3 +28,5 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 | [ADR-007](ADR-007-per-turn-completion-reporting.md) | Accepted | Requires one auditable completion-report baseline for every Order Service turn while allowing meaningful scenario-specific sections |
 
 Create a new ADR for a later decision; do not rewrite historical decisions without recording their supersession.
+
+- [ADR-024: Central role annotations](ADR-024-central-role-annotations.md) — accepted; production User roles, per-request identity/role reuse, local split.

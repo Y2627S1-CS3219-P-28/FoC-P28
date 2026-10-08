@@ -151,3 +151,13 @@ outbox_recovery_cron = "0 0 * * * *"
 auto_completion_cron = "0 * * * * *"
 immediate_after_commit_dispatch = true
 existing_deadlines_rounded = false
+
+[approved_role_annotations]
+decision = "ADR-024 / CHANGE-079"
+annotations = ["RequireRequesterRole", "RequireCourierRole", "RequireAdminRole", "RequireOrderRole"]
+production_role_mode = "ORDER_USER_SERVICE_MODE defaults to http independently of shared USER_SERVICE_MODE"
+role_source = "GET /api/users/role-context using verified Firebase caller token; response userId must match JWT subject"
+role_reuse = "current request only; no cross-request cache"
+local_authentication_required = false
+courier_eligibility = "fresh HTTP check retained when HTTP peers selected"
+order_ownership = "existing locked domain guards retained"

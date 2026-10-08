@@ -39,3 +39,5 @@ sequenceDiagram
 ```
 
 The endpoint is a synchronous query. An absent status includes every status. User Service lookup failure fails closed with 503; invalid status/page binding returns 400. Public pages are one-based, default to page 1/size 20, and page size is capped at 100.
+
+CHANGE-079/ADR-024 uses RequireAdminRole on this operation. Production role lookup defaults to HTTP and verifies response userId == JWT subject; mock email grants no longer apply to the default production configuration. See [order-authorization.md](order-authorization.md).

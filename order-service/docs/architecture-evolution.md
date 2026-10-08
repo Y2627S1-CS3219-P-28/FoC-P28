@@ -746,3 +746,11 @@ Update each affected artifact or record an explicit blocker. A feature cannot be
 Use the per-turn response contract in `docs/completion-reporting.md`. Under `Design Decisions`, include the discovery classification, approval status, approver when known, current effective rule, alternatives, and trade-offs. Under `Affected Artifacts`, identify every applicable link in the synchronized design chain. Report stale artifacts, pending approval, blockers, and required human review under `Remaining Issues`.
 
 The required report is an audit baseline, not the entire response. Add meaningful architecture-proposal, migration, compatibility, rollback, decision, or next-step sections when the current scenario benefits from them. Do not create a separate Markdown file only for the response; update the persistent records that actually changed.
+
+
+## ARCH-EVO-026: Central role annotations
+
+- Classification: approved architecture refinement, 2026-10-08; ADR-024 / CHANGE-079.
+- Supersedes duplicated production action role-context calls and production mock-role default for Order only.
+- User explicitly requested contextual centralized annotations. Use standard Spring method security; no handwritten RoleAspect, no role ordering, no cross-request authorization cache. Token verification/roles precede annotations; adapters verify client identity and keep fresh courier eligibility. Domain ownership remains under lock. Local/system flows unchanged.
+- Source PDFs remain unavailable; effective approved Markdown and actual User role/eligibility source inspected.

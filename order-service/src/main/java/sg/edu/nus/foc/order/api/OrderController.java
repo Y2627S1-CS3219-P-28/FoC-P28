@@ -1,10 +1,11 @@
 package sg.edu.nus.foc.order.api;
 
+import java.time.Instant;
+import java.util.Map;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
-import java.time.Instant;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
 import sg.edu.nus.foc.order.api.dto.request.CreateOrderRequest;
 import sg.edu.nus.foc.order.api.dto.request.ManualRepostRequest;
 import sg.edu.nus.foc.order.api.dto.request.OrderActorRequest;
@@ -34,14 +36,18 @@ import sg.edu.nus.foc.order.application.UserServicePort;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 import sg.edu.nus.foc.order.domain.OrderStatus;
-import sg.edu.nus.foc.order.domain.RepostPlan;
 import sg.edu.nus.foc.order.domain.repository.OrderPage;
+import sg.edu.nus.foc.order.domain.RepostPlan;
+import sg.edu.nus.foc.order.security.annotation.RequireCourierRole;
+import sg.edu.nus.foc.order.security.annotation.RequireOrderRole;
+import sg.edu.nus.foc.order.security.annotation.RequireRequesterRole;
 
 @RestController
 @RequestMapping("/api/orders")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class OrderController {
+
     private final OrderCreationService creation;
     private final OrderAssignmentService assignment;
     private final OrderTransitionService transitions;
@@ -57,6 +63,7 @@ public class OrderController {
 
     @Operation(summary = "Create an order and reserve credits")
     @PostMapping
+    @RequireRequesterRole
     public OrderResponse create(
             @Valid @RequestBody CreateOrderRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -84,12 +91,14 @@ public class OrderController {
 
     @Operation(summary = "Get an order by ID")
     @GetMapping("/{id}")
+    @RequireOrderRole
     public OrderResponse get(@PathVariable String id) {
         return orderMapper.toResponse(queries.get(id));
     }
 
     @Operation(summary = "List available open orders")
     @GetMapping("/available")
+    @RequireOrderRole
     public OrderPageResponse available(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -98,6 +107,7 @@ public class OrderController {
 
     @Operation(summary = "List orders for the authenticated requester or courier")
     @GetMapping("/mine")
+    @RequireOrderRole
     public OrderPageResponse mine(
             @RequestParam String mode,
             @RequestParam String userId,
@@ -122,6 +132,7 @@ public class OrderController {
 
     @Operation(summary = "Accept an available order as a courier")
     @PostMapping("/{id}/accept")
+    @RequireCourierRole
     public OrderResponse accept(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -136,6 +147,7 @@ public class OrderController {
 
     @Operation(summary = "Start an accepted order")
     @PostMapping("/{id}/start")
+    @RequireCourierRole
     public OrderResponse start(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -150,6 +162,7 @@ public class OrderController {
 
     @Operation(summary = "Mark an order as picked up")
     @PostMapping("/{id}/pickup")
+    @RequireCourierRole
     public OrderResponse pickup(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -164,6 +177,7 @@ public class OrderController {
 
     @Operation(summary = "Mark an order as delivered")
     @PostMapping("/{id}/deliver")
+    @RequireCourierRole
     public OrderResponse deliver(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -178,6 +192,7 @@ public class OrderController {
 
     @Operation(summary = "Confirm completion and publish the completion event")
     @PostMapping("/{id}/complete")
+    @RequireRequesterRole
     public OrderResponse complete(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -192,6 +207,7 @@ public class OrderController {
 
     @Operation(summary = "Cancel an open order and publish the cancellation event")
     @PostMapping("/{id}/cancel")
+    @RequireRequesterRole
     public OrderResponse cancel(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -206,6 +222,7 @@ public class OrderController {
 
     @Operation(summary = "Cancel an accepted order; reopen before expiry or publish cancellation after expiry")
     @PostMapping("/{id}/cancel-accepted")
+    @RequireCourierRole
     public OrderResponse cancelAccepted(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
@@ -220,6 +237,7 @@ public class OrderController {
 
     @Operation(summary = "Reject legacy post-creation repost configuration")
     @PostMapping("/{id}/repost/configure")
+    @RequireRequesterRole
     public OrderResponse configure(
             @PathVariable String id,
             @Valid @RequestBody RepostConfigurationRequest request,
@@ -240,6 +258,7 @@ public class OrderController {
 
     @Operation(summary = "Get a manual repost draft for an expired order")
     @GetMapping("/{id}/repost-draft")
+    @RequireRequesterRole
     public RepostDraftResponse draft(
             @PathVariable String id,
             @RequestParam String actorId,
@@ -264,6 +283,7 @@ public class OrderController {
 
     @Operation(summary = "Create a requester-reviewed repost")
     @PostMapping("/{id}/repost")
+    @RequireRequesterRole
     public OrderResponse repost(
             @PathVariable String id,
             @Valid @RequestBody ManualRepostRequest request,
