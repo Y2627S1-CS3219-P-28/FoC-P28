@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { useSupplierNames } from "@/hooks/use-supplier-names"
-import { orderMinePath, type Order, type OrderPage } from "@/lib/orders"
+import { orderMinePath, updateRequesterOrderList, type Order, type OrderPage } from "@/lib/orders"
 
 export default function MyRequestsPage() {
   const api = useApi()
@@ -40,7 +40,7 @@ export default function MyRequestsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
-  function replace(updated: Order) { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)) }
+  function replace(updated: Order) { setOrders((current) => updateRequesterOrderList(current, updated)) }
 
   return (
     <RequireAuth>

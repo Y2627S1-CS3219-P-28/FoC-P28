@@ -13,6 +13,7 @@ export type OrderStatus =
 
 export type Order = {
   id: string
+  attemptId?: string | null
   requesterId: string
   courierId: string | null
   itemDescription: string
@@ -159,9 +160,17 @@ export function formatOrderStatus(status: OrderStatus): string {
 
 export function updateCourierOrderList(orders: Order[], updated: Order): Order[] {
   if (updated.status === "ABORTED" || (updated.status === "OPEN" && updated.courierId === null)) {
-    return orders.filter((order) => order.id !== updated.id)
+    return orders.filter((order) => order.attemptId || order.id !== updated.id)
   }
 
+  return orders.map((order) => !order.attemptId && order.id === updated.id ? updated : order)
+}
+
+export function updateRequesterOrderList(orders: Order[], updated: Order): Order[] {
+  if (updated.originalOrderId) {
+    return [updated, ...orders.filter((order) => order.id !== updated.id &&
+      !(order.id === updated.originalOrderId && order.status === "EXPIRED"))]
+  }
   return orders.map((order) => order.id === updated.id ? updated : order)
 }
 
