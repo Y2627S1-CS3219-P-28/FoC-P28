@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/order_service_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:order_dev}
+    password: ${SPRING_DATASOURCE_PASSWORD:local_dev_only}
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    clean-disabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/orders/v3/api-docs
+  swagger-ui:
+    path: /api/orders/docs
+
+order:
+  security:
+    auth:
+      project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
+      emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+    user-service:
+      mode: ${USER_SERVICE_MODE:mock}
+      base-url: ${USER_SERVICE_URL:http://localhost:8081}
+      mock-admin-emails: ${MOCK_ADMIN_EMAILS:}
+      timeout: ${USER_SERVICE_TIMEOUT:3s}
+  peers:
+    mode: ${ORDER_PEERS_MODE:mock}
+    user-url: ${USER_SERVICE_URL:http://localhost:8081}
+    supplier-url: ${SUPPLIER_SERVICE_URL:http://localhost:8082}
+    credit-url: ${CREDIT_SERVICE_URL:http://localhost:8084}
+  lifecycle-token: ${ORDER_LIFECYCLE_TOKEN:local-lifecycle}
+  messaging:
+    project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
+    publish-timeout: 10s
+    outbox:
+      recovery-cron: ${ORDER_OUTBOX_RECOVERY_CRON:0 0 * * * *}
+      batch-size: ${ORDER_OUTBOX_BATCH_SIZE:50}
+    topics:
+      order-completion: ${ORDER_COMPLETION_TOPIC:order-completion-dev-v1}
+      open-order-refund: ${ORDER_OPEN_REFUND_TOPIC:open-order-refund-dev-v1}
+      accepted-order-cancellation: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:accepted-order-cancellation-dev-v1}
+  lifecycle:
+    expiry-cron: ${ORDER_EXPIRY_CRON:0 */15 * * * *}
+    auto-completion-cron: ${ORDER_AUTO_COMPLETION_CRON:0 * * * * *}

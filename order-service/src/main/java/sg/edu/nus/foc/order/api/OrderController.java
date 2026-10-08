@@ -1,0 +1,323 @@
+package sg.edu.nus.foc.order.api;
+
+import java.time.Instant;
+import java.util.Map;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import sg.edu.nus.foc.order.api.dto.request.CreateOrderRequest;
+import sg.edu.nus.foc.order.api.dto.request.ManualRepostRequest;
+import sg.edu.nus.foc.order.api.dto.request.OrderActorRequest;
+import sg.edu.nus.foc.order.api.dto.request.RepostConfigurationRequest;
+import sg.edu.nus.foc.order.api.dto.response.OrderPageResponse;
+import sg.edu.nus.foc.order.api.dto.response.OrderResponse;
+import sg.edu.nus.foc.order.api.dto.response.RepostDraftResponse;
+import sg.edu.nus.foc.order.api.mapper.OrderMapper;
+import sg.edu.nus.foc.order.application.LifecycleProcessingService;
+import sg.edu.nus.foc.order.application.OrderAssignmentService;
+import sg.edu.nus.foc.order.application.OrderCreationService;
+import sg.edu.nus.foc.order.application.OrderQueryService;
+import sg.edu.nus.foc.order.application.OrderRepostService;
+import sg.edu.nus.foc.order.application.OrderTransitionService;
+import sg.edu.nus.foc.order.application.UserServicePort;
+import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.domain.OrderProblem;
+import sg.edu.nus.foc.order.domain.OrderStatus;
+import sg.edu.nus.foc.order.domain.repository.OrderPage;
+import sg.edu.nus.foc.order.domain.RepostPlan;
+import sg.edu.nus.foc.order.security.annotation.RequireCourierRole;
+import sg.edu.nus.foc.order.security.annotation.RequireOrderRole;
+import sg.edu.nus.foc.order.security.annotation.RequireRequesterRole;
+
+@RestController
+@RequestMapping("/api/orders")
+@SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
+public class OrderController {
+
+    private final OrderCreationService creation;
+    private final OrderAssignmentService assignment;
+    private final OrderTransitionService transitions;
+    private final OrderQueryService queries;
+    private final OrderRepostService reposts;
+    private final LifecycleProcessingService lifecycle;
+    private final UserServicePort users;
+    private final OrderMapper orderMapper;
+
+    @Value("${order.lifecycle-token}")
+    @Setter
+    private String lifecycleToken;
+
+    @Operation(summary = "Create an order and reserve credits")
+    @PostMapping
+    @RequireRequesterRole
+    public OrderResponse create(
+            @Valid @RequestBody CreateOrderRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        RepostPlan repostPlan = request.isAutomaticRepost()
+                ? new RepostPlan(
+                        true,
+                        request.getRepostDueAt(),
+                        request.getRepostCreditAmount(),
+                        request.getRepostDeliveryDurationMinutes())
+                : null;
+
+        Order order = creation.create(
+                request.getCommandId(),
+                request.getRequesterId(),
+                request.getItemDescription(),
+                request.getPickupSupplierId(),
+                request.getDeliverySupplierId(),
+                request.getOfferedCredits(),
+                request.getDeliveryTimeLimitMinutes(),
+                request.getExpiresAt(),
+                repostPlan,
+                authorization);
+        return orderMapper.toResponse(order);
+    }
+
+    @Operation(summary = "Get an order by ID")
+    @GetMapping("/{id}")
+    @RequireOrderRole
+    public OrderResponse get(@PathVariable String id) {
+        return orderMapper.toResponse(queries.get(id));
+    }
+
+    @Operation(summary = "List available open orders")
+    @GetMapping("/available")
+    @RequireOrderRole
+    public OrderPageResponse available(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return orderMapper.toResponse(queries.available(page - 1, size));
+    }
+
+    @Operation(summary = "List orders for the authenticated requester or courier")
+    @GetMapping("/mine")
+    @RequireOrderRole
+    public OrderPageResponse mine(
+            @RequestParam String mode,
+            @RequestParam String userId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        OrderPage orders = switch (mode.toLowerCase()) {
+            case "requester" -> {
+                String authenticatedUser = users.verifyRequester(userId, authorization);
+                yield queries.requestedBy(authenticatedUser, page - 1, size);
+            }
+            case "courier" -> {
+                String authenticatedUser = users.verifyCourier(userId, authorization);
+                yield queries.courierFor(authenticatedUser, page - 1, size);
+            }
+            default -> throw new OrderProblem(
+                    "VALIDATION_ERROR",
+                    "Mode must be requester or courier.");
+        };
+        return orderMapper.toResponse(orders);
+    }
+
+    @Operation(summary = "Accept an available order as a courier")
+    @PostMapping("/{id}/accept")
+    @RequireCourierRole
+    public OrderResponse accept(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(assignment.accept(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Start an accepted order")
+    @PostMapping("/{id}/start")
+    @RequireCourierRole
+    public OrderResponse start(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.start(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Mark an order as picked up")
+    @PostMapping("/{id}/pickup")
+    @RequireCourierRole
+    public OrderResponse pickup(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.pickup(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Mark an order as delivered")
+    @PostMapping("/{id}/deliver")
+    @RequireCourierRole
+    public OrderResponse deliver(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.deliver(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Confirm completion and publish the completion event")
+    @PostMapping("/{id}/complete")
+    @RequireRequesterRole
+    public OrderResponse complete(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.complete(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Cancel an open order and publish the cancellation event")
+    @PostMapping("/{id}/cancel")
+    @RequireRequesterRole
+    public OrderResponse cancel(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.cancel(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Cancel an accepted order; reopen before expiry or publish cancellation after expiry")
+    @PostMapping("/{id}/cancel-accepted")
+    @RequireCourierRole
+    public OrderResponse cancelAccepted(
+            @PathVariable String id,
+            @Valid @RequestBody OrderActorRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(transitions.cancelAccepted(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                authorization));
+    }
+
+    @Operation(summary = "Reject legacy post-creation repost configuration")
+    @PostMapping("/{id}/repost/configure")
+    @RequireRequesterRole
+    public OrderResponse configure(
+            @PathVariable String id,
+            @Valid @RequestBody RepostConfigurationRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        RepostPlan repostPlan = new RepostPlan(
+                request.isEnabled(),
+                request.getDueAt(),
+                request.getCreditAmount(),
+                request.getDeliveryDurationMinutes());
+        return orderMapper.toResponse(reposts.configure(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                repostPlan,
+                authorization));
+    }
+
+    @Operation(summary = "Get a manual repost draft for an expired order")
+    @GetMapping("/{id}/repost-draft")
+    @RequireRequesterRole
+    public RepostDraftResponse draft(
+            @PathVariable String id,
+            @RequestParam String actorId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String authenticatedActor = users.verifyRequester(actorId, authorization);
+        Order order = queries.get(id);
+        if (!order.getRequesterId().equals(authenticatedActor)) {
+            throw OrderProblem.forbidden("Only the requester may view the draft.");
+        }
+        if (order.getStatus() != OrderStatus.EXPIRED || order.getRepostedOrderId() != null) {
+            throw OrderProblem.conflict("Order is not eligible for a repost draft.");
+        }
+        return new RepostDraftResponse(
+                order.getId(),
+                order.getItemDescription(),
+                order.getPickupSupplierId(),
+                order.getDeliverySupplierId(),
+                order.getOfferedCredits(),
+                order.getDeliveryTimeLimitMinutes(),
+                order.getExpiresAt());
+    }
+
+    @Operation(summary = "Create a requester-reviewed repost")
+    @PostMapping("/{id}/repost")
+    @RequireRequesterRole
+    public OrderResponse repost(
+            @PathVariable String id,
+            @Valid @RequestBody ManualRepostRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orderMapper.toResponse(reposts.manual(
+                request.getCommandId(),
+                id,
+                request.getActorId(),
+                request.getExpectedVersion(),
+                request.getItemDescription(),
+                request.getOfferedCredits(),
+                request.getDeliveryTimeLimitMinutes(),
+                request.getExpiresAt(),
+                authorization));
+    }
+
+    @Operation(summary = "Expire due unaccepted orders using the lifecycle token")
+    @PostMapping("/internal/lifecycle/expire")
+    public Map<String, Integer> expire(@RequestHeader("X-Lifecycle-Token") String token) {
+        checkToken(token);
+        return Map.of("expired", lifecycle.expireDue(Instant.now()));
+    }
+
+    @Operation(summary = "Create due automatic reposts using the lifecycle token")
+    @PostMapping("/internal/lifecycle/repost")
+    public Map<String, Integer> automaticRepost(
+            @RequestHeader("X-Lifecycle-Token") String token) {
+        checkToken(token);
+        return Map.of("reposted", lifecycle.repostDue(Instant.now(), "Bearer " + token));
+    }
+
+    private void checkToken(String token) {
+        if (token == null || !token.equals(lifecycleToken)) {
+            throw OrderProblem.forbidden("Invalid lifecycle token.");
+        }
+    }
+}

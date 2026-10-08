@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 
+import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
 import type { SupplierPermissions } from "@/lib/suppliers"
 
@@ -11,15 +12,31 @@ import type { SupplierPermissions } from "@/lib/suppliers"
  */
 export function useSupplierPermissions() {
   const api = useApi()
-  const [permissions, setPermissions] = useState<SupplierPermissions | null>(null)
+  const { user, loading: authLoading } = useAuth()
+  const [permissionState, setPermissionState] = useState<{
+    userId: string
+    permissions: SupplierPermissions | null
+  } | null>(null)
 
   useEffect(() => {
+    if (authLoading || !user) return
+
     const controller = new AbortController()
     api<SupplierPermissions>("/api/suppliers/permissions", { signal: controller.signal })
-      .then(setPermissions)
-      .catch(() => setPermissions(null))
+      .then((nextPermissions) => {
+        setPermissionState({ userId: user.uid, permissions: nextPermissions })
+      })
+      .catch(() => setPermissionState({ userId: user.uid, permissions: null }))
     return () => controller.abort()
-  }, [api])
+  }, [api, authLoading, user])
 
-  return { permissions, canManage: permissions?.canManageSuppliers ?? false }
+  // Associate the result with the Firebase user that was queried. This prevents
+  // a previous user's permissions from being shown while auth is changing or
+  // while the current user's request is still in flight.
+  const visiblePermissions =
+    authLoading || !user || permissionState?.userId !== user.uid
+      ? null
+      : permissionState.permissions
+
+  return { permissions: visiblePermissions, canManage: visiblePermissions?.canManageSuppliers ?? false }
 }

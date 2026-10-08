@@ -7,6 +7,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { SupplierForm } from "@/components/suppliers/supplier-form"
+import { useAuth } from "@/components/providers/auth-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +19,7 @@ import { toInput, type Supplier, type SupplierInput } from "@/lib/suppliers"
 /** Create (no id) or edit (id) a supplier. Admin-only; the service rejects anyone else anyway. */
 export function SupplierEditor({ id }: { id?: string }) {
   const api = useApi()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { permissions, canManage } = useSupplierPermissions()
   const [existing, setExisting] = useState<Supplier | null>(null)
@@ -25,13 +27,15 @@ export function SupplierEditor({ id }: { id?: string }) {
   const [types, setTypes] = useState<string[]>([])
 
   useEffect(() => {
+    if (authLoading || !user) return
+
     api<{ items: string[] }>("/api/suppliers/types").then((d) => setTypes(d.items)).catch(() => undefined)
     if (id) {
       api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}`)
         .then(setExisting)
         .catch((e: Error) => setLoadError(e.message))
     }
-  }, [api, id])
+  }, [api, authLoading, id, user])
 
   async function save(input: SupplierInput) {
     if (id) {

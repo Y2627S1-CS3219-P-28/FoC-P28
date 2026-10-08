@@ -29,6 +29,11 @@ export type Page<T> = {
   message?: string
 }
 
+export type SupplierLookupResponse = {
+  items: Supplier[]
+  missingIds: string[]
+}
+
 export type SupplierPermissions = {
   uid: string
   email: string | null
@@ -62,6 +67,14 @@ export const STATUS_LABELS = { active: "Active", inactive: "Inactive", all: "All
 export type StatusKey = keyof typeof STATUS_LABELS
 
 export const PAGE_SIZE = 12
+
+export function supplierLookupPath(): string {
+  return "/api/suppliers/lookup"
+}
+
+export function supplierLookupPayload(ids: readonly string[]): { ids: string[] } {
+  return { ids: Array.from(new Set(ids.filter(Boolean))) }
+}
 
 /** Catalogue view state, kept in the URL so searches are shareable and survive back/forward. */
 export type SupplierQuery = {
@@ -135,6 +148,12 @@ export function formatHours(supplier: Pick<Supplier, "openingTime" | "closingTim
 export function formatLocation(supplier: Pick<Supplier, "building" | "floor">): string {
   return supplier.floor ? `${supplier.building}, level ${supplier.floor}` : supplier.building
 }
+
+/** Compact human-readable label for selecting a supplier while preserving its stable ID. */
+export function supplierOptionLabel(supplier: Pick<Supplier, "name" | "building">): string {
+  return supplier.building ? `${supplier.name} — ${supplier.building}` : supplier.name
+}
+
 
 export function mapsUrl(supplier: Pick<Supplier, "latitude" | "longitude">): string {
   return `https://www.google.com/maps/search/?api=1&query=${supplier.latitude},${supplier.longitude}`

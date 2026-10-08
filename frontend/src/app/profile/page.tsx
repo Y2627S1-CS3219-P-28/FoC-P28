@@ -4,13 +4,13 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/components/providers/auth-provider"
-import { useConfig } from "@/components/providers/config-provider"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { useApi } from "@/hooks/use-api"
 
 
 type UserProfile = {
@@ -22,8 +22,8 @@ type UserProfile = {
 }
 
 export default function ProfilePage() {
-  const { user, loading, getIdToken } = useAuth()
-  const config = useConfig()
+  const { user, loading } = useAuth()
+  const api = useApi()
   const router = useRouter()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -39,26 +39,7 @@ export default function ProfilePage() {
 
     async function loadProfile() {
       try {
-        const token = await getIdToken()
-        
-        // Debug code for testing token-related APIs
-        // Remove before actual
-        // console.log(token)
-
-        const response = await fetch(
-          `${config.apiBaseUrl}/api/users/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error("Failed to load profile")
-        }
-
-        const data = await response.json()
+        const data = await api<UserProfile>("/api/users/me")
         setProfile(data)
       } catch (error) {
         console.error(error)
@@ -68,7 +49,7 @@ export default function ProfilePage() {
     }
 
     loadProfile()
-  }, [loading, user, getIdToken, config, router])
+  }, [api, loading, user, router])
 
   if (loading || profileLoading) {
     return <div className="flex min-h-screen items-center justify-center">

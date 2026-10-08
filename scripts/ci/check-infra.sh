@@ -11,6 +11,10 @@
 #   - foc-<service>@ has datastore.user on exactly that database
 # Per environment:
 #   - config bucket ${PROJECT_ID}-foc-config-<environment> exists
+# Order Service Cloud SQL:
+#   - shared instance ${CLOUD_SQL_INSTANCE} exists
+#   - databases ${CLOUD_SQL_STAGING_DATABASE} and ${CLOUD_SQL_PRODUCTION_DATABASE} exist
+#   - order-service runtime identity has roles/cloudsql.client
 #
 # Anything missing is fixed by the CI/CD owner re-running infra/gcp/bootstrap.sh, which
 # derives the same service lists from the repository.
@@ -33,6 +37,8 @@ problems=()
 problem() { problems+=("$1"); echo "  ✗ $1"; }
 ok() { echo "  ✓ $1"; }
 runtime_sa() { echo "foc-$1@${PROJECT_ID}.iam.gserviceaccount.com"; }
+sql_database() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_DATABASE" || echo "$CLOUD_SQL_PRODUCTION_DATABASE"; }
+sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "$CLOUD_SQL_PRODUCTION_SECRET"; }
 
 echo "Service identities"
 for svc in "${services[@]}"; do
@@ -69,6 +75,41 @@ for svc in ${firestore_services[@]+"${firestore_services[@]}"}; do
     fi
   done
 done
+
+echo "Order Service Cloud SQL"
+if ! gcloud sql instances describe "$CLOUD_SQL_INSTANCE" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  problem "order-service: Cloud SQL instance '$CLOUD_SQL_INSTANCE' does not exist"
+else
+  ok "order-service: Cloud SQL instance '$CLOUD_SQL_INSTANCE'"
+  for env in staging production; do
+    db=$(sql_database "$env")
+    if gcloud sql databases describe "$db" --instance "$CLOUD_SQL_INSTANCE" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      ok "order-service: Cloud SQL database '$db'"
+    else
+      problem "order-service: Cloud SQL database '$db' does not exist"
+    fi
+  done
+  if jq -e --arg m "serviceAccount:$(runtime_sa order-service)" \
+    '.bindings // [] | any(.role == "roles/cloudsql.client" and (.members | index($m)))' <<<"$policy" >/dev/null; then
+    ok "order-service: $(runtime_sa order-service) has roles/cloudsql.client"
+  else
+    problem "order-service: $(runtime_sa order-service) has no roles/cloudsql.client"
+  fi
+  for env in staging production; do
+    secret=$(sql_secret "$env")
+    if ! gcloud secrets describe "$secret" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      problem "order-service: Secret Manager secret '$secret' does not exist"
+      continue
+    fi
+    secret_policy=$(gcloud secrets get-iam-policy "$secret" --project "$PROJECT_ID" --format json)
+    if jq -e --arg m "serviceAccount:$(runtime_sa order-service)" \
+      '.bindings // [] | any(.role == "roles/secretmanager.secretAccessor" and (.members | index($m)))' <<<"$secret_policy" >/dev/null; then
+      ok "order-service: $(runtime_sa order-service) can access secret '$secret'"
+    else
+      problem "order-service: $(runtime_sa order-service) cannot access secret '$secret'"
+    fi
+  done
+fi
 
 echo "Config buckets"
 for env in "${environments[@]}"; do

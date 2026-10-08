@@ -10,6 +10,8 @@
 #   - Artifact Registry docker repo                     ${AR_REPO}
 #   - one runtime service account per service           foc-<service>@
 #   - one Firestore database per service per env         <name>-<env>, only readable by foc-<service>@
+#   - one shared Order Service Cloud SQL PostgreSQL instance with staging/production databases
+#     and separate runtime users/secrets (approved by order-service ADR-008)
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
 #   - deployer service account used by GitHub Actions    foc-deployer@
 #   - read-only custom role focInfraReader (deployer), used by the CI infrastructure check
@@ -53,12 +55,40 @@ retry() {
 create_sa() { retry gc iam service-accounts create "$@"; }
 project_binding() { retry gc projects add-iam-policy-binding "$PROJECT_ID" "$@" >/dev/null; }
 config_bucket() { echo "${PROJECT_ID}-foc-config-$1"; }
+sql_database() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_DATABASE" || echo "$CLOUD_SQL_PRODUCTION_DATABASE"; }
+sql_user() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_USER" || echo "$CLOUD_SQL_PRODUCTION_USER"; }
+sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "$CLOUD_SQL_PRODUCTION_SECRET"; }
+secret_has_version() {
+  local secret=$1 version
+  version=$(gc secrets versions list "$secret" --filter='state=ENABLED' --format='value(name)' | head -n1)
+  [[ -n "$version" ]]
+}
+ensure_sql_user_secret() {
+  local user=$1 secret=$2 password
+  if exists gc sql users describe "$user" --instance "$CLOUD_SQL_INSTANCE"; then
+    if ! exists gc secrets describe "$secret" || ! secret_has_version "$secret"; then
+      echo "ERROR: SQL user '$user' exists but Secret Manager secret '$secret' has no enabled version; reset the user explicitly before re-running." >&2
+      exit 1
+    fi
+    return
+  fi
+  if exists gc secrets describe "$secret" && secret_has_version "$secret"; then
+    echo "ERROR: Secret '$secret' already has a value but SQL user '$user' does not exist; resolve this mismatch explicitly." >&2
+    exit 1
+  fi
+  password=$(openssl rand -hex 32)
+  gc sql users create "$user" --instance "$CLOUD_SQL_INSTANCE" --password "$password"
+  exists gc secrets describe "$secret" || gc secrets create "$secret" --replication-policy=automatic >/dev/null
+  printf '%s' "$password" | gc secrets versions add "$secret" --data-file=- >/dev/null
+  unset password
+}
 
 log "Enabling APIs"
 gc services enable \
   run.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
-  secretmanager.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com
+  secretmanager.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com \
+  sqladmin.googleapis.com
 
 log "Artifact Registry repository: $AR_REPO ($REGION)"
 exists gc artifacts repositories describe "$AR_REPO" --location "$REGION" ||
@@ -70,6 +100,36 @@ for svc in "${RUNTIME_SERVICES[@]}"; do
   exists gc iam service-accounts describe "$(runtime_sa "$svc")" ||
     create_sa "foc-$svc" --display-name "FoC $svc (Cloud Run runtime)"
 done
+
+log "Order Service Cloud SQL PostgreSQL (shared staging/production instance)"
+if ! exists gc sql instances describe "$CLOUD_SQL_INSTANCE"; then
+  gc sql instances create "$CLOUD_SQL_INSTANCE" \
+    --database-version "$CLOUD_SQL_DATABASE_VERSION" \
+    --tier "$CLOUD_SQL_TIER" \
+    --region "$REGION" \
+    --storage-type "$CLOUD_SQL_STORAGE_TYPE" \
+    --storage-size "$CLOUD_SQL_STORAGE_SIZE_GB" \
+    --availability-type zonal \
+    --backup-start-time "$CLOUD_SQL_BACKUP_START_TIME" \
+    --enable-point-in-time-recovery \
+    --deletion-protection
+else
+  deletion_protection=$(gc sql instances describe "$CLOUD_SQL_INSTANCE" --format='value(settings.deletionProtectionEnabled)')
+  if [[ "$deletion_protection" != "True" && "$deletion_protection" != "true" ]]; then
+    gc sql instances patch "$CLOUD_SQL_INSTANCE" --deletion-protection
+  fi
+fi
+for env in "${ENVIRONMENTS[@]}"; do
+  db=$(sql_database "$env")
+  exists gc sql databases describe "$db" --instance "$CLOUD_SQL_INSTANCE" ||
+    gc sql databases create "$db" --instance "$CLOUD_SQL_INSTANCE"
+  secret=$(sql_secret "$env")
+  ensure_sql_user_secret "$(sql_user "$env")" "$secret"
+  gc secrets add-iam-policy-binding "$secret" \
+    --member "serviceAccount:$(runtime_sa order-service)" --role roles/secretmanager.secretAccessor >/dev/null
+done
+# The Order Service runtime identity may connect to Cloud SQL; database credentials remain in Secret Manager.
+project_binding --member "serviceAccount:$(runtime_sa order-service)" --role roles/cloudsql.client --condition None
 
 log "Firestore databases (database-per-service)"
 for svc in ${FIRESTORE_SERVICES[@]+"${FIRESTORE_SERVICES[@]}"}; do
@@ -117,7 +177,7 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 
 log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
-reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,resourcemanager.projects.getIamPolicy,storage.buckets.get"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,resourcemanager.projects.getIamPolicy,storage.buckets.get"
 if exists gc iam roles describe focInfraReader; then
   gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
 else

@@ -2,6 +2,11 @@
 # Tool: OpenAI Codex (GPT-5), date: 2026-09-25
 # Scope: Updated deployment boilerplate to integrate the Credit Service.
 # Author review: I reviewed for correctness.
+#
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-6), date: 2026-10-07
+# Scope: Replaced Order Service's default Pub/Sub emulator with real Pub/Sub dev topics and a private local ADC mount.
+# Author review: User/team must configure GCP topics and topic-scoped IAM before running.
 
 # FoC local deployment (M7). Start everything with:   docker compose up --build
 #
@@ -25,11 +30,17 @@ x-backend-env: &backend-env
   USER_SERVICE_MODE: ${USER_SERVICE_MODE:-mock}
   USER_SERVICE_URL: http://user-service:8080
   MOCK_ADMIN_EMAILS: ${MOCK_ADMIN_EMAILS:-admin@u.nus.edu,e1398851@u.nus.edu}
-  CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+  CORS_ORIGINS: http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080
 
 x-backend-depends: &backend-depends
   firebase-emulator:
     condition: service_healthy
+
+x-order-pubsub-topics: &order-pubsub-topics
+  PUBSUB_PROJECT_ID: ${PUBSUB_PROJECT_ID:-protean-vigil-509704-q4}
+  ORDER_COMPLETION_TOPIC: ${ORDER_COMPLETION_TOPIC:-order-completion-dev-v1}
+  ORDER_OPEN_REFUND_TOPIC: ${ORDER_OPEN_REFUND_TOPIC:-open-order-refund-dev-v1}
+  ORDER_ACCEPTED_CANCELLATION_TOPIC: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:-accepted-order-cancellation-dev-v1}
 
 services:
   gateway:
@@ -45,6 +56,8 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
+      order-service:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -52,11 +65,14 @@ services:
       - "${FRONTEND_PORT:-3000}:8080"
     environment:
       FOC_ENVIRONMENT: local
-      FOC_API_BASE_URL: ""
+      # The browser reaches the frontend on :3000, while APIs are exposed by
+      # the host gateway on :8080. Keep this explicit for direct frontend use.
+      # Explicit IPv4 avoids broken localhost IPv6 forwarding on Docker Desktop.
+      FOC_API_BASE_URL: http://127.0.0.1:8080
       FOC_FIREBASE_PROJECT_ID: demo-foc
       FOC_FIREBASE_API_KEY: demo-api-key
       # Reached by the browser, so this is the host-mapped port.
-      FOC_FIREBASE_AUTH_EMULATOR_URL: http://localhost:9099
+      FOC_FIREBASE_AUTH_EMULATOR_URL: http://127.0.0.1:9099
 
   firebase-emulator:
     build: ./infra/firebase-emulator
@@ -124,8 +140,57 @@ services:
       start_period: 30s
       retries: 10
 
+  order-postgres:
+    image: postgres:15-alpine
+    ports:
+      - "${ORDER_POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: ${ORDER_DB_NAME:-order_service}
+      POSTGRES_USER: ${ORDER_DB_USERNAME:-order_dev}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:-order_dev_password}
+    volumes:
+      - order-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USERNAME:-order_dev} -d ${ORDER_DB_NAME:-order_service}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  order-service:
+    build: ./order-service
+    ports:
+      - "${ORDER_SERVICE_PORT:-8083}:8080"
+    environment:
+      <<: [*backend-env, *order-pubsub-topics]
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/${ORDER_DB_NAME:-order_service}
+      SPRING_DATASOURCE_USERNAME: ${ORDER_DB_USERNAME:-order_dev}
+      SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:-order_dev_password}
+      SPRING_FLYWAY_ENABLED: "true"
+      ORDER_PEERS_MODE: mock
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      ORDER_LIFECYCLE_TOKEN: ${ORDER_LIFECYCLE_TOKEN:-local-lifecycle}
+      ORDER_EXPIRY_CRON: ${ORDER_EXPIRY_CRON:-0 */15 * * * *}
+      ORDER_OUTBOX_RECOVERY_CRON: ${ORDER_OUTBOX_RECOVERY_CRON:-0 0 * * * *}
+      ORDER_AUTO_COMPLETION_CRON: ${ORDER_AUTO_COMPLETION_CRON:-0 * * * * *}
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to your local ADC credentials file}
+        target: /var/run/secrets/google/application_default_credentials.json
+        read_only: true
+    depends_on:
+      <<: *backend-depends
+      order-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 10
+
   # ---- Backend service template ------------------------------------------
   # Copy, uncomment and rename once <name>-service has a working Dockerfile.
+  # admin-service is currently an empty placeholder, so it is intentionally not built here.
   # Host ports: user 8081, supplier 8082, order 8083, credit 8084, admin 8085.
   #
   # <name>-service:
@@ -140,3 +205,4 @@ services:
 volumes:
   firebase-data:
   mongodb-data:
+  order-postgres-data:
