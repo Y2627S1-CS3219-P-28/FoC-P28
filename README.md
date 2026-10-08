@@ -131,6 +131,17 @@ page (or in the emulator UI). Emulator accounts are separate from the cloud ones
 kept across restarts in the `firebase-data` volume. Accounts whose email is listed in
 `MOCK_ADMIN_EMAILS` (default `admin@u.nus.edu,e1398851@u.nus.edu`) receive the admin role.
 
+Locally, creating a user with the app's user sign up function will create a user in a local 
+MongoDB database, seperate from the MongoDB Atlas cloud. It is kept across restarts in the 
+`firebase-data` volume. To view this account in the local MongoDB database, connect to
+`mongodb://localhost:27017` on the MongoDB Compass app, 
+or run `docker compose exec mongodb mongosh` while the app is running, 
+then `use UserServiceDB` and `db.users.find()` in the mongosh terminal.
+
+Signing up an account locally will require email verification, which can be emulated by
+entering `docker compose logs firebase-emulator` upon account creation and copying the
+verification link into a web browser while the app is running locally.
+
 ---
 
 ## CI/CD and Environments

@@ -85,6 +85,13 @@ services:
     stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
     stop_grace_period: 30s # time to export data on shutdown
 
+  mongodb:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
   supplier-service:
     build: ./supplier-service
     ports:
@@ -125,12 +132,7 @@ services:
       - "8081:8080"
     environment:
       <<: *backend-env
-      # Defaults to the temporary local MongoDB container; override MONGODB_URI
-      # when connecting to a peer-provided or managed MongoDB instance.
-      MONGODB_URI: ${MONGODB_URI:-mongodb://user-mongodb:27017/userservice}
-    depends_on:
-      user-mongodb:
-        condition: service_healthy
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s
@@ -218,5 +220,5 @@ services:
 
 volumes:
   firebase-data:
+  mongodb-data:
   order-postgres-data:
-  user-mongodb-data:
