@@ -25,9 +25,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import sg.edu.nus.foc.credit.config.CreditPushProperties;
+import sg.edu.nus.foc.credit.messaging.OrderEventPayloadConsumer;
 import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -50,6 +54,12 @@ class CreditApiIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private OrderEventPayloadConsumer orderEvents;
+
+    @Autowired
+    private CreditPushProperties pushProperties;
 
     @BeforeEach
     void reset() {
@@ -218,6 +228,73 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void pushEndpointRequiresAuthenticationAndNacksInvalidPayloads() throws Exception {
+        PubSubPushEnvelope envelope = new PubSubPushEnvelope(
+                new PubSubPushEnvelope.Message("%%%", "message-1"),
+                "projects/demo-foc/subscriptions/credit-order-completion-dev-v1");
+        byte[] body = mapper.writeValueAsBytes(envelope);
+
+        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void requesterCancellationEventRefundsTheReservationExactlyOnce() throws Exception {
+        register(USER);
+        reserve("order-1", USER, 13);
+        String cancellation = """
+                {
+                  "eventId":"refund-event-1",
+                  "eventType":"OpenOrderRefundTaskEvent",
+                  "eventVersion":1,
+                  "orderId":"order-1",
+                  "orderVersion":1,
+                  "occurredAt":"2026-10-08T15:09:44.158371715Z",
+                  "actorId":"%s",
+                  "order":{
+                    "id":"order-1",
+                    "requesterId":"%s",
+                    "courierId":null,
+                    "itemDescription":"test cancel",
+                    "pickupSupplierId":"pickup-1",
+                    "deliverySupplierId":"delivery-1",
+                    "offeredCredits":13,
+                    "status":"CANCELLED",
+                    "createdAt":"2026-10-08T15:09:13.449727Z",
+                    "expiresAt":"2026-10-08T16:15:00Z",
+                    "deliveryTimeLimitMinutes":15,
+                    "version":1,
+                    "originalOrderId":null,
+                    "repostedOrderId":null,
+                    "repostPlan":null
+                  }
+                }
+                """.formatted(USER, USER);
+
+        orderEvents.consume(pushProperties.openRefundSubscriptionPath(), cancellation);
+        orderEvents.consume(pushProperties.openRefundSubscriptionPath(), cancellation);
+
+        assertThat(jdbc.queryForObject(
+                "select status from credit_reservations where order_id = 'order-1'", String.class))
+                .isEqualTo("REFUNDED");
+        assertThat(jdbc.queryForObject(
+                "select reserved_balance from credit_accounts where user_id = ?", Long.class, USER))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from credit_ledger where order_id = 'order-1' and effect_type = 'REFUND'",
+                Long.class))
+                .isOne();
+    }
+
+    @Test
     void responseNeverUsesDeprecatedActiveStatusOrOperationId() throws Exception {
         register(USER);
         String response = reserve("order-1", USER, 5);
@@ -225,6 +302,102 @@ class CreditApiIntegrationTest {
                 .doesNotContain("ACTIVE")
                 .doesNotContain("operationId")
                 .doesNotContain("version");
+    }
+
+    @Test
+    void assignsCourierAndHoldsReservationForReopenIdempotently() throws Exception {
+        String courier = "courier-1";
+        register(USER);
+        register(courier);
+        reserve("order-1", USER, 5);
+
+        byte[] assignment = mapper.writeValueAsBytes(new CourierAssignmentRequest(courier));
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isOk());
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/credits/orders/order-1/hold-for-reopen")
+                        .with(courierJwt(courier)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/credits/orders/order-1/hold-for-reopen")
+                        .with(courierJwt(courier)))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                "select courier_id from credit_reservations where order_id = 'order-1'", String.class))
+                .isNull();
+    }
+
+    @Test
+    void assignmentAndHoldRejectWrongIdentityOrState() throws Exception {
+        String courier = "courier-1";
+        String other = "courier-2";
+        register(USER);
+        register(courier);
+        register(other);
+        reserve("order-1", USER, 5);
+
+        byte[] assignment = mapper.writeValueAsBytes(new CourierAssignmentRequest(courier));
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(other))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/credits/orders/order-1/hold-for-reopen")
+                        .with(courierJwt(other)))
+                .andExpect(status().isForbidden());
+
+        byte[] conflict = mapper.writeValueAsBytes(new CourierAssignmentRequest(other));
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(other))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conflict))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("RESERVATION_CONFLICT"));
+    }
+
+    @Test
+    void courierMutationsRequireCourierRoleWithoutChangingReservation() throws Exception {
+        String courier = "courier-1";
+        register(USER);
+        register(courier);
+        reserve("order-1", USER, 5);
+
+        byte[] assignment = mapper.writeValueAsBytes(new CourierAssignmentRequest(courier));
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(jwt().jwt(token -> token.subject(courier)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        assertThat(jdbc.queryForObject(
+                "select courier_id from credit_reservations where order_id = 'order-1'", String.class))
+                .isNull();
+
+        mvc.perform(put("/api/credits/orders/order-1/courier-assignment")
+                        .with(courierJwt(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignment))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/credits/orders/order-1/hold-for-reopen")
+                        .with(jwt().jwt(token -> token.subject(courier))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        assertThat(jdbc.queryForObject(
+                "select courier_id from credit_reservations where order_id = 'order-1'", String.class))
+                .isEqualTo(courier);
     }
 
     private RegistrationFactRequest registration(String userId) {
@@ -246,5 +419,11 @@ class CreditApiIntegrationTest {
                         .content(mapper.writeValueAsBytes(new ReserveCreditsRequest(userId, amount))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
+    }
+
+    private static RequestPostProcessor courierJwt(String userId) {
+        return jwt()
+                .jwt(token -> token.subject(userId))
+                .authorities(new SimpleGrantedAuthority("ROLE_COURIER"));
     }
 }

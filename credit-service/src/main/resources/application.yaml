@@ -39,7 +39,19 @@ foc:
     auth:
       project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
       emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+    user-service:
+      mode: ${USER_SERVICE_MODE:mock}
+      base-url: ${USER_SERVICE_URL:}
+      mock-admin-emails: ${MOCK_ADMIN_EMAILS:}
+      timeout: 3s
     cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    push:
+      project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
+      audience: ${CREDIT_PUBSUB_PUSH_AUDIENCE:http://localhost:8080}
+      service-account: ${CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT:foc-credit-push-local@demo-foc.iam.gserviceaccount.com}
+      completion-subscription: ${CREDIT_ORDER_COMPLETION_SUBSCRIPTION:credit-order-completion-dev-v1}
+      open-refund-subscription: ${CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION:credit-open-order-refund-dev-v1}
+      accepted-cancellation-subscription: ${CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION:credit-accepted-order-cancellation-dev-v1}
 
 management:
   endpoints:

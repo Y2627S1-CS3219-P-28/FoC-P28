@@ -11,6 +11,8 @@ Author review: I reviewed for correctness and edited where needed.
 The Credit Service owns Friend on Campus credit accounts, balances, reservations and the
 immutable credit ledger. Sprint 1 allocates exactly 50 credits after registration, lets an
 authenticated user view their own balances, and reserves usable credits before an order becomes open.
+It also implements the merged Order Service contract for courier assignment, reopen holds,
+refunds, and completion settlement.
 
 ## Run
 
@@ -33,6 +35,12 @@ FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./mvnw spring-boot:run
 
 Every business endpoint requires a Firebase ID token. The token subject is used directly for
 `GET /api/credits/me` and must match the `userId` or `requesterId` supplied to write operations.
+Credit resolves application roles independently through User Service. Courier assignment and
+hold-for-reopen require `ROLE_COURIER` in addition to their existing identity and reservation
+ownership checks. Local Compose uses mock roles; cloud deployments use
+`GET /api/users/role-context` with the caller's bearer token and fail closed when role lookup is
+unavailable. These remain caller-authenticated gateway endpoints; restricting them to trusted
+Order-to-Credit service calls is separate work.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -40,9 +48,41 @@ Every business endpoint requires a Firebase ID token. The token subject is used 
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
+| `PUT` | `/api/credits/orders/{orderId}/courier-assignment` | Idempotently associate the authenticated courier before Order persists acceptance. |
+| `POST` | `/api/credits/orders/{orderId}/hold-for-reopen` | Clear the assigned courier without releasing the requester's held credits. |
 
-Reservations use `RESERVED`, `REFUNDED` and `PAID`; Sprint 1 creates only `RESERVED`.
+Reservations use `RESERVED`, `REFUNDED` and `PAID`.
 There is no gift, withdrawal, top-up, direct balance update, or generic CRUD API.
+
+## Order outcome events
+
+Google Cloud Pub/Sub delivers each finalized Order event stream to the authenticated push endpoint
+`POST /api/credits/internal/order-events`:
+
+| Event | Credit action |
+|---|---|
+| `OpenOrderRefundTaskEvent` | Release the requester's reservation after `CANCELLED` or `EXPIRED`. |
+| `AcceptedOrderCancellationTaskEvent` | Release the reservation after the assigned courier aborts at/after expiry. |
+| `OrderCompletionTaskEvent` | Debit the requester's reserved/total balance and credit the recorded courier. |
+
+The endpoint uses a separate Google OIDC security chain from the Firebase-authenticated user API.
+It validates the push service-account email, token issuer and audience, then checks that each event
+type arrived through its designated subscription. The receiver also validates event version 1,
+top-level/snapshot identifiers and versions, resulting status, requester, amount, and courier.
+
+The service records `eventId` and a payload hash in the same PostgreSQL transaction as reservation,
+account, and ledger mutations. It returns HTTP 204 only after that transaction succeeds; any
+non-success response is retried by Pub/Sub. After ten unsuccessful deliveries, the subscription
+forwards the message to the environment's shared Credit dead-letter topic for inspection/recovery.
+
+An infrastructure owner provisions staging after the Cloud Run service and Order topics exist:
+
+```bash
+infra/gcp/configure-credit-pubsub.sh staging
+```
+
+Production provisioning remains disabled in `infra/gcp/project.env` until staging verification
+passes and the production-promotion change explicitly enables it.
 
 ## Data model
 
@@ -53,7 +93,7 @@ validates the schema at application startup:
 |---|---|---|
 | `credit_accounts` | `user_id` | Authoritative total and reserved balances. Usable balance is derived. |
 | `credit_reservations` | `order_id` | One idempotent reservation per order. |
-| `credit_idempotency_records` | `(operation, idempotency_key)` | Event and command replay protection. |
+| `credit_idempotency_records` | `(operation, idempotency_key)` | Event/command source, payload hash, resource, and replay protection. |
 | `credit_ledger` | `entry_id` | Immutable evidence of every successful balance change. |
 
 Account, reservation/idempotency, and ledger writes commit in one PostgreSQL transaction.

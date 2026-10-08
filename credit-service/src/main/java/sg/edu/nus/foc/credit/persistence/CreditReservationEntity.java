@@ -65,4 +65,36 @@ public class CreditReservationEntity {
     long amount() {
         return amount;
     }
+
+    String courierId() {
+        return courierId;
+    }
+
+    ReservationStatus status() {
+        return status;
+    }
+
+    void assignCourier(String courierId, Instant now) {
+        this.courierId = courierId;
+        updatedAt = now;
+    }
+
+    void clearCourier(Instant now) {
+        courierId = null;
+        updatedAt = now;
+    }
+
+    void refund(Instant now) {
+        status = ReservationStatus.REFUNDED;
+        refundedAt = now;
+        paidAt = null;
+        updatedAt = now;
+    }
+
+    void markPaid(Instant now) {
+        status = ReservationStatus.PAID;
+        paidAt = now;
+        refundedAt = null;
+        updatedAt = now;
+    }
 }

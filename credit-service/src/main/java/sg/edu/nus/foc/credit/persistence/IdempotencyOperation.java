@@ -9,8 +9,7 @@ package sg.edu.nus.foc.credit.persistence;
 
 enum IdempotencyOperation {
     USER_REGISTERED,
-    ORDER_CANCELLED,
-    ORDER_EXPIRED,
-    ORDER_ABORTED,
-    ORDER_COMPLETED
+    OPEN_ORDER_REFUND,
+    ACCEPTED_ORDER_CANCELLATION,
+    ORDER_COMPLETION
 }

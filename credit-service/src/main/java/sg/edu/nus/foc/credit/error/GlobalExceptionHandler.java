@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -86,6 +87,11 @@ public class GlobalExceptionHandler {
                 List.of(new FieldProblem(exception.field(), exception.getMessage())));
     }
 
+    @ExceptionHandler(InvalidOrderEventException.class)
+    ResponseEntity<ApiError> invalidOrderEvent(InvalidOrderEventException exception, HttpServletRequest request) {
+        return respond(ErrorCode.VALIDATION_ERROR, exception.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(AccountNotFoundException.class)
     ResponseEntity<ApiError> accountNotFound(AccountNotFoundException exception, HttpServletRequest request) {
         return respond(ErrorCode.ACCOUNT_NOT_FOUND, exception.getMessage(), request, List.of());
@@ -106,6 +112,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ReservationConflictException.class)
     ResponseEntity<ApiError> reservationConflict(ReservationConflictException exception,
                                                   HttpServletRequest request) {
+        return respond(ErrorCode.RESERVATION_CONFLICT, exception.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(ReservationStateConflictException.class)
+    ResponseEntity<ApiError> reservationStateConflict(ReservationStateConflictException exception,
+                                                       HttpServletRequest request) {
         return respond(ErrorCode.RESERVATION_CONFLICT, exception.getMessage(), request, List.of());
     }
 
@@ -136,6 +148,13 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.UNAUTHENTICATED, SecurityMessages.UNAUTHENTICATED, request, List.of());
     }
 
+    @ExceptionHandler(DataAccessException.class)
+    ResponseEntity<ApiError> persistenceUnavailable(DataAccessException exception, HttpServletRequest request) {
+        log.error("Credit persistence failed on {} {}", request.getMethod(), request.getRequestURI(), exception);
+        return respond(ErrorCode.SERVICE_UNAVAILABLE,
+                "Credit persistence is temporarily unavailable.", request, List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> unexpected(Exception exception, HttpServletRequest request) {
         log.error("Unhandled error on {} {}", request.getMethod(), request.getRequestURI(), exception);
@@ -144,6 +163,16 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiError> respond(ErrorCode code, String message, HttpServletRequest request,
                                              List<FieldProblem> details) {
+        if (code.status().is4xxClientError()) {
+            log.atWarn()
+                    .addKeyValue("service", "credit-service")
+                    .addKeyValue("method", request.getMethod())
+                    .addKeyValue("path", request.getRequestURI())
+                    .addKeyValue("status", code.status().value())
+                    .addKeyValue("errorCode", code)
+                    .addKeyValue("errorMessage", message)
+                    .log("credit_request_rejected");
+        }
         ApiError body = ApiError.of(code, message, request.getRequestURI(), clock.instant()).withDetails(details);
         return ResponseEntity.status(code.status()).body(body);
     }

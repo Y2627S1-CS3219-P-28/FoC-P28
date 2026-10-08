@@ -45,4 +45,20 @@ public class CreditAccountEntity {
         reservedBalance = Math.addExact(reservedBalance, amount);
         updatedAt = now;
     }
+
+    void release(long amount, Instant now) {
+        reservedBalance = Math.subtractExact(reservedBalance, amount);
+        updatedAt = now;
+    }
+
+    void pay(long amount, Instant now) {
+        totalBalance = Math.subtractExact(totalBalance, amount);
+        reservedBalance = Math.subtractExact(reservedBalance, amount);
+        updatedAt = now;
+    }
+
+    void receive(long amount, Instant now) {
+        totalBalance = Math.addExact(totalBalance, amount);
+        updatedAt = now;
+    }
 }

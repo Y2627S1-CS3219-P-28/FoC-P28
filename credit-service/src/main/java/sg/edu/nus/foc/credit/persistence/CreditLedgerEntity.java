@@ -85,4 +85,22 @@ public class CreditLedgerEntity {
         return new CreditLedgerEntity(userId, orderId, "ORDER_RESERVATION", orderId,
                 LedgerEffectType.RESERVATION, amount, 0, amount, now, now);
     }
+
+    static CreditLedgerEntity refund(String userId, String orderId, String eventType,
+                                     String eventId, long amount, Instant occurredAt, Instant now) {
+        return new CreditLedgerEntity(userId, orderId, eventType, eventId,
+                LedgerEffectType.REFUND, amount, 0, -amount, occurredAt, now);
+    }
+
+    static CreditLedgerEntity paymentSent(String userId, String orderId, String eventId,
+                                           long amount, Instant occurredAt, Instant now) {
+        return new CreditLedgerEntity(userId, orderId, "ORDER_COMPLETION_EVENT", eventId,
+                LedgerEffectType.PAYMENT_SENT, amount, -amount, -amount, occurredAt, now);
+    }
+
+    static CreditLedgerEntity paymentReceived(String userId, String orderId, String eventId,
+                                               long amount, Instant occurredAt, Instant now) {
+        return new CreditLedgerEntity(userId, orderId, "ORDER_COMPLETION_EVENT", eventId,
+                LedgerEffectType.PAYMENT_RECEIVED, amount, amount, 0, occurredAt, now);
+    }
 }

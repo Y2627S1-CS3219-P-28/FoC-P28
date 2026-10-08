@@ -7,15 +7,17 @@
  */
 package sg.edu.nus.foc.credit.config;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("foc.credit")
-public record CreditProperties(AuthSettings auth, List<String> corsOrigins) {
+public record CreditProperties(AuthSettings auth, UserServiceSettings userService, List<String> corsOrigins) {
 
     public CreditProperties {
         auth = auth != null ? auth : new AuthSettings(null, null);
+        userService = userService != null ? userService : new UserServiceSettings(null, null, null, null);
         corsOrigins = corsOrigins != null ? List.copyOf(corsOrigins) : List.of();
     }
 
@@ -28,6 +30,20 @@ public record CreditProperties(AuthSettings auth, List<String> corsOrigins) {
         public boolean usesEmulator() {
             return !emulatorHost.isEmpty();
         }
+    }
+
+    public record UserServiceSettings(Mode mode, String baseUrl, List<String> mockAdminEmails, Duration timeout) {
+        public UserServiceSettings {
+            mode = mode != null ? mode : Mode.MOCK;
+            baseUrl = baseUrl != null ? baseUrl.trim() : "";
+            mockAdminEmails = mockAdminEmails != null ? List.copyOf(mockAdminEmails) : List.of();
+            timeout = timeout != null ? timeout : Duration.ofSeconds(3);
+        }
+    }
+
+    public enum Mode {
+        MOCK,
+        HTTP
     }
 
     private static String blankToDefault(String value, String fallback) {

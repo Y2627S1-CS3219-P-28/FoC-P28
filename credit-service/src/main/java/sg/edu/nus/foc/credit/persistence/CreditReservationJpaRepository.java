@@ -12,8 +12,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 
 interface CreditReservationJpaRepository extends JpaRepository<CreditReservationEntity, String> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select reservation from CreditReservationEntity reservation where reservation.orderId = :orderId")
+    Optional<CreditReservationEntity> findByOrderIdForUpdate(@Param("orderId") String orderId);
 
     @Modifying
     @Query(value = """

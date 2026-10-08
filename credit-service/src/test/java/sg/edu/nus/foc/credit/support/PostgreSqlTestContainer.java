@@ -13,22 +13,35 @@ import org.testcontainers.utility.DockerImageName;
 
 public final class PostgreSqlTestContainer {
 
-    private static final PostgreSQLContainer CONTAINER = new PostgreSQLContainer(
-            DockerImageName.parse("postgres:15-alpine"));
-
-    static {
-        CONTAINER.withDatabaseName("credit_test");
-        CONTAINER.withUsername("credit_test");
-        CONTAINER.withPassword("credit_test");
-        CONTAINER.start();
-    }
-
     private PostgreSqlTestContainer() {
     }
 
     public static void register(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", CONTAINER::getJdbcUrl);
-        registry.add("spring.datasource.username", CONTAINER::getUsername);
-        registry.add("spring.datasource.password", CONTAINER::getPassword);
+        String externalUrl = System.getProperty("credit.test.datasource.url", "").trim();
+        if (!externalUrl.isEmpty()) {
+            registry.add("spring.datasource.url", () -> externalUrl);
+            registry.add("spring.datasource.username",
+                    () -> System.getProperty("credit.test.datasource.username", "credit_test"));
+            registry.add("spring.datasource.password",
+                    () -> System.getProperty("credit.test.datasource.password", "credit_test"));
+            return;
+        }
+        registry.add("spring.datasource.url", ContainerHolder.CONTAINER::getJdbcUrl);
+        registry.add("spring.datasource.username", ContainerHolder.CONTAINER::getUsername);
+        registry.add("spring.datasource.password", ContainerHolder.CONTAINER::getPassword);
+    }
+
+    private static final class ContainerHolder {
+        private static final PostgreSQLContainer CONTAINER = createContainer();
+
+        private static PostgreSQLContainer createContainer() {
+            PostgreSQLContainer container = new PostgreSQLContainer(
+                    DockerImageName.parse("postgres:15-alpine"));
+            container.withDatabaseName("credit_test");
+            container.withUsername("credit_test");
+            container.withPassword("credit_test");
+            container.start();
+            return container;
+        }
     }
 }

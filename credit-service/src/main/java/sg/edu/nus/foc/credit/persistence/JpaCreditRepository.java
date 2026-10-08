@@ -19,14 +19,20 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.credit.credit.CreditAccount;
 import sg.edu.nus.foc.credit.credit.CreditConstants;
+import sg.edu.nus.foc.credit.credit.CreditOutcomeEvent;
+import sg.edu.nus.foc.credit.credit.CreditOutcomeType;
 import sg.edu.nus.foc.credit.credit.CreditRepository;
 import sg.edu.nus.foc.credit.credit.CreditReservation;
 import sg.edu.nus.foc.credit.credit.RegistrationResult;
 import sg.edu.nus.foc.credit.credit.ReservationResult;
+import sg.edu.nus.foc.credit.credit.ReservationStatus;
 import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
+import sg.edu.nus.foc.credit.error.ForbiddenException;
 import sg.edu.nus.foc.credit.error.InsufficientCreditsException;
 import sg.edu.nus.foc.credit.error.ReservationConflictException;
+import sg.edu.nus.foc.credit.error.ReservationNotFoundException;
+import sg.edu.nus.foc.credit.error.ReservationStateConflictException;
 
 @Repository
 public class JpaCreditRepository implements CreditRepository {
@@ -135,11 +141,188 @@ public class JpaCreditRepository implements CreditRepository {
         return reservations.findById(orderId).map(CreditReservationEntity::toDomain);
     }
 
+    @Override
+    @Transactional
+    public void assignCourier(String orderId, String courierId) {
+        CreditReservationEntity reservation = lockedReservation(orderId);
+        requireReserved(reservation, orderId);
+        if (courierId.equals(reservation.courierId())) {
+            return;
+        }
+        if (reservation.courierId() != null) {
+            throw new ReservationStateConflictException(orderId,
+                    "is already assigned to a different courier.");
+        }
+        if (!accounts.existsById(courierId)) {
+            throw new AccountNotFoundException(courierId);
+        }
+        reservation.assignCourier(courierId, clock.instant());
+    }
+
+    @Override
+    @Transactional
+    public void holdForReopen(String orderId, String callerId) {
+        CreditReservationEntity reservation = lockedReservation(orderId);
+        requireReserved(reservation, orderId);
+        if (reservation.courierId() == null) {
+            return;
+        }
+        if (!reservation.courierId().equals(callerId)) {
+            throw new ForbiddenException("Only the assigned courier may reset this credit reservation.");
+        }
+        reservation.clearCourier(clock.instant());
+    }
+
+    @Override
+    @Transactional
+    public void refund(CreditOutcomeEvent event) {
+        IdempotencyOperation operation = operation(event.type());
+        if (!claimEvent(operation, event)) {
+            return;
+        }
+
+        CreditReservationEntity reservation = lockedReservation(event.orderId());
+        validateEventReservation(reservation, event);
+        if (event.type() == CreditOutcomeType.OPEN_ORDER_REFUND && reservation.courierId() != null) {
+            throw new ReservationStateConflictException(event.orderId(),
+                    "still has a courier for an open-order refund event.");
+        }
+        if (event.type() == CreditOutcomeType.ACCEPTED_ORDER_CANCELLATION
+                && reservation.courierId() != null
+                && !event.actorId().equals(reservation.courierId())) {
+            throw new ReservationStateConflictException(event.orderId(),
+                    "does not match the courier in the accepted-cancellation event.");
+        }
+        if (reservation.status() == ReservationStatus.REFUNDED) {
+            return;
+        }
+        requireReserved(reservation, event.orderId());
+
+        Instant now = clock.instant();
+        CreditAccountEntity requester = lockedAccount(reservation.requesterId());
+        requester.release(reservation.amount(), now);
+        reservation.refund(now);
+        ledger.save(CreditLedgerEntity.refund(
+                reservation.requesterId(), event.orderId(), event.type().name(), event.eventId(),
+                reservation.amount(), event.occurredAt(), now));
+    }
+
+    @Override
+    @Transactional
+    public void settle(CreditOutcomeEvent event) {
+        if (!claimEvent(IdempotencyOperation.ORDER_COMPLETION, event)) {
+            return;
+        }
+
+        CreditReservationEntity reservation = lockedReservation(event.orderId());
+        validateEventReservation(reservation, event);
+        if (!event.courierId().equals(reservation.courierId())) {
+            throw new ReservationStateConflictException(event.orderId(),
+                    "does not match the courier in the completion event.");
+        }
+        if (reservation.status() == ReservationStatus.PAID) {
+            return;
+        }
+        requireReserved(reservation, event.orderId());
+
+        Instant now = clock.instant();
+        CreditAccountEntity requester;
+        CreditAccountEntity courier;
+        if (reservation.requesterId().equals(reservation.courierId())) {
+            requester = lockedAccount(reservation.requesterId());
+            courier = requester;
+        } else if (reservation.requesterId().compareTo(reservation.courierId()) < 0) {
+            requester = lockedAccount(reservation.requesterId());
+            courier = lockedAccount(reservation.courierId());
+        } else {
+            courier = lockedAccount(reservation.courierId());
+            requester = lockedAccount(reservation.requesterId());
+        }
+        requester.pay(reservation.amount(), now);
+        courier.receive(reservation.amount(), now);
+        reservation.markPaid(now);
+        ledger.save(CreditLedgerEntity.paymentSent(
+                reservation.requesterId(), event.orderId(), event.eventId(), reservation.amount(),
+                event.occurredAt(), now));
+        ledger.save(CreditLedgerEntity.paymentReceived(
+                reservation.courierId(), event.orderId(), event.eventId(), reservation.amount(),
+                event.occurredAt(), now));
+    }
+
+    private boolean claimEvent(IdempotencyOperation operation, CreditOutcomeEvent event) {
+        String hash = outcomePayloadHash(event);
+        int claimed = idempotencyRecords.insertIfAbsent(
+                operation, event.eventId(), hash, clock.instant());
+        if (claimed == 1) {
+            return true;
+        }
+        CreditIdempotencyRecordEntity existing = idempotencyRecords.findById(
+                new CreditIdempotencyRecordId(operation, event.eventId())).orElseThrow();
+        if (!hash.equals(existing.payloadHash())) {
+            throw new EventConflictException(event.eventId());
+        }
+        return false;
+    }
+
+    private CreditReservationEntity lockedReservation(String orderId) {
+        return reservations.findByOrderIdForUpdate(orderId)
+                .orElseThrow(() -> new ReservationNotFoundException(orderId));
+    }
+
+    private CreditAccountEntity lockedAccount(String userId) {
+        return accounts.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new AccountNotFoundException(userId));
+    }
+
+    private static void requireReserved(CreditReservationEntity reservation, String orderId) {
+        if (reservation.status() != ReservationStatus.RESERVED) {
+            throw new ReservationStateConflictException(orderId,
+                    "is not active; current state is " + reservation.status() + ".");
+        }
+    }
+
+    private static void validateEventReservation(CreditReservationEntity reservation,
+                                                   CreditOutcomeEvent event) {
+        if (!reservation.requesterId().equals(event.requesterId())
+                || reservation.amount() != event.offeredCredits()) {
+            throw new ReservationStateConflictException(event.orderId(),
+                    "does not match the requester or amount in the Order event.");
+        }
+    }
+
+    private static IdempotencyOperation operation(CreditOutcomeType type) {
+        return switch (type) {
+            case OPEN_ORDER_REFUND -> IdempotencyOperation.OPEN_ORDER_REFUND;
+            case ACCEPTED_ORDER_CANCELLATION -> IdempotencyOperation.ACCEPTED_ORDER_CANCELLATION;
+            case ORDER_COMPLETION -> IdempotencyOperation.ORDER_COMPLETION;
+        };
+    }
+
     static String payloadHash(IdempotencyOperation operation, String userId, String orderId,
                               Instant occurredAt) {
         String canonical = operation.name() + "\n" + nullToEmpty(userId) + "\n"
                 + nullToEmpty(orderId)
                 + "\n" + occurredAt;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    static String outcomePayloadHash(CreditOutcomeEvent event) {
+        String canonical = String.join("\n",
+                event.type().name(), event.eventId(), Integer.toString(event.eventVersion()),
+                event.orderId(), Long.toString(event.orderVersion()), event.occurredAt().toString(),
+                event.actorId(), event.requesterId(), nullToEmpty(event.courierId()),
+                Long.toString(event.offeredCredits()), event.orderStatus(),
+                Boolean.toString(event.overdue()), String.valueOf(event.overdueAt()));
+        return sha256(canonical);
+    }
+
+    private static String sha256(String canonical) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(canonical.getBytes(StandardCharsets.UTF_8));
