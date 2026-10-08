@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { QuarterHourDateTimePicker } from "@/components/orders/quarter-hour-date-time-picker"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApi } from "@/hooks/use-api"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
-import { isoToDateTimeLocal, type Order } from "@/lib/orders"
+import { isQuarterHourDateTime, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, type Order } from "@/lib/orders"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
 
@@ -21,10 +22,18 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const [creditAmount, setCreditAmount] = useState(String(order.offeredCredits))
   const [duration, setDuration] = useState(String(order.deliveryTimeLimitMinutes))
   const [description, setDescription] = useState(order.itemDescription)
-  const [expiresAt, setExpiresAt] = useState(isoToDateTimeLocal(new Date(new Date(order.expiresAt).getTime() + 2 * 60 * 60_000).toISOString()))
+  const [expiresAt, setExpiresAt] = useState(() => quarterHourDateTimeLocal(new Date(Math.max(new Date(order.expiresAt).getTime() + 2 * 60 * 60_000, Date.now() + 30 * 60_000))))
 
   async function manualRepost() {
     if (!user) return
+    if (!isQuarterHourDateTime(expiresAt)) {
+      toast.error("Choose expiry minutes of 00, 15, 30, or 45.")
+      return
+    }
+    if (new Date(expiresAt).getTime() < Date.now() + 30 * 60_000) {
+      toast.error("Order expiry must be at least 30 minutes from now. Choose a later time.")
+      return
+    }
     setBusy(true)
     try {
       const updated = await api<Order>(`/api/orders/${order.id}/repost`, {
@@ -88,7 +97,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-credits-${order.id}`}>Credits</Label><Input id={`manual-credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-duration-${order.id}`}>Delivery minutes</Label><Input id={`manual-duration-${order.id}`} type="number" min="15" className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-          <label className="space-y-1 text-sm"><Label htmlFor={`manual-expires-${order.id}`}>New expiry</Label><Input id={`manual-expires-${order.id}`} type="datetime-local" className={inputClass} value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
+          <div className="sm:col-span-3"><QuarterHourDateTimePicker id={"manual-expires-" + order.id} label="New expiry" min={minOrderExpiryDateTimeLocal()} value={expiresAt} onChange={setExpiresAt} /></div>
         </div>
         <Button size="sm" onClick={() => void manualRepost()} disabled={busy}>{busy ? "Reposting…" : "Create repost"}</Button>
       </CardContent>

@@ -17,7 +17,7 @@ Completion and cancellation outcome events now use a transactional outbox. For e
 
 After commit, an `AFTER_COMMIT` listener immediately asks the dispatcher to publish the event through its matching typed publisher. The listener runs before the transactional service call returns, so the HTTP request waits for the publish attempt and Pub/Sub acknowledgment (or recorded failure), but never for a Credit or User consumer reply. A publish failure does not reverse the committed Order transition; it is logged and the outbox row is retried.
 
-The Spring cron scheduler is a recovery path for pending events and expired leases. Dispatch claims rows with PostgreSQL `FOR UPDATE SKIP LOCKED` and a two-minute lease. Retries use bounded exponential delay up to five minutes. Stable event IDs are derived from event type and command ID. Delivery is at least once: consumers must deduplicate because a process can fail after Pub/Sub accepts a message but before Order Service records it as published.
+The Spring cron scheduler is a recovery path for pending events and expired leases. Dispatch claims rows with PostgreSQL `FOR UPDATE SKIP LOCKED` and a two-minute lease. Each failed attempt records bounded exponential retry timing up to five minutes, but the current hourly recovery poll may delay the next retry beyond that timestamp. Stable event IDs are derived from event type and command ID. Delivery is at least once: consumers must deduplicate because a process can fail after Pub/Sub accepts a message but before Order Service records it as published.
 
 The implemented event cases are:
 
@@ -33,7 +33,7 @@ No separate overdue-completion event exists. Existing HTTP endpoint contracts ar
 - Outbox lifecycle and scheduling: `OrderOutboxDispatchRequested.java`, `OrderOutboxAfterCommitListener.java`, `OrderOutboxDispatcher.java`, and `OrderOutboxScheduler.java` under `application/`.
 - Persistence boundary: `domain/OrderEventOutbox.java`, `domain/OutboxState.java`, `domain/repository/OrderEventOutboxRepository.java`, `infrastructure/OrderEventOutboxPersistenceAdapter.java`, and `JpaOrderEventOutboxRepository.java`.
 - Schema: `src/main/resources/db/migration/V2__create_order_event_outbox.sql`. Flyway applies V2 at service startup; Hibernate validates the resulting schema.
-- Configuration: `order.messaging.outbox.recovery-cron` defaults to once per minute; batch size defaults to 50.
+- Configuration: `order.messaging.outbox.recovery-cron` originally defaulted to once per minute; CHANGE-077/ADR-022 set recovery to every five minutes and CHANGE-078/ADR-023 supersedes that with hourly recovery. Immediate after-commit dispatch remains. Batch size defaults to 50.
 - Design diagrams: `sprints/sprint-1/sequence-diagrams/updated-overall/sequence-5-complete-order.md`, `sequence-6-cancel-open-order.md`, `sequence-7-cancel-accepted-order.md`, and `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md`.
 
 ## Verification completed

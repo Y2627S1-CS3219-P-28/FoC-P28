@@ -2,6 +2,11 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-078](../changes/CHANGE-078-hourly-outbox-recovery.md) | 2026-10-08 | Implemented; static configuration checks passed; test suite not run | Hourly outbox recovery poll; preserves immediate after-commit publication, 15-minute expiry and minute auto-completion |
+| [CHANGE-077](../changes/CHANGE-077-quarter-hour-ui-and-schedulers.md) | 2026-10-08 | Implemented; deterministic checks passed; visual/runtime checks pending | Quarter-hour creation/repost time picker; 15-minute expiry; the five-minute recovery setting is superseded by CHANGE-078; auto-completion remains every minute |
+| [CHANGE-076](../changes/CHANGE-076-deployment-pubsub-topic-values.md) | 2026-10-08 | Configuration statically verified; cloud publication pending | Sets production Order publishers to the three prod-v1 topics and staging to the existing dev-v1 topics |
+| [CHANGE-075](../changes/CHANGE-075-deterministic-ci-tests.md) | 2026-10-08 | Local tests/coverage passed; hosted CI rerun required | Fixes date-dependent acceptance tests, Jackson 3 event serialization tests, and incomplete legacy refund-event fixtures |
+| [CHANGE-074](../changes/CHANGE-074-ci-compose-adc-config.md) | 2026-10-08 | Implemented; GitHub rerun required | Allows Compose static validation in CI without a developer ADC file, while keeping local ADC required |
 | [CHANGE-073](../changes/CHANGE-073-real-pubsub-dev-topics.md) | 2026-10-07 | Implemented; Compose and real-cloud verification pending | Replaces the local Pub/Sub emulator with real Pub/Sub on three dev topics in the existing project; uses personal ADC locally and topic-scoped IAM |
 | [CHANGE-072](../changes/CHANGE-072-48-hour-auto-completion.md) | 2026-10-07 | Source/docs implemented; focused tests blocked by local Java compiler failure | Adds a configurable scheduler that database-selects and row-locks `DELIVERED` orders after 48 hours and reuses the completion/outbox flow |
 | [CHANGE-071](../changes/CHANGE-071-unify-open-order-refund-event.md) | 2026-10-06 | Implemented; Maven tests and Compose validation blocked by local toolchain | Replaces separate OPEN cancellation and expiration events/topics with one `OpenOrderRefundTaskEvent`; preserves `CANCELLED`/`EXPIRED` statuses; emulator topic initialization later superseded by CHANGE-073 |

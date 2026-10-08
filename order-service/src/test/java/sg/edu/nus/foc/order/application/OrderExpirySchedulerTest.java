@@ -24,7 +24,7 @@ class OrderExpirySchedulerTest {
                 .getMethod("expireDueOrders")
                 .getAnnotation(Scheduled.class);
         org.junit.jupiter.api.Assertions.assertEquals(
-                "${order.lifecycle.expiry-cron:0 * * * * *}", scheduled.cron());
+                "${order.lifecycle.expiry-cron:0 */15 * * * *}", scheduled.cron());
     }
 
     @Test

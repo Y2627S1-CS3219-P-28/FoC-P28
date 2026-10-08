@@ -53,3 +53,10 @@ The diagrams are logical architecture, not permission to implement future-sprint
 ## Updated design reconciliation
 
 The updated overall design supersedes the previous generic outcome/synchronous consequence description for Sequences 5-7. CHANGE-063/ADR-013 supersedes the publish-first ordering in CHANGE-053 with a transactional outbox, after-commit fast path, and cron recovery. CHANGE-067/ADR-016 defines event snapshots as the current Order/repost fields without checkpoint history; overdue facts remain derived internally. CHANGE-073/ADR-021 uses real Google Cloud Pub/Sub in all environments, one project with separate topics, personal local ADC, and the Cloud Run service identity. Delivery is at least once; Cloud Run scale-to-zero/request-based CPU limits cron recovery while idle.
+
+
+## Quarter-hour UI and scheduler cadence (ADR-022)
+
+The shared frontend QuarterHourDateTimePicker owns local date/hour/quarter-minute presentation; orders helpers own rounding and client validation; Post Request/RepostControls coordinate the existing authenticated API calls. Order application/domain layers retain API validation and authoritative deadlines. No backend class dependencies or data-model fields change.
+
+OrderExpiryScheduler uses a 15-minute default, OrderOutboxScheduler recovers pending events hourly, and OrderAutoCompletionScheduler remains minute-based. Immediate outbox dispatch and repository DB cutoff/locking remain unchanged. Legacy/direct API deadlines can wait for the next expiry pass; a failed publish may wait nearly an hour for recovery while the service is running. See CHANGE-078 for the current cadence and Cloud Run scale-to-zero limitation.

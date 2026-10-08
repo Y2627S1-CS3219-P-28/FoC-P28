@@ -1,5 +1,25 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-025: Hourly outbox recovery polling (2026-10-08)
+
+- Classification/approval: User-directed scheduling refinement; accepted in ADR-023 / CHANGE-078.
+- Previous behavior: CHANGE-077/ADR-022 polled pending outbox events every five minutes.
+- Effective rule: after-commit listener makes the immediate publish attempt once the transaction commits; the Spring recovery scheduler scans pending/expired-lease rows at `0 0 * * * *` (once at the top of each hour). Expiry remains every 15 minutes; automatic completion remains every minute.
+- Rationale/trade-off: the user expects publish failures to be uncommon and prefers a lighter retry poll. A failed publish can wait nearly an hour for the next recovery pass while the service is running; Cloud Run scale-to-zero/request-based CPU may delay it beyond that. Retry timestamps/backoff and outbox persistence are unchanged.
+- Affected chain: OrderOutboxScheduler, application and local/cloud cron configuration, cadence test expectation, current architecture/sequence/handoff docs. No event contract, peer API, database, or frontend change.
+- Verification: configuration/reference consistency and `git diff --check`; Maven tests not run.
+
+
+## ARCH-EVO-024: Quarter-hour UI and scheduler cadence (2026-10-08)
+
+- Classification/approval: User-approved behavior and scheduling refinement; ADR-022 / CHANGE-077.
+- Previous behavior: Arbitrary-minute native timestamp inputs, per-minute expiry and outbox recovery.
+- Effective rule at that change: Shared Requester time picker offers 00/15/30/45 minutes for creation/repost timestamps; defaults round up. Expiry runs every 15 minutes, recovery ran every five minutes until ARCH-EVO-025, and auto-completion runs every minute. Immediate event dispatch stays after commit.
+- Alternatives/trade-offs: Explicit minute selectors make choices consistent across browsers; step-only inputs would still permit unsupported typing. API-side rejection is not introduced because the user requested UI selection and existing/direct API timestamps remain valid. Less frequent scans reduce load but can delay expiry/refund and event retry. Exact deadline acceptance checks and DB due selection remain effective.
+- Affected chain: Creation/expiry/repost/completion acceptance and traceability, Requester picker/page/helper tests, scheduler cron-boundary tests, application/local/cloud config, current context and Sequence 5/6 notes. No data model, migration, event schema, peer endpoint or backend class dependency changes.
+- Verification: Frontend component/form/helper and backend test/coverage/configuration checks recorded in CHANGE-077. Browser visual checks and deployed Cloud Run scheduling remain unverified; idle scale-to-zero limits remain.
+
+
 ## ARCH-EVO-023: Use real Pub/Sub with separate dev/prod topics (2026-10-07)
 
 - Discovery classification: User-approved architecture and local-infrastructure change.
@@ -132,6 +152,8 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 
 | Evolution ID | Date | Feature | Change type | Status | Current rule or outcome | Decision/change links | Supersedes |
 |---|---|---|---|---|---|---|---|
+| ARCH-EVO-025 | 2026-10-08 | Hourly outbox recovery polling | User-directed scheduling refinement | IMPLEMENTED; STATIC CHECKS PASSED; TESTS NOT RUN | Immediate dispatch remains; recovery hourly; expiry 15 minutes; auto-completion one minute | CHANGE-078 / ADR-023 | Five-minute recovery poll from ARCH-EVO-024 |
+| ARCH-EVO-024 | 2026-10-08 | Quarter-hour UI and scheduler cadence | User-approved behavior/configuration refinement | IMPLEMENTED; LOCAL CHECKS PASSED; VISUAL/RUNTIME PENDING; RECOVERY CADENCE SUPERSEDED | UI clock minutes 00/15/30/45; expiry 15 minutes; recovery was five minutes until ARCH-EVO-025; auto-completion one; immediate dispatch unchanged | CHANGE-077 / ADR-022 | Arbitrary-minute UI and per-minute expiry/recovery defaults |
 | ARCH-EVO-023 | 2026-10-07 | Use real Pub/Sub with separate dev/prod topics | Architecture or specification change | USER-APPROVED; IMPLEMENTED; CLOUD/COMPOSE VERIFICATION PENDING | One existing GCP project, dev/prod topics, personal local ADC, Cloud Run service identity, topic-scoped IAM | CHANGE-073 / ADR-021 | Emulator as the default local transport in CHANGE-060 |
 | ARCH-EVO-001 | 2026-09-28 | High-level internal control flow | Design refinement | IMPLEMENTED | Application components invoke outbound ports; domain rules return decisions/data | CHANGE-012 | Previous diagram revision `875238E1...` |
 | ARCH-EVO-002 | 2026-09-29 | Order Service persistence and deployment | Architecture or specification change | APPROVED | Order Service uses PostgreSQL on one Cloud SQL instance and deploys to Cloud Run with a public-IP Cloud SQL Java Connector | CHANGE-015 / ADR-008 | Unresolved PostgreSQL/Firestore and Kubernetes/Cloud Run conflict |

@@ -193,3 +193,8 @@ At every task boundary, validate the local developer profile, shared allocation,
 CHANGE-069/ADR-018 defines the Order/Credit contract boundary: Order validates versions, ownership, and amount locally; assignment sends only `orderId` plus `courierId`, and hold/reset sends only `orderId` with no body. Published events retain `orderVersion` for consumers that need it. This leaves Order API concurrency checks and event schemas unchanged.
 
 CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order calls `POST /api/credits/orders/{orderId}/hold-for-reopen` without a request body and waits synchronously for `200 OK` before reopening. The contract is agreed, but Credit's endpoint is still missing; trusted service authentication and failure-window reconciliation remain production requirements.
+
+
+## Current time-selection and scheduler defaults (CHANGE-077 / ADR-022)
+
+USER Requester creation/repost clock minutes are 00/15/30/45; local defaults/minimum suggestions round up, with at least 30 minutes before expiry. API callers and existing rows retain arbitrary valid timestamps. Expiry runs every 15 minutes; pending outbox recovery hourly under ADR-023; delivered auto-completion every minute with the unrounded delivered checkpoint. Immediate after-commit publication stays active. Configuration is synchronized across application defaults, Compose, .env.example and both cloud environment files/template. Browser/Cloud Run idle scheduling remain unverified; scale-to-zero/request CPU limits are unchanged.

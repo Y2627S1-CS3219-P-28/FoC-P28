@@ -107,3 +107,13 @@ The criteria below define expected behavior. CHANGE-063 tests include a PostgreS
 - Add frontend tests only after approved UI behavior exists; do not invent screens.
 
 For any later approved frontend slice, follow `docs/frontend-integration-workflow.md`: test the applicable `ADMIN`/`USER` role and Requester/Courier mode, unauthorized and incorrect-mode access, actual request/response/error/auth contracts, responsive behavior from 320 px through 1920 px where applicable, accessibility/loading/error behavior, lint, type checking, configured component/integration/end-to-end tests, and regression. The approved role/client context alone does not authorize a screen or mode switcher.
+
+
+## CHANGE-077 - UI time selection and scheduler cadence
+
+- The Requester expiry/repost minute dropdown offers exactly 00, 15, 30, 45; changing minutes preserves date/hour. Disabled automatic repost controls cannot be edited.
+- Defaults/minimum suggestions round upward across hour/day boundaries and eliminate seconds. Existing 30-minute expiry validation remains; invalid/off-slot times are rejected before API submission.
+- Creation and manual repost submit the selected local time as the existing UTC ISO timestamp; enabling/disabling automatic repost preserves the existing payload rules.
+- Expiry cron's next pass after 10:01 is 10:15, including rollover to the next hour; recovery's next pass is 10:05; auto-completion's next pass after 10:01:20 is 10:02.
+- Immediate dispatch is still attempted after commit, and cron only recovers failures/interrupted deliveries. Legacy due timestamps remain eligible through the existing DB <= cutoff query.
+- Validate the shared UI at 320-1920px with existing design tokens, date/hour/minute labels, keyboard/touch selection, and no overflow. Browser verification is pending when no browser is connected; component tests alone do not prove responsiveness.

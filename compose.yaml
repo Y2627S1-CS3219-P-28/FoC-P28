@@ -183,6 +183,8 @@ services:
       ORDER_PEERS_MODE: mock
       GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
       ORDER_LIFECYCLE_TOKEN: ${ORDER_LIFECYCLE_TOKEN:-local-lifecycle}
+      ORDER_EXPIRY_CRON: ${ORDER_EXPIRY_CRON:-0 */15 * * * *}
+      ORDER_OUTBOX_RECOVERY_CRON: ${ORDER_OUTBOX_RECOVERY_CRON:-0 0 * * * *}
       ORDER_AUTO_COMPLETION_CRON: ${ORDER_AUTO_COMPLETION_CRON:-0 * * * * *}
     volumes:
       - type: bind

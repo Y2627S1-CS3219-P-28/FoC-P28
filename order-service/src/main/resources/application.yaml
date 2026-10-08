@@ -51,12 +51,12 @@ order:
     project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
     publish-timeout: 10s
     outbox:
-      recovery-cron: ${ORDER_OUTBOX_RECOVERY_CRON:0 * * * * *}
+      recovery-cron: ${ORDER_OUTBOX_RECOVERY_CRON:0 0 * * * *}
       batch-size: ${ORDER_OUTBOX_BATCH_SIZE:50}
     topics:
       order-completion: ${ORDER_COMPLETION_TOPIC:order-completion-dev-v1}
       open-order-refund: ${ORDER_OPEN_REFUND_TOPIC:open-order-refund-dev-v1}
       accepted-order-cancellation: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:accepted-order-cancellation-dev-v1}
   lifecycle:
-    expiry-cron: ${ORDER_EXPIRY_CRON:0 * * * * *}
+    expiry-cron: ${ORDER_EXPIRY_CRON:0 */15 * * * *}
     auto-completion-cron: ${ORDER_AUTO_COMPLETION_CRON:0 * * * * *}

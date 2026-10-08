@@ -12,6 +12,13 @@ authoritative files before changing code.
 
 ## Latest implementation handoff
 
+CHANGE-077/ADR-022 adds the shared Requester quarter-hour time picker and sets
+expiry to every 15 minutes. CHANGE-078/ADR-023 sets pending-event recovery to
+hourly; auto-completion remains every minute and publication still runs
+immediately after commit. Application/local/cloud settings are synchronized.
+The retry poll may wait nearly an hour after a failure while the service is
+running, and Cloud Run scale-to-zero may delay it further.
+
 CHANGE-072/ADR-020 adds Sequence 5 auto-completion after 48 hours from the
 `DELIVERED` checkpoint. A configurable Spring scheduler queries and locks only
 eligible delivered orders, rechecks under lock, and uses the existing

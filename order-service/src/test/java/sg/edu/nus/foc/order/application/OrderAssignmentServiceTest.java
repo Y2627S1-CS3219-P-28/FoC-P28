@@ -4,18 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Optional;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.mockito.MockedStatic;
+
 import sg.edu.nus.foc.order.domain.CommandReceipt;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderCheckpoint;
@@ -28,6 +35,19 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 class OrderAssignmentServiceTest {
     private static final String AUTHORIZATION = "Bearer courier-token";
     private static final Instant NOW = Instant.parse("2026-10-06T10:00:00Z");
+
+    private MockedStatic<Instant> currentTime;
+
+    @BeforeEach
+    void fixCurrentTime() {
+        currentTime = mockStatic(Instant.class, CALLS_REAL_METHODS);
+        currentTime.when(Instant::now).thenReturn(NOW);
+    }
+
+    @AfterEach
+    void restoreCurrentTime() {
+        currentTime.close();
+    }
 
     @Test
     void waitsForCreditAssignmentBeforeChangingAndSavingOrderStatus() {
@@ -125,8 +145,8 @@ class OrderAssignmentServiceTest {
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         UserServicePort users = mock(UserServicePort.class);
         CreditServicePort credits = mock(CreditServicePort.class);
-        Instant createdAt = Instant.now().minusSeconds(30 * 60L);
-        Instant expiresAt = Instant.now().plusSeconds(3);
+        Instant createdAt = NOW.minusSeconds(30 * 60L);
+        Instant expiresAt = NOW.plusSeconds(3);
         Order order = Order.open(
                 "requester-1", "item", "pickup", "delivery", 8, 15, createdAt, expiresAt);
 
@@ -134,7 +154,7 @@ class OrderAssignmentServiceTest {
         when(receipts.findExisting("ACCEPT", "accept-expiring")).thenReturn(Optional.empty());
         when(orders.getForUpdate(order.getId())).thenReturn(Optional.of(order));
         doAnswer(invocation -> {
-            Thread.sleep(3100);
+            currentTime.when(Instant::now).thenReturn(expiresAt);
             return null;
         }).when(credits).assignCourier(
                 order.getId(), "courier-1", AUTHORIZATION);

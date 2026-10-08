@@ -87,7 +87,7 @@ export type OrderActionPayload = {
 export const MIN_ORDER_EXPIRY_MINUTES = 30
 
 export function minOrderExpiryDateTimeLocal(now = new Date()): string {
-  return isoToDateTimeLocal(new Date(now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000).toISOString())
+  return quarterHourDateTimeLocal(new Date(now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000))
 }
 
 export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
@@ -96,9 +96,11 @@ export function validateCreateOrderForm(form: CreateOrderForm, now = new Date())
   if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) {
     return "Order expiry must be at least 30 minutes from now. Choose a later time."
   }
+  if (!isQuarterHourDateTime(form.expiresAt)) return "Choose expiry minutes of 00, 15, 30, or 45."
   if (form.automaticRepost) {
     const repostDueAt = new Date(form.repostDueAt)
     if (Number.isNaN(repostDueAt.getTime())) return "Choose a repost time when automatic repost is enabled."
+    if (!isQuarterHourDateTime(form.repostDueAt)) return "Choose repost minutes of 00, 15, 30, or 45."
     if (form.repostCreditAmount < 1) return "Repost credits must be at least 1."
     if (form.repostDeliveryDurationMinutes < 15) return "Repost delivery time must be at least 15 minutes."
   }
@@ -167,4 +169,17 @@ export function isoToDateTimeLocal(iso: string): string {
   const date = new Date(iso)
   const offset = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
+export function quarterHourDateTimeLocal(date: Date): string {
+  const rounded = new Date(date.getTime())
+  const minutes = rounded.getMinutes() + rounded.getSeconds() / 60 + rounded.getMilliseconds() / 60_000
+  rounded.setMinutes(Math.ceil(minutes / 15) * 15, 0, 0)
+  return isoToDateTimeLocal(rounded.toISOString())
+}
+
+export function isQuarterHourDateTime(value: string): boolean {
+  const date = new Date(value)
+  return !Number.isNaN(date.getTime()) && date.getMinutes() % 15 === 0
+    && date.getSeconds() === 0 && date.getMilliseconds() === 0
 }

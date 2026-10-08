@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import { QuarterHourDateTimePicker } from "@/components/orders/quarter-hour-date-time-picker"
 import { RequireAuth } from "@/components/require-auth"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -15,18 +16,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApi } from "@/hooks/use-api"
 import { ApiError } from "@/lib/api"
-import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
+import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, validateCreateOrderForm, type CreateOrderForm, type Order } from "@/lib/orders"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { supplierOptionLabel, type Page, type Supplier } from "@/lib/suppliers"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
-const localDate = (hoursFromNow: number) => {
-  const date = new Date(Date.now() + hoursFromNow * 60 * 60_000)
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
+const localDate = (hoursFromNow: number) => quarterHourDateTimeLocal(new Date(Date.now() + hoursFromNow * 60 * 60_000))
 
-const initialForm: CreateOrderForm = {
+const initialForm = (): CreateOrderForm => ({
   itemDescription: "",
   pickupSupplierId: "",
   deliverySupplierId: "",
@@ -37,7 +34,7 @@ const initialForm: CreateOrderForm = {
   repostDueAt: localDate(2),
   repostCreditAmount: 1,
   repostDeliveryDurationMinutes: 15,
-}
+})
 
 export default function NewRequestPage() {
   const api = useApi()
@@ -110,12 +107,12 @@ export default function NewRequestPage() {
             <label className="space-y-1 text-sm"><Label htmlFor="delivery-supplier">Delivery supplier</Label><Select items={Object.fromEntries(suppliers.map((supplier) => [supplier.id, supplierOptionLabel(supplier)]))} value={form.deliverySupplierId} onValueChange={(value) => update("deliverySupplierId", String(value ?? ""))} disabled={suppliersLoading || suppliers.length === 0}><SelectTrigger id="delivery-supplier" aria-label="Delivery supplier" className="h-9 w-full"><SelectValue placeholder={suppliersLoading ? "Loading suppliers…" : "Select a delivery supplier"} /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.id} value={supplier.id}>{supplierOptionLabel(supplier)}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1 text-sm"><Label htmlFor="credits">Offered credits</Label><Input id="credits" required type="number" min="1" className={inputClass} value={form.offeredCredits} onChange={(event) => update("offeredCredits", Number(event.target.value))} /></label>
             <label className="space-y-1 text-sm"><Label htmlFor="delivery-limit">Delivery time limit (minutes)</Label><Input id="delivery-limit" required type="number" min="15" className={inputClass} value={form.deliveryTimeLimitMinutes} onChange={(event) => update("deliveryTimeLimitMinutes", Number(event.target.value))} /></label>
-            <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="expires-at">Order expiry</Label><Input id="expires-at" required type="datetime-local" min={minOrderExpiryDateTimeLocal()} aria-describedby="expiry-help" className={inputClass} value={form.expiresAt} onChange={(event) => { setPostError(null); update("expiresAt", event.target.value) }} /><span id="expiry-help" className="text-xs text-muted-foreground">Choose an expiry at least 30 minutes from now. Shorter expiries are rejected by Order Service.</span></label>
+            <div className="space-y-1 sm:col-span-2"><QuarterHourDateTimePicker id="expires-at" label="Order expiry" required min={minOrderExpiryDateTimeLocal()} describedBy="expiry-help" value={form.expiresAt} onChange={(value) => { setPostError(null); update("expiresAt", value) }} /><p id="expiry-help" className="text-xs text-muted-foreground">Choose an expiry at least 30 minutes from now. Minutes must be 00, 15, 30, or 45.</p></div>
           </CardContent></Card>
           <Card><CardHeader><CardTitle>Automatic repost</CardTitle><CardDescription>Optional NTH4 behavior. The new order is created and credited only when the repost is due.</CardDescription></CardHeader><CardContent className="space-y-4">
             <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.automaticRepost} onChange={(event) => update("automaticRepost", event.target.checked)} />Enable automatic repost if no courier accepts</label>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="space-y-1 text-sm"><Label htmlFor="repost-due">Repost time</Label><Input id="repost-due" type="datetime-local" disabled={!form.automaticRepost} className={inputClass} value={form.repostDueAt} onChange={(event) => update("repostDueAt", event.target.value)} /></label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2"><QuarterHourDateTimePicker id="repost-due" label="Repost time" disabled={!form.automaticRepost} required={form.automaticRepost} value={form.repostDueAt} onChange={(value) => update("repostDueAt", value)} /></div>
               <label className="space-y-1 text-sm"><Label htmlFor="repost-credits">Repost credits</Label><Input id="repost-credits" type="number" min="1" disabled={!form.automaticRepost} className={inputClass} value={form.repostCreditAmount} onChange={(event) => update("repostCreditAmount", Number(event.target.value))} /></label>
               <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" type="number" min="15" disabled={!form.automaticRepost} className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} /></label>
             </div>

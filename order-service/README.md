@@ -83,3 +83,16 @@ Firebase emulator volumes.
 `admin-service/` is currently an empty placeholder with no runnable application
 or Dockerfile. It is therefore not included as a built service until its owner
 adds an implementation and image.
+
+
+## Errand times and background schedules
+
+Requester creation and repost date/time controls use local clock minutes 00, 15, 30, or 45. Defaults round up to a quarter-hour; expiry must still be at least 30 minutes ahead. The API continues receiving UTC ISO timestamps and supports existing valid deadlines.
+
+| Setting | Default Spring cron | Purpose |
+|---|---|---|
+| ORDER_EXPIRY_CRON | 0 */15 * * * * | Expire all due OPEN unassigned orders every 15 minutes |
+| ORDER_OUTBOX_RECOVERY_CRON | 0 0 * * * * | Retry pending outbox events hourly |
+| ORDER_AUTO_COMPLETION_CRON | 0 * * * * * | Complete DELIVERED orders at least 48 hours old every minute |
+
+Publication is attempted immediately after the transaction commits; the hourly outbox cron only recovers missed/failed attempts. A failed publish may wait nearly an hour for recovery while the service is running; Cloud Run scale-to-zero may delay it further. Existing/direct API deadlines can wait until the next expiry pass for status/refund processing. Availability/acceptance checks continue to enforce the actual deadline. Override these variables in local .env or the deployment environment file if needed. Cloud Run's current scale-to-zero/request-based CPU does not guarantee Spring scheduling while idle.

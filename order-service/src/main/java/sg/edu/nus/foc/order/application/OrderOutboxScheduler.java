@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class OrderOutboxScheduler {
     private final OrderOutboxDispatcher dispatcher;
 
-    @Scheduled(cron = "${order.messaging.outbox.recovery-cron:0 * * * * *}")
+    @Scheduled(cron = "${order.messaging.outbox.recovery-cron:0 0 * * * *}")
     public void dispatchDueEvents() {
         try {
             dispatcher.dispatchDueBatch();

@@ -108,7 +108,8 @@ class OrderOutboxDispatcherTest {
         String payload = """
                 {"eventId":"expiry-event-1","eventType":"OrderExpirationTaskEvent","eventVersion":1,
                  "orderId":"order-expired","orderVersion":2,"occurredAt":"2026-10-01T10:00:00Z",
-                 "actorId":"lifecycle","order":{"id":"order-expired","status":"EXPIRED"}}
+                 "actorId":"lifecycle","order":{"id":"order-expired","status":"EXPIRED",
+                 "offeredCredits":4,"deliveryTimeLimitMinutes":20,"version":2}}
                 """;
         OrderEventOutbox message = OrderEventOutbox.pending(
                 "expiry-event-1", "order-expired", "OrderExpirationTaskEvent", 1, 2, payload, CREATED_AT);
@@ -132,7 +133,8 @@ class OrderOutboxDispatcherTest {
         String payload = """
                 {"eventId":"cancel-event-legacy","eventType":"OpenOrderCancellationTaskEvent","eventVersion":1,
                  "orderId":"order-cancelled","orderVersion":2,"occurredAt":"2026-10-01T10:00:00Z",
-                 "actorId":"requester-1","order":{"id":"order-cancelled","status":"CANCELLED"}}
+                 "actorId":"requester-1","order":{"id":"order-cancelled","status":"CANCELLED",
+                 "offeredCredits":4,"deliveryTimeLimitMinutes":20,"version":2}}
                 """;
         OrderEventOutbox message = OrderEventOutbox.pending(
                 "cancel-event-legacy", "order-cancelled", "OpenOrderCancellationTaskEvent", 1, 2, payload, CREATED_AT);

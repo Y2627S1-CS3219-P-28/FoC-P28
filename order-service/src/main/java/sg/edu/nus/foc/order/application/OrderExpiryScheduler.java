@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class OrderExpiryScheduler {
     private final LifecycleProcessingService lifecycle;
 
-    @Scheduled(cron = "${order.lifecycle.expiry-cron:0 * * * * *}")
+    @Scheduled(cron = "${order.lifecycle.expiry-cron:0 */15 * * * *}")
     public void expireDueOrders() {
         try {
             int expired = lifecycle.expireDue(Instant.now());

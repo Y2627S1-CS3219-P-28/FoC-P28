@@ -1483,3 +1483,91 @@ for failures show credits unavailable
 - **Author verification:** The focused Maven wrapper command could not start (`Cannot start maven from wrapper`) before test execution. Docker Compose validation was unavailable because the local Docker CLI could not read its config file (access denied); image runtime and live GCP publication were not verified. GCP topic/IAM setup remains pending; no credentials were requested or exposed.
 
 This log records the AI exchanges. The team remains responsible for validating all output. Requirements prioritization, architecture, component boundaries, schemas, interfaces, and performance/security trade-offs were finalized by the team, not by the AI tool.
+
+
+## CI Compose validation fix assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Diagnosis, implementation, and verification
+- **Affected locations:** .github/workflows/ci.yml, order-service/changes/CHANGE-074-ci-compose-adc-config.md, order-service/docs/change-log.md, order-service/docs/current-sprint.md, order-service/docs/active-work/yao-xiang.md, this log
+- **Prompt:** “Fix the ci cd error”
+- **Key response:** Diagnosed the Compose CI validation step as omitting the required local-only GOOGLE_APPLICATION_CREDENTIALS_HOST. Configured that static validation step to use a temporary empty runner file path; it does not start services or expose credentials.
+- **Author verification:** Reviewed workflow scope and changed files. git diff --check passed. The GitHub run log could not be retrieved because gh is not installed; local Compose config validation was unavailable because Docker Desktop’s config file is inaccessible in this environment. A hosted CI rerun remains necessary.
+
+
+## Attached CI failure repair assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Workflow review, diagnosis, test repair, and verification
+- **Prompt:** User supplied “required variable GOOGLE_APPLICATION_CREDENTIALS_HOST is missing a value” from Compose validation, “Job results: success failure success failure,” and the attached Maven log, requesting a fix for CI when pushing.
+- **Key response:** Confirmed CHANGE-074 addresses the actual Compose error without personal ADC in CI. Repaired seven test failures/errors across fixed-date acceptance tests, Jackson 2 event serialization, and incomplete legacy event fixtures. Preserved business/API behavior and the 80% coverage gate. Added CHANGE-075 and synchronized tracking records.
+- **Affected locations:** .github/workflows/ci.yml; order-service/src/test/java/sg/edu/nus/foc/order/application/{OrderAssignmentServiceTest,OrderTaskEventFactoryTest,OrderOutboxDispatcherTest}.java; order-service/changes/CHANGE-074-ci-compose-adc-config.md and CHANGE-075-deterministic-ci-tests.md; change-log/current-sprint/active-work records; this log.
+- **Author verification:** Focused 13 tests passed. Fresh full Maven verification reported 123 tests, zero failures/errors and six skipped PostgreSQL Testcontainers tests because the sandbox cannot access the Docker named pipe. Fresh coverage measures 90.82% lines and 81.19% branches. Used cached wrapper-selected Maven 3.9.16 and local Java 21 source/target flags to bypass Windows wrapper and JDK symbol-archive permissions; tracked build settings are unchanged. Moved obsolete generated classes aside before fresh coverage verification. Compose config --quiet returned exit code 0 with an empty ADC placeholder; workflow YAML parsing and git diff --check passed. Hosted CI, Docker integration/image build, actionlint, and cloud infrastructure checks remain pending. No cloud publication or credential access was performed.
+
+
+## Production Pub/Sub deployment guidance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Repository inspection and advisory guidance
+- **Prompt:** User created the three prod-v1 topics and asks how Pub/Sub will work after pushing to main and whether database configuration is needed.
+- **Key response:** Verified the existing deployment topic template, missing environment assignments, shared Cloud Run runtime identity, main-to-staging automatic deployment and manual production promotion. Explained topic-level publisher IAM, Cloud Run ADC without credential files, environment configuration rather than database settings, and independent subscriber responsibilities. No runtime/configuration or GCP changes made.
+- **Affected locations:** order-service/docs/active-work/yao-xiang.md and this log only.
+- **Author verification:** Read the actual deploy workflows/script, environment template/files, publisher factory and project settings; checked official Google Cloud identity/IAM documentation. No live IAM/topic validation or publish test performed; user's topic creation remains reported evidence.
+
+
+## Deployment Pub/Sub topic values implementation (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Approved configuration update and static verification
+- **Prompt:** “add in the .env for me.” This follows the production/staging topic setup guidance.
+- **Key response:** Appended the three prod-v1 topic settings to infra/environments/production.env and existing dev-v1 settings to staging.env. Preserved existing values and the deployed project/identity. Added CHANGE-076 and updated sprint/change/work records. No application source, peer services, cloud resources or credentials changed.
+- **Affected locations:** infra/environments/{production,staging}.env; order-service/changes/CHANGE-076-deployment-pubsub-topic-values.md; Order change-log/current-sprint/active-work records; this log.
+- **Author verification:** Local substitution and YAML parsing of both deployment templates confirmed exact topic/project values, one assignment per variable and preservation of existing settings. git diff --check passed. No Maven tests required for this configuration-only change; no deployment, IAM validation or live Pub/Sub publication performed.
+
+
+## Quarter-hour Requester time selection and scheduler cadence
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** User-approved UI/configuration refinement, test-first implementation and verification
+- **Prompt:** User requested minute choices 00/15/30/45 when creating errands, expiry scans every 15 minutes, event scheduling every five minutes, and auto-completion every minute because courier delivery times are uncontrolled.
+- **Key response:** Invoked Order spec workflow and frontend baseline; implemented a shared date/hour/quarter-minute picker on creation and repost forms, rounded suggestions and client validation with existing UTC payloads. Changed expiry/recovery defaults and local/cloud overrides to 15/five minutes, preserving immediate dispatch and minute auto-completion. Added CHANGE-077/ADR-022/ARCH-EVO-024 and synchronized requirements, sequence notes, runtime context, traceability and handoff. No peer-service source, API/event schema, stored deadlines or migration changed.
+- **Affected locations:** frontend/src/app/requests/new, components/orders picker/repost controls and tests, lib/orders helpers/tests; Order expiry/outbox schedulers and tests, application/deploy env settings; root Compose/.env.example and infra environment files; Order change/decision/architecture/sprint/context/handoff records; this log.
+- **Author verification:** Red helper/picker and Spring next-run boundary tests observed before implementation. Final frontend 29 tests pass; type generation/TypeScript pass; lint has only 12 pre-existing warnings outside changed files and changed-file lint is clean. Focused backend 12 tests pass; full Maven 125 tests with zero failures/errors and six skipped Docker integration checks due to denied named-pipe access. Fresh JaCoCo lines 90.82%, branches 81.19%; configured gate passes. Compose static config and rendered staging/production cron YAML pass; git diff --check passes. Browser skill was used for discovery but no browser was connected, so visual/responsive/authenticated runtime verification was unavailable. No real Pub/Sub publication or deployment performed.
+
+
+## Hourly Order outbox recovery cadence assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Implementation and documentation
+- **Affected locations:** OrderOutboxScheduler and Order Service cron configuration; CHANGE-078, ADR-023, architecture evolution, sequence/requirements/traceability/handoff records, and existing scheduler cadence test
+- **Prompt:** “Then the listener run periodically or just right after the method call. In this case, I dont think we actually fail that many times. Maybe make the publish failed event scheduler run per hour”
+- **Key response:** Confirmed the after-commit listener is event-triggered and the cron scheduler is recovery-only. Changed the recovery interval to hourly while preserving immediate publication, 15-minute expiry, and one-minute auto-completion. Documented the longer retry wait and Cloud Run scale-to-zero limitation.
+- **Author verification:** Static source/configuration/reference inspection and git diff --check; automated tests and deployed/cloud scheduling were not run.
+
+
+## Role authorization annotation architecture review assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Architecture review and advisory documentation
+- **Affected locations:** order-service/docs/active-work/yao-xiang.md and ai/usage-log.md only; no application source, tests, contracts, configuration, or accepted decisions changed
+- **Prompt:** User asked how current authentication works and whether @RequireCourierRole(id), @RequireRequesterRole(id), and @RequireAdminRole(id) could centralize token extraction, User Service lookup, and repeated checks.
+- **Key response:** Inspected current Firebase validation, role-provider/mock-versus-HTTP configuration, User Service role/eligibility endpoints, and locked Order ownership guards. Recommended Spring Security meta-annotations for role checks, centralized verified actor context, request-scoped role reuse, separate courier eligibility, and transactional ownership checks. Explained the proposed annotations do authorization while the filter/decoder performs authentication; no role ID attribute is needed. Implementation remains unapproved.
+- **Author verification:** Human review of this proposal is pending. AI performed source/documentation inspection and whitespace checks only; no tests or live cross-service verification were performed.
+
+
+## Supplied role-aspect reference assessment assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Architecture review and advisory documentation
+- **Affected locations:** order-service/docs/active-work/yao-xiang.md and ai/usage-log.md only
+- **Prompt:** User supplied a RoleAspect/SecurityHelper/BaseSecurityHelper reference and requested a recommendation for clean API methods with centralized role annotations for courier, requester, and admin.
+- **Key response:** Read the entire supplied reference and current Order/User security implementation. Confirmed the reference checks existing SecurityContext roles and its User cache serves display names. Recommended three Spring Security meta-annotations with central verified actor/role context, token-based User role lookup, complete role-set membership, separate courier eligibility, and locked Order ownership guards. Called out current mock Spring-role versus HTTP application-verification mode so checks are not accidentally removed. Proposed design is unapproved/unimplemented.
+- **Author verification:** Human review is pending. AI inspected repository/reference/official Spring documentation and ran a review-record whitespace check; no tests, live authentication calls, source edits, or deployment occurred.

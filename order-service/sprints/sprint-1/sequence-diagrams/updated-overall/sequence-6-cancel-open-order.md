@@ -24,7 +24,7 @@ sequenceDiagram
         Transition->>Outbox: Store OpenOrderRefundTaskEvent (status=CANCELLED)
         Transition->>Store: Save Order, checkpoint, receipt, and outbox row
     else Scheduler-triggered expiration
-        Scheduler->>Lifecycle: expireDue(now), configured Spring cron
+        Scheduler->>Lifecycle: expireDue(now), every 15 minutes by default
         Lifecycle->>Store: Find due, unassigned OPEN orders with row locks
         Store-->>Lifecycle: Due orders
         loop Each due order
@@ -47,7 +47,7 @@ sequenceDiagram
     else Publish fails
         Transport-->>Relay: Publication error
         Relay->>Outbox: Record retry time and error
-        Note over Outbox,Relay: Existing Spring cron recovery retries the durable pending event
+        Note over Outbox,Relay: Spring recovery cron retries pending events hourly (ADR-023)
     end
     opt Requester-triggered command
         Transition-->>Controller: Cancellation result
@@ -55,4 +55,7 @@ sequenceDiagram
     end
 ```
 
-Requester cancellation is trigger-based and records `CANCELLED`; scheduled expiry records `EXPIRED`. Both persist one `OpenOrderRefundTaskEvent` with the full resulting Order/repost snapshot but no checkpoint history. Credit subscribes to one shared OPEN-refund topic and refunds/releases the transaction for either status; no User Service subscriber is involved. The `order.status` field lets Credit distinguish the outcome if it needs to. State, checkpoint, and event intent commit atomically; publication happens after commit through one typed publisher. Order Service does not await Credit's subscriber. Delivery is at least once and Credit must deduplicate by stable event ID. The production topic remains a placeholder for later configuration; local Compose initializes `open-order-refund-v1`. The dispatcher also translates pending legacy cancellation/expiration outbox records to the new event shape while preserving their event IDs. Cloud Run scale-to-zero with request-based CPU does not guarantee this in-process schedule runs while idle.
+Requester cancellation is trigger-based and records `CANCELLED`; scheduled expiry records `EXPIRED`. Both persist one `OpenOrderRefundTaskEvent` with the full resulting Order/repost snapshot but no checkpoint history. Credit subscribes to one shared OPEN-refund topic and refunds/releases the transaction for either status; no User Service subscriber is involved. The `order.status` field lets Credit distinguish the outcome if it needs to. State, checkpoint, and event intent commit atomically; publication happens after commit through one typed publisher. Order Service does not await Credit's subscriber. Delivery is at least once and Credit must deduplicate by stable event ID. The topic is configured through `ORDER_OPEN_REFUND_TOPIC`: local/staging use `open-order-refund-dev-v1`, production uses `open-order-refund-prod-v1` (CHANGE-073/076). The dispatcher also translates pending legacy cancellation/expiration outbox records to the new event shape while preserving their event IDs. Cloud Run scale-to-zero with request-based CPU does not guarantee this in-process schedule runs while idle.
+
+
+CHANGE-077/ADR-022 limits new Requester UI timestamp choices to quarter-hours. The expiry DB query still selects all due orders, including older/direct API timestamps. Actual deadline checks remain independent of the 15-minute scan; immediate after-commit event publication is unchanged.

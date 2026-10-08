@@ -79,3 +79,6 @@ sequenceDiagram
 ```
 
 Only the authenticated courier assigned to the accepted errand may cancel it. Before expiry, Order waits for Credit's synchronous hold confirmation and then changes `ACCEPTED` directly to `OPEN`, clearing the courier; this branch publishes no cancellation event. Credit failure leaves the order accepted. At or after expiry, Order changes it to `ABORTED` and commits an accepted-cancellation event in the outbox. Credit refunds the transaction and User applies the courier's penalty. If expiry passes during the hold request, Order rechecks the deadline and uses the expired branch. The direct `ACCEPTED -> OPEN` transition is distinct from the prohibited `ABORTED -> OPEN` transition. Consumers deduplicate at-least-once deliveries by stable event ID. The topic ID remains `TODO_TOPIC` until configured.
+
+
+CHANGE-077/ADR-022 keeps immediate after-commit dispatch for expired accepted-cancellation events; the recovery cron retries pending events hourly under ADR-023. Actual expiry comparison for the synchronous reopen versus cancellation-event branch is unchanged.

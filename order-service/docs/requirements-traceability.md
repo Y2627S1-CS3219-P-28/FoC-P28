@@ -70,3 +70,14 @@ claimed from static builds or unit tests.
   `status/error/message/path/timestamp/details`; OpenAPI operations declare the bearer requirement.
 - Order lifecycle actions emit structured service-local audit events without logging credentials or
   credit secrets (NFR4 implementation detail; sink configuration remains deployment-owned).
+
+
+## CHANGE-077 verification mapping
+
+| Project reference | Approved refinement | Implementation | Verification |
+|---|---|---|---|
+| F1.1-F1.3; NTH4 | Requester creation/repost times use quarter-hour minute choices with the existing expiry minimum | frontend QuarterHourDateTimePicker, Post Request, RepostControls and orders helpers | 29 frontend tests pass, including real form-to-API mock payloads; TypeScript and lint pass; visual/authenticated browser pending |
+| F4.1.8; F10; NFR3 | Expiry every 15 minutes; DB due selection remains authoritative | OrderExpiryScheduler and application/local/cloud cron settings | Cron boundary test passes; full suite has 125 tests, zero failures/errors, six Docker integration skips |
+| F4.1.5; F5.1; ADR-013/020 | Recovery hourly per ADR-023; immediate dispatch and one-minute 48-hour completion preserved | OrderOutboxScheduler and OrderAutoCompletionScheduler | Existing scheduler cadence assertion updated for hourly recovery; not run in CHANGE-078. Immediate-dispatch path unchanged; deployed idle scheduling unverified |
+
+See CHANGE-077 / ADR-022. API/event schemas, backend class responsibilities and stored deadlines are unchanged.

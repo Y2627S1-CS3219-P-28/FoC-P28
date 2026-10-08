@@ -71,3 +71,11 @@ This file narrows implementation planning; Project D1 and ADR-001 remain authori
 - Credit Service owns reservations and all credit policy.
 - Idempotent commands/triggers use command IDs; state changes use expected order version.
 - Apply Project D1 NFR3 test/coverage rules and NFR4 logging rules from the first implementation.
+
+
+## CHANGE-077 - Quarter-hour Requester times and scheduler cadence
+
+- USER Requester creation expiry, automatic repost time and manual repost expiry expose local minute choices 00/15/30/45, with defaults rounded up. The existing minimum expiry of 30 minutes remains. Numeric delivery duration is unchanged.
+- This is a UI selection/validation rule; API timestamp shapes and existing/direct API arbitrary valid deadlines remain supported. Availability and acceptance enforce the actual expiry time independently of the scheduler.
+- Default Spring expiry cron is 0 */15 * * * *; outbox recovery cron is 0 0 * * * * under ADR-023; delivered auto-completion remains 0 * * * * *. Immediate after-commit dispatch remains mandatory.
+- Local/cloud configuration must expose the same defaults. Due selection stays in PostgreSQL; no full-table/in-memory filtering. See ADR-022.

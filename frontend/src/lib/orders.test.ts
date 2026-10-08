@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildCreateOrderPayload, buildOrderActionPayload, orderMinePath, type CreateOrderForm, type Order, updateCourierOrderList, validateCreateOrderForm } from "@/lib/orders"
+import { buildCreateOrderPayload, buildOrderActionPayload, isQuarterHourDateTime, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, orderMinePath, type CreateOrderForm, type Order, updateCourierOrderList, validateCreateOrderForm } from "@/lib/orders"
 
 describe("Order Service frontend contract helpers", () => {
   it("builds a requester create payload with an automatic repost plan", () => {
@@ -116,5 +116,38 @@ describe("Order Service frontend contract helpers", () => {
       repostCreditAmount: 0,
       repostDeliveryDurationMinutes: 0,
     }, new Date("2026-09-30T07:00:00.000Z"))).toBeNull()
+  })
+})
+
+
+describe("quarter-hour errand times", () => {
+  it("rounds defaults up across an hour and date boundary without rounding valid slots", () => {
+    expect(quarterHourDateTimeLocal(new Date(2026, 9, 8, 23, 59, 1))).toBe("2026-10-09T00:00")
+    expect(quarterHourDateTimeLocal(new Date(2026, 9, 8, 10, 15))).toBe("2026-10-08T10:15")
+    expect(quarterHourDateTimeLocal(new Date(2026, 9, 8, 10, 15, 1))).toBe("2026-10-08T10:30")
+    expect(minOrderExpiryDateTimeLocal(new Date(2026, 9, 8, 10, 1, 30))).toBe("2026-10-08T10:45")
+  })
+
+  it("accepts only quarter-hour clock minutes with no seconds", () => {
+    for (const minutes of ["00", "15", "30", "45"]) {
+      expect(isQuarterHourDateTime("2026-10-08T12:" + minutes)).toBe(true)
+    }
+    for (const value of ["", "invalid", "2026-10-08T12:14", "2026-10-08T12:30:01"]) {
+      expect(isQuarterHourDateTime(value)).toBe(false)
+    }
+  })
+
+  it("rejects off-slot expiry and enabled repost times before building the request", () => {
+    const now = new Date(2026, 9, 8, 10, 0)
+    const form: CreateOrderForm = {
+      itemDescription: "Pick up a parcel", pickupSupplierId: "store-a", deliverySupplierId: "hall-b",
+      offeredCredits: 1, deliveryTimeLimitMinutes: 15, expiresAt: "2026-10-08T11:07",
+      automaticRepost: false, repostDueAt: "2026-10-08T12:07",
+      repostCreditAmount: 1, repostDeliveryDurationMinutes: 15,
+    }
+    expect(validateCreateOrderForm(form, now)).toBe("Choose expiry minutes of 00, 15, 30, or 45.")
+    expect(validateCreateOrderForm({ ...form, expiresAt: "2026-10-08T11:15" }, now)).toBeNull()
+    expect(validateCreateOrderForm({ ...form, expiresAt: "2026-10-08T11:15", automaticRepost: true }, now))
+      .toBe("Choose repost minutes of 00, 15, 30, or 45.")
   })
 })
