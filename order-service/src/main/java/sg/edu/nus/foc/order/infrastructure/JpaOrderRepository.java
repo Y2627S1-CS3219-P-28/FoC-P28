@@ -21,7 +21,15 @@ public interface JpaOrderRepository extends JpaRepository<Order, String> {
             Instant now,
             Pageable pageable);
 
-    Page<Order> findByRequesterIdOrderByCreatedAtDesc(String requesterId, Pageable pageable);
+    @Query(value = "select o from Order o where o.requesterId = :requesterId "
+            + "and (o.status <> sg.edu.nus.foc.order.domain.OrderStatus.EXPIRED "
+            + "or o.repostedOrderId is null) order by o.createdAt desc",
+            countQuery = "select count(o) from Order o where o.requesterId = :requesterId "
+                    + "and (o.status <> sg.edu.nus.foc.order.domain.OrderStatus.EXPIRED "
+                    + "or o.repostedOrderId is null)")
+    Page<Order> findByRequesterIdOrderByCreatedAtDesc(
+            @Param("requesterId") String requesterId,
+            Pageable pageable);
 
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
