@@ -7,8 +7,9 @@ explicitly authorized by the user in CHANGE-081. Source: Project D1 and the loca
 `Order Service Overall Doc.pdf`. Scope includes the requested lifecycle/history,
 repost and completion work; it does not authorize sibling-service implementation.
 The accepted one-current-Order plus immutable courier-attempt history model is
-approved in principle; Credit reset/reassignment and repost replacement details
-remain pending. This allocation does not reassign Yao Xiang's historical work or
+approved in principle; Credit reset semantics and detailed migration remain pending.
+Reposting retains old/new rows and hides the reposted expired original from the
+requester list; implementation is pending. This allocation does not reassign Yao Xiang's historical work or
 grant blanket ownership of shared frontend/configuration files.
 
 ## Historical Sprint 1 allocation

@@ -13,8 +13,12 @@
   Preserve those records as history; do not implement from them for this slice.
 - Follow-up approved: synchronous Credit courier update on abort and same-ID
   EXPIRED current order plus separate ABORTED courier history after expiry.
-- Pending: exact reset value/endpoint and stale-retry protection; repost current-row
-  replacement/audit retention. Broker retries do not guarantee completed refunds.
+- Follow-up retention approved: keep the old EXPIRED row/ID and new repost row/ID;
+  suppress successfully reposted expired originals from My Requests using the
+  existing repost links. This supersedes the earlier row-delete/overwrite proposal.
+  Query filtering must precede pagination; no visibility code was changed.
+- Pending: exact reset value/endpoint and stale-retry protection, detailed UUID/
+  history migration. Broker retries do not guarantee completed refunds.
 - Schema evidence: V2 outbox rows reference orders(id); deleting/rekeying an order
   currently conflicts with those references. New migration design remains pending.
 - Data risk: current checkpoints are unique per order/status and reference the

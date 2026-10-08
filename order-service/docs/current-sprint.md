@@ -9,8 +9,10 @@ selected the local `Order Service Overall Doc.pdf` alongside D1. The previously
 fingerprinted Updated PDF is absent; do not claim the two PDFs are equivalent.
 
 The missing Credit courier-assignment endpoint may be mocked for the local
-Order-side milestone; it is not verified integration. Credit reset/reassignment
-and expired-row replacement/history retention are awaiting clarification. No
+Order-side milestone; it is not verified integration. Credit reset value/route
+and retry safety are awaiting clarification. Repost retention is now approved:
+keep old/new rows with distinct business IDs, and hide the successfully reposted
+old expired row from My Requests using their linkage. No
 Sprint 2-3 source changes, migrations, new tests or completion claims exist yet.
 Prior Sprint 1 records remain historical and must not be deleted.
 

@@ -18,19 +18,20 @@
   current order stays under the same business ID as EXPIRED, with separate ABORTED
   courier-attempt history. Exact reset value/route and retry safety remain pending.
 - Pending: confirm null/reset semantics and whether to reuse the proposed hold
-  route; confirm repost replacement with retained immutable history/refund payload.
-  A broker publish confirmation does not verify the refund. V2's outbox foreign
-  key prevents simply deleting its original order row; migration design is pending.
-- Last action: recorded follow-up abort approvals; inspected CreditServicePort,
-  HttpPeerAdapters and V2 outbox references; checked official Pub/Sub retention/
-  retry documentation. Added ignored refund/history learning. The proposed peer
-  APIs remain unverified; publication is not refund completion.
+  route; detailed internal UUID/history migration and stale-retry design.
+- Repost retention/visibility approved: keep old EXPIRED row and new OPEN row
+  with different business IDs; hide the successfully reposted old expired row
+  from My Requests using repost linkage, not deletion. Source query not changed.
+- Last action: inspected Order.createRepost, OrderRepostService and requester
+  query; confirmed existing originalOrderId/repostedOrderId links, but no requester
+  filtering yet. Recorded retention approval and updated ignored learning.
+  Official Pub/Sub docs confirm finite retention; live refunds are unverified.
 - Verification: source/configuration/document inspection only; no new tests,
   migrations, application changes, cloud operations or live peer checks this turn.
   TOML parsing and explicit pending-decision assertions, unique evolution ID,
   change-record existence and `git diff --check` passed. The local profile is
   tracked, not ignored. Follow-up learning is ignored and excluded from commits.
-- Next action: resolve reset semantics and repost retention; then synchronize detailed design,
+- Next action: resolve reset semantics; then synchronize detailed design,
   traceability/contracts/diagrams, write and observe failing tests, implement in
   atomic slices and run the required backend/frontend/persistence/contract gates.
 - Boundaries: do not edit sibling backend services; do not commit learning files;

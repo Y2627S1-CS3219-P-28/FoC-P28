@@ -15,8 +15,11 @@ The user approved one current Order plus immutable courier-attempt history,
 an internal UUID separate from business orderId, ACCEPTED-only abortion,
 User penalty signaling for every abort and Credit refund signaling for expired
 outcomes. The missing courier-assignment API may be mocked locally, not silently
-in HTTP mode. Credit reset versus reassignment and expired-order row replacement
-remain unresolved; none of this new lifecycle design has been applied in source.
+in HTTP mode. Synchronous Credit update on abort is approved, but its reset value/
+route and retry safety remain unresolved. Repost retains the old EXPIRED row and
+new row/new business ID; hide the successfully reposted original from My Requests
+using repost links. Refund/history references retain the old ID. This visibility
+change and the new abort lifecycle have not been applied in source.
 Do not interpret the historical Sprint 1 flags below as blocking an approved
 Sprint 2-3 requirement, or interpret partial approval as completion.
 

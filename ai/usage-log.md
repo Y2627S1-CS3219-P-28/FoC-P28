@@ -1657,3 +1657,13 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Upon abort send a synchronous Credit courier overwrite; keep the same expired current order ID and separate aborted history; can broker retries justify replacing the expired order after publishing its refund?
 - **Key response:** Recorded synchronous update approval without inventing null/reset endpoint semantics. Confirmed V2 outbox's order foreign key and distinguished publication from Credit refund completion using official Pub/Sub retention/retry documentation. Explained active-row replacement can retain self-contained old-ID events/history; replacement mechanics remain proposed. No application, peer, migration, test or cloud configuration changes.
 - **Author verification:** Vincent explicitly approved synchronous update and same-ID EXPIRED plus separate ABORTED history. Reset value/route, retry-safety and repost retention still require confirmation. Source and documentation inspection are not live refund verification.
+
+## Repost row retention and requester visibility assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-08
+- **Mode:** Source inspection, decision documentation and technical research
+- **Affected locations:** CHANGE-081, Order workflow context/allocation/current-sprint/change log/architecture evolution/Vincent active-work, ignored refund/history learning and this log
+- **Prompt:** I agree to maintaining old and new IDs; can the expired original stay stored but be hidden after reposting? Shouldn't broker retry until success eventually guarantee Credit refunds?
+- **Key response:** Found existing originalOrderId/repostedOrderId links and reserve-before-link/save flow, with no superseded-original filter in the current requester query. Recorded approval to retain both rows and hide successfully reposted expired originals. Explained finite Pub/Sub retention and delivery versus business success using official documentation. Selected source hashes match CHANGE-081. No application, test, migration, peer-service or cloud configuration changed.
+- **Author verification:** Vincent approved old/new retention and requester hiding. Exact Credit reset contract and detailed implementation remain pending; refunds/subscriptions are not live-verified. Proposed use of existing links is grounded in local source, not evidence that filtering already works.

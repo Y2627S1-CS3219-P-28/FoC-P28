@@ -43,9 +43,10 @@ completed before implementation; no requirement is marked verified by this recor
 6. Requester cancellation and expiry use the existing refund topic/outbox.
    Normal/automatic completion uses the existing completion event/outbox.
 7. Reposting must create a new business orderId and reserve new credits before
-   OPEN. The user requested removing/replacing the expired original, but has
-   subsequently asked about overwriting the row/ID; final retention/replacement
-   mechanics are unresolved, not silently selected by AI.
+   OPEN. Follow-up approval supersedes the earlier remove/overwrite request:
+   retain the original EXPIRED row/old ID and the new repost row/new ID, linked
+   together. Hide the original expired order from the requester's My Requests
+   list only after its successful repost; retain history/refund references.
 8. The minute-based scheduler completes DELIVERED tasks only after at least
    48 hours, using the normal completion workflow. It exists already; correctness
    and production scheduling availability still require verification.
@@ -55,6 +56,9 @@ completed before implementation; no requirement is marked verified by this recor
 10. Follow-up clarification: abort after expiry keeps the current business orderId
     and changes its current state to EXPIRED, with a separate immutable ABORTED
     attempt for the aborting courier. This does not authorize duplicate live orders.
+11. The old/new-row retention and requester visibility rule is now approved.
+    Existing originalOrderId/repostedOrderId links can identify supersession;
+    no additional boolean flag is necessary. The exact query change is not applied.
 
 Items 3-5 supersede conflicting historical Sprint 1 policy in principle;
 application, contracts, diagram/data design and tests are not synchronized yet.
@@ -66,16 +70,16 @@ application, contracts, diagram/data design and tests are not synchronized yet.
   proposed hold-for-reopen route or a revised assignment contract. FEEDBACK-004's
   assignment contract does not establish null/reset or guarded overwrite support.
   A delayed retry must not clear/replace a newer courier. Peer routes remain missing.
-- Abort-to-EXPIRED with the SAME ID is now explicitly confirmed. Repost still
-  creates a NEW business ID; replacing/removing its original current row remains
-  pending. Publication confirmation is not confirmation of a completed refund.
+- Abort-to-EXPIRED with the SAME ID is explicitly confirmed. Repost creates a NEW
+  business ID and now retains the old expired row. Publication confirmation is
+  not confirmation of a completed refund.
   Pub/Sub retention/dead-letter behavior means retry is not an infinite business
   guarantee. Retain the old ID and self-contained refund payload in durable records
   and preserve courier history; failed reservation must leave the original intact.
 - V2 currently gives order_event_outbox.order_id a foreign key to orders(id);
-  checkpoints also reference that key. Literal row deletion or ID replacement is
-  not currently supported and requires an explicitly reviewed new migration.
-  Historical references must not be changed to the repost's new business ID.
+  checkpoints also reference that key. Retaining the old row avoids deleting
+  these references. The separately approved internal UUID/history migration still
+  needs detailed design; historical references must never be rewritten to the new ID.
 - No allocation or user approval authorizes edits to Credit/User/Supplier/Admin.
 - Actual consumers, trusted lifecycle authentication and Cloud Run cron behavior
   remain separate production gates. No automatic HTTP-to-mock fallback is approved.
@@ -95,9 +99,25 @@ and `git diff --check` passed. No runtime tests are claimed.
 
 ## Next implementation gate
 
-Resolve the two choices above; complete the detailed feature proposal and affected
+Resolve the remaining Credit reset contract; complete the detailed feature proposal and affected
 contract/diagram/data/test chain; use a new Flyway migration (never edit V1/V2);
 observe failing tests before code; verify clean and upgrade database paths,
 authorization, repeated courier attempts, race boundaries, idempotency, outbox
 delivery/retries, UI isolation and the 48-hour threshold. Keep Sprint 2-3 incomplete
 until its applicable completion gates pass.
+
+## Repost visibility implementation plan (not applied)
+
+- Current Order.createRepost generates a new UUID and records originalOrderId.
+  OrderRepostService.saveRepost reserves credits, links original.repostedOrderId,
+  and saves both rows in the transaction. Keep this linkage rather than overwriting.
+- The current requester repository query returns all the requester's rows and
+  does not suppress reposted originals. Filter out EXPIRED rows with non-null
+  repostedOrderId in the backend query before pagination/counting, not merely UI.
+- An EXPIRED row with null repostedOrderId remains visible/repostable. A failed
+  reservation/repost must not mark it superseded. The new row is a separate
+  reservation/lifecycle even though it represents the same task lineage.
+- Preserve old-ID outbox payloads and courier history independently of display.
+  No live Pub/Sub subscription/consumer or eventual refund has been verified.
+- Test automatic/manual success, reservation failure, repeated commands and
+  requester pagination/totals. These obligations are not passing test evidence.
