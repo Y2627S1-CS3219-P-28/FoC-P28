@@ -22,4 +22,6 @@ public interface OrderRepository {
     OrderPage findAllOrders(OrderStatus status, int page, int size);
 
     List<Order> findDueUnassigned(OrderStatus status, Instant now);
+
+    List<Order> findDueForAutoCompletion(Instant deliveredAtOrBefore);
 }

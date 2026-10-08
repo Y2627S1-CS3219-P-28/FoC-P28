@@ -1,5 +1,9 @@
 # CHANGE-054: Google Cloud Pub/Sub producer
 
+> Current local transport/authentication and dev/prod topic rules are updated by CHANGE-073/ADR-021. This record preserves the original producer implementation decision.
+
+> Current payload clarification: CHANGE-067/ADR-016 removes checkpoint history from event snapshots. The publisher still carries current Order/repost fields and event-specific facts; completion overdue calculation still uses persisted checkpoints internally.
+
 - Date: 2026-10-02
 - Developer: Yao Xiang
 - Status: Implemented; build/tests/coverage passed; live broker verification pending
@@ -28,10 +32,10 @@ If Pub/Sub fails or its confirmation times out, the status/checkpoint/command re
 
 - `messagingpublisher/interfaces/`: shared and event-specific producer interfaces.
 - `messagingpublisher/publisher/`: Pub/Sub transport adapter and four typed publishers.
-- `messagingpublisher/dto/` and `mapper/`: versioned event envelopes and complete Order/repost/checkpoint snapshots.
+- `messagingpublisher/dto/` and `mapper/`: versioned event envelopes and Order/repost snapshots. Checkpoint history was initially included and is superseded by CHANGE-067/ADR-016.
 - `OrderTransitionService`: publish-first ordering, overdue routing, and accepted-cancellation handling.
 - `OrderController`: accepted-order cancellation endpoint.
-- `OrderCheckpointRepository`: read ordered checkpoint history for event snapshots and overdue evaluation.
+- `OrderCheckpointRepository`: read ordered checkpoint history for completion overdue evaluation; CHANGE-067/ADR-016 removes history retrieval for event snapshots.
 - `pom.xml`, `application.yaml`: Pub/Sub dependency and project/emulator/topic/timeout configuration.
 
 ## Verification

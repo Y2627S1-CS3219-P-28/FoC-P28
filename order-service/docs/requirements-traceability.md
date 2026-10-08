@@ -4,13 +4,13 @@
 |---|---|---|---|
 | 1 | F1.1-F1.3, Sprint 1 diagrams | Validate requester/suppliers/credits and create `OPEN` order | Implementation added; unit/integration verification pending |
 | 2 | F2, Sprint 1 diagrams | List unexpired, unassigned `OPEN` orders | Backend and responsive Browse Errands UI added; live contract verification pending |
-| 3 | F3, F13 | Verify courier eligibility, bind the authenticated courier identity, reject self-acceptance and pre-assigned orders, and atomically accept once | Domain tests cover self-acceptance and assigned-order rejection; all 62 tests and coverage gates pass |
+| 3 | F3, F13; CHANGE-068/069; ADR-017/018 | Verify courier eligibility, validate Order version locally, bind the authenticated courier identity, reject self-acceptance and pre-assigned orders, synchronously wait for Credit assignment confirmation using only Order ID and courier ID, then accept once | Acceptance and HTTP contract tests cover Credit-before-Order ordering, minimal request body, rejection with no Order writes, expiry recheck and 200 response; Maven compilation is blocked locally before tests; live Credit route is absent |
 | 4 | F4.1.1-F4.1.2 | Assigned courier only: `ACCEPTED` to `IN_PROGRESS` | Aggregate ownership guard; suite verification pending |
 | 5 | F4.1.3 | Assigned courier only: `IN_PROGRESS` to `PICKED_UP` with checkpoint | Aggregate ownership guard; suite verification pending |
 | 6 | F4.1.4 | Assigned courier only: `PICKED_UP` to `DELIVERED` with checkpoint | Aggregate ownership guard; suite verification pending |
-| 7 | F4.1.5, F5.1, updated overall Sequence 5, CHANGE-056/063 | Requester confirms `DELIVERED` to `COMPLETED`; atomically commit the resulting Order/checkpoint/receipt and full-Order completion event with overdue facts; dispatch after commit and recover via cron. User and Credit consume every completion. | Transition, event snapshot, dispatch, retry, lease, clean/upgrade migration, JPA persistence and rollback tests pass in `mvn verify`; live Pub/Sub delivery pending. |
-| 8 | F4.1.7, F5.1, updated overall Sequences 6-7, CHANGE-055/061/063/064, ADR-010/013/014 | Requester may cancel own `OPEN` order; assigned courier may cancel own `ACCEPTED` order. Before expiry, synchronous Credit hold confirmation precedes direct `ACCEPTED -> OPEN` with no event; at/after expiry transition to `ABORTED` and commit the full-Order event for refund/penalty. Completion and cancellation event dispatch uses the outbox. Courier UI removes reopened/aborted orders and reports resulting state. | Application tests verify hold-before-open, hold-failure no writes, and expired outbox without hold. Mock/HTTP adapter tests verify hold behavior. Frontend tests cover both returned states. Live Credit endpoint, Pub/Sub, and browser verification remain pending. |
-| 9 | F4.1.8, F10, NTH4 | Trusted trigger expires due unaccepted `OPEN` order | Implementation added; lifecycle verification pending |
+| 7 | F4.1.5, F5.1, updated overall Sequence 5, CHANGE-056/063/067/072, ADR-020 | Requester confirms `DELIVERED` to `COMPLETED`, or a Spring scheduler does so after 48 hours from the delivered checkpoint; both atomically commit the resulting Order/checkpoint/receipt and one completion event with overdue facts and no checkpoint history. | Boundary, database cutoff/lock, idempotency, shared event, dispatch, retry, lease, persistence and rollback tests; focused test run blocked by local Java compiler failure. |
+| 8 | F4.1.7, F5.1, updated overall Sequences 6-7, CHANGE-055/061/063/064/069/070, ADR-010/013/014/018 | Requester may cancel own `OPEN` order; assigned courier may cancel own `ACCEPTED` order. Before expiry, the user-agreed synchronous Credit hold by Order ID precedes direct `ACCEPTED -> OPEN` with no event; Order validates its version locally. At/after expiry transition to `ABORTED` and commit the full-Order event for refund/penalty. Completion and cancellation event dispatch uses the outbox. | Application tests verify hold-before-open, hold-failure no writes, and expired outbox without hold. Mock/HTTP adapter tests cover bodyless hold and state-based idempotency. Frontend tests cover both returned states. The agreed Credit route is not implemented; production authentication remains unresolved. |
+| 9 | F4.1.8, F10, NTH4; updated overall Sequence 6; CHANGE-065/ADR-015; CHANGE-071/ADR-019 | Spring scheduled scan expires due unassigned OPEN orders and atomically stores EXPIRED, checkpoint, and `OpenOrderRefundTaskEvent`; Credit consumes the shared event/topic to refund/release, distinguishing it from requester cancellation by `order.status` | Lifecycle state/checkpoint/outbox, shared event mapping, typed dispatch, and scheduler tests; full verification pending |
 | 10 | NTH4 | Eligible expired order creates one linked `OPEN` repost after reservation | Implementation added; peer/idempotency verification pending |
 | 11 | NTH4 | Requester receives draft and submits one linked repost | Backend and responsive manual-repost UI added; peer/idempotency verification pending |
 | NTH1 | CHANGE-057 / ADR-012 (explicit Order-side supporting API) | Admin-only `GET /api/orders`; optional status (omitted returns every status); one-based `Pageable`; newest-first `OrderPageResponse` | Controller/security/persistence tests; `mvn verify` passed 86 tests and coverage gates |
@@ -32,7 +32,7 @@ claimed from static builds or unit tests.
 - Credit reservation is synchronous before an order or repost becomes `OPEN`; Credit hold/reset is synchronous before an unexpired accepted order can return to `OPEN`.
 - Commands and lifecycle triggers carry IDs; state changes carry expected versions.
 - Flyway migrations are the schema source of truth; Hibernate only validates.
-- Repost event publication remains deferred for Sprint 1; the updated overall design's three typed completion/cancellation events are a separate architecture update.
+- Repost event publication remains deferred for Sprint 1; the updated overall design's typed completion, accepted-cancellation, and OPEN-refund events are a separate architecture update.
 - The approved frontend vertical slice uses active Supplier Service names in pickup and delivery
   selectors while submitting supplier IDs; the authoritative catalogue remains in Supplier Service.
 - Order cards resolve pickup and delivery references through the authenticated Supplier Service
@@ -53,19 +53,19 @@ claimed from static builds or unit tests.
   once; consumer deduplication uses the stable event ID.
   Credit reservation before `OPEN` and hold/reset before unexpired accepted-order reopening remain
   synchronous. CHANGE-054 provides the Pub/Sub producer; CHANGE-063 implements transactional state/outbox transitions.
-- CHANGE-064/ADR-014 and Sequence 7 document the deadline split: unexpired accepted cancellation waits on Credit and reopens, while expired cancellation publishes for Credit refund and User penalty. FEEDBACK-003 tracks the missing Credit endpoint.
+- CHANGE-064/ADR-014/070 and Sequence 7 document the deadline split: unexpired accepted cancellation waits on Credit and reopens, while expired cancellation publishes for Credit refund and User penalty. FEEDBACK-003 records the agreed hold contract; Credit's endpoint remains missing.
 - The requested `*TaskPublisher` pairs, full resulting Order snapshot, topic placeholders, and
   transactional-outbox Sequence 5-7 diagrams are captured in CHANGE-053/054/056/063 and linked
   from Sprint indexes. No peer
   source is changed; Credit/User consumers are assumed future work per the user. Overdue facts are
   derived from checkpoint history without schema changes. Live Pub/Sub delivery needs configured
   topic IDs and an emulator or GCP project.
-- The local mock now models 50-credit accounts, reservation balances, settlement transfer to the
-  courier, release on cancellation/expiry, insufficient-balance rejection, and command-id
-  idempotency. These effects are deterministic test behavior only; Credit Service remains the
-  production owner of balances and ledger state.
+- The local mock models reservation balances, synchronous hold-for-reopen, and settlement support
+  used by adapter tests. Refund/release on cancellation/expiry belongs to Credit's event consumers;
+  Credit Service remains the production owner of balances and ledger state.
 - Lifecycle expiry explicitly selects only `OPEN` orders whose `courierId` is `NULL`, preventing an
-  already-accepted order from being expired by the background trigger.
+  already-accepted order from being expired by the Spring scheduler. CHANGE-065/071 records EXPIRED,
+  its checkpoint, and shared `OpenOrderRefundTaskEvent` atomically; Credit refunds from that event.
 - Collection responses use the shared `items/page/size/totalItems/totalPages` shape and errors use
   `status/error/message/path/timestamp/details`; OpenAPI operations declare the bearer requirement.
 - Order lifecycle actions emit structured service-local audit events without logging credentials or

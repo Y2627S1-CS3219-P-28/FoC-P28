@@ -1,9 +1,9 @@
 # ADR-014: Accepted cancellation reopens before expiry and publishes after expiry
 
-- Status: Accepted by the user's explicit request; implementation in progress
+- Status: Accepted; Order-side flow and hold endpoint contract user-confirmed; Credit implementation pending
 - Date: 2026-10-03
 - Owner: Order Service
-- Related change: CHANGE-064
+- Related changes: CHANGE-064, CHANGE-070
 - Supersedes: Unconditional `ACCEPTED -> ABORTED` plus accepted-cancellation event behavior in CHANGE-055/061/063
 
 ## Decision
@@ -20,7 +20,7 @@ Open cancellation publishes one event for Credit to refund. Completion publishes
 
 ## Credit dependency
 
-Credit currently has no synchronous hold-for-reopen API. Order uses the local `MockPeerAdapters` implementation in mock mode and documents a required `POST /api/credits/orders/{orderId}/hold-for-reopen` contract in FEEDBACK-001. The HTTP adapter targets that proposed contract, but real HTTP-peer operation is not verified until Credit implements it and agrees trusted service authentication, idempotency, errors, and the success response. Peer source remains unchanged.
+Credit currently has no synchronous hold-for-reopen API. The user finalized the Order contract in FEEDBACK-003: `POST /api/credits/orders/{orderId}/hold-for-reopen`, no request body, `200 OK` only after the transaction is held/reset, with repeated holds idempotent by transaction state. Order uses the local `MockPeerAdapters` implementation in mock mode; the HTTP adapter targets this agreed contract. Live HTTP-peer operation is not verified because the Credit route is still missing, and trusted service authentication must be settled before production use. Peer source remains unchanged.
 
 ## Consequences and trade-offs
 

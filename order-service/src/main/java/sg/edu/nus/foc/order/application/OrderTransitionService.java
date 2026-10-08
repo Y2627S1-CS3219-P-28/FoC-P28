@@ -18,7 +18,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 
 @Service
 @RequiredArgsConstructor
@@ -58,35 +58,41 @@ public class OrderTransitionService {
 
         Order order = findForUpdate(id);
         order.validateCompletion(authenticatedActor, version);
-        List<OrderCheckpoint> history = checkpoints.findByOrderId(order.getId());
-        Instant acceptedAt = checkpointTime(history, OrderStatus.ACCEPTED);
-        Instant deliveredAt = checkpointTime(history, OrderStatus.DELIVERED);
-        Instant overdueAt = acceptedAt.plusSeconds(order.getDeliveryTimeLimitMinutes() * 60L);
         Instant completedAt = Instant.now();
-        OrderCheckpoint completedCheckpoint = new OrderCheckpoint(
-                order.getId(),
-                OrderStatus.COMPLETED,
-                completedAt,
-                authenticatedActor,
-                null);
+        List<OrderCheckpoint> history = checkpoints.findByOrderId(order.getId());
+        return persistCompletion(
+                "COMPLETE", commandId, order, authenticatedActor, completedAt, version, false, history);
+    }
 
-        boolean overdue = deliveredAt.isAfter(overdueAt);
-        order.confirmCompletion(authenticatedActor, version);
-        checkpoints.save(completedCheckpoint);
-        Order saved = orders.save(order);
-        receipts.save(new CommandReceipt("COMPLETE", commandId, saved.getId(), completedAt));
+    @Transactional
+    public boolean autoComplete(String id, Instant completedAt) {
+        String commandId = "AUTO_COMPLETE:" + id;
+        Optional<CommandReceipt> previous = receipts.findExisting("AUTO_COMPLETE", commandId);
+        if (previous.isPresent()) {
+            return false;
+        }
 
-        OrderCompletionTaskEvent event = eventFactory.completion(
+        Order order = findForUpdate(id);
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            return false;
+        }
+
+        List<OrderCheckpoint> history = checkpoints.findByOrderId(order.getId());
+        Instant deliveredAt = checkpointTime(history, OrderStatus.DELIVERED);
+        if (deliveredAt.plus(Order.AUTOMATIC_COMPLETION_DELAY).isAfter(completedAt)) {
+            return false;
+        }
+
+        persistCompletion(
+                "AUTO_COMPLETE",
                 commandId,
-                saved,
-                authenticatedActor,
+                order,
+                "lifecycle",
                 completedAt,
-                overdue,
-                overdueAt);
-        outbox.enqueue(event);
-        applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
-        audit.action("COMPLETE", saved.getId(), authenticatedActor, commandId, "accepted");
-        return saved;
+                order.getVersion(),
+                true,
+                history);
+        return true;
     }
 
     @Transactional
@@ -109,7 +115,7 @@ public class OrderTransitionService {
                 null));
         Order saved = orders.save(order);
         receipts.save(new CommandReceipt("CANCEL", commandId, saved.getId(), cancelledAt));
-        OpenOrderCancellationTaskEvent event = eventFactory.openCancellation(
+        OpenOrderRefundTaskEvent event = eventFactory.openRefund(
                 commandId, saved, authenticatedActor, cancelledAt);
         outbox.enqueue(event);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
@@ -130,12 +136,7 @@ public class OrderTransitionService {
         Instant cancellationRequestedAt = Instant.now();
         if (cancellationRequestedAt.isBefore(order.getExpiresAt())) {
             credits.holdForReopen(
-                    commandId + ":HOLD_FOR_REOPEN",
                     order.getId(),
-                    order.getRequesterId(),
-                    authenticatedActor,
-                    order.getOfferedCredits(),
-                    version,
                     authorization);
 
             Instant reopenedAt = Instant.now();
@@ -220,6 +221,48 @@ public class OrderTransitionService {
                 .map(OrderCheckpoint::getOccurredAt)
                 .findFirst()
                 .orElseThrow(() -> OrderProblem.conflict("Order checkpoint history is incomplete."));
+    }
+
+    private Order persistCompletion(
+            String operation,
+            String commandId,
+            Order order,
+            String actorId,
+            Instant completedAt,
+            long expectedVersion,
+            boolean automatic,
+            List<OrderCheckpoint> history) {
+        Instant acceptedAt = checkpointTime(history, OrderStatus.ACCEPTED);
+        Instant deliveredAt = checkpointTime(history, OrderStatus.DELIVERED);
+        Instant overdueAt = acceptedAt.plusSeconds(order.getDeliveryTimeLimitMinutes() * 60L);
+        boolean overdue = deliveredAt.isAfter(overdueAt);
+
+        if (automatic) {
+            order.completeAutomatically(expectedVersion);
+        } else {
+            order.confirmCompletion(actorId, expectedVersion);
+        }
+
+        checkpoints.save(new OrderCheckpoint(
+                order.getId(),
+                OrderStatus.COMPLETED,
+                completedAt,
+                actorId,
+                null));
+        Order saved = orders.save(order);
+        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), completedAt));
+
+        OrderCompletionTaskEvent event = eventFactory.completion(
+                commandId,
+                saved,
+                actorId,
+                completedAt,
+                overdue,
+                overdueAt);
+        outbox.enqueue(event);
+        applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
+        audit.action(operation, saved.getId(), actorId, commandId, "accepted");
+        return saved;
     }
 
     private Order findForUpdate(String id) {

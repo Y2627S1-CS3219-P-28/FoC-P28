@@ -10,7 +10,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class OpenOrderCancellationTaskEvent implements OrderTaskEvent {
+public class OpenOrderRefundTaskEvent implements OrderTaskEvent {
     private String eventId;
     private String eventType;
     private int eventVersion;

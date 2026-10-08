@@ -1,313 +1,255 @@
-# Peer-Service API Feedback
-
-This is the single shared record for missing, unsuitable, incomplete, or incompatible peer-service APIs that block an Order Service feature. Read it before every cross-service design, implementation, resumption, or verification turn. Append entries; never create a separate Markdown file for one API issue and never overwrite earlier feedback.
-
-No peer-service API feedback entry has been recorded yet.
-
-## FEEDBACK-001: Credit Service — outcome settlement and release operations
-
-- Status: OPEN
-- Date: 2026-09-30
-- Requesting service: Order Service
-- Responsible service: Credit Service
-- Affected Order Service feature: Credit consequences for completed, cancelled, and expired orders
-- Affected sequence: 7, 8, and 9
-- Related requirement: Project D1 F7.1, F10.1.4, F11.1.2, F11.2.3; updated overall design `CHANGE-051` typed event boundary
-- Priority: High
-- Related API decision: Existing reservation API is usable for Sequence 1 and repost creation; outcome operations remain missing
-- Supersedes: None
-- Superseded by: None
-
-### Required capability
-
-The superseded local exception expected synchronous, idempotent Credit Service
-operations before finalizing credit-related outcomes. The updated overall design
-now requires Order to commit state/checkpoint/outbox atomically and publish typed
-events; Credit consumes completion/cancellation events and owns settlement/release.
-Reservation before `OPEN` remains synchronous. FEEDBACK-003 separately requests
-the synchronous hold/reset endpoint required before an unexpired accepted order
-can transition directly back to `OPEN`. The provider still must agree on event
-schemas, subscription authentication, idempotency, retries, and failure handling.
-
-### Expected contract
-
-- Operation or endpoint: Provider-owned synchronous endpoints for `COMPLETED`, `CANCELLED`, and `EXPIRED` outcomes; exact paths require peer/project-owner agreement.
-- Request: `commandId`, `orderId`, requester ID, courier ID when applicable, amount/reservation reference, occurred-at timestamp, and expected order version.
-- Response: Idempotent outcome status and resulting reservation/account state.
-- Errors: Validation, unauthenticated/forbidden, reservation not found, duplicate/conflicting command, insufficient/invalid state, and dependency failure.
-- Authorization: Authenticated Order Service trusted identity or approved service-to-service credential.
-- Data semantics: Credit Service owns reservation release, settlement, transfer, balances, and ledger records; Order Service does not calculate credit policy.
-- Synchronous or asynchronous behavior: Typed event delivery after the Order state/checkpoint/outbox transaction; at-least-once consumer processing with deduplication. Reservation remains synchronous; the missing hold/reset call is tracked separately in FEEDBACK-003.
-
-### Current peer-service status
-
-The inspected Credit Service currently exposes `POST /api/credits/registration-facts`,
-`GET /api/credits/me`, `PUT /api/credits/orders/{orderId}/reservation`, and
-`GET /api/credits/orders/{orderId}/reservation`. No completed-order settlement,
-cancellation release, or expiry release endpoint was found in its controller,
-service, README, or integration tests.
-
-### Approved temporary Sprint 1 stub contract
-
-Vincent approved a temporary Order-owned mock boundary on 2026-09-30 so the
-Order Service can exercise Sequences 7-9 locally while the Credit Service owner
-implements the real operations. The mock is not evidence that the peer API is
-implemented, and FEEDBACK-001 remains `OPEN`.
-
-The concrete contract requested from the Credit Service owner is:
-
-- `POST /api/credits/orders/{orderId}/settlement`
-  - Request JSON: `commandId`, `requesterId`, `courierId`, `amount`, and
-    `expectedOrderVersion`.
-  - Semantics: atomically transfer the reserved amount to the courier and
-    record a ledger settlement; repeat calls with the same `commandId` must
-    return the original result without a second transfer.
-- `POST /api/credits/orders/{orderId}/release`
-  - Request JSON: `commandId`, `requesterId`, `amount`, `outcome` (`CANCELLED`
-    or `EXPIRED`), and `expectedOrderVersion`.
-  - Semantics: release/refund the reservation and record the outcome; repeat
-    calls with the same `commandId` must be idempotent.
-- Both operations should return a documented success body containing the
-  order/command identity, outcome, and resulting reservation/account state.
-  The provider owns the final response field names.
-- Both operations must define validation, unauthenticated/forbidden,
-  reservation-not-found, duplicate/conflicting-command, invalid-state, and
-  dependency-failure responses using the provider's standard error envelope.
-- Authentication must accept the approved service-to-service credential and
-  must not trust a caller-supplied user ID as proof of identity.
-
-The Order Service currently maps these shapes in `HttpPeerAdapters` and uses a
-validating no-op implementation in `MockPeerAdapters`. The lifecycle trigger
-validates `X-Lifecycle-Token` and forwards an explicit bearer-form internal
-credential to automatic peer calls; this is a local/temporary bridge only.
-Production completion requires the Credit Service owner to agree to the
-credential, response, idempotency, and error details and then implement and
-verify the endpoints. No Credit Service source was modified.
-
-### Why the existing API is unsuitable or missing
-
-The reservation and lookup operations cannot safely express the required
-outcome-side transfer/release semantics. Reusing reservation lookup or inventing
-an Order-side balance update would violate Credit Service ownership. The current
-`CreditServicePort.settle` and `release` calls also implement the superseded
-synchronous boundary and cannot be treated as the updated event contract.
-
-### Suggested implementation for the peer developer
-
-Propose explicit idempotent Credit Service operations for completed settlement
-and cancelled/expired release, with request/response/error/authentication
-contracts and contract tests. The exact public paths and payloads require project
-owner approval before implementation.
-
-### Impact if unresolved
-
-Order Service can reserve credits for creation and reposting, but cannot claim
-full D1-compliant credit processing for Sequences 7–9. Sprint 1 may defer these
-operations only if that narrower scope remains the effective approved decision.
-
-### Implementation stopping point
-
-Order Service retains only the existing reservation integration. No missing
-outcome endpoint was invented and no peer-service source was modified.
-
-### Next action
-
-Have the Credit Service owner implement the documented event subscriptions,
-idempotency, authentication, retry, and dead-letter contracts. Reservation and
-the hold/reset operation in FEEDBACK-003 are synchronous.
-
-### Verification notes
-
-Inspected Credit Service controller, service, README, security configuration,
-and integration tests on 2026-09-30. Reservation and registration endpoints are
-implemented; outcome settlement/release endpoints were not found.
-
-### Resolution notes
-
-None.
-
-## FEEDBACK-002: Credit and User Service â€” typed outcome event subscriptions
-
-- Status: OPEN
-- Date: 2026-10-02
-- Requesting service: Order Service
-- Responsible services: Credit Service and User Service
-- Affected Order Service feature: Completion and cancellation consequence delivery
-- Affected updated sequences: 5, 6, 7, and 8
-- Related design: CHANGE-051, CHANGE-052, CHANGE-053, ADR-009
-- Priority: High
-
-### Required capability
-
-Under CHANGE-056, Credit Service must subscribe to `OrderCompletionTaskEvent`, `OpenOrderCancellationTaskEvent`, and `AcceptedOrderCancellationTaskEvent`. User Service must subscribe to `AcceptedOrderCancellationTaskEvent` and every `OrderCompletionTaskEvent`; its completion policy uses the event's `overdue` and `overdueAt` facts. Consumers must process at least once, deduplicate, acknowledge after success, retry independently, and provide dead-letter/recovery handling under the approved event contract. These consumers remain absent in the inspected peer implementations and are not verified.
-
-Subscriber actions: `OpenOrderCancellationTaskEvent` asks Credit to refund/release the reservation; User does not subscribe. `AcceptedOrderCancellationTaskEvent` is emitted only when cancellation occurs at/after `order.expiresAt`; Credit refunds/releases and User applies the cancellation penalty to the courier in `actorId`. Every `OrderCompletionTaskEvent` asks Credit to transfer/settle credits to the courier and asks User to apply the overdue penalty when `overdue` is true or the existing penalty-score reduction when false. Subscribers deduplicate by `eventId` and own retry, acknowledgment, and recovery.
-
-### Inspected peer implementation
-
-- Credit Service `CreditController` currently exposes registration facts, user balance, reservation, and reservation lookup HTTP operations. No event subscriber or completion/cancellation outcome handler was found.
-- User Service source contains profile/identity HTTP components and no event subscriber or penalty-fact handler was found.
-- Compatibility status: `MISSING` for both requested consumer integrations. Existing synchronous Credit reservation and reservation lookup do not implement completion/cancellation event subscriptions.
-
-### Contract questions for peer owners
-
-- Confirm event envelope, payload fields, schema/version compatibility, and stable deduplication key.
-- Confirm how subscribers authenticate and validate publisher/service identity.
-- Define acknowledgements, timeouts, retry/backoff, poison-message handling, dead-letter ownership, monitoring, and recovery/replay.
-- Confirm Credit refund/transfer semantics for each event; unexpired accepted cancellation does not publish an event and instead uses the synchronous API proposed in FEEDBACK-003.
-- Confirm User's expired accepted-cancellation penalty and completion overdue/on-time score handling without moving penalty policy into Order Service.
-
-### Implementation stopping point
-
-No peer source was modified. The user explicitly authorized the Order-side publisher milestone to assume future Credit/User consumers, so missing consumer implementations do not block the Order producer. This authorization does not verify either peer integration; keep this entry `OPEN` until consumer code/contracts are independently inspected.
-
-### Next action
-
-Peer owners can implement the corresponding consumers later as directed by the user. Before labeling either integration verified, inspect actual consumer code and tests against CHANGE-053/054's event payload and Pub/Sub delivery contract.
-
-## FEEDBACK-003: Credit Service — synchronous hold/reset before reopening an unexpired accepted order
-
-- Status: OPEN
-- Date: 2026-10-03
-- Requesting service: Order Service
-- Responsible service: Credit Service
-- Affected Order Service feature: Assigned courier cancels an accepted errand before its expiry
-- Affected sequence: Updated overall Sequence 7
-- Related requirement: CHANGE-064 / ADR-014
-- Priority: High
-- Related API decision: No matching operation exists in the inspected Credit API; local Order mock supports the flow
-- Supersedes: None
-- Superseded by: None
-
-### Required capability
-
-When the assigned courier cancels an `ACCEPTED` order before `expiresAt`, Order must wait synchronously for Credit to hold/reset the existing transaction state without refunding or transferring reserved credits. Order changes the same order to `OPEN` only after success, preventing another courier from accepting before Credit confirms the reservation remains valid.
-
-### Expected contract
-
-- Operation or endpoint: `POST /api/credits/orders/{orderId}/hold-for-reopen` (proposed path; Credit owner must confirm).
-- Request: `commandId`, `requesterId`, `courierId`, `amount`, and `expectedOrderVersion`.
-- Response: Synchronous success confirming the matching order/command and transaction state `HELD_FOR_REOPEN`; exact response envelope requires peer agreement.
-- Errors: Missing/mismatched reservation or order, invalid/conflicting command, invalid transaction state, unauthorized/forbidden, and dependency unavailable. Non-success prevents Order from reopening.
-- Authorization: Trusted Order-to-Credit service identity/credential agreed by both owners; caller-supplied IDs are not authentication.
-- Data semantics: Preserve the reservation and requester balance; do not refund, release, or transfer. Idempotent by `commandId`, including already-held matching state for later accepted/reopen cycles.
-- Synchronous or asynchronous behavior: Synchronous HTTP request/response. Order waits for confirmation before persisting `ACCEPTED -> OPEN`. Retry/reconciliation must account for Credit succeeding before a later Order database failure.
-
-### Current peer-service status
-
-Credit currently exposes registration facts, balance, reservation, and reservation lookup; no hold/reset endpoint was found. Order's default mock adapter now models an idempotent hold without refund, and the HTTP adapter targets the proposed path. These are not Credit implementation or production verification.
-
-### Why the existing API is unsuitable or missing
-
-Reservation lookup is read-only and cannot safely hold/reset transaction state. An event is asynchronous and cannot guarantee Credit processed the state change before Order exposes the order to another courier.
-
-### Suggested implementation for the peer developer
-
-Implement an authenticated, idempotent operation with a documented response/error envelope and contract tests. Confirm how later completion or refund consumes a held transaction. No Credit source change was made.
-
-### Impact if unresolved
-
-The local Order mock can exercise this workflow, but Order's HTTP-peer profile cannot safely reopen unexpired accepted orders until Credit implements and agrees to the contract. Expired cancellation remains event-driven and does not call this endpoint.
-
-### Implementation stopping point
-
-Order-side port, in-memory mock, proposed HTTP request, and tests are implemented. Credit endpoint, authentication agreement, and live HTTP integration remain missing.
-
-### Next action
-
-Credit owner: confirm the contract, implement the operation and tests, and report a revision ready for Order-side verification. Keep this feedback `OPEN` until actual peer code is inspected.
-
-### Verification notes
-
-Credit API was inspected on 2026-10-03; no hold/reset route was present. Order's mock and HTTP adapter do not verify the live peer endpoint.
-
-### Resolution notes
-
-None.
-
-## Status lifecycle
-
-Supported statuses:
-
-- `OPEN`: issue recorded; responsible service action or decision is pending.
-- `IN_PROGRESS`: the peer owner reports work has started.
-- `READY_FOR_VERIFICATION`: the peer owner reports an implementation is ready; Order Service has not verified it yet.
-- `VERIFIED`: Order Service re-read the actual peer implementation and confirmed request, response, errors, authorization, semantics, and communication behavior against the feedback entry.
-- `REJECTED`: the requested capability or proposed resolution was rejected.
-- `BLOCKED`: progress requires an external decision or dependency beyond the current owner.
-- `SUPERSEDED`: a newer feedback/decision record replaces this entry; link it explicitly.
-
-Only evidence from the actual peer-service implementation can move an entry to `VERIFIED`. A planned contract, prototype, stub, mock, message, or peer claim is not implementation verification.
-
-## Entry template
-
-```markdown
-## FEEDBACK-NNN: <Peer Service Name> — <Short Capability Name>
-
-- Status: OPEN
-- Date:
-- Requesting service: Order Service
-- Responsible service:
-- Affected Order Service feature:
-- Affected sequence:
-- Related requirement:
-- Priority:
-- Related API decision:
-- Supersedes:
-- Superseded by:
-
-### Required capability
-
-Describe what Order Service needs the peer service to provide.
-
-### Expected contract
-
-- Operation or endpoint:
-- Request:
-- Response:
-- Errors:
-- Authorization:
-- Data semantics:
-- Synchronous or asynchronous behavior:
-
-### Current peer-service status
-
-Describe the inspected routes/controllers/interfaces/DTOs/events/tests and what currently exists.
-
-### Why the existing API is unsuitable or missing
-
-Explain why no existing or similar API can safely satisfy the feature.
-
-### Suggested implementation for the peer developer
-
-Describe the API, function, event, or contract to implement or modify. This is feedback, not authorization to edit the peer service.
-
-### Impact if unresolved
-
-Identify the blocked Order Service feature and sequence.
-
-### Implementation stopping point
-
-State exactly what the Order Service agent completed and where it stopped.
-
-### Next action
-
-State what the peer developer or project owner must implement, approve, or confirm.
-
-### Verification notes
-
-Leave empty until the peer implementation is re-read. Record inspected files/commit or revision, observed request/response/errors/authorization/semantics, tests run, result, verifier, and date before setting `VERIFIED`.
-
-### Resolution notes
-
-Leave empty until the peer developer or project owner responds.
+# Peer Service API Feedback
+
+This document is the Order Service integration handoff for User, Supplier, and Credit Service owners. It lists only peer capabilities that still need implementation/agreement or an existing integration that needs adjustment; completed endpoint contracts are intentionally omitted. The remaining contracts do not authorize changes to another service.
+
+## Current integration status
+
+| Peer service     | Integration                                                                       | Current status                                                 | Peer action                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Supplier Service | Validate pickup/delivery supplier pair                                            | Endpoint exists; Order-side response handling needs adjustment | Order must reject `valid: false` responses even when Supplier returns `200 OK`.                                          |
+| Credit Service   | Completion, shared OPEN-refund, and expired accepted-cancellation event consumers | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
+| User Service     | Completion and expired accepted-cancellation event consumers                      | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
+| Credit Service   | Synchronous hold/reset before an unexpired accepted Order reopens                 | Contract agreed; no matching endpoint found                    | Credit must implement the agreed FEEDBACK-003 endpoint before HTTP-peer mode supports this flow.                         |
+| Credit Service   | Record the assigned courier on an order's active reservation during acceptance    | No matching endpoint found                                     | Agree and implement the synchronous operation in FEEDBACK-004; Order must wait for success before persisting `ACCEPTED`. |
+
+Current peer inspection is based on the checked-in controllers, DTOs, services, repositories, and relevant tests in `credit-service`, `supplier-service`, and `user-service` as of 2026-10-06. Recheck the live peer code and tests before changing any item to `VERIFIED`.
+
+## Existing endpoint requiring an Order-side adjustment
+
+Supplier Service has implemented pickup/delivery pair validation. Order Service must inspect its response and treat `valid: false` as a validation failure; the current HTTP adapter only treats HTTP errors as rejection.
+
+### Supplier Service: validate the pickup/delivery pair
+
+- **Operation:** `POST /api/suppliers/validate`
+- **Request JSON:**
+
+  ```json
+  {
+    "pickupSupplierId": "supplier-id-1",
+    "deliverySupplierId": "supplier-id-2"
+  }
+  ```
+
+- **Success (`200`), valid example:**
+
+  ```json
+  {
+    "valid": true,
+    "problems": []
+  }
+  ```
+
+- **Success (`200`), invalid-pair example:**
+
+  ```json
+  {
+    "valid": false,
+    "problems": [
+      {
+        "field": "pickupSupplierId",
+        "supplierId": "supplier-id-1",
+        "reason": "INACTIVE"
+      }
+    ]
+  }
+  ```
+
+- **Semantics:** validation rejects missing suppliers, inactive suppliers, and the same supplier used for pickup and delivery. `reason` is `NOT_FOUND`, `INACTIVE`, or `SAME_SUPPLIER`; `field` identifies the input field.
+- **Integration note:** the current Order HTTP adapter treats only an HTTP error as rejection and discards this response body. Because invalid pairs are represented as `200` with `valid: false`, the Order-side adapter must inspect `valid` before this integration is safe in HTTP-peer mode. This is an Order-side follow-up; Supplier Service already returns the documented result.
+- **Peer implementation:** `SupplierController.validate`, `ValidatePairRequest`, and `PairValidation`.
+
+## Event contract shared by subscribers
+
+Order Service publishes these typed events to Google Cloud Pub/Sub through its transactional outbox. The serialized JSON uses the Java DTO field names below (camelCase). Each event has `eventVersion: 1`. Per CHANGE-067/ADR-016, this v1 contract excludes checkpoint history. No peer consumers were found when this change was approved; any discovered consumer of the earlier checkpoint-bearing shape must be coordinated before rollout. Development topics are `order-completion-dev-v1`, `open-order-refund-dev-v1`, and `accepted-order-cancellation-dev-v1` in project `protean-vigil-509704-q4`. Production uses separate topic IDs, configured for Cloud Run when provisioned. Subscriber owners should create environment-matched subscriptions and coordinate their production topic IDs with the Order Service owner. See CHANGE-073/ADR-021 for topic-level IAM and local ADC setup.
+
+### Common event envelope
+
+Every event contains:
+
+| Field          | JSON type               | Meaning                                                                                                                  |
+| -------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `eventId`      | string                  | Stable unique event ID; unchanged when the outbox retries delivery. Use this as the consumer deduplication key.          |
+| `eventType`    | string                  | One of the exact typed event names below.                                                                                |
+| `eventVersion` | integer                 | Schema version; currently `1`.                                                                                           |
+| `orderId`      | string                  | Order identifier.                                                                                                        |
+| `orderVersion` | integer                 | Version of the resulting Order represented in `order`.                                                                   |
+| `occurredAt`   | ISO-8601 instant string | Time the outcome was recorded.                                                                                           |
+| `actorId`      | string                  | User who initiated the outcome; for scheduled expiration the value is `"lifecycle"`.                                     |
+| `order`        | object                  | Resulting Order snapshot with its current aggregate fields and repost plan; checkpoint history is intentionally omitted. |
+
+The `order` object contains:
+
+| Field                      | JSON type               | Meaning                                                                                |
+| -------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| `id`                       | string                  | Order identifier (same value as top-level `orderId`).                                  |
+| `requesterId`              | string                  | Requester's user ID.                                                                   |
+| `courierId`                | string or null          | Assigned courier in the resulting state; accepted-cancellation events have it cleared. |
+| `itemDescription`          | string                  | Errand description.                                                                    |
+| `pickupSupplierId`         | string                  | Pickup supplier identifier.                                                            |
+| `deliverySupplierId`       | string                  | Delivery supplier identifier.                                                          |
+| `offeredCredits`           | integer                 | Credit amount offered/reserved for the errand.                                         |
+| `status`                   | string                  | Resulting `OrderStatus`, e.g. `COMPLETED`, `CANCELLED`, `EXPIRED`, or `ABORTED`.       |
+| `createdAt`                | ISO-8601 instant string | Order creation time.                                                                   |
+| `expiresAt`                | ISO-8601 instant string | Order application/expiry deadline.                                                     |
+| `deliveryTimeLimitMinutes` | integer                 | Allowed delivery duration.                                                             |
+| `version`                  | integer                 | Resulting Order version (same value as top-level `orderVersion`).                      |
+| `originalOrderId`          | string or null          | Source order for a repost.                                                             |
+| `repostedOrderId`          | string or null          | Linked repost order, if created.                                                       |
+| `repostPlan`               | object or null          | `enabled`, `dueAt`, `creditAmount`, `deliveryDurationMinutes`, and `used`.             |
+
+Checkpoint history is not included. It remains stored and queryable from Order Service; consumers should not expect to reconstruct it from an event. Completion overdue facts are computed from the internal accepted/delivered checkpoints and are included separately on the completion event.
+
+Example common shape (event-specific fields are shown below):
+
+```json
+{
+  "eventId": "stable-event-id",
+  "eventType": "OpenOrderRefundTaskEvent",
+  "eventVersion": 1,
+  "orderId": "order-id",
+  "orderVersion": 3,
+  "occurredAt": "2026-10-04T04:00:00Z",
+  "actorId": "requester-user-id",
+  "order": {
+    "id": "order-id",
+    "requesterId": "requester-user-id",
+    "courierId": null,
+    "itemDescription": "Collect a parcel",
+    "pickupSupplierId": "supplier-id-1",
+    "deliverySupplierId": "supplier-id-2",
+    "offeredCredits": 25,
+    "status": "CANCELLED",
+    "createdAt": "2026-10-04T03:00:00Z",
+    "expiresAt": "2026-10-04T05:00:00Z",
+    "deliveryTimeLimitMinutes": 60,
+    "version": 3,
+    "originalOrderId": null,
+    "repostedOrderId": null,
+    "repostPlan": null
+  }
+}
 ```
 
-## Rules
+`OrderCompletionTaskEvent` additionally contains:
 
-1. Read existing entries before allocating a new stable `FEEDBACK-NNN` ID.
-2. Do not modify peer-service source without explicit authorization.
-3. Do not implement an Order Service integration against a missing or unsuitable API.
-4. Copy the stopping-point facts into the current developer's active-work blocker so the next conversation resumes safely.
-5. After peer confirmation, re-read the peer code and tests; compare the actual implementation with this entry; keep the feature blocked if any material difference remains.
-6. A user-approved prototype may support a separately approved contract-stub milestone, but record that the API is not implemented, the assumed shapes/semantics, stubs/tests, compatibility requirement, and remaining risk. Do not mark the integration complete until actual peer implementation is verified unless the user explicitly approves that milestone as the endpoint.
+| Field       | JSON type                       | Meaning                                                                |
+| ----------- | ------------------------------- | ---------------------------------------------------------------------- |
+| `overdue`   | boolean                         | Whether completion was overdue under the Order's completion-time rule. |
+| `overdueAt` | ISO-8601 instant string or null | Deadline instant used to evaluate the overdue fact.                    |
+
+Consumers must tolerate redelivery, deduplicate durably by `eventId`, and acknowledge only after their own action commits. Order delivery is at least once; subscriber retry, dead-letter, replay, and monitoring behavior must be agreed by the subscriber owner.
+
+## FEEDBACK-001: Historical synchronous outcome endpoints (superseded)
+
+- **Status:** `SUPERSEDED` by FEEDBACK-002 for completion/cancellation/expiry outcomes.
+- **History:** Earlier drafts proposed synchronous Credit settlement/release calls. The approved design now sends typed events for these consequences. Do not implement those old settlement/release HTTP proposals for these flows.
+- **Still current:** the agreed Credit hold-before-reopen contract is FEEDBACK-003; its provider endpoint remains missing.
+
+## FEEDBACK-002: Credit and User Service event subscriptions
+
+- **Status:** `OPEN` — peer consumers were not found in the inspected repositories.
+- **Responsible services:** Credit Service and User Service.
+- **Scope:** typed outcome event subscriptions described here. This is future peer work; Order Service only owns the producer and event contract.
+- **Delivery:** Google Cloud Pub/Sub; at least once, stable `eventId`, `eventVersion: 1`, resulting Order snapshot. Subscriber implementation must deduplicate and own its retry/acknowledgment/dead-letter/recovery behavior.
+
+### Required subscriptions and actions
+
+| Event type                           | Subscriber          | Action after consuming                                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OpenOrderRefundTaskEvent`           | Credit Service only | Refund/release the reserved transaction for an OPEN order. Inspect `order.status`: `CANCELLED` means requester cancellation; `EXPIRED` means scheduler expiry. No User Service subscription is needed.                                   |
+| `AcceptedOrderCancellationTaskEvent` | Credit Service      | Refund/release the transaction when the assigned courier cancels at or after `order.expiresAt`; the resulting status is `ABORTED`.                                                                                                       |
+| `AcceptedOrderCancellationTaskEvent` | User Service        | Apply the configured cancellation penalty to the courier identified by `actorId`. This event is emitted only for the expired branch.                                                                                                     |
+| `OrderCompletionTaskEvent`           | Credit Service      | Settle/transfer the reserved credits to `order.courierId`, verifying it matches the courier recorded on the reservation during acceptance. Process every completion event once at the business level.                                    |
+| `OrderCompletionTaskEvent`           | User Service        | For every completion, apply the existing overdue penalty when `overdue` is true; otherwise apply the established on-time penalty-score reduction. The courier is `order.courierId`; `actorId` is the requester who confirmed completion. |
+
+Unexpired accepted cancellation emits **no event**: Order waits for Credit's synchronous hold confirmation before setting the same order back to `OPEN`. See FEEDBACK-003.
+
+### Current peer inspection and next action
+
+- No Pub/Sub outcome consumer was found in the inspected Credit source.
+- Credit's `CreditReservation` and `ReservationResponse` include a nullable `courierId`, but `CreditController` only creates and reads reservations; no API/service operation assigns or updates the courier. The reservation operation initializes `courierId` to `null`.
+- No event consumer was found in the inspected User source. Existing User HTTP routes are not the approved event contract and are not called by the Order event flow.
+- **Next action:** Credit and User owners implement the subscriptions/actions in the table, agree topic/subscription configuration and trusted publisher validation, and define operational retry/dead-letter/replay/monitoring. For `OpenOrderRefundTaskEvent`, subscribe to the single shared OPEN-refund topic and use the resulting status to distinguish cancellation from expiry. Order Service must inspect the actual consumer code/tests before marking this feedback `VERIFIED`.
+
+## FEEDBACK-003: Credit Service hold/reset before reopening an unexpired accepted order
+
+- **Status:** `AGREED` — Order's synchronous hold-for-reopen behavior and minimal endpoint contract are finalized by the user; Credit has not implemented the endpoint.
+- **Responsible service:** Credit Service.
+- **Affected flow:** assigned courier cancels an `ACCEPTED` order before its original expiry; updated overall Sequence 7; CHANGE-064 / ADR-014.
+
+### Required behavior
+
+When the assigned courier cancels before `expiresAt`, Order must synchronously wait for Credit to confirm that the existing transaction is safely held/reset without refunding or transferring it. Only after a successful response may Order clear `courierId` and change the same order from `ACCEPTED` to `OPEN`. This prevents another courier from accepting the order while Credit is still processing a cancellation. If Credit rejects or is unavailable, Order remains `ACCEPTED`. At or after expiry, Order skips this endpoint and publishes `AcceptedOrderCancellationTaskEvent` instead.
+
+### Agreed endpoint contract
+
+This is the final Order Service contract for reopening an unexpired accepted order. It specifies the required Credit behavior and request shape; it is not a claim that Credit has implemented the endpoint.
+
+- **Operation:** `POST /api/credits/orders/{orderId}/hold-for-reopen`
+- **Request body:** none. Credit locates the transaction from `orderId` in the path.
+
+- **Success:** synchronous `200 OK` only after Credit has confirmed the transaction is retained in the hold/reset state. No response body is required. Order waits for this response before changing the order to `OPEN`.
+- **Required semantics:** locate the transaction by `orderId`; do not refund/release credits and do not transfer them. Retain the transaction and clear its current courier assignment. Make the operation idempotent by transaction state: a repeat when the same order is already held/reset with no courier assignment succeeds; missing transactions and conflicting states fail.
+- **Minimal request contract:** the path Order ID is the only transaction input. Order validates its version and courier ownership before the call; Credit validates transaction state and identity from its own data. Event payloads continue to carry `orderVersion` for event identity and context.
+- **Failure behavior:** any non-`200 OK` response means Order keeps the order `ACCEPTED` with its courier assignment. Credit should use an error response for an unauthenticated/forbidden caller, missing transaction, or conflicting transaction state.
+- **Production authentication:** Order-to-Credit requires trusted service authentication. The current adapter forwards an `Authorization` value; that credential must be confirmed as suitable or replaced before live HTTP-peer use.
+- **Recovery:** Credit may confirm the hold before Order's later database commit fails. Repeating the hold for the same already-held transaction must succeed so Order can retry/reconcile without refunding or stranding the transaction.
+- **Related flow:** if the deadline passes while the synchronous request is in flight, Order rechecks `expiresAt`; it follows the expired path and emits the accepted-cancellation event for Credit refund and User penalty.
+
+### Implementation status
+
+Order's `CreditServicePort`, mock adapter, bodyless HTTP request, and tests follow this agreed contract. The inspected Credit source has no matching route. Credit Service still needs to implement the endpoint, and Order must verify its actual implementation and tests before calling the integration verified.
+
+## FEEDBACK-004: Credit Service courier assignment during Order acceptance
+
+- **Status:** `OPEN` — required Credit operation is missing from the inspected controller, service, repository API, and contract tests.
+- **Requesting service:** Order Service.
+- **Responsible service:** Credit Service.
+- **Affected flow:** courier accepts an unassigned `OPEN` Order.
+- **User-approved behavior:** Order must synchronously ask Credit to associate the accepted courier ID with the existing reservation. Order waits for Credit's successful confirmation before persisting the Order as `ACCEPTED`; a rejection or unavailable Credit service leaves it `OPEN`.
+- **Classification:** `MISSING`.
+
+### Existing Credit implementation
+
+`PUT /api/credits/orders/{orderId}/reservation` creates an idempotent reservation for a requester and amount. The request contains `requesterId` and `amount`; the controller requires the authenticated caller to match `requesterId`; a new `CreditReservation` is created with `courierId: null`. `GET /api/credits/orders/{orderId}/reservation` reads the reservation for its requester. Although the model and response contain a nullable `courierId`, no route or service/repository method sets it. This API cannot perform the requested acceptance-time update as implemented.
+
+Order's `OrderAssignmentService.accept` verifies the courier, locks and validates the `OPEN` Order, synchronously calls `CreditServicePort.assignCourier` with Order ID and courier ID, rechecks the expiry boundary, and only then changes status and persists the checkpoint/Order/receipt. The local mock and proposed HTTP adapter implement this port on the Order side.
+
+### To be discussed: proposed operation and format
+
+The path and minimal request format below are proposals for Credit-owner agreement, not an existing Credit endpoint.
+
+- **Proposed operation:** `PUT /api/credits/orders/{orderId}/courier-assignment`
+- **Proposed request JSON:**
+
+  ```json
+  {
+    "courierId": "authenticated-courier-user-id"
+  }
+  ```
+
+- **Proposed success:** synchronous `200 OK` after the courier assignment is recorded. No response body is required. Order proceeds with `OPEN -> ACCEPTED` only after this successful response.
+- **Required semantics:** locate the transaction by `orderId`; record the supplied courier without moving funds; reject refunded/paid or otherwise inactive transactions and a conflicting existing courier assignment. Repeating the same courier for the same order succeeds; a different courier conflicts. A reservation reset by FEEDBACK-003 is eligible for a new courier.
+- **Minimal request contract:** `orderId` is in the path and `courierId` is the only body field. Order validates its version and acceptance rules locally; Credit validates transaction state from its own data. Published event payloads retain `orderVersion`.
+- **Completion consistency:** when Credit consumes `OrderCompletionTaskEvent`, verify that `order.courierId` matches the courier associated with this reservation before transferring credits. Reject or quarantine mismatches for reconciliation; never pay a different courier silently.
+- **Order failure behavior:** on timeout, rejection, or invalid response, Order must not persist `ACCEPTED`, its acceptance checkpoint, or command receipt. The Order status remains `OPEN`.
+- **Authorization to agree:** the current Credit API authenticates a user and requires the authenticated identity to match the requester. For courier acceptance, the bearer identifies the courier, not the requester. Credit and Order owners must agree trusted Order-to-Credit service authentication or another safe authorization contract; do not assume the existing requester-only rule is suitable.
+- **Consistency/idempotency to agree:** Credit may record the courier before the local Order transaction commits. Repeating the same courier assignment by Order ID must succeed; a different courier must conflict. The endpoint must define safe retry/reconciliation behavior if Credit succeeds but the Order database commit fails, without requiring a command ID in the request.
+- **Related flow:** coordinate with FEEDBACK-003 so a successful hold/reset before reopening clears or releases the previous Credit-side courier assignment, allowing the next accepted courier to be recorded.
+
+### Order-side contract-stub milestone
+
+The user approved an Order-side mock/contract-stub milestone while the Credit endpoint is being completed. `MockPeerAdapters.assignCourier` models an active reservation, treats a repeat assignment to the same courier as idempotent, and rejects a conflicting courier. The hold operation locates the reservation by Order ID, clears the courier without refunding, and treats a repeat hold as idempotent. `HttpPeerAdapters` sends only `courierId` for assignment and sends no hold body; both require synchronous `200 OK`. Acceptance tests prove Credit confirmation precedes any Order mutation and that a Credit failure leaves the Order `OPEN` with no checkpoint, persistence, or receipt.
+
+This is **not** a Credit endpoint implementation and does not verify a live peer integration. FEEDBACK-004 remains `OPEN`; Credit must agree/implement the route, trusted service authentication, state-based idempotency, and recovery semantics. The local base Compose configuration selects the mock adapter; `compose.http-peers.yaml` will fail on this operation until Credit provides the route.
+
+## Feedback status rules
+
+- `OPEN`: required peer capability is missing or agreement/implementation is pending.
+- `AGREED`: Order-side behavior and contract are finalized, but the required peer implementation is missing.
+- `IN_PROGRESS`: peer owner reports implementation has started.
+- `READY_FOR_VERIFICATION`: peer owner reports implementation is ready; Order has not verified it.
+- `VERIFIED`: Order re-read the actual peer code/tests and checked request, response, errors, authorization, semantics, and sequence behavior against the agreed contract.
+- `SUPERSEDED`: a later approved design replaces the entry; retain the history and link the replacement.
+
+A proposed contract, mock, HTTP adapter, design document, or peer report alone is not implementation verification. Do not change a status to `VERIFIED` without inspecting the actual peer implementation and tests.

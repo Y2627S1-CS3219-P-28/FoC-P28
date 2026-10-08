@@ -17,11 +17,16 @@ The criteria below define expected behavior. CHANGE-063 tests include a PostgreS
 - Any status other than `DELIVERED` is rejected.
 - Stale version conflicts; repeated command ID is idempotent.
 - Exactly one valid status remains.
-- The completion status, checkpoint, command receipt, and one full-resulting-snapshot outbox event commit atomically.
+- The completion status, checkpoint, command receipt, and one resulting-Order snapshot outbox event commit atomically; the serialized event omits checkpoint history while retaining overdue facts.
 - The event uses the same `OrderCompletionTaskEvent` for overdue and on-time completion and carries `overdue`/`overdueAt` facts.
 - After commit, dispatch is attempted immediately. A Pub/Sub failure leaves the completed Order and pending outbox entry intact; it does not return a transition failure.
 - A failed PostgreSQL transaction leaves neither the completion transition nor its outbox event.
 - Retried publication preserves the stable event ID; duplicate delivery remains possible and consumers deduplicate.
+- A scheduler pass before `deliveredAt + 48 hours` leaves the order `DELIVERED` and writes no completion checkpoint, receipt, or event.
+- At exactly 48 hours and after, the scheduler changes an eligible `DELIVERED` order to `COMPLETED` once, with a `lifecycle` checkpoint/receipt and one `OrderCompletionTaskEvent` in the same transaction.
+- Scheduler completion uses the same overdue calculation and event payload as requester completion; no second event type is emitted.
+- Repeated scheduler passes and a requester completion racing the scheduler produce no duplicate completion checkpoint, receipt, or outbox event; row locking and stable command identity preserve one transition.
+- Scheduler selection filters eligible orders in the database by current `DELIVERED` status and delivered-checkpoint cutoff; it does not load all orders for in-memory filtering.
 
 ## Sequence 8 - Cancel OPEN
 
@@ -29,7 +34,7 @@ The criteria below define expected behavior. CHANGE-063 tests include a PostgreS
 - Non-requester and unauthenticated callers are rejected.
 - Accepted or otherwise non-`OPEN` orders cannot be cancelled by this command.
 - Stale version conflicts; repeated command ID is idempotent.
-- The `CANCELLED` status, checkpoint, receipt, and full-resulting-snapshot cancellation event commit atomically.
+- The `CANCELLED` status, checkpoint, receipt, and resulting-Order snapshot cancellation event commit atomically; checkpoint history is not embedded in the event.
 - A Pub/Sub failure leaves the committed cancellation and pending outbox entry intact for retry.
 
 ## Updated overall Sequence 7 - Cancel ACCEPTED
@@ -50,18 +55,30 @@ The criteria below define expected behavior. CHANGE-063 tests include a PostgreS
 ## Courier ownership - Accept and progress
 
 - Courier acceptance requires an unassigned `OPEN` order and rejects the order's requester.
+- After local validation, acceptance waits for Credit to confirm the reservation assignment to the same courier before changing the Order to `ACCEPTED`.
+- Credit failure or a mismatched/incomplete HTTP confirmation leaves the Order `OPEN` and writes no acceptance checkpoint or command receipt.
+- Acceptance rechecks expiry after Credit responds; an order that expires during the call is not accepted.
+- The mock supports a single assignment, idempotent repeats for the same Order/courier pair, rejection of a different courier, settlement only to the assigned courier, and idempotent hold/reset by Order ID.
+- HTTP contract tests verify assignment sends only `courierId`, hold sends no body, authorization forwarding, and synchronous success handling. Live Credit HTTP behavior is not verified because the provider endpoints are missing.
+- After local validation, acceptance waits for Credit to confirm the reservation assignment to the same courier before changing the Order to `ACCEPTED`.
+- Credit failure or a mismatched/incomplete HTTP confirmation leaves the Order `OPEN` and writes no acceptance checkpoint or command receipt.
+- Acceptance rechecks expiry after Credit responds; an order that expires during the call is not accepted.
+- The mock supports a single assignment, idempotent repeats for the same Order/courier pair, rejection of a different courier, settlement only to the assigned courier, and idempotent hold/reset by Order ID.
+- HTTP contract tests verify assignment sends only `courierId`, hold sends no body, authorization forwarding, and synchronous success handling. Live Credit HTTP behavior is not verified because the provider endpoints are missing.
 - A non-null existing `courierId` prevents acceptance even if the status is `OPEN`.
 - Only the assigned courier may start, pick up, deliver, or cancel an accepted order.
 - Completion and `OPEN` cancellation remain restricted to the original requester.
 
 ## Sequence 9 - Expire OPEN
 
-- A due, unassigned `OPEN` order becomes `EXPIRED` and receives one expiry checkpoint.
+- A Spring scheduled pass finds due, unassigned `OPEN` orders and makes each `EXPIRED` with one expiry checkpoint.
+- The `EXPIRED` status, checkpoint, and one `OpenOrderRefundTaskEvent` outbox row commit atomically; the event includes the resulting Order fields but omits checkpoint history.
+- The event is dispatched after commit through its typed publisher; publication failure leaves the expired Order committed and the event pending for retry.
+- Credit consumes `OpenOrderRefundTaskEvent` and refunds/releases the reserved transaction; Order does not call Credit's release endpoint synchronously. Requester cancellation uses the same event/topic with `order.status=CANCELLED`.
 - An unexpired, assigned, or non-`OPEN` order remains unchanged.
 - Equality at the expiry boundary is treated as reached.
-- Repeated processing produces no duplicate transition/checkpoint.
-- Only trusted lifecycle identity is accepted.
-- Credit release/outcome processing is not invoked in this slice.
+- Repeated or concurrent scheduler passes produce no duplicate transition, checkpoint, or event.
+- Scheduler exceptions are logged and a later scheduled pass retries eligible records.
 
 ## Sequence 10 - Automatic repost
 

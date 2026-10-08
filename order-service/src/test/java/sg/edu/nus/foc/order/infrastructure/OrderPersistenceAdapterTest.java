@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -17,6 +18,18 @@ import org.springframework.data.domain.Sort;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 class OrderPersistenceAdapterTest {
+    @Test
+    void autoCompletionSelectionUsesDatabaseEligibleDeliveredCheckpointCutoff() {
+        JpaOrderRepository jpa = mock(JpaOrderRepository.class);
+        Instant cutoff = Instant.parse("2026-10-05T10:00:00Z");
+        when(jpa.findDueForAutoCompletion(OrderStatus.DELIVERED, cutoff)).thenReturn(List.of());
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa);
+
+        adapter.findDueForAutoCompletion(cutoff);
+
+        verify(jpa).findDueForAutoCompletion(OrderStatus.DELIVERED, cutoff);
+    }
+
     @Test
     void absentStatusUsesPagedUnfilteredQuerySortedNewestFirst() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);

@@ -8,7 +8,7 @@
 
 ## Approved behavior
 
-For completion, OPEN cancellation, and accepted-order cancellation, Order Service writes the post-transition Order state, checkpoint, command receipt, and serialized event to PostgreSQL in one transaction. The event represents the resulting Order state and checkpoint history. No Pub/Sub network call runs inside that transaction.
+For completion, OPEN cancellation, and accepted-order cancellation, Order Service writes the post-transition Order state, checkpoint, command receipt, and serialized event to PostgreSQL in one transaction. The event represents the resulting Order state; per CHANGE-067/ADR-016, it does not embed checkpoint history. The checkpoint is still persisted atomically in PostgreSQL. No Pub/Sub network call runs inside that transaction.
 
 After a successful database commit, an `AFTER_COMMIT` listener immediately attempts to dispatch the corresponding outbox row through the existing typed publisher. The callback runs before the transactional service call returns, so the request waits for this one publish attempt and its Pub/Sub acknowledgment; it never waits for Credit/User consumer replies. A Spring cron recovery job periodically claims due pending rows and retries delivery. Pub/Sub confirmation marks a row published. A failure leaves the committed Order transition and durable outbox row intact; it is logged and scheduled for retry, not returned as a failed transition response.
 

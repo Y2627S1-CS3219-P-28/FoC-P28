@@ -9,16 +9,17 @@ This file narrows implementation planning; Project D1 and ADR-001 remain authori
 ## Sequence 7 - Confirm completion
 
 - Project D1: F4.1.5; F5.1/F5.1.1; F13/F13.1.1.
-- Preconditions: authenticated actor is the original requester; order status is `DELIVERED`; expected order version is current.
-- Result: replace `DELIVERED` with `COMPLETED`, save the completion checkpoint and command receipt, and atomically store one full-snapshot `OrderCompletionTaskEvent` with overdue facts in the outbox; return the committed state.
+- Requester path: authenticated actor is the original requester; order status is `DELIVERED`; expected order version is current. The requester may confirm completion before automatic completion is due.
+- Automatic path (CHANGE-072/ADR-020): a Spring scheduler selects orders whose `DELIVERED` checkpoint occurred at or before `now - 48 hours`, then rechecks under a pessimistic row lock before completion. The `DELIVERED -> COMPLETED` transition records a lifecycle-actor checkpoint and idempotent receipt, and atomically stores the same resulting-Order `OrderCompletionTaskEvent` with overdue facts; the event omits checkpoint history.
+- Both paths use the same completion-event/outbox behavior and calculate overdue from the accepted/delivered checkpoints and configured delivery limit.
 - Delivery: attempt publication immediately after commit; retry due rows through the Spring cron poller. A publish failure leaves the transition committed and the event pending. Delivery is at least once; consumers deduplicate by stable event ID.
-- Deferred: Credit settlement policy and auto-completion.
+- Deferred: Credit settlement policy; Credit's consumer remains future peer work.
 
 ## Sequence 8 - Cancel an OPEN order
 
 - Project D1: F4.1.7; F5.1/F5.1.1; F13/F13.1.1.
 - Preconditions: authenticated actor is the original requester; order is still `OPEN`; expected version is current.
-- Result: replace `OPEN` with `CANCELLED`, save the cancellation checkpoint and receipt, and atomically store the full-snapshot cancellation event in the outbox; return the committed state.
+- Result: replace `OPEN` with `CANCELLED`, save the cancellation checkpoint and receipt, and atomically store the resulting-Order cancellation event in the outbox; the serialized event omits checkpoint history.
 - Delivery: attempt immediately after commit and retry due events through cron. Publish failure does not undo the transition; consumers deduplicate at least-once delivery by stable event ID.
 - Deferred: Credit Service cancellation policy under F11.
 
@@ -26,21 +27,25 @@ This file narrows implementation planning; Project D1 and ADR-001 remain authori
 
 - Project D1: F4.1.7; updated overall Sequence 7; CHANGE-055 / ADR-010.
 - Preconditions: authenticated actor is a courier; the order is `ACCEPTED`; its assigned `courierId` matches the User Service-confirmed actor ID; expected version is current.
-- Result: transition to `ABORTED`, clear the courier assignment, and atomically persist the checkpoint, receipt, and full-snapshot cancellation event in the outbox. Attempt dispatch after commit. Do not reopen the order in Sprint 1.
+- Result: transition to `ABORTED`, clear the courier assignment, and atomically persist the checkpoint, receipt, and resulting-Order cancellation event in the outbox. The serialized event omits checkpoint history. Attempt dispatch after commit. Do not reopen the order in Sprint 1.
 - Failure: requester or another courier is forbidden. A Pub/Sub failure leaves the committed transition and event in the outbox for retry.
 
 ## Courier lifecycle ownership
 
 - Sequences 3-6: a User Service-verified courier may accept only an unassigned `OPEN` order that they did not request. Start, pickup, delivery, and accepted-order cancellation require the authenticated courier ID to match the order's assigned `courierId`.
+- Sequence 3 / CHANGE-068: after validating the locked `OPEN` Order, synchronously ask Credit to associate the reservation with the courier. Persist `ACCEPTED` only after a matching successful confirmation; if Credit fails, leave the Order unchanged. Recheck expiry after the call. The HTTP route is proposed and the mock is Order-local; see FEEDBACK-004.
+- Sequence 3 / CHANGE-068: after validating the locked `OPEN` Order, synchronously ask Credit to associate the reservation with the courier. Persist `ACCEPTED` only after a matching successful confirmation; if Credit fails, leave the Order unchanged. Recheck expiry after the call. The HTTP route is proposed and the mock is Order-local; see FEEDBACK-004.
 - Sequences 5 and 8 of the updated overall design: only the original requester may confirm completion or cancel an `OPEN` order, respectively.
 
-## Sequence 9 - Expire an unaccepted OPEN order
+## Sequence 9 - Scheduled expiry of an unaccepted OPEN order (updated overall Sequence 6)
 
 - Project D1 baseline: F4.1.8; F10/F10.1/F10.1.1-F10.1.4; NTH4 prerequisite.
 - Sprint narrowing: process only due, unaccepted `OPEN` orders; do not process `ABORTED` reopening/expiry in this slice.
-- Preconditions: trusted lifecycle trigger; status `OPEN`; expiry timestamp reached; no courier assigned.
-- Result: atomically replace `OPEN` with `EXPIRED`, record one expiry checkpoint, and make repeated processing idempotent.
-- Deferred: Credit outcome/release processing.
+- Preconditions: Spring `@Scheduled` trigger using a configurable expiry cron; status `OPEN`; expiry timestamp reached; no courier assigned.
+- Result: atomically replace `OPEN` with `EXPIRED`, record one expiry checkpoint, and persist one `OpenOrderRefundTaskEvent` containing resulting Order/repost fields but no checkpoint history. Existing after-commit dispatch publishes it; outbox recovery retries failed delivery.
+- Credit consumes the event and refunds/releases the reservation. Order does not synchronously call Credit for expiry. Credit deduplicates by stable `eventId`.
+- Repeated scheduler passes do not create duplicate transitions, checkpoints, or events. Concurrent scans lock due orders.
+- Requester-triggered OPEN cancellation is shown in the same updated overall Sequence 6, with `CANCELLED` and `OpenOrderRefundTaskEvent`; expiry differs by trigger and status but uses the same event type/topic.
 
 ## Sequence 10 - Automatic repost
 

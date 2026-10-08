@@ -1,7 +1,6 @@
 package sg.edu.nus.foc.order.messagingpublisher.dto;
 
 import java.time.Instant;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,5 +27,4 @@ public class OrderEventSnapshot {
     private String originalOrderId;
     private String repostedOrderId;
     private RepostPlanEventSnapshot repostPlan;
-    private List<OrderCheckpointEventSnapshot> checkpoints;
 }

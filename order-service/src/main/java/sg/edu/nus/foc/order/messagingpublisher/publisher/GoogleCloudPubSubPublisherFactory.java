@@ -1,37 +1,38 @@
 package sg.edu.nus.foc.order.messagingpublisher.publisher;
 
-import com.google.api.gax.core.NoCredentialsProvider;
-import com.google.api.gax.grpc.GrpcTransportChannel;
-import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.ProjectTopicName;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import jakarta.annotation.PreDestroy;
+
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 public class GoogleCloudPubSubPublisherFactory implements PubSubPublisherFactory {
-    private final String emulatorHost;
-    private final Map<String, Publisher> publishers = new ConcurrentHashMap<>();
-    private final Map<String, ManagedChannel> emulatorChannels = new ConcurrentHashMap<>();
+    private final Function<ProjectTopicName, Publisher> publisherCreator;
 
-    public GoogleCloudPubSubPublisherFactory(
-            @Value("${order.messaging.emulator-host:}") String emulatorHost) {
-        this.emulatorHost = emulatorHost;
+    private final Map<String, Publisher> publishers = new ConcurrentHashMap<>();
+
+    public GoogleCloudPubSubPublisherFactory() {
+        this(GoogleCloudPubSubPublisherFactory::createPublisher);
+    }
+
+    GoogleCloudPubSubPublisherFactory(Function<ProjectTopicName, Publisher> publisherCreator) {
+        this.publisherCreator = publisherCreator;
     }
 
     @Override
     public Publisher forTopic(String projectId, String topicId) {
         String publisherKey = projectId + "/" + topicId;
-        return publishers.computeIfAbsent(publisherKey, ignored -> create(projectId, topicId, publisherKey));
+        ProjectTopicName topicName = ProjectTopicName.of(projectId, topicId);
+        return publishers.computeIfAbsent(publisherKey, ignored -> publisherCreator.apply(topicName));
     }
 
     @PreDestroy
@@ -45,35 +46,13 @@ public class GoogleCloudPubSubPublisherFactory implements PubSubPublisherFactory
                 log.warn("Interrupted while closing a Pub/Sub publisher.");
             }
         });
-        emulatorChannels.values().forEach(ManagedChannel::shutdownNow);
     }
 
-    private Publisher create(String projectId, String topicId, String publisherKey) {
-        Publisher.Builder builder = Publisher.newBuilder(ProjectTopicName.of(projectId, topicId));
-        if (emulatorHost == null || emulatorHost.isBlank()) {
-            try {
-                return builder.build();
-            } catch (IOException exception) {
-                throw new EventPublicationException("Could not create a Google Pub/Sub publisher.", exception);
-            }
-        }
-
-        ManagedChannel channel = ManagedChannelBuilder.forTarget(emulatorHost)
-                .usePlaintext()
-                .build();
+    private static Publisher createPublisher(ProjectTopicName topicName) {
         try {
-            Publisher publisher = builder
-                    .setChannelProvider(FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel)))
-                    .setCredentialsProvider(NoCredentialsProvider.create())
-                    .build();
-            emulatorChannels.put(publisherKey, channel);
-            return publisher;
-        } catch (IOException | RuntimeException exception) {
-            channel.shutdownNow();
-            if (exception instanceof EventPublicationException publicationException) {
-                throw publicationException;
-            }
-            throw new EventPublicationException("Could not create a Google Pub/Sub emulator publisher.", exception);
+            return Publisher.newBuilder(topicName).build();
+        } catch (IOException exception) {
+            throw new EventPublicationException("Could not create a Google Pub/Sub publisher.", exception);
         }
     }
 }

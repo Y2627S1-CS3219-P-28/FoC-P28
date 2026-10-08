@@ -14,7 +14,7 @@ The previous design published a normal completion event only to Credit and a sep
 
 ## Approved change
 
-- Publish only `OrderCompletionTaskEvent` for every successful completion, with the full Order snapshot plus `overdue` and `overdueAt`.
+- Publish only `OrderCompletionTaskEvent` for every successful completion, with the resulting Order/repost fields plus `overdue` and `overdueAt`; per CHANGE-067/ADR-016, checkpoint history is omitted from the event.
 - Derive overdue from checkpoint history: delivery is overdue only when `deliveredAt` is strictly after `acceptedAt + deliveryTimeLimit`.
 - User and Credit are assumed to subscribe to every completion event. User selects its score/penalty behavior using the overdue facts; Credit selects settlement behavior from the same payload.
 - Retain publish-before-status semantics: publish failure leaves Order state unchanged; successful publication is followed by `COMPLETED` status/checkpoint/receipt persistence. Neither peer reply is awaited.

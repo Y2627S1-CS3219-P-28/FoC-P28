@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -20,6 +21,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
+    public static final Duration AUTOMATIC_COMPLETION_DELAY = Duration.ofHours(48);
+
     @Id
     private String id;
     @Column(nullable = false, length = 128)
@@ -87,6 +90,12 @@ public class Order {
     }
 
     public void accept(String courierId, long expectedVersion, Instant now) {
+        validateAcceptance(courierId, expectedVersion, now);
+        this.courierId = courierId;
+        this.status = OrderStatus.ACCEPTED;
+    }
+
+    public void validateAcceptance(String courierId, long expectedVersion, Instant now) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.OPEN);
         if (requesterId.equals(courierId)) {
@@ -101,8 +110,6 @@ public class Order {
         if (courierId == null || courierId.isBlank()) {
             throw new OrderProblem("VALIDATION_ERROR", "Courier is required.");
         }
-        this.courierId = courierId;
-        this.status = OrderStatus.ACCEPTED;
     }
 
     public void start(String courierId, long expectedVersion) {
@@ -128,6 +135,12 @@ public class Order {
 
     public void confirmCompletion(String actor, long expectedVersion) {
         validateCompletion(actor, expectedVersion);
+        status = OrderStatus.COMPLETED;
+    }
+
+    public void completeAutomatically(long expectedVersion) {
+        requireVersion(expectedVersion);
+        requireStatus(OrderStatus.DELIVERED);
         status = OrderStatus.COMPLETED;
     }
 

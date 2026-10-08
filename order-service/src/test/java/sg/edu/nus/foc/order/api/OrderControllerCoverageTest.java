@@ -130,7 +130,7 @@ class OrderControllerCoverageTest {
 
     @Test
     void lifecycleEndpointsValidateTokenAndReturnCounts() {
-        when(lifecycle.expireDue(any(), eq("Bearer lifecycle-secret"))).thenReturn(2);
+        when(lifecycle.expireDue(any())).thenReturn(2);
         when(lifecycle.repostDue(any(), eq("Bearer lifecycle-secret"))).thenReturn(1);
         assertEquals(Map.of("expired", 2), controller.expire("lifecycle-secret"));
         assertEquals(Map.of("reposted", 1), controller.automaticRepost("lifecycle-secret"));

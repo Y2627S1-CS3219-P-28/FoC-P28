@@ -8,7 +8,18 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
-This log records the AI exchanges. The team remains responsible for validating all output. Requirements prioritization, architecture, component boundaries, schemas, interfaces, and performance/security trade-offs were finalized by the team, not by the AI tool.
+## Peer-service API feedback contract rewrite assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-04
+- **Mode:** Documentation and verification
+- **Affected locations:** `Foc-P28/order-service/docs/peer-service-api-feedback.md`, `docs/decisions/ADR-014-accepted-cancellation-hybrid-flow.md`, `hands-off/README.md`, `changes/CHANGE-066-peer-service-contract-feedback-rewrite.md`, `docs/change-log.md`, `docs/active-work/yao-xiang.md`, and this usage log
+- **Prompt:**
+
+  > I want u to rewrite the peer-service-api-feedback. So for every api we need other microservice to implement. U provide not only what we intend to have. Provide them the contract and the format. For event driven flow, Juts provide therm what inside the order event so they know what field they have. For cancel accepted unexpired order required endpoint, create a section called to be discussed and put the endpoint format and what we intend to have under that section
+
+- **Key response:** Rewrote peer feedback with current implemented User/Supplier/Credit HTTP contracts, typed event fields and subscriber actions, and a proposed Credit hold-for-reopen contract in “To be discussed.” Corrected linked current handoff/ADR references. No peer source or application code changed.
+- **Author verification:** Inspected the actual peer controllers/DTOs and Order event DTOs/mapper/adapter; reviewed the changed documentation and ran `git diff --check`. Peer consumer and hold endpoint implementation remain unverified.
 
 ## Credit Service implementation assistance
 
@@ -1357,3 +1368,118 @@ for failures show credits unavailable
 - **Key response:** Changed the publisher factory cache/lifecycle test to use the emulator transport instead of constructing a production publisher that requests Application Default Credentials. The test no longer requires Google credentials or a live Pub/Sub service.
 - **Affected locations:** `Foc-P28/order-service/src/test/java/sg/edu/nus/foc/order/messagingpublisher/publisher/GoogleCloudPubSubPublisherFactoryTest.java`, `Foc-P28/order-service/docs/active-work/yao-xiang.md`; this usage log.
 - **Author verification:** The diff was inspected and `git diff --check` passed. The focused Maven test did not execute: local Maven compilation failed with `Cannot close compiler resources` while compiling production sources. Direct drive inspection showed 5.18 GB free on C: and 27.79 GB on D:, so disk space is not the cause. CI verification after this change remains pending.
+
+## Spring-scheduled Order expiration event assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-03
+- **Mode:** Design, implementation, documentation, and verification
+- **Exact prompt:**
+
+  > Check the Order Service Overall Doc - Updated. We have cancel and expire open order the same sequence diagram which is the sequence 6. The flow is the same. It's just the event published is different. And cancel open order is trigger based and the expire open order is cron job based. 1. the evnt should replace that call. So the credit service will consume the published event and do the refund. 2. use the scheduler
+
+  > use spring scheduler
+
+- **Key response:** Added Spring-scheduled expiry discovery and `OrderExpirationTaskEvent` using the existing transactional outbox/after-commit dispatcher. Removed the synchronous Credit release boundary from expiry. Updated Sequence 6/9, contracts, class diagram, evolution/decision/traceability and Vincent's handoff. Credit subscriber and Pub/Sub topic initialization remain future work/out of scope. Local Maven verification remains blocked by the Windows compiler reporting `Fatal Error: Cannot close compiler resources`; `git diff --check` passed.
+- **Affected locations:** `Foc-P28/order-service` lifecycle scheduler/service, event DTO/publisher/mapper/dispatcher, persistence query, tests, application configuration, sequence/class diagrams, requirements/contracts, peer feedback, ADR-015, CHANGE-065, architecture evolution, handoff, active work, and this usage log.
+- **Author verification:** The developer/team selected Spring scheduling and confirmed the event replaces synchronous Credit release. Maven tests could not be verified in this local toolchain; run full `mvn verify`/CI in a working Java 21 environment and confirm Credit's consumer contract separately. Shared Compose and Credit/User source were not modified.
+## Remove checkpoint history from Order events
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-06
+- **Mode:** Contract update, implementation, documentation, and verification
+- **Exact prompt:**
+
+  > For order event, i dont think we should put the checkpoint in cuz we gonna send all the history there. I think it will make it massive. we dont reallyy need there. Please update the service api feedback as qwqell
+
+- **Key response:** Removed checkpoint history from the common event snapshot, mapper, and publisher factory; removed the event-only checkpoint DTO; retained checkpoint persistence/history and internal overdue calculation. Updated the peer event contract and synchronized ADR/change/architecture/sprint/handoff artifacts. Kept event version 1 because no consumers were found in inspected peer implementations.
+- **Affected locations:** `Foc-P28/order-service` event DTO/mapper/factory and application tests; peer-service API feedback, service contracts, diagrams, requirements, architecture context/evolution, ADR-016, CHANGE-067, change log, current sprint, Vincent handoff, active work; this usage log.
+- **Author verification:** `git diff --check` passed. Focused Maven tests did not reach test execution: Java 21 failed with `Fatal Error: Cannot close compiler resources`; forked compilation also failed generically. Rerun focused tests and full `mvn verify` in CI or a working Java 21 environment. Peer source, database schema, and frontend were not changed.
+
+## Credit courier assignment before Order acceptance
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-06
+- **Mode:** Contract review, test-driven implementation, documentation, and verification
+- **Exact prompt:**
+
+  > Then u should create the mock endpoint for credit service and start linking the accepted flow. Later on we will replace the real endpoint when it is done.
+
+- **Key response:** Added an Order-owned Credit assignment port, local mock behavior, and a proposed typed HTTP adapter contract. Acceptance now waits for Credit confirmation before persisting `ACCEPTED`, and leaves the Order unchanged on Credit failure. FEEDBACK-004 remains open because Credit has no matching route and authentication/recovery semantics need agreement.
+- **Affected locations:** `Foc-P28/order-service` assignment application/domain, peer adapters and DTOs, tests, FEEDBACK-004, service/sprint contracts, Sequence 3 diagram, ADR-017, CHANGE-068, architecture evolution, traceability, current sprint, active work, and this log.
+- **Author verification:** Tests were added before production changes. Focused Maven compilation failed before test execution with `Fatal Error: Cannot close compiler resources`; rerun focused and full verification in a working Java 21 environment. The user authorized an Order-side stub only; no Credit or frontend source changed, and the live provider integration remains unverified.
+
+## Order version boundary for synchronous Credit calls assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-06
+- **Mode:** Contract refinement, implementation, documentation, and verification
+- **Affected locations:** `Foc-P28/order-service` Credit port/adapters/DTOs, tests, peer and service contracts, Sequence 3 and class diagrams, CHANGE-069, ADR-018, architecture evolution, traceability, active work, and AI project context; this usage log.
+- **Exact prompt:**
+
+  > Then I think dont need to send the version. Please update the doc as well
+  >
+  > I think if event it can still make sense cuz we might need them to identify the event. But if just towards the other service then dont need
+  >
+  > I feel like for the endpoint we call to credit service, hold-for-transaction, do we need to provide them the other info. They just need a order id to find the transactrion. Then for the assign the courier they just need the courier id and order id. The rest are redundant
+
+- **Key response:** Removed redundant command, requester, amount, and Order-version fields from synchronous assignment and hold/reset requests. Assignment sends only `courierId` in the body with `orderId` in the path; hold/reset sends only `orderId` in the path with no body. Mock retries are idempotent by transaction state. Order-side version validation and event `orderVersion` remain. No Credit Service or frontend source was changed. Maven compilation failed locally before test execution; verification remains pending.
+- **Author verification:** Review the diff and run the focused Order Service Maven tests in a working Java 21 environment; the real Credit assignment/hold endpoints remain unimplemented and unverified.
+
+## Accepted-order cancellation hold contract confirmation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-06
+- **Mode:** Contract documentation and architecture-context update
+- **Affected locations:** `Foc-P28/order-service/docs/peer-service-api-feedback.md`, ADR-014, service contracts, architecture/current-sprint/traceability/context, CHANGE-070, and this log.
+- **Exact prompt:**
+
+  > we confirm the synchronous hold for reopen flow. so not need tom say to be discussed. This will be the final one.
+
+- **Key response:** Marked FEEDBACK-003 as `AGREED` and removed its “To be discussed” label. Recorded the final bodyless Order-ID endpoint contract and synchronous 200-before-reopen behavior; preserved the distinction that Credit has not implemented the endpoint and production authentication/reconciliation remain requirements. No source or tests changed.
+- **Author verification:** Confirmed the current Credit source has no hold-for-reopen route. Reviewed FEEDBACK-003 and linked decision, change, traceability, and current-sprint references for consistent status.
+
+## Unify OPEN-order cancellation and expiry refund event (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-06
+- **Mode:** Architecture-approved implementation, documentation, and verification
+- **Exact prompt:**
+
+  > I feel like we dont need the expirationevent. We just have use cuz opentaskcancellation and the orderexpirationevent highly similar so we can reuse them so just rename the openordercancellation to openorderrefund then use it when expire and the open ordercancellation. remove the expiration event and update the topic
+
+- **Key response:** Replaced separate requester-cancellation and scheduled-expiry event types with one `OpenOrderRefundTaskEvent`, one publisher interface/implementation, and one topic. Kept `CANCELLED` versus `EXPIRED` Order status and the Spring expiry/outbox flow. The dispatcher converts pending legacy outbox rows for either prior event into the shared event while preserving `eventId`. Updated Sequence 6, peer/service contracts, publisher diagram, ADR/change/evolution, Order instructions, active-work, and current indexes. No peer-service code or schema migration changed.
+- **Affected locations:** `Foc-P28/order-service` event DTO/mapper/factory, cancellation and lifecycle processing, dispatcher/publisher/topic config and tests; root `compose.yaml` Order-topic initialization; Sequence 6 and publisher class diagram; service/peer/event/architecture/sprint contracts; CHANGE-071, ADR-019, architecture evolution, handoff/instructions/active-work; `Foc-P28/ai/usage-log.md`.
+- **Author verification:** `git diff --check` passed and source/current-doc searches show the legacy event names only in dispatcher compatibility handling/tests and historical records. Focused Maven tests did not execute: compilation failed with Java 21 `Fatal Error: Cannot close compiler resources`, including a forked compile. Compose validation was unavailable because the installed Docker command rejected Compose `-f` and access to its Docker config was denied. Rerun focused/full tests and Compose validation in CI or a working environment. Credit's subscriber implementation remains unverified and out of scope.
+
+## 48-hour delivered-order auto-completion assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-07
+- **Mode:** Scope amendment, test-driven implementation, documentation, and verification
+- **Prompt:**
+
+  > I wanna do the auto complete scheduler that pick up the delivered task and compared the delivered time with current time. if it is >= 48 hours then we just do our complete flow
+  >
+  > continue doing. We run out of time so we need complete it early
+
+- **Key response:** Added a configurable Spring scheduler that selects currently `DELIVERED` orders in PostgreSQL by their delivered-checkpoint cutoff (at least 48 hours) and uses pessimistic no-wait row locking. It rechecks under lock, then completes through the same checkpoint, overdue calculation, receipt, and `OrderCompletionTaskEvent` outbox flow as requester completion, with a lifecycle actor and stable auto-completion command ID. Scope/Sequence 5 records were amended. No peer service, frontend, event schema, or database migration changed.
+- **Affected locations:** `Foc-P28/order-service` lifecycle and transition services, Order/domain repository/JPA adapter, scheduler/configuration, tests, Sprint scope/requirements/acceptance/Sequence 5/class diagram, service/architecture/current-sprint/traceability/event registry/context, CHANGE-072, ADR-020, architecture evolution, handoff, active-work; root `.env.example` and `compose.yaml`; this log.
+- **Author verification:** Tests were added before implementation. The focused Maven command reached compilation of 86 production files but Java 21 failed before test execution with `Fatal Error: Cannot close compiler resources`; forked compilation also failed before tests. `git diff --check` passed. No database schema migration was needed. Full Maven verification, PostgreSQL query/locking integration test, and runtime scheduler behavior require a working CI/local test environment.
+
+## Real Pub/Sub development-topic setup assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-07
+- **Mode:** Architecture approval, implementation, documentation, and verification
+- **Affected locations:** `Foc-P28/compose.yaml`, `.env.example`, `order-service` publisher factory/test, application and Cloud Run configuration, README, AGENTS/skills, peer/service contracts, architecture context/evolution, ADR-021, CHANGE-073, active-work/change indexes, and this log
+- **Exact prompts:**
+
+  > Can we actually dont use the pubsub emulator. Instead, we publish to the actual pubsub which I can provide u the secret key or what. Just that when we go on prod we save all these info in the google secret. Locally will be in env that share among us. We can just create the different topics in the gcp like dev topic and prod topic.
+  >
+  > I will do so. accepted-order-cancellation-dev-v1, open-order-refund-dev-v1, order-completion-dev-v1. Do the coding, Outside of the repo, just tell me what to do on gcp
+
+- **Key response:** Replaced the local emulator stack and emulator publisher transport with authenticated real Pub/Sub. Configured the existing project and three approved dev topics; mounted per-developer ADC read-only in the Order container; configured production topic overrides and Cloud Run identity guidance; retained mock peer adapters. Added CHANGE-073/ADR-021 and synchronized configuration, architecture, instructions, and event-topic documentation. No GCP/IAM or peer-service resources were modified.
+- **Author verification:** The focused Maven wrapper command could not start (`Cannot start maven from wrapper`) before test execution. Docker Compose validation was unavailable because the local Docker CLI could not read its config file (access denied); image runtime and live GCP publication were not verified. GCP topic/IAM setup remains pending; no credentials were requested or exposed.
+
+This log records the AI exchanges. The team remains responsible for validating all output. Requirements prioritization, architecture, component boundaries, schemas, interfaces, and performance/security trade-offs were finalized by the team, not by the AI tool.

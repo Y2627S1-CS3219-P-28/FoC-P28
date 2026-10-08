@@ -1,8 +1,12 @@
 # ADR-009: Updated overall event architecture source
 
+> Current Pub/Sub project/topic/authentication configuration is recorded in CHANGE-073/ADR-021; older topic-placeholder and local-emulator notes below are historical.
+
 - Status: Partially superseded by CHANGE-056/ADR-011 and CHANGE-063/ADR-013; Pub/Sub and event contracts remain effective; live broker delivery pending
 - Date: 2026-10-02
 - Owner: Order Service
+
+CHANGE-071/ADR-019 supersedes the separate OPEN-cancellation event reference in this historical record: requester cancellation and scheduled expiry now use one `OpenOrderRefundTaskEvent` on a shared topic. Accepted-order cancellation and completion contracts are unchanged.
 - Related change: CHANGE-051
 - Source: `../../../Order Service Overall Doc - Updated.pdf`
 
@@ -24,6 +28,8 @@ Events carry `eventId`, `eventVersion`, `orderId`, `orderVersion`, actor IDs, `o
 ## Scope of this decision
 
 The user has approved the Order-side publisher names, full Order event payload, topic placeholders, and the assumption that peer consumers will be implemented later. CHANGE-054 selects Google Cloud Pub/Sub for the Order producer. CHANGE-063 replaces publish-before-status with atomic PostgreSQL persistence of Order state and outbox intent. No peer-service source is authorized for modification. Pub/Sub delivery is at least once; a crash after broker acceptance can result in a duplicate.
+
+The effective snapshot is refined by CHANGE-067/ADR-016: it omits checkpoint history while retaining the current Order/repost fields and event-specific facts. Completion overdue facts continue to be derived internally from checkpoints.
 
 ## Superseded assumptions
 

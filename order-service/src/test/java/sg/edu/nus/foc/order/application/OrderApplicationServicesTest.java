@@ -18,7 +18,6 @@ import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
 class OrderApplicationServicesTest {
@@ -72,16 +71,20 @@ class OrderApplicationServicesTest {
         OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         UserServicePort users = mock(UserServicePort.class);
+        CreditServicePort credits = mock(CreditServicePort.class);
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
-        Order order = Order.open("requester", "item", "p", "d", 1, 15, START, START.plusSeconds(86400));
+        Instant acceptanceStartedAt = Instant.now();
+        Order order = Order.open(
+            "requester", "item", "p", "d", 1, 15, acceptanceStartedAt, acceptanceStartedAt.plusSeconds(86400));
         when(receipts.findExisting("ACCEPT", "accept-1")).thenReturn(Optional.empty());
         when(users.verifyCourier("courier", AUTH)).thenReturn("courier");
         when(orders.getForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orders.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Order result = new OrderAssignmentService(orders, checkpoints, receipts, users, audit)
+        Order result = new OrderAssignmentService(orders, checkpoints, receipts, users, credits, audit)
             .accept("accept-1", order.getId(), "courier", 0, AUTH);
         assertEquals(OrderStatus.ACCEPTED, result.getStatus());
+        verify(credits).assignCourier(order.getId(), "courier", AUTH);
         verify(checkpoints).save(any(OrderCheckpoint.class));
         verify(receipts).save(any(CommandReceipt.class));
 
@@ -89,11 +92,11 @@ class OrderApplicationServicesTest {
         CommandReceipt previous = new CommandReceipt("ACCEPT", "accept-2", existing.getId(), START);
         when(receipts.findExisting("ACCEPT", "accept-2")).thenReturn(Optional.of(previous));
         when(orders.get(existing.getId())).thenReturn(Optional.of(existing));
-        assertSame(existing, new OrderAssignmentService(orders, checkpoints, receipts, users, audit)
+        assertSame(existing, new OrderAssignmentService(orders, checkpoints, receipts, users, credits, audit)
             .accept("accept-2", "courier", "courier", 0, AUTH));
         when(receipts.findExisting("ACCEPT", "missing")).thenReturn(Optional.empty());
         when(orders.getForUpdate("missing")).thenReturn(Optional.empty());
-        assertThrows(OrderProblem.class, () -> new OrderAssignmentService(orders, checkpoints, receipts, users, audit)
+        assertThrows(OrderProblem.class, () -> new OrderAssignmentService(orders, checkpoints, receipts, users, credits, audit)
             .accept("missing", "missing", "courier", 0, AUTH));
     }
 
@@ -113,7 +116,7 @@ class OrderApplicationServicesTest {
             credits,
             mock(OrderEventOutboxRepository.class),
             mock(ApplicationEventPublisher.class),
-            new OrderTaskEventFactory(checkpoints, Mappers.getMapper(OrderTaskEventMapper.class)),
+            new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
             audit);
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         order.accept("courier", 0, START.plusSeconds(1));
@@ -134,13 +137,12 @@ class OrderApplicationServicesTest {
             new OrderCheckpoint(order.getId(), OrderStatus.DELIVERED, START.plusSeconds(10 * 60L), "courier", null)));
         service.complete("complete", order.getId(), "requester", 0, AUTH);
         assertEquals(OrderStatus.COMPLETED, order.getStatus());
-        verify(credits, never()).settle(anyString(), anyString(), anyString(), anyString(), anyLong(), anyLong(), anyString());
+        verify(credits, never()).settle(anyString(), anyString(), anyString(), anyString(), anyLong(), anyString());
 
         Order cancelled = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         when(orders.getForUpdate("cancelled")).thenReturn(Optional.of(cancelled));
         service.cancel("cancel", "cancelled", "requester", 0, AUTH);
         assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
-        verify(credits, never()).release(anyString(), anyString(), anyString(), anyLong(), anyString(), anyLong(), anyString());
     }
 
     @Test
@@ -160,7 +162,7 @@ class OrderApplicationServicesTest {
             mock(CreditServicePort.class),
             mock(OrderEventOutboxRepository.class),
             mock(ApplicationEventPublisher.class),
-            new OrderTaskEventFactory(checkpoints, Mappers.getMapper(OrderTaskEventMapper.class)),
+            new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
             mock(OrderAuditLogger.class));
         assertSame(existing, service.complete("same", existing.getId(), "requester", 0, AUTH));
     }
@@ -206,15 +208,33 @@ class OrderApplicationServicesTest {
         OrderRepository orders = mock(OrderRepository.class);
         OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
         OrderRepostService reposts = mock(OrderRepostService.class);
-        CreditServicePort credits = mock(CreditServicePort.class);
+        OrderEventOutboxRepository outbox = mock(OrderEventOutboxRepository.class);
+        ApplicationEventPublisher applicationEvents = mock(ApplicationEventPublisher.class);
+        OrderTaskEventFactory eventFactory = new OrderTaskEventFactory(
+                Mappers.getMapper(OrderTaskEventMapper.class));
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
-        LifecycleProcessingService lifecycle = new LifecycleProcessingService(orders, checkpoints, reposts, credits, audit);
+        OrderTransitionService transitions = mock(OrderTransitionService.class);
+        LifecycleProcessingService lifecycle = new LifecycleProcessingService(
+                orders, checkpoints, reposts, outbox, applicationEvents, eventFactory, audit, transitions);
         Order expired = Order.open("requester", "item", "p", "d", 2, 15, START.minusSeconds(1800), START);
         when(orders.findDueUnassigned(OrderStatus.OPEN, START))
-            .thenReturn(List.of(expired));
-        assertEquals(1, lifecycle.expireDue(START, AUTH));
-        verify(credits).release(startsWith("EXPIRE:"), eq(expired.getId()), eq("requester"), eq(2L), eq("EXPIRED"), eq(0L), eq(AUTH));
+            .thenReturn(List.of(expired), List.of());
+        when(orders.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        assertEquals(1, lifecycle.expireDue(START));
+        assertEquals(0, lifecycle.expireDue(START));
+        verify(outbox).enqueue(any(sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent.class));
+        verify(applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
         verify(checkpoints).save(any(OrderCheckpoint.class));
+
+        Instant autoCompletionNow = START.plusSeconds(50 * 60L * 60L);
+        Instant deliveredBefore = autoCompletionNow.minusSeconds(48 * 60L * 60L);
+        Order delivered = Order.open(
+                "requester", "delivered item", "p", "d", 2, 15, START.minusSeconds(3600), START);
+        when(orders.findDueForAutoCompletion(deliveredBefore)).thenReturn(List.of(delivered));
+        when(transitions.autoComplete(delivered.getId(), autoCompletionNow)).thenReturn(true);
+        assertEquals(1, lifecycle.autoCompleteDue(autoCompletionNow));
+        verify(orders).findDueForAutoCompletion(deliveredBefore);
+        verify(transitions).autoComplete(delivered.getId(), autoCompletionNow);
 
         RepostPlan plan = new RepostPlan(true, START, 1, 15);
         Order due = Order.open("requester", "item", "p", "d", 1, 15, START.minusSeconds(1800), START, plan);

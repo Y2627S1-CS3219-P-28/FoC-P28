@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.web.client.RestClient;
 
 class HttpPeerAdaptersTest {
@@ -82,22 +83,55 @@ class HttpPeerAdaptersTest {
             .andRespond(withSuccess());
         creditServer.expect(requestTo("/api/credits/orders/order/hold-for-reopen"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
-                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json("{\"commandId\":\"hold\",\"requesterId\":\"requester\",\"courierId\":\"courier\",\"amount\":2,\"expectedOrderVersion\":0}"))
+                .andExpect(MockRestRequestMatchers.content().string(""))
                 .andRespond(withSuccess());
         creditServer.expect(requestTo("/api/credits/orders/order/settlement"))
             .andExpect(method(org.springframework.http.HttpMethod.POST))
-            .andRespond(withSuccess());
-        creditServer.expect(requestTo("/api/credits/orders/order/release"))
-            .andExpect(method(org.springframework.http.HttpMethod.POST))
+            .andExpect(MockRestRequestMatchers.jsonPath("$.expectedOrderVersion").doesNotExist())
             .andRespond(withSuccess());
 
         adapters.validatePair("p", "d", null);
         adapters.reserve("order", "requester", 2, null);
-        adapters.holdForReopen("hold", "order", "requester", "courier", 2, 0, null);
-        adapters.settle("settle", "order", "requester", "courier", 2, 0, null);
-        adapters.release("release", "order", "requester", 2, "EXPIRED", 0, null);
-
+        adapters.holdForReopen("order", null);
+        adapters.settle("settle", "order", "requester", "courier", 2, null);
         supplierServer.verify();
+        creditServer.verify();
+    }
+
+    @Test
+    void assignsCourierWithOrderAndCourierIdsAndWaitsForOk() {
+        RestClient.Builder creditBuilder = RestClient.builder();
+        MockRestServiceServer creditServer = MockRestServiceServer.bindTo(creditBuilder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(),
+                RestClient.builder().build(),
+                creditBuilder.build());
+        creditServer.expect(requestTo("/api/credits/orders/order-1/courier-assignment"))
+                .andExpect(method(org.springframework.http.HttpMethod.PUT))
+                .andExpect(header("Authorization", "Bearer courier-token"))
+                .andExpect(content().json("{\"courierId\":\"courier-1\"}"))
+                .andRespond(withSuccess());
+
+        adapters.assignCourier(
+                "order-1", "courier-1", "Bearer courier-token");
+
+        creditServer.verify();
+    }
+
+    @Test
+    void rejectsCreditAssignmentWhenCreditDoesNotReturnOk() {
+        RestClient.Builder creditBuilder = RestClient.builder();
+        MockRestServiceServer creditServer = MockRestServiceServer.bindTo(creditBuilder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(),
+                RestClient.builder().build(),
+                creditBuilder.build());
+        creditServer.expect(requestTo("/api/credits/orders/order-1/courier-assignment"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.ACCEPTED));
+
+        assertThrows(IllegalStateException.class, () -> adapters.assignCourier(
+                "order-1", "courier-1", "Bearer courier-token"));
+
         creditServer.verify();
     }
 
@@ -114,7 +148,7 @@ class HttpPeerAdaptersTest {
                 .andRespond(withStatus(org.springframework.http.HttpStatus.ACCEPTED));
 
         assertThrows(IllegalStateException.class, () -> adapters.holdForReopen(
-                "hold", "order", "requester", "courier", 2, 0, "Bearer token"));
+                "order", "Bearer token"));
 
         creditServer.verify();
     }

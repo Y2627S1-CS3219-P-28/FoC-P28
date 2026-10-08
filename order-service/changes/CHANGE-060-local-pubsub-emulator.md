@@ -1,8 +1,10 @@
 # CHANGE-060: Local Pub/Sub emulator for Order Service
 
+> Status update (2026-10-07): This local runtime decision was explicitly superseded by CHANGE-073/ADR-021. The historical emulator setup and verification below are retained as provenance; the current Compose stack publishes to real Pub/Sub dev topics using per-developer ADC.
+
 - Date: 2026-10-02
 - Developer: Yao Xiang, Developer 1
-- Status: IMPLEMENTED; Compose and Docker runtime verification passed; Maven test execution unavailable
+- Status at implementation: IMPLEMENTED; Compose and Docker runtime verification passed; Maven test execution unavailable. Current status: SUPERSEDED by CHANGE-073/ADR-021.
 - Change type: Implementation detail under approved CHANGE-054 / ADR-009
 - Trigger: Local Order completion/cancellation attempts used the real Google Pub/Sub endpoint because the local Compose stack left `PUBSUB_EMULATOR_HOST` unset.
 

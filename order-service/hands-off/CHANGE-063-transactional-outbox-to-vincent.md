@@ -9,9 +9,11 @@
 
 > **Superseded for accepted-cancellation behavior:** [CHANGE-064](../changes/CHANGE-064-accepted-cancellation-reopen-or-event.md) / [ADR-014](../docs/decisions/ADR-014-accepted-cancellation-hybrid-flow.md) now require synchronous Credit hold then direct `ACCEPTED -> OPEN` before expiry, and the cancellation event only at/after expiry. The following handoff records the original CHANGE-063 milestone; use CHANGE-064 and the updated Sequence 7 for current behavior.
 
+> **Current OPEN-refund event contract:** CHANGE-071/ADR-019 replaces the separate OPEN-cancellation and scheduled-expiration event names with `OpenOrderRefundTaskEvent` on one topic. Requester cancellation still results in `CANCELLED`; scheduler expiry still results in `EXPIRED`. Credit consumes one event type and refunds/releases either transaction using the resulting Order status to distinguish them.
+
 ## What is implemented
 
-Completion and cancellation outcome events now use a transactional outbox. For each supported transition, Order Service writes the resulting Order, checkpoint, command receipt, and serialized full-Order event into PostgreSQL in the same transaction. A database rollback removes both the state change and its event intent.
+Completion and cancellation outcome events now use a transactional outbox. For each supported transition, Order Service writes the resulting Order, checkpoint, command receipt, and serialized resulting-Order event into PostgreSQL in the same transaction. Per CHANGE-067/ADR-016, the event omits checkpoint history; a database rollback still removes both the state change and its event intent.
 
 After commit, an `AFTER_COMMIT` listener immediately asks the dispatcher to publish the event through its matching typed publisher. The listener runs before the transactional service call returns, so the HTTP request waits for the publish attempt and Pub/Sub acknowledgment (or recorded failure), but never for a Credit or User consumer reply. A publish failure does not reverse the committed Order transition; it is logged and the outbox row is retried.
 
@@ -19,8 +21,8 @@ The Spring cron scheduler is a recovery path for pending events and expired leas
 
 The implemented event cases are:
 
-- **Completion:** every successful completion emits one `OrderCompletionTaskEvent`, whether on time or overdue. It carries the full resulting Order snapshot plus `overdue` and `overdueAt` facts. Credit and User consumers are assumed future work.
-- **OPEN cancellation:** requester cancellation emits `OpenOrderCancellationTaskEvent`; Credit is the assumed future consumer.
+- **Completion:** every successful completion emits one `OrderCompletionTaskEvent`, whether on time or overdue. It carries resulting Order/repost fields plus `overdue` and `overdueAt` facts, but not checkpoint history. Credit and User consumers are assumed future work.
+- **OPEN refund (historical at CHANGE-063):** requester cancellation originally emitted `OpenOrderCancellationTaskEvent`; under current CHANGE-071, both it and scheduled expiry emit `OpenOrderRefundTaskEvent` and use the shared Credit topic.
 - **Accepted-order cancellation at CHANGE-063 time:** the assigned courier transitioned the order to `ABORTED` and emitted `AcceptedOrderCancellationTaskEvent`; this rule is superseded by CHANGE-064.
 
 No separate overdue-completion event exists. Existing HTTP endpoint contracts are unchanged. Expiry/repost events and peer consumer implementations are outside this change.

@@ -21,7 +21,6 @@ Sequences 1-6 are prerequisites represented by the Sprint 1 pack, but they are n
 ## Explicitly out of scope
 
 - Simultaneous acceptance edge case F3.2.1.
-- 48-hour auto-completion.
 - `ABORTED` to `OPEN` reopening.
 
 CHANGE-064/ADR-014 permits the distinct `ACCEPTED -> OPEN` transition for an
@@ -34,3 +33,7 @@ not include or authorize `ABORTED -> OPEN`.
 - Cancellation Credit processing (deferred with F11 in the Sprint 1 pack).
 - Detailed UI layouts/interactions, because no approved UI specification exists.
 - Unapproved concrete API transport, endpoints, DTOs, persistence schema, frameworks, or infrastructure.
+
+## User-approved scope amendment - CHANGE-072 / ADR-020
+
+Sequence 5 also automatically completes a `DELIVERED` order once its delivered checkpoint is at least 48 hours old. A configurable Spring scheduler queries due orders in the database and uses the existing completion transition/outbox contract. This amendment removes 48-hour auto-completion from the out-of-scope list; all other scope exclusions remain effective.

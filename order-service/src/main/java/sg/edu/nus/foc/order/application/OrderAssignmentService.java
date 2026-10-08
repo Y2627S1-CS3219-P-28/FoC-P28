@@ -20,6 +20,7 @@ public class OrderAssignmentService {
     private final OrderCheckpointRepository checkpoints;
     private final CommandReceiptRepository receipts;
     private final UserServicePort users;
+    private final CreditServicePort credits;
     private final OrderAuditLogger audit;
 
     @Transactional
@@ -39,12 +40,19 @@ public class OrderAssignmentService {
 
         Order order = findForUpdate(id);
         Instant acceptedAt = Instant.now();
-        order.accept(authenticatedCourier, version, acceptedAt);
+        order.validateAcceptance(authenticatedCourier, version, acceptedAt);
+        credits.assignCourier(
+                order.getId(),
+                authenticatedCourier,
+                authorization);
+        Instant persistedAcceptanceAt = Instant.now();
+        order.validateAcceptance(authenticatedCourier, version, persistedAcceptanceAt);
+        order.accept(authenticatedCourier, version, persistedAcceptanceAt);
 
         checkpoints.save(new OrderCheckpoint(
                 id,
                 order.getStatus(),
-                acceptedAt,
+                persistedAcceptanceAt,
                 authenticatedCourier,
                 null));
 

@@ -1,4 +1,4 @@
-# Order Service Sprint 1 Sequences 1–11 — Handoff to Yao Xiang
+# Order Service Sprint 1 Sequences 1â€“11 â€” Handoff to Yao Xiang
 
 **Branch:** `sprint-1/seq-1-to-seq-11`
 **Repository area:** `order-service/` plus the approved shared `frontend/` vertical slice
@@ -11,6 +11,21 @@ architecture diagrams, contracts, or the peer-service feedback record. Read the
 authoritative files before changing code.
 
 ## Latest implementation handoff
+
+CHANGE-072/ADR-020 adds Sequence 5 auto-completion after 48 hours from the
+`DELIVERED` checkpoint. A configurable Spring scheduler queries and locks only
+eligible delivered orders, rechecks under lock, and uses the existing
+`OrderCompletionTaskEvent` transactional outbox flow. Requester completion
+remains available earlier. The focused Maven run is currently blocked before
+tests by Java 21's `Cannot close compiler resources`; see the change and active
+work records.
+
+The user-approved CHANGE-071/ADR-019 update replaces separate OPEN cancellation
+and expiration events with `OpenOrderRefundTaskEvent` on one shared topic.
+Requester cancellation still results in `CANCELLED`; scheduled expiry still
+results in `EXPIRED`. Credit consumes one event type and refunds both, using
+the Order snapshot status to distinguish them. Pending legacy outbox rows are
+translated by the dispatcher with their stable event IDs preserved.
 
 The current accepted-cancellation update is documented in
 [CHANGE-064](../changes/CHANGE-064-accepted-cancellation-reopen-or-event.md)
@@ -25,6 +40,15 @@ is in [CHANGE-063-transactional-outbox-to-vincent.md](CHANGE-063-transactional-o
 It records the completion/cancellation event flow, implementation locations,
 102-test verification result, and remaining Pub/Sub consumer and Cloud Run
 recovery caveats. CHANGE-063/ADR-013 and the updated diagrams are authoritative.
+
+The original OPEN expiry scheduler update is documented in
+[CHANGE-065](../changes/CHANGE-065-scheduled-order-expiration-event.md) and
+[ADR-015](../docs/decisions/ADR-015-scheduled-open-order-expiration-event.md).
+CHANGE-071/ADR-019 later unified its refund contract with requester cancellation:
+both use `OpenOrderRefundTaskEvent` on one topic, while preserving the distinct
+`CANCELLED` and `EXPIRED` statuses. Both commit event intent through the outbox;
+Credit consumes one event type and refunds/releases. The synchronous Credit
+release call was removed.
 
 ## 1. Read these sources first
 
@@ -72,12 +96,12 @@ recovery caveats. CHANGE-063/ADR-013 and the updated diagrams are authoritative.
 ## 2. Current branch and ownership context
 
 This is the user-approved combined implementation branch for all Sprint 1
-sequences 1–11. It contains Yao Xiang's sequence 1–6 foundation and Vincent's
-sequence 7–11 work in one branch. Do not reset or overwrite the other
+sequences 1â€“11. It contains Yao Xiang's sequence 1â€“6 foundation and Vincent's
+sequence 7â€“11 work in one branch. Do not reset or overwrite the other
 developer's commits.
 
 The repository workflow still records the historical allocation as Yao Xiang
-owning sequences 1–6 and Vincent owning sequences 7–11. That allocation is
+owning sequences 1â€“6 and Vincent owning sequences 7â€“11. That allocation is
 useful for provenance, but this handoff authorizes Yao Xiang to continue the
 combined branch after coordinating changes and preserving existing work.
 
@@ -117,7 +141,7 @@ The application uses ports rather than embedding peer logic in the domain:
 
 - `UserServicePort`: identity, requester role, courier role/eligibility.
 - `SupplierServicePort`: supplier-pair validation and supplier lookup.
-- `CreditServicePort`: reservation, settlement, and release boundary.
+- `CreditServicePort`: synchronous reservation and hold-for-reopen boundaries. Completion/cancellation/expiry settlement and refunds are handled by Credit's event consumers.
 - `OrderOutcomePublisher`: reserved for approved facts; repost event
   publication is deferred for Sprint 1.
 
@@ -156,9 +180,11 @@ record and obtain approval before changing behavior.
 - Credit reservation is synchronous: an order is not created as `OPEN` unless
   the Credit Service (or the explicitly documented local mock) accepts the
   reservation. Credit Service remains the owner of balances and ledger state.
-- Completion, cancellation, and expiry call the Credit outcome boundary
-  synchronously. The local mock performs deterministic balance changes, but
-  the real settlement/release provider is still pending in `FEEDBACK-001`.
+- Completion, OPEN cancellation, expired accepted cancellation, and scheduled
+  OPEN expiry publish outcome facts through the transactional outbox. Credit
+  owns settlement/refund/release when it consumes those events. The
+  accepted-cancellation hold before reopening remains synchronous and is tracked
+  in `FEEDBACK-003`; peer consumers remain unverified under `FEEDBACK-002`.
 - Repost event publication is deferred for Sprint 1. Do not introduce a
   broker merely to refresh the browser credit summary; the browser uses a
   post-mutation invalidation/refetch of the authoritative Credit endpoint.
@@ -179,7 +205,7 @@ record and obtain approval before changing behavior.
 Read the corresponding Sprint 1 sequence diagrams before modifying a flow.
 The following is the current high-level implementation map.
 
-### Sequence 1 — create an order
+### Sequence 1 â€” create an order
 
 `OrderController` authenticates the request and passes a command to the
 creation application service. The service verifies the requester through
@@ -192,18 +218,18 @@ identity and displays supplier names while retaining IDs internally.
 Production gate: replace any mock peer call with the real peer contract and
 capture authenticated, error, idempotency, and persistence evidence.
 
-### Sequence 2 — view available/open errands
+### Sequence 2 â€” view available/open errands
 
 The query controller reads paginated open orders. Supplier references are
 resolved through the approved Supplier lookup adapter and rendered as names or
-locations. The requester’s own open orders are filtered from the courier-facing
+locations. The requesterâ€™s own open orders are filtered from the courier-facing
 available list. Order UUIDs remain internal to action links and are not shown
 as user-facing labels.
 
 Production gate: verify pagination, authentication, supplier lookup failure
 fallbacks, loading/error states, and responsive rendering.
 
-### Sequence 3 — accept an order
+### Sequence 3 â€” accept an order
 
 The command service verifies courier identity/eligibility with User Service,
 locks the target row, checks `OPEN`, checks that the actor is not the
@@ -213,7 +239,7 @@ courier. It persists the assignment, checkpoint, and command receipt.
 Production gate: exercise two concurrent acceptors, stale versions, duplicate
 command IDs, an unauthorized requester, and a successful courier acceptance.
 
-### Sequences 4–6 — start, pick up, and deliver
+### Sequences 4â€“6 â€” start, pick up, and deliver
 
 The transition service verifies the assigned courier, expected version, and
 current status before asking the aggregate to move `ACCEPTED -> IN_PROGRESS`,
@@ -223,30 +249,36 @@ persists the new immutable aggregate state, checkpoint, and receipt.
 Production gate: verify the assigned-courier rule, illegal status transitions,
 stale versions, duplicate commands, and the authenticated UI action path.
 
-### Sequence 7 — complete
+### Sequence 7 â€” complete
 
-The requester-authenticated completion path requires `DELIVERED`, asks Credit
-Service to settle/transfer the reserved amount, then persists `COMPLETED` and
-the checkpoint. The current local mock models this outcome; the real Credit
-settlement endpoint remains unavailable, so this sequence is not yet a live
-peer-verified production path.
+The requester-authenticated completion path requires `DELIVERED`, then commits
+`COMPLETED`, checkpoint, receipt, and `OrderCompletionTaskEvent` atomically.
+After commit, the outbox attempts Pub/Sub delivery. Credit settles/transfers and
+User applies overdue/on-time score policy when they consume the event; the Order
+request does not wait for their responses. Consumer implementation remains
+unverified under `FEEDBACK-002`.
 
-### Sequence 8 — cancel
+### Sequence 8 â€” cancel
 
 The requester-authenticated cancellation path requires an eligible `OPEN`
-order, asks Credit Service to release the reservation, then persists
-`CANCELLED` and the checkpoint. The local mock models release. Verify the real
-release contract before marking this live.
+order, then commits `CANCELLED`, checkpoint, receipt, and
+`OpenOrderRefundTaskEvent` atomically. Credit refunds/releases after
+consuming the event; Order does not call Credit synchronously.
 
-### Sequence 9 — expire
+### Sequence 9 â€” expire
 
-The trusted lifecycle trigger selects due `OPEN` orders whose `courierId IS
-NULL`, verifies the lifecycle credential, asks Credit Service to release the
-reservation, and persists `EXPIRED` plus the checkpoint. This is a service
-trigger, not a browser action. Keep the explicit unassigned predicate; an
-accepted order must never be expired by this query.
+The configurable Spring `@Scheduled` job selects due `OPEN` orders whose
+`courierId IS NULL`. One transaction persists each `EXPIRED` state, checkpoint,
+and full-snapshot `OpenOrderRefundTaskEvent`; after commit, the existing outbox
+dispatcher publishes it on the same topic used for requester cancellation.
+Credit refunds/releases when it consumes the event.
+The trusted internal lifecycle endpoint remains available as an on-demand
+trigger of the same operation. Keep the explicit unassigned predicate; an
+accepted order must never be expired by this query. Cloud Run's current
+scale-to-zero/request-based CPU configuration does not guarantee this cron runs
+while idle.
 
-### Sequence 10 — automatic repost
+### Sequence 10 â€” automatic repost
 
 Lifecycle processing selects an eligible expired order whose creation-time
 repost plan is enabled and due, confirms no linked repost already exists,
@@ -254,7 +286,7 @@ validates the supplier pair, reserves the future repost credits, creates one
 linked `OPEN` repost, and records the link/receipt. A failed validation or
 reservation must not create the repost.
 
-### Sequence 11 — manual repost
+### Sequence 11 â€” manual repost
 
 The requester first receives a draft for an eligible expired order. Draft
 creation has no persistence, credit, or supplier side effects. On explicit
@@ -274,84 +306,55 @@ reservation calls:
 docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build --force-recreate
 ```
 
-Vincent reports that sequences 1–6 were exercised against the real local HTTP
+Vincent reports that sequences 1â€“6 were exercised against the real local HTTP
 peers. Treat that as handoff evidence to reproduce, not as a new `[x]` claim
 until the requests, logs, and test results are captured on this branch.
 
 ### Deterministic mock profile
 
-Use the default stack for local testing of sequences 7–11 while Credit outcome
-endpoints are missing:
+Use the default stack for local testing of sequences 7â€“11 while Credit outcome
+event consumers are missing:
 
 ```bash
 docker compose up -d --build --force-recreate
 ```
 
-The mock reserves, settles, and releases deterministic in-memory balances for
-the Order Service process. It is useful for flow and UI testing, but it is not
-evidence that the real Credit ledger was updated.
+The mock supports reservation, settlement test calls, and synchronous hold for
+reopen. Refund/release event handling is owned by the future Credit consumers;
+local event publication does not update mock Credit balances and is not evidence
+that the real Credit ledger was updated.
 
 ### Honest branch status
 
-- Sequences 1–6: implementation exists; Vincent reports successful real HTTP
+- Sequences 1â€“6: implementation exists; Vincent reports successful real HTTP
   local testing, pending reproducible evidence and full completion-gate review.
-- Sequences 7–11: implementation and local mock behavior exist; real Credit
-  settlement/release integration is not verified.
+- Sequences 7â€“11: implementation and local mock behavior exist; Credit/User
+  outcome-event consumers and Credit hold-for-reopen integration are not verified.
 - Overall Sprint 1 status remains `[~]`, not `[x]`, until peer contracts,
   automated tests, browser flows, Docker runtime evidence, and traceability
   are all complete.
 
-## 7. Credit Service handoff and `FEEDBACK-001`
+## 7. Peer-service contracts and `FEEDBACK-002` / `FEEDBACK-003`
 
 Read `order-service/docs/peer-service-api-feedback.md` before changing an
-adapter. `FEEDBACK-001` is the communication channel to Annablee, the Credit
-Service owner. Do not edit `credit-service/` or silently invent a provider
-contract.
+adapter. It records the implemented User/Supplier/Credit HTTP contracts,
+future Credit/User event consumers (`FEEDBACK-002`), and the agreed Credit
+hold-for-reopen contract (`FEEDBACK-003`), whose provider endpoint is missing.
+Do not edit peer-service source or silently alter the agreed provider contract.
 
-The current Order boundary needs provider-owned, authenticated, idempotent
-outcome operations in addition to reservation:
-
-```http
-POST /api/credits/orders/{orderId}/settlement
-```
-
-Suggested request facts (the provider must confirm the final schema):
-
-```json
-{
-  "commandId": "unique-order-command-id",
-  "requesterId": "firebase-uid",
-  "courierId": "firebase-uid",
-  "amount": 1,
-  "expectedOrderVersion": 7
-}
-```
-
-Settlement must atomically transfer the reserved amount to the courier and be
-safe to repeat with the same command ID.
-
-```http
-POST /api/credits/orders/{orderId}/release
-```
-
-Suggested request facts:
-
-```json
-{
-  "commandId": "unique-order-command-id",
-  "requesterId": "firebase-uid",
-  "amount": 1,
-  "outcome": "CANCELLED",
-  "expectedOrderVersion": 7
-}
-```
-
-The provider must confirm whether `outcome` also accepts `EXPIRED`, the exact
-error envelope, authentication/service credential, idempotency semantics,
-amount representation, and whether expected-order-version is part of the
-contract. Add provider contract tests after agreement. Until then, retain the
-mock only in explicitly local profiles and label live completion/cancellation/
-expiry verification as pending.
+The synchronous outcome endpoint proposals formerly listed here are superseded
+by the typed Pub/Sub events in FEEDBACK-002. Credit must consume
+`OrderCompletionTaskEvent` (settle/transfer), `OpenOrderRefundTaskEvent`
+(refund/release after requester cancellation or scheduled OPEN expiry), and
+`AcceptedOrderCancellationTaskEvent` (refund/release after expired accepted
+cancellation). Every consumer must deduplicate by `eventId`.
+Only reservation and the hold/reset operation before an unexpired accepted
+order reopens remain synchronous. The latter's final, bodyless endpoint contract
+is recorded in FEEDBACK-003. Credit consumer implementation and live outcome processing remain
+unverified; no Credit Service source is changed in this Order-only work. The
+Credit hold-for-reopen API is missing; its contract is agreed, but Credit must
+implement the endpoint and agree trusted service authentication/recovery before
+the HTTP-peer integration can be treated as supported.
 
 ## 8. UI polishing direction
 
@@ -383,7 +386,7 @@ cd order-service
 Keep the JaCoCo gate at the configured 80% line and branch thresholds. Cover
 domain transitions, controller authorization and error envelopes, PostgreSQL/
 Flyway persistence, peer adapter contracts, stale-version/concurrency races,
-command idempotency, expiry’s explicit `courierId IS NULL` selection, and
+command idempotency, expiryâ€™s explicit `courierId IS NULL` selection, and
 automatic/manual repost failure atomicity.
 
 ### Frontend
@@ -422,10 +425,11 @@ For each sequence, require the mapped requirement/diagram, passing relevant
 automated tests, authenticated UI evidence, correct peer contract behavior,
 error/idempotency/concurrency checks, and traceability/change-log updates.
 
-Sequences 7–9 and dependent repost paths remain production-incomplete until
-the real Credit settlement/release APIs are agreed, implemented by Credit
-Service, and verified end to end. A temporary `[~]` exception is acceptable
-only while `FEEDBACK-001` is openly tracked and the mock boundary is explicit.
+Sequences 7-9 and dependent repost paths remain production-incomplete until
+the required Credit/User event consumers and Credit hold-for-reopen API are
+agreed, implemented by their owners, and verified end to end. A temporary
+`[~]` status is acceptable only while `FEEDBACK-002` and `FEEDBACK-003`
+remain tracked and the mock boundary is explicit.
 
 ## 11. Git discipline
 
@@ -453,16 +457,17 @@ as part of this handoff.
 
 1. Read the source-of-truth files in Section 1 and inspect the current branch;
    do not reset or recreate the existing foundation.
-2. Reproduce the reported sequences 1–6 HTTP-peer smoke run and capture the
+2. Reproduce the reported sequences 1â€“6 HTTP-peer smoke run and capture the
    exact Docker, gateway, peer, and UI evidence.
 3. Run the backend and frontend commands in Section 9; fix regressions with
    tests first and preserve the 80% JaCoCo gate.
-4. Contact Annablee through `FEEDBACK-001`, agree the settlement/release
-   contract, and add provider contract tests. Keep the local mock until the
-   real provider is available and verified.
+4. Coordinate with the Credit owner using `FEEDBACK-003` to implement the
+   agreed hold-for-reopen endpoint and settle authentication/recovery; coordinate Credit/User event consumers through
+   `FEEDBACK-002`. Keep the local mock until the real integrations are available
+   and verified.
 5. Polish the UI using Section 8, especially hiding technical identifiers and
    keeping repost controls creation-time/expired-only as specified.
-6. Verify sequences 7–11 first with the deterministic mock, then repeat the
+6. Verify sequences 7â€“11 first with the deterministic mock, then repeat the
    relevant flows with real Credit once the peer API is live.
 7. Update requirements traceability, active-work records, change records,
    change-log, and AI usage disclosure with exact results. Only then propose

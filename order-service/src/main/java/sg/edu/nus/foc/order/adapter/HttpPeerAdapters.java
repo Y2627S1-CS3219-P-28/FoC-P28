@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import sg.edu.nus.foc.order.adapter.dto.CreditCourierAssignmentRequest;
 import sg.edu.nus.foc.order.application.CreditServicePort;
 import sg.edu.nus.foc.order.application.SupplierServicePort;
 import sg.edu.nus.foc.order.application.UserServicePort;
@@ -98,24 +99,29 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     }
 
     @Override
-    public void holdForReopen(
-            String commandId,
+    public void assignCourier(
             String orderId,
-            String requesterId,
             String courierId,
-            long amount,
-            long expectedOrderVersion,
             String authorization) {
-        CreditReopenHoldRequest request = new CreditReopenHoldRequest(
-                commandId,
-                requesterId,
-                courierId,
-                amount,
-                expectedOrderVersion);
+        CreditCourierAssignmentRequest request = new CreditCourierAssignmentRequest(courierId);
+        ResponseEntity<Void> response = credit.put()
+                .uri("/api/credits/orders/{id}/courier-assignment", orderId)
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+        if (!response.getStatusCode().equals(HttpStatus.OK)) {
+            throw new IllegalStateException("Credit Service did not confirm the requested courier assignment.");
+        }
+    }
+
+    @Override
+    public void holdForReopen(
+            String orderId,
+            String authorization) {
         ResponseEntity<Void> response = credit.post()
                 .uri("/api/credits/orders/{id}/hold-for-reopen", orderId)
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
-                .body(request)
                 .retrieve()
                 .toBodilessEntity();
         if (!response.getStatusCode().equals(HttpStatus.OK)) {
@@ -130,39 +136,14 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
             String requesterId,
             String courierId,
             long amount,
-            long expectedOrderVersion,
             String authorization) {
         CreditSettlementRequest request = new CreditSettlementRequest(
                 commandId,
                 requesterId,
                 courierId,
-                amount,
-                expectedOrderVersion);
+                amount);
         credit.post()
                 .uri("/api/credits/orders/{id}/settlement", orderId)
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
-                .body(request)
-                .retrieve()
-                .toBodilessEntity();
-    }
-
-    @Override
-    public void release(
-            String commandId,
-            String orderId,
-            String requesterId,
-            long amount,
-            String outcome,
-            long expectedOrderVersion,
-            String authorization) {
-        CreditReleaseRequest request = new CreditReleaseRequest(
-                commandId,
-                requesterId,
-                amount,
-                outcome,
-                expectedOrderVersion);
-        credit.post()
-                .uri("/api/credits/orders/{id}/release", orderId)
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                 .body(request)
                 .retrieve()
@@ -222,36 +203,11 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
-    private static class CreditReopenHoldRequest {
-        private String commandId;
-        private String requesterId;
-        private String courierId;
-        private long amount;
-        private long expectedOrderVersion;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
     private static class CreditSettlementRequest {
         private String commandId;
         private String requesterId;
         private String courierId;
         private long amount;
-        private long expectedOrderVersion;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class CreditReleaseRequest {
-        private String commandId;
-        private String requesterId;
-        private long amount;
-        private String outcome;
-        private long expectedOrderVersion;
     }
 
     @Getter

@@ -2,6 +2,14 @@
 
 Current sprint: Sprint 1
 
+CHANGE-073/ADR-021 replaces the default Pub/Sub emulator with real Pub/Sub in the existing GCP project. Local Compose uses the three dev topic IDs, personal ADC, and topic-scoped publisher permissions; production topic IDs are environment-configured and Cloud Run uses its service identity. GCP topic creation/IAM and live publish verification remain pending.
+
+CHANGE-072/ADR-020 amends the earlier 48-hour auto-completion exclusion: a configurable Spring scheduler completes due `DELIVERED` orders using database cutoff selection, a row lock, and the existing completion event/outbox. The user authorized this Sequence 5 work on the profile's current branch; the shared allocation branch label remains inconsistent and was not changed.
+
+CHANGE-069/ADR-018 keeps expected Order versions within Order's own commands and validation. Credit assignment sends only Order ID and courier ID; hold/reset sends only Order ID with no body. Event payloads retain `orderVersion`. CHANGE-070 finalizes FEEDBACK-003 as an agreed synchronous flow and request contract; the Credit endpoint remains unimplemented. FEEDBACK-004's assignment contract and endpoint also await Credit.
+
+CHANGE-068/ADR-017 adds the user-approved Order-side Credit courier-assignment stub to Sequence 3. The service calls Credit synchronously after validating the locked order and persists `ACCEPTED` only after a matching successful response and a post-call expiry recheck. The mock is available in mock-peer mode; the proposed HTTP path has no matching Credit provider endpoint yet. See FEEDBACK-004. Maven compilation is currently blocked by the local Java compiler fatal error recorded in the active-work record.
+
 Implementation authorization: the user approved combined sequences 1-11 on the current handoff branch on 2026-09-30. CHANGE-053 approves the publisher/event payload direction; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 unifies completion events; CHANGE-063/ADR-013 approves transactional outbox delivery with immediate after-commit dispatch and cron recovery. Peer consumers are assumed future work and must not be edited in this scope.
 
 Shared developer allocation: `docs/work-allocation.md`.
@@ -44,6 +52,10 @@ CHANGE-057/ADR-012 adds an explicitly user-approved Order-side admin query suppo
 `CHANGE-055` / `ADR-010` clarifies lifecycle authorization: accepted cancellation is performed by the assigned courier; acceptance requires a null courier assignment; courier progress remains assignment-bound; open cancellation and completion remain requester-owned. Role verification precedes idempotent receipt replay.
 
 `CHANGE-064` / `ADR-014` adds a deadline split to accepted cancellation: before expiry, wait synchronously for Credit's hold/reset confirmation before changing `ACCEPTED` to `OPEN`; at/after expiry, transition to `ABORTED` and publish the cancellation event for Credit refund and User courier penalty. Open-cancellation, expired accepted-cancellation, and completion subscriber actions are detailed in `docs/peer-service-api-feedback.md`.
+
+`CHANGE-065` / `ADR-015` originally added a separate expiration event. `CHANGE-071` supersedes that event contract: the Spring `@Scheduled` job still discovers due unassigned OPEN orders and atomically persists `EXPIRED` plus its checkpoint, then records `OpenOrderRefundTaskEvent`. Requester-triggered OPEN cancellation records the same event with `CANCELLED`. Credit consumes the single event/topic and refunds/releases based on the resulting Order status. The synchronous Credit release call is removed. Cloud Run's current scale-to-zero/request-based CPU does not guarantee in-process scheduled execution while idle.
+
+`CHANGE-067` / `ADR-016` removes checkpoint history from all published Order event snapshots to avoid growing message bodies. Order still stores and serves checkpoint history, and completion still derives `overdue`/`overdueAt` from it. The event contract stays at version 1 because peer consumers are future work and none were found in the inspected implementations.
 
 The Order Service persistence/deployment conflict is resolved by user-approved ADR-008: PostgreSQL on one Cloud SQL instance with separate staging/production databases, deployed through Cloud Run using a public-IP Cloud SQL Java Connector. This infrastructure decision does not authorize Sprint 1 business implementation or select a migration tool.
 

@@ -75,6 +75,11 @@ public class OrderPersistenceAdapter implements OrderRepository {
         return repository.findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(status, now);
     }
 
+    @Override
+    public List<Order> findDueForAutoCompletion(Instant deliveredAtOrBefore) {
+        return repository.findDueForAutoCompletion(OrderStatus.DELIVERED, deliveredAtOrBefore);
+    }
+
     private PageRequest pageRequest(int page, int size) {
         int pageNumber = Math.max(page, 0);
         int pageSize = Math.min(Math.max(size, 1), 100);

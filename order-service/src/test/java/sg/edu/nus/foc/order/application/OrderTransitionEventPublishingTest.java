@@ -35,7 +35,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
 class OrderTransitionEventPublishingTest {
@@ -43,7 +43,7 @@ class OrderTransitionEventPublishingTest {
     private static final String AUTHORIZATION = "Bearer token";
 
     @Test
-    void commitsCompletionIntentWithResultingOrderAndCheckpoint() {
+    void commitsCompletionIntentWithResultingOrderAndKeepsCheckpointHistoryInternal() {
         Order order = deliveredOrder();
         List<OrderCheckpoint> history = new ArrayList<>(deliveryHistory(order));
         TestDependencies dependencies = dependencies(order, "COMPLETE", "complete-1", history);
@@ -65,8 +65,7 @@ class OrderTransitionEventPublishingTest {
         assertEquals(OrderStatus.COMPLETED, event.getValue().getOrder().getStatus());
         assertEquals(1, event.getValue().getOrderVersion());
         assertEquals(1, event.getValue().getOrder().getVersion());
-        assertTrue(event.getValue().getOrder().getCheckpoints().stream()
-                .anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.COMPLETED));
+        assertTrue(history.stream().anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.DELIVERED));
     }
 
     @Test
@@ -101,6 +100,60 @@ class OrderTransitionEventPublishingTest {
     }
 
     @Test
+    void autoCompletionUsesTheNormalCompletionOutboxWithLifecycleActor() {
+        Order order = deliveredOrder();
+        Instant deliveredAt = START.plusSeconds(10 * 60L);
+        Instant autoCompletedAt = deliveredAt.plusSeconds(48 * 60L * 60L);
+        String commandId = "AUTO_COMPLETE:" + order.getId();
+        List<OrderCheckpoint> history = deliveryHistory(order);
+        TestDependencies dependencies = dependencies(order, "AUTO_COMPLETE", commandId, history);
+
+        OrderTransitionService transitions = service(dependencies);
+        boolean completed = transitions.autoComplete(order.getId(), autoCompletedAt);
+        boolean retried = transitions.autoComplete(order.getId(), autoCompletedAt.plusSeconds(60));
+
+        assertTrue(completed);
+        assertFalse(retried);
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
+        ArgumentCaptor<OrderCheckpoint> checkpoint = ArgumentCaptor.forClass(OrderCheckpoint.class);
+        verify(dependencies.checkpoints).save(checkpoint.capture());
+        assertEquals(OrderStatus.COMPLETED, checkpoint.getValue().getStatus());
+        assertEquals("lifecycle", checkpoint.getValue().getActorId());
+        ArgumentCaptor<CommandReceipt> receipt = ArgumentCaptor.forClass(CommandReceipt.class);
+        verify(dependencies.receipts).save(receipt.capture());
+        assertEquals("AUTO_COMPLETE", receipt.getValue().getOperation());
+        assertEquals(commandId, receipt.getValue().getCommandId());
+        ArgumentCaptor<OrderCompletionTaskEvent> event = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
+        verify(dependencies.outbox).enqueue(event.capture());
+        assertEquals("lifecycle", event.getValue().getActorId());
+        assertEquals(autoCompletedAt, event.getValue().getOccurredAt());
+        assertEquals("OrderCompletionTaskEvent", event.getValue().getEventType());
+        assertFalse(event.getValue().isOverdue());
+        verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
+        verify(dependencies.users, never()).verifyRequester(any(), any());
+    }
+
+    @Test
+    void autoCompletionRechecksTheFortyEightHourBoundaryBeforeWriting() {
+        Order order = deliveredOrder();
+        Instant deliveredAt = START.plusSeconds(10 * 60L);
+        TestDependencies dependencies = dependencies(
+                order,
+                "AUTO_COMPLETE",
+                "AUTO_COMPLETE:" + order.getId(),
+                deliveryHistory(order));
+
+        boolean completed = service(dependencies).autoComplete(
+                order.getId(), deliveredAt.plusSeconds(48 * 60L * 60L).minusNanos(1));
+
+        assertFalse(completed);
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        verify(dependencies.checkpoints, never()).save(any(OrderCheckpoint.class));
+        verify(dependencies.orders, never()).save(any(Order.class));
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+    }
+
+    @Test
     void openCancellationCommitsFullResultingEventToOutbox() {
         Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15, START, START.plusSeconds(3600));
         TestDependencies dependencies = dependencies(order, "CANCEL", "cancel-1", List.of());
@@ -108,9 +161,10 @@ class OrderTransitionEventPublishingTest {
         Order result = service(dependencies).cancel("cancel-1", order.getId(), "requester-1", 0, AUTHORIZATION);
 
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
-        ArgumentCaptor<OpenOrderCancellationTaskEvent> event = ArgumentCaptor.forClass(OpenOrderCancellationTaskEvent.class);
+        ArgumentCaptor<OpenOrderRefundTaskEvent> event = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
         assertEquals(OrderStatus.CANCELLED, event.getValue().getOrder().getStatus());
+        assertEquals("OpenOrderRefundTaskEvent", event.getValue().getEventType());
         verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
     }
 
@@ -133,7 +187,7 @@ class OrderTransitionEventPublishingTest {
         assertEquals(null, result.getCourierId());
         InOrder sequence = inOrder(dependencies.credits, dependencies.checkpoints, dependencies.orders, dependencies.receipts);
         sequence.verify(dependencies.credits).holdForReopen(
-                "cancel-accepted-1:HOLD_FOR_REOPEN", order.getId(), "requester-1", "courier-1", 3, 0, AUTHORIZATION);
+                order.getId(), AUTHORIZATION);
         sequence.verify(dependencies.checkpoints).save(any(OrderCheckpoint.class));
         sequence.verify(dependencies.orders).save(order);
         sequence.verify(dependencies.receipts).save(any(CommandReceipt.class));
@@ -157,7 +211,7 @@ class OrderTransitionEventPublishingTest {
 
         assertEquals(OrderStatus.ABORTED, result.getStatus());
         verify(dependencies.credits, never()).holdForReopen(
-                any(), any(), any(), any(), anyLong(), anyLong(), any());
+                any(), any());
         ArgumentCaptor<AcceptedOrderCancellationTaskEvent> event =
                 ArgumentCaptor.forClass(AcceptedOrderCancellationTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
@@ -173,7 +227,7 @@ class OrderTransitionEventPublishingTest {
         order.accept("courier-1", 0, now.minusSeconds(30));
         TestDependencies dependencies = dependencies(order, "CANCEL_ACCEPTED", "cancel-credit-fail", List.of());
         doThrow(new IllegalStateException("Credit unavailable"))
-                .when(dependencies.credits).holdForReopen(any(), any(), any(), any(), anyLong(), anyLong(), any());
+                .when(dependencies.credits).holdForReopen(any(), any());
 
         assertThrows(IllegalStateException.class,
                 () -> service(dependencies).cancelAccepted(
@@ -202,7 +256,7 @@ class OrderTransitionEventPublishingTest {
 
         assertEquals("FORBIDDEN", problem.getCode());
         verify(dependencies.credits, never()).holdForReopen(
-                any(), any(), any(), any(), anyLong(), anyLong(), any());
+                any(), any());
         verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
         verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
     }
@@ -243,9 +297,7 @@ class OrderTransitionEventPublishingTest {
                 dependencies.credits,
                 dependencies.outbox,
                 dependencies.applicationEvents,
-                new OrderTaskEventFactory(
-                        dependencies.checkpoints,
-                        Mappers.getMapper(OrderTaskEventMapper.class)),
+                new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
                 mock(OrderAuditLogger.class));
     }
 

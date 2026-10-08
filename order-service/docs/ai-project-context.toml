@@ -92,6 +92,14 @@ courier_outcome_operations_are_explicit = true
 courier_outcome_discriminator_allowed = false
 courier_outcome_facts_bag_allowed = false
 credit_consequence_processing = "transactional-outbox-with-after-commit-dispatch-and-cron-recovery"
+credit_courier_assignment_before_acceptance = true
+credit_courier_assignment_order_stub_implemented = true
+credit_courier_assignment_peer_api_verified = false
+synchronous_credit_requests_include_order_version = false
+published_order_events_include_order_version = true
+credit_assignment_request_fields = ["orderId (path)", "courierId (body)"]
+credit_reopen_hold_request_body = "none; orderId is in the path"
+credit_reopen_hold_contract_status = "user-confirmed; Credit endpoint implementation pending"
 ordinary_progress_transitions_require_credit = false
 penalty_policy_owner = "user-service"
 penalty_fact_signaling_blocks_order_commit = false
@@ -100,6 +108,8 @@ durable_event_broker_implementation_approved = true
 transactional_outbox_implementation_approved = true
 publish_before_status_change_approved = false
 full_order_snapshot_in_events = true
+event_snapshots_include_checkpoint_history = false
+event_version_after_checkpoint_history_removal = 1
 peer_consumer_implementation_assumed_for_order_scope = true
 same_order_aborted_reopening_implementation_approved = false
 
@@ -114,6 +124,19 @@ cloud_sql_backup = "Automated backups and point-in-time recovery"
 cloud_sql_deletion_protection = true
 cloud_sql_billing_acknowledged = true
 
+[approved_order_service_event_messaging]
+transport = "Google Cloud Pub/Sub"
+gcp_project_id = "protean-vigil-509704-q4"
+environment_isolation = "separate dev/prod topics with topic-scoped publisher IAM"
+local_authentication = "per-developer Application Default Credentials, mounted read-only into Order Service container"
+local_completion_topic = "order-completion-dev-v1"
+local_open_refund_topic = "open-order-refund-dev-v1"
+local_accepted_cancellation_topic = "accepted-order-cancellation-dev-v1"
+production_authentication = "Cloud Run attached service identity"
+production_topic_ids = "set via environment variables when provisioned"
+pubsub_emulator_default = false
+service_account_key_sharing = false
+
 [open_conflicts]
 frontend_role_authority_mapping = "RESOLVED for Order Service: Firebase-authenticated role authorities come from User Service role-context; Admin endpoints use ROLE_ADMIN and Supplier-style @PreAuthorize. Frontend role/mode behavior remains backend-authoritative. See CHANGE-057/ADR-012."
-updated_overall_design_vs_sprint_scope = "CHANGE-063/ADR-013 approves atomic Order-state/outbox persistence, immediate after-commit dispatch, and Spring cron recovery for Sequences 5-7. Delivery is at least once; stable event IDs support consumer deduplication. CHANGE-054 selects Pub/Sub; CHANGE-056 unifies completion events. CHANGE-064/ADR-014 requires synchronous Credit hold confirmation before unexpired accepted cancellation transitions directly ACCEPTED to OPEN; expired accepted cancellation emits the refund/penalty event. ABORTED-to-OPEN remains prohibited by ADR-001. Cloud Run scale-to-zero/request CPU limits in-process cron while idle."
+updated_overall_design_vs_sprint_scope = "CHANGE-063/ADR-013 approves atomic Order-state/outbox persistence, immediate after-commit dispatch, and Spring cron recovery. CHANGE-065/ADR-015 adds a Spring @Scheduled scan for due unassigned OPEN orders; CHANGE-071/ADR-019 supersedes its separate OrderExpirationTaskEvent so both expiry and requester cancellation emit OpenOrderRefundTaskEvent on one topic. CHANGE-072/ADR-020 amends the earlier Sprint 1 exclusion and adds scheduled completion for DELIVERED orders after 48 hours using the existing OrderCompletionTaskEvent/outbox. CHANGE-054 selects Pub/Sub; CHANGE-056 unifies completion events. CHANGE-073/ADR-021 removes the local emulator default and uses separate dev/prod topics in one GCP project with personal ADC and Cloud Run service identity. CHANGE-064/ADR-014 requires synchronous Credit hold confirmation before unexpired accepted cancellation transitions directly ACCEPTED to OPEN; expired accepted cancellation emits the refund/penalty event. ABORTED-to-OPEN remains prohibited by ADR-001. Cloud Run scale-to-zero/request CPU limits in-process cron while idle."

@@ -1,25 +1,22 @@
 package sg.edu.nus.foc.order.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import sg.edu.nus.foc.order.domain.Order;
-import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.domain.RepostPlan;
-import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
 class OrderTaskEventFactoryTest {
@@ -27,13 +24,11 @@ class OrderTaskEventFactoryTest {
     private static final Instant EXPIRES_AT = Instant.parse("2026-10-02T10:00:00Z");
     private static final Instant OCCURRED_AT = Instant.parse("2026-10-01T10:15:00Z");
 
-    private final OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
     private final OrderTaskEventFactory factory = new OrderTaskEventFactory(
-            checkpoints,
             Mappers.getMapper(OrderTaskEventMapper.class));
 
     @Test
-    void mapsCompleteOrderAndCheckpointHistoryIntoTypedEvents() {
+    void mapsOrderFieldsWithoutSerializingCheckpointHistoryIntoTypedEvents() {
         RepostPlan repostPlan = new RepostPlan(true, EXPIRES_AT, 5, 45);
         Order order = Order.open(
                 "requester-1",
@@ -46,17 +41,12 @@ class OrderTaskEventFactoryTest {
                 EXPIRES_AT,
                 repostPlan);
         order.linkRepost("repost-1");
-        List<OrderCheckpoint> history = List.of(
-                new OrderCheckpoint(order.getId(), OrderStatus.ACCEPTED, CREATED_AT, "courier-1", "supplier-1"),
-                new OrderCheckpoint(order.getId(), OrderStatus.DELIVERED, OCCURRED_AT, "courier-1", "supplier-2"));
-        when(checkpoints.findByOrderId(order.getId())).thenReturn(history);
-
         Instant overdueAt = CREATED_AT.plusSeconds(30 * 60L);
         OrderCompletionTaskEvent completion = factory.completion(
                 "command-1", order, "requester-1", OCCURRED_AT, false, overdueAt);
         OrderCompletionTaskEvent overdueCompletion = factory.completion(
                 "command-2", order, "requester-1", OCCURRED_AT, true, overdueAt);
-        OpenOrderCancellationTaskEvent openCancellation = factory.openCancellation(
+        OpenOrderRefundTaskEvent openCancellation = factory.openRefund(
                 "command-3", order, "requester-1", OCCURRED_AT);
         AcceptedOrderCancellationTaskEvent acceptedCancellation = factory.acceptedCancellation(
                 "command-4", order, "requester-1", OCCURRED_AT);
@@ -70,6 +60,10 @@ class OrderTaskEventFactoryTest {
         assertEquals("requester-1", completion.getActorId());
         assertEquals(order.getId(), completion.getOrderId());
         assertEquals(order.getVersion() + 1, completion.getOrderVersion());
+        JsonNode serializedCompletion = new ObjectMapper().findAndRegisterModules().valueToTree(completion);
+        assertFalse(serializedCompletion.path("order").has("checkpoints"));
+        assertFalse(new ObjectMapper().valueToTree(openCancellation).path("order").has("checkpoints"));
+        assertFalse(new ObjectMapper().valueToTree(acceptedCancellation).path("order").has("checkpoints"));
         assertEquals(order.getId(), completion.getOrder().getId());
         assertEquals(order.getRequesterId(), completion.getOrder().getRequesterId());
         assertEquals(order.getCourierId(), completion.getOrder().getCourierId());
@@ -91,14 +85,8 @@ class OrderTaskEventFactoryTest {
                 repostPlan.getDeliveryDurationMinutes(),
                 completion.getOrder().getRepostPlan().getDeliveryDurationMinutes());
         assertTrue(completion.getOrder().getRepostPlan().isUsed());
-        assertEquals(2, completion.getOrder().getCheckpoints().size());
-        assertEquals(history.get(0).getId(), completion.getOrder().getCheckpoints().get(0).getId());
-        assertEquals(history.get(0).getStatus(), completion.getOrder().getCheckpoints().get(0).getStatus());
-        assertEquals(history.get(0).getOccurredAt(), completion.getOrder().getCheckpoints().get(0).getOccurredAt());
-        assertEquals(history.get(0).getActorId(), completion.getOrder().getCheckpoints().get(0).getActorId());
-        assertEquals(history.get(0).getSupplierId(), completion.getOrder().getCheckpoints().get(0).getSupplierId());
         assertEquals("OrderCompletionTaskEvent", overdueCompletion.getEventType());
-        assertEquals("OpenOrderCancellationTaskEvent", openCancellation.getEventType());
+        assertEquals("OpenOrderRefundTaskEvent", openCancellation.getEventType());
         assertEquals("AcceptedOrderCancellationTaskEvent", acceptedCancellation.getEventType());
         assertNotNull(openCancellation.getOrder());
         assertNotNull(acceptedCancellation.getOrder());
@@ -115,8 +103,6 @@ class OrderTaskEventFactoryTest {
                 15,
                 CREATED_AT,
                 EXPIRES_AT);
-        when(checkpoints.findByOrderId(order.getId())).thenReturn(List.of());
-
         OrderCompletionTaskEvent event = factory.completion(
                 "command-5", order, "requester-2", OCCURRED_AT, false, OCCURRED_AT.plusSeconds(900));
         OrderTaskEventMapper mapper = Mappers.getMapper(OrderTaskEventMapper.class);
@@ -125,24 +111,20 @@ class OrderTaskEventFactoryTest {
         assertNull(event.getOrder().getOriginalOrderId());
         assertNull(event.getOrder().getRepostedOrderId());
         assertNull(event.getOrder().getRepostPlan());
-        assertTrue(event.getOrder().getCheckpoints().isEmpty());
-        assertNull(mapper.toSnapshot((Order) null, null));
-        assertNotNull(mapper.toSnapshot((Order) null, List.of()));
+        assertFalse(new ObjectMapper().valueToTree(event).path("order").has("checkpoints"));
+        assertNull(mapper.toSnapshot((Order) null, 0L));
         assertNull(mapper.toSnapshot((RepostPlan) null));
-        assertNull(mapper.toSnapshot((OrderCheckpoint) null));
-        assertNull(mapper.toCheckpointSnapshots(null));
-        assertNull(mapper.toCheckpointSnapshots(java.util.Arrays.asList((OrderCheckpoint) null)).get(0));
         assertNull(mapper.toCompletionEvent(null, null, null, null, false, null, null));
-        assertNull(mapper.toOpenCancellationEvent(null, null, null, null, null));
+        assertNull(mapper.toOpenRefundEvent(null, null, null, null, null));
         assertNull(mapper.toAcceptedCancellationEvent(null, null, null, null, null));
         assertNotNull(mapper.toCompletionEvent(null, order, "requester-2", OCCURRED_AT, false, null, null));
         assertNotNull(mapper.toCompletionEvent(null, null, "requester-2", OCCURRED_AT, false, null, null));
         assertNotNull(mapper.toCompletionEvent(null, null, null, OCCURRED_AT, false, null, null));
         assertNotNull(mapper.toCompletionEvent(null, null, null, null, true, EXPIRES_AT, event.getOrder()));
-        assertNotNull(mapper.toOpenCancellationEvent(null, order, "requester-2", OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenCancellationEvent(null, null, "requester-2", OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenCancellationEvent(null, null, null, OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenCancellationEvent(null, null, null, null, event.getOrder()));
+        assertNotNull(mapper.toOpenRefundEvent(null, order, "requester-2", OCCURRED_AT, null));
+        assertNotNull(mapper.toOpenRefundEvent(null, null, "requester-2", OCCURRED_AT, null));
+        assertNotNull(mapper.toOpenRefundEvent(null, null, null, OCCURRED_AT, null));
+        assertNotNull(mapper.toOpenRefundEvent(null, null, null, null, event.getOrder()));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, order, "requester-2", OCCURRED_AT, null));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, null, "requester-2", OCCURRED_AT, null));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, null, null, OCCURRED_AT, null));
@@ -153,6 +135,23 @@ class OrderTaskEventFactoryTest {
         order.expire(0, EXPIRES_AT);
         Order reposted = order.createRepost(
                 "repost", 2, 15, EXPIRES_AT.plusSeconds(1), EXPIRES_AT.plusSeconds(3601));
-        assertEquals(order.getId(), mapper.toSnapshot(reposted, List.of()).getOriginalOrderId());
+        assertEquals(order.getId(), mapper.toSnapshot(reposted, reposted.getVersion()).getOriginalOrderId());
+    }
+
+    @Test
+    void mapsExpiredOrderSnapshotToOpenRefundEventWithStableIdentity() {
+        Order order = Order.open(
+                "requester-3", "expired item", "pickup-3", "delivery-3", 4, 20,
+                CREATED_AT, EXPIRES_AT);
+        order.expire(0, EXPIRES_AT);
+        OpenOrderRefundTaskEvent first = factory.openRefund("EXPIRE:" + order.getId(), order, EXPIRES_AT);
+        OpenOrderRefundTaskEvent retry = factory.openRefund("EXPIRE:" + order.getId(), order, EXPIRES_AT);
+
+        assertEquals(first.getEventId(), retry.getEventId());
+        assertEquals("OpenOrderRefundTaskEvent", first.getEventType());
+        assertEquals(order.getId(), first.getOrderId());
+        assertEquals("lifecycle", first.getActorId());
+        assertEquals(OrderStatus.EXPIRED, first.getOrder().getStatus());
+        assertFalse(new ObjectMapper().valueToTree(first).path("order").has("checkpoints"));
     }
 }

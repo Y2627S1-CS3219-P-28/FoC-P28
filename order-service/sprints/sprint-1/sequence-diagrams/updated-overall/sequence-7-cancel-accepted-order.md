@@ -21,10 +21,10 @@ sequenceDiagram
     Controller->>Transition: POST /{id}/cancel-accepted(orderId, actor, expectedVersion)
     Transition->>Transition: Verify courier identity, assignment, ACCEPTED state, and version
     alt Current time is before expiresAt
-        Transition->>CreditPort: holdForReopen(commandId, order, requester, courier, amount)
+        Transition->>CreditPort: holdForReopen(orderId)
         CreditPort->>Credit: POST /api/credits/orders/{id}/hold-for-reopen
         alt Credit confirms hold
-            Credit-->>CreditPort: Success; reservation held, not refunded
+            Credit-->>CreditPort: 200 OK; transaction held, not refunded
             CreditPort-->>Transition: Success confirmed
             Transition->>Transition: Recheck expiresAt after Credit response
             alt Still before expiresAt

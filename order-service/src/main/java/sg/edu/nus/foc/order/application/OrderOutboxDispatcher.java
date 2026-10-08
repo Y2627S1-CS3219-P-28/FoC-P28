@@ -13,11 +13,10 @@ import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderCancellationTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +27,7 @@ public class OrderOutboxDispatcher {
 
     private final OrderEventOutboxRepository outbox;
     private final IOrderCompletionTaskPublisher completionPublisher;
-    private final IOpenOrderCancellationTaskPublisher openCancellationPublisher;
+    private final IOpenOrderRefundTaskPublisher openRefundPublisher;
     private final IAcceptedOrderCancellationTaskPublisher acceptedCancellationPublisher;
     private final JsonMapper objectMapper;
 
@@ -62,12 +61,21 @@ public class OrderOutboxDispatcher {
         switch (message.getEventType()) {
             case "OrderCompletionTaskEvent" -> completionPublisher.publishOrderCompletionTask(
                     objectMapper.readValue(message.getPayload(), OrderCompletionTaskEvent.class));
-            case "OpenOrderCancellationTaskEvent" -> openCancellationPublisher.publishOpenOrderCancellationTask(
-                    objectMapper.readValue(message.getPayload(), OpenOrderCancellationTaskEvent.class));
+            case "OpenOrderRefundTaskEvent" -> openRefundPublisher.publishOpenOrderRefundTask(
+                    objectMapper.readValue(message.getPayload(), OpenOrderRefundTaskEvent.class));
             case "AcceptedOrderCancellationTaskEvent" -> acceptedCancellationPublisher.publishAcceptedOrderCancellationTask(
                     objectMapper.readValue(message.getPayload(), AcceptedOrderCancellationTaskEvent.class));
+            case "OpenOrderCancellationTaskEvent", "OrderExpirationTaskEvent" -> publishLegacyOpenRefund(message);
             default -> throw new IllegalArgumentException("Unsupported Order event type: " + message.getEventType());
         }
+    }
+
+    private void publishLegacyOpenRefund(OrderEventOutbox message) {
+        OpenOrderRefundTaskEvent event = objectMapper.readValue(
+                message.getPayload(),
+                OpenOrderRefundTaskEvent.class);
+        event.setEventType("OpenOrderRefundTaskEvent");
+        openRefundPublisher.publishOpenOrderRefundTask(event);
     }
 
     private Duration retryDelay(int attemptCount) {

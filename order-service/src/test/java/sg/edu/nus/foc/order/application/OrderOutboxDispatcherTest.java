@@ -19,10 +19,11 @@ import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 import sg.edu.nus.foc.order.domain.OutboxState;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderCancellationTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 
 class OrderOutboxDispatcherTest {
     private static final Instant CREATED_AT = Instant.parse("2026-10-01T10:00:00Z");
@@ -81,12 +82,12 @@ class OrderOutboxDispatcherTest {
     }
 
     @Test
-    void dispatchesOpenCancellationThroughItsTypedPublisher() {
+    void dispatchesOpenRefundThroughItsTypedPublisher() {
         OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
-        IOpenOrderCancellationTaskPublisher publisher = mock(IOpenOrderCancellationTaskPublisher.class);
-        OpenOrderCancellationTaskEvent event = new OpenOrderCancellationTaskEvent();
+        IOpenOrderRefundTaskPublisher publisher = mock(IOpenOrderRefundTaskPublisher.class);
+        OpenOrderRefundTaskEvent event = new OpenOrderRefundTaskEvent();
         event.setEventId("cancel-event-1");
-        event.setEventType("OpenOrderCancellationTaskEvent");
+        event.setEventType("OpenOrderRefundTaskEvent");
         event.setOrderId("order-1");
         event.setOccurredAt(CREATED_AT);
         OrderEventOutbox message = claimed(event.getEventId(), event.getEventType(), event);
@@ -96,45 +97,86 @@ class OrderOutboxDispatcherTest {
         dispatcher(repository, mock(IOrderCompletionTaskPublisher.class), publisher)
                 .dispatch(event.getEventId());
 
-        verify(publisher).publishOpenOrderCancellationTask(any(OpenOrderCancellationTaskEvent.class));
+        verify(publisher).publishOpenOrderRefundTask(any(OpenOrderRefundTaskEvent.class));
         verify(repository).markPublished(eq(event.getEventId()), any(Instant.class));
+    }
+
+    @Test
+    void routesPendingLegacyExpirationOutboxEventToTheOpenRefundTopic() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOpenOrderRefundTaskPublisher publisher = mock(IOpenOrderRefundTaskPublisher.class);
+        String payload = """
+                {"eventId":"expiry-event-1","eventType":"OrderExpirationTaskEvent","eventVersion":1,
+                 "orderId":"order-expired","orderVersion":2,"occurredAt":"2026-10-01T10:00:00Z",
+                 "actorId":"lifecycle","order":{"id":"order-expired","status":"EXPIRED"}}
+                """;
+        OrderEventOutbox message = OrderEventOutbox.pending(
+                "expiry-event-1", "order-expired", "OrderExpirationTaskEvent", 1, 2, payload, CREATED_AT);
+        message.claim(CREATED_AT, CREATED_AT.plusSeconds(30));
+        when(repository.claim(eq("expiry-event-1"), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(message));
+
+        dispatcher(repository, mock(IOrderCompletionTaskPublisher.class), publisher).dispatch("expiry-event-1");
+
+        ArgumentCaptor<OpenOrderRefundTaskEvent> captured = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
+        verify(publisher).publishOpenOrderRefundTask(captured.capture());
+        assertEquals("expiry-event-1", captured.getValue().getEventId());
+        assertEquals("OpenOrderRefundTaskEvent", captured.getValue().getEventType());
+        verify(repository).markPublished(eq("expiry-event-1"), any(Instant.class));
+    }
+
+    @Test
+    void routesPendingLegacyCancellationOutboxEventToTheOpenRefundTopic() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOpenOrderRefundTaskPublisher publisher = mock(IOpenOrderRefundTaskPublisher.class);
+        String payload = """
+                {"eventId":"cancel-event-legacy","eventType":"OpenOrderCancellationTaskEvent","eventVersion":1,
+                 "orderId":"order-cancelled","orderVersion":2,"occurredAt":"2026-10-01T10:00:00Z",
+                 "actorId":"requester-1","order":{"id":"order-cancelled","status":"CANCELLED"}}
+                """;
+        OrderEventOutbox message = OrderEventOutbox.pending(
+                "cancel-event-legacy", "order-cancelled", "OpenOrderCancellationTaskEvent", 1, 2, payload, CREATED_AT);
+        message.claim(CREATED_AT, CREATED_AT.plusSeconds(30));
+        when(repository.claim(eq("cancel-event-legacy"), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(message));
+
+        dispatcher(repository, mock(IOrderCompletionTaskPublisher.class), publisher)
+                .dispatch("cancel-event-legacy");
+
+        ArgumentCaptor<OpenOrderRefundTaskEvent> captured = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
+        verify(publisher).publishOpenOrderRefundTask(captured.capture());
+        assertEquals("cancel-event-legacy", captured.getValue().getEventId());
+        assertEquals("OpenOrderRefundTaskEvent", captured.getValue().getEventType());
+        verify(repository).markPublished(eq("cancel-event-legacy"), any(Instant.class));
     }
 
     private OrderOutboxDispatcher dispatcher(
             OrderEventOutboxRepository repository,
             IOrderCompletionTaskPublisher completion) {
-        return dispatcher(repository, completion, mock(IOpenOrderCancellationTaskPublisher.class));
+        return dispatcher(repository, completion, mock(IOpenOrderRefundTaskPublisher.class));
     }
 
     private OrderOutboxDispatcher dispatcher(
             OrderEventOutboxRepository repository,
             IOrderCompletionTaskPublisher completion,
-            IOpenOrderCancellationTaskPublisher openCancellation) {
+            IOpenOrderRefundTaskPublisher openRefund) {
         return new OrderOutboxDispatcher(
                 repository,
                 completion,
-                openCancellation,
+                openRefund,
                 mock(IAcceptedOrderCancellationTaskPublisher.class),
                 JsonMapper.builder().build());
     }
 
     private OrderEventOutbox claimed(String eventId, String eventType, Object event) {
         JsonMapper mapper = JsonMapper.builder().build();
-        String orderId = event instanceof OrderCompletionTaskEvent completionEvent
-                ? completionEvent.getOrderId()
-                : ((OpenOrderCancellationTaskEvent) event).getOrderId();
-        int eventVersion = event instanceof OrderCompletionTaskEvent completionEvent
-                ? completionEvent.getEventVersion()
-                : ((OpenOrderCancellationTaskEvent) event).getEventVersion();
-        long orderVersion = event instanceof OrderCompletionTaskEvent completionEvent
-                ? completionEvent.getOrderVersion()
-                : ((OpenOrderCancellationTaskEvent) event).getOrderVersion();
+        OrderTaskEvent taskEvent = (OrderTaskEvent) event;
         OrderEventOutbox outbox = OrderEventOutbox.pending(
                 eventId,
-                orderId,
+                taskEvent.getOrderId(),
                 eventType,
-                eventVersion,
-                orderVersion,
+                taskEvent.getEventVersion(),
+                taskEvent.getOrderVersion(),
                 mapper.writeValueAsString(event),
                 CREATED_AT);
         outbox.claim(CREATED_AT, CREATED_AT.plusSeconds(30));

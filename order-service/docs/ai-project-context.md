@@ -41,7 +41,7 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 - The parent backend convention currently names requester/courier/admin authorities. The exact mapping between those authorities and the frontend `ADMIN`/`USER` plus mode model is unresolved and must be inspected and approved before role-sensitive implementation.
 - Each microservice exclusively owns and writes its own database.
 - Cross-service behavior uses explicit authenticated contracts and stable identifiers.
-- The architecture uses inbound contracts, application services, Order-owned domain rules, outbound ports, Order-owned persistence, and three typed task-event publishers for completion/cancellation. CHANGE-063/ADR-013 specifies an atomic transactional outbox with immediate after-commit dispatch and cron recovery; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 unifies completion into one event type with overdue facts.
+- The architecture uses inbound contracts, application services, Order-owned domain rules, outbound ports, Order-owned persistence, and typed task-event publishers for completion, accepted cancellation, and shared OPEN refunds. CHANGE-063/ADR-013 specifies an atomic transactional outbox with immediate after-commit dispatch and cron recovery; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 unifies completion into one event type with overdue facts; CHANGE-065/ADR-015 adds Spring-scheduled OPEN expiry and CHANGE-071/ADR-019 makes it share the refund event/topic with requester cancellation.
 - The corrected Order Service high-level diagram establishes that application components orchestrate and invoke persistence/external-service/publication ports. Order-owned domain rules validate and return decisions/status/flag/checkpoint data; they do not invoke outbound ports directly.
 
 ## Detailed architecture approval workflow
@@ -54,8 +54,8 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 - Every foreign API is classified as matching, different but potentially usable, similar but unsuitable, missing, or incomplete/incompatible after comparing the actual implementation's operation, request/response, authorization, errors/statuses, communication style, semantics, tests, and sequence fitness.
 - `docs/peer-service-api-feedback.md` is the single shared append-only record for missing, unsuitable, incomplete, or incompatible dependencies. ADR-006 supersedes the unused planned `docs/integration-api-gaps.md` location; no prior gap entry required migration.
 - Peer confirmation is not verification. Re-read the actual provider code/tests before setting feedback `VERIFIED` or resuming integration. Approved prototypes/stubs retain an explicit unimplemented-contract risk unless the user approves a contract-stub milestone.
-- For event candidates, compare synchronous request-response, query/polling, in-process events, and durable broker events. The current Order design has three typed event flows for Sequences 5-7; CHANGE-063/ADR-013 approves the transactional outbox with immediate after-commit dispatch and cron recovery, CHANGE-054 selects Google Cloud Pub/Sub, and CHANGE-056 unifies completion event routing.
-- `docs/event-candidates.md` is the persistent proposal registry for D1-supported candidates. Its `EV-1` through `EV-7` IDs are stable; architecture decisions use separate `EV-DEC-NNN` IDs. CHANGE-053/054/056/063 record the event flows, full snapshots, unified completion payload, Pub/Sub transport, and at-least-once outbox delivery.
+- For event candidates, compare synchronous request-response, query/polling, in-process events, and durable broker events. Updated overall Sequence 6 includes requester-triggered OPEN cancellation and Spring-scheduled OPEN expiry using the shared `OpenOrderRefundTaskEvent`; CHANGE-063/ADR-013 approves transactional outbox dispatch and recovery, CHANGE-054 selects Pub/Sub, CHANGE-056 unifies completion event routing, and CHANGE-065/ADR-015 approves scheduled expiry publication.
+- `docs/event-candidates.md` is the persistent decision registry for D1-supported candidates. Its `EV-1` through `EV-7` IDs are stable; architecture decisions use separate `EV-DEC-NNN` IDs. CHANGE-053/054/056/063/065/067/071 record the typed event flows, resulting Order snapshots without checkpoint history, Pub/Sub transport, at-least-once outbox delivery, and Spring-scheduled OPEN expiration using the shared refund event.
 - `docs/architecture-review-playbook.md` preserves the peer-inspection, API-mismatch, detailed-proposal, deviation, AI-disclosure, required-response, and post-approval templates used at the feature gate.
 - Label proposal content as approved architecture, existing peer implementation, proposed design, unresolved decision, or user-approved deviation. Record approvals before implementation.
 
@@ -86,6 +86,7 @@ Use the authority order in `AGENTS.md`. Project D1 is the default behavioral sou
 ## Approved communication boundaries
 
 - Credit reservation before `OPEN` and synchronous hold/reset before unexpired accepted-order reopening remain synchronous. Under CHANGE-063/ADR-013, event-producing transitions commit with their outbox rows; an after-commit listener tries immediate publication and cron retries due rows. A publish failure does not undo a committed Order transition; delivery is at least once and no event subscriber reply is awaited. CHANGE-064/ADR-014 defines the accepted-cancellation expiry split.
+- Under CHANGE-068/ADR-017, acceptance synchronously asks Credit to associate the active reservation with the courier before Order persists `ACCEPTED`. An Order-side mock and proposed HTTP adapter exist; the provider route, trusted service authentication, and recovery agreement remain open in FEEDBACK-004.
 - Order Service owns lifecycle/status. Credit Service owns balances, reservations, releases, transfers, settlement, deductions, and credit policy.
 - Penalty policy remains in User Service. Under CHANGE-063/ADR-013, Order Service commits factual event intent with the corresponding outcome, then publishes through Google Cloud Pub/Sub; it does not decide points, scores, or suspension. Stable event IDs support consumer deduplication.
 - Immediate validation, courier acceptance/concurrency, authoritative transitions, and operations needing immediate success/failure are synchronous.
@@ -104,6 +105,12 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 - CHANGE-057/ADR-012 explicitly approve an Order-owned, admin-authorized, paginated `GET /api/orders` query to support future NTH1 dashboard integration. The Admin Service still owns the dashboard; its implementation and frontend UI are not included.
 
 ## Persistent approved amendments
+
+### 48-hour automatic completion (CHANGE-072 / ADR-020)
+
+- A configurable Spring scheduler finds `DELIVERED` orders by database query once their delivered checkpoint is at least 48 hours old.
+- Recheck the cutoff and status under a pessimistic no-wait row lock; record `COMPLETED`, lifecycle checkpoint, idempotent receipt, overdue facts, and the existing `OrderCompletionTaskEvent` outbox intent atomically.
+- Requester-confirmed completion remains available earlier. No new event, peer integration, or schema is introduced. Cloud Run scale-to-zero can pause this in-process scheduler.
 
 ### OVERDUE
 
@@ -128,11 +135,11 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 
 ### Typed outcome event contracts
 
-- The current Order design defines three typed Order events: open-order cancellation, accepted-order cancellation, and one completion event carrying `overdue` and `overdueAt` for every completion.
-- CHANGE-053 directs each event to carry the full Order snapshot and use a topic placeholder within its publisher. CHANGE-054 selects Google Cloud Pub/Sub. The user authorizes Order Service-only changes and assumes peer consumers will be implemented later; the peer assumption is not a verified integration.
+- The current Order design defines three typed Order events: `OpenOrderRefundTaskEvent` for requester cancellation or scheduled OPEN expiry, `AcceptedOrderCancellationTaskEvent`, and one `OrderCompletionTaskEvent` carrying `overdue` and `overdueAt` for every completion.
+- CHANGE-053 directs each event to carry the Order snapshot and use a configured topic. CHANGE-054 selects Google Cloud Pub/Sub. CHANGE-067/ADR-016 clarifies the snapshot contains the current Order/repost fields but omits checkpoint history; completion overdue facts are computed from checkpoints internally. CHANGE-073/ADR-021 configures three dev topics in the existing GCP project, personal ADC locally, and production topics through Cloud Run environment configuration/service identity. The user authorizes Order Service-only changes and assumes peer consumers will be implemented later; the peer assumption is not a verified integration.
 - Each payload carries `eventId`, `eventVersion`, `orderId`, `orderVersion`, event-specific facts, actor IDs, and `occurredAt`; consumers deduplicate at-least-once delivery.
-- Credit refunds `OpenOrderCancellationTaskEvent`, refunds `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation, and transfers credits for every `OrderCompletionTaskEvent`. User applies a courier penalty for expired accepted cancellation and, for every completion, an overdue penalty or the existing on-time score reduction. User does not consume open-cancellation events. Subscribers own independent acknowledgments and retries. This supersedes the former overdue-only completion event split (CHANGE-056/ADR-011) and follows CHANGE-064/ADR-014.
-- Each event carries the complete resulting Order snapshot, with a topic placeholder in its publisher. The outbox commits event intent with the lifecycle transition, then dispatches after commit and recovers due rows through cron. Delivery is at least once and consumers must deduplicate by stable event ID. No generic outcome discriminator or open-ended facts bag is permitted.
+- Credit refunds `OpenOrderRefundTaskEvent` for both OPEN outcomes, distinguishing requester cancellation (`order.status=CANCELLED`) from scheduler expiry (`order.status=EXPIRED`); it refunds `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation and transfers credits for every `OrderCompletionTaskEvent`. User applies a courier penalty for expired accepted cancellation and, for every completion, an overdue penalty or the existing on-time score reduction. User does not consume OPEN-refund events. Subscribers own independent acknowledgments and retries. This follows CHANGE-056/ADR-011, CHANGE-064/ADR-014, CHANGE-065/ADR-015, and CHANGE-071/ADR-019.
+- Each event carries the resulting Order and repost fields, without checkpoint history, and publishes to the environment-configured topic. The outbox commits event intent with the lifecycle transition, then dispatches after commit and recovers due rows through cron. Delivery is at least once and consumers must deduplicate by stable event ID. No generic outcome discriminator or open-ended facts bag is permitted.
 
 ### Supplier ownership
 
@@ -182,3 +189,7 @@ Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to U
 - AI usage log formatting authority: `docs/ai-usage-format.md`
 
 At every task boundary, validate the local developer profile, shared allocation, matching active-work file, and Git branch. The local identity is intentionally not stored in committed shared context.
+
+CHANGE-069/ADR-018 defines the Order/Credit contract boundary: Order validates versions, ownership, and amount locally; assignment sends only `orderId` plus `courierId`, and hold/reset sends only `orderId` with no body. Published events retain `orderVersion` for consumers that need it. This leaves Order API concurrency checks and event schemas unchanged.
+
+CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order calls `POST /api/credits/orders/{orderId}/hold-for-reopen` without a request body and waits synchronously for `200 OK` before reopening. The contract is agreed, but Credit's endpoint is still missing; trusted service authentication and failure-window reconciliation remain production requirements.

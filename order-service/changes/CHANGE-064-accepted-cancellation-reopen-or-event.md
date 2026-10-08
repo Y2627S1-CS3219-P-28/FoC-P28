@@ -1,5 +1,7 @@
 # CHANGE-064: Accepted cancellation reopens before expiry, publishes after expiry
 
+Current OPEN-order event note: CHANGE-071/ADR-019 later replaces the requester-cancellation event named below with `OpenOrderRefundTaskEvent`, shared with scheduled OPEN expiry. This does not change the accepted-cancellation split documented in this change.
+
 - Status: User-approved; Order-side implementation and verification complete; peer dependency remains open
 - Date: 2026-10-03
 - Scope: Order Service only; shared frontend action behavior may be updated as part of the approved vertical slice. No peer-service source changes.
@@ -26,6 +28,8 @@ Proposed operation for peer-owner agreement:
 
 - `POST /api/credits/orders/{orderId}/hold-for-reopen`
 - Request: `commandId`, `requesterId`, `courierId`, `amount`, `expectedOrderVersion`.
+
+The request fields above record the original proposal. CHANGE-069/ADR-018 supersedes that payload shape: the effective hold/reset request uses Order ID in the path and no body. Order still validates the command, courier ownership, and version locally.
 - Success: synchronous `200` confirmation including the Order/command identity and held transaction state.
 - Semantics: idempotently retain the existing reservation and mark/reset it as held for reopening; do not refund or transfer funds. Accept an already-held matching reservation for subsequent accepted/reopen cycles.
 - Failure: reject mismatched/missing reservation, amount, Order, stale/conflicting command, or unauthorized call. Order Service must leave the Order `ACCEPTED` and not expose it as `OPEN` unless success is confirmed.

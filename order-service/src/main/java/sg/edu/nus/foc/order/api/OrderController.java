@@ -284,7 +284,7 @@ public class OrderController {
     @PostMapping("/internal/lifecycle/expire")
     public Map<String, Integer> expire(@RequestHeader("X-Lifecycle-Token") String token) {
         checkToken(token);
-        return Map.of("expired", lifecycle.expireDue(Instant.now(), "Bearer " + token));
+        return Map.of("expired", lifecycle.expireDue(Instant.now()));
     }
 
     @Operation(summary = "Create due automatic reposts using the lifecycle token")

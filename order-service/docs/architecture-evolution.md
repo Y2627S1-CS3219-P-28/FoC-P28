@@ -1,5 +1,56 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-023: Use real Pub/Sub with separate dev/prod topics (2026-10-07)
+
+- Discovery classification: User-approved architecture and local-infrastructure change.
+- Approver: User explicitly requested real Pub/Sub and approved the existing project, topic-level IAM separation, and three dev topic IDs.
+- Original behavior: CHANGE-060 made the local emulator the default, used project `demo-foc`, initialized local topics in Compose, and bypassed GCP authentication/IAM.
+- Effective rule: Use existing project `protean-vigil-509704-q4` for both environments, with local dev topic IDs `order-completion-dev-v1`, `open-order-refund-dev-v1`, and `accepted-order-cancellation-dev-v1`. Production topic IDs are supplied through environment configuration. Developers use personal ADC; Compose mounts the developer's ADC file read-only. Cloud Run uses its attached service identity. Developers can publish only to dev topics; the production identity can publish only to prod topics. Do not use shared service-account keys or project-wide Pub/Sub Publisher grants.
+- Alternatives considered: Keep the emulator (rejected because it does not exercise real authentication/IAM/delivery); create a separate GCP project (rejected by the user); use a shared service-account key (rejected because it shares a long-lived credential).
+- Trade-offs: Real local publishes exercise cloud behavior and may activate dev subscribers or consume shared quota/billing. Topic-level IAM limits cross-environment publishing, while the shared project retains common billing, quota, and administrative controls. A mounted personal ADC file is private to the developer but usable by the running Order container.
+- Constraints: Order Service producer and its root Compose wiring only; do not change peer-service source or consumer subscriptions. Keep outbox semantics, event schemas, mock peer mode, and business flows unchanged.
+- Affected design chain: CHANGE-073, ADR-021, Order publisher factory/test, `application.yaml`, root Compose/`.env.example`, local README, peer event topic handoff, architecture/runtime context, change/evolution/AI records.
+- Migration/rollback: No database/schema migration. Reverting CHANGE-073 restores the emulator-based local setup. Messages already accepted by Pub/Sub cannot be recalled. GCP topics, IAM, and production topic environment variables are team-managed.
+- Status: Repository implementation complete; Maven/Compose/live-cloud verification pending.
+
+## ARCH-EVO-022: Add 48-hour automatic completion (2026-10-07)
+
+- Discovery classification: Architecture/sprint-scope amendment explicitly directed by the user.
+- Approver: User.
+- Original approved scope: Sprint 1 listed 48-hour auto-completion as out of scope; requester-only completion changed `DELIVERED` to `COMPLETED`.
+- Effective rule: A configurable Spring scheduler queries and pessimistically locks `DELIVERED` orders with a delivery checkpoint at or before `now - 48 hours`; the transition rechecks under lock and records `COMPLETED` through the existing checkpoint, idempotent receipt, overdue calculation, and `OrderCompletionTaskEvent` transactional outbox flow. Requester completion remains available before that time.
+- Alternatives considered: Keep completion requester-only (superseded by the user's amendment); add a new completion event or peer call (rejected because the existing completion flow already publishes all completion consequences); load all orders and filter in memory (rejected; the database applies status and timestamp predicates).
+- Trade-offs: A Spring cron is straightforward and reuses tested lifecycle/outbox behavior, but in-process jobs may pause while Cloud Run scales to zero. A one-minute default may complete shortly after the exact 48-hour boundary.
+- Constraints: Order Service only; no new peer service contract, event type, or database schema. The user authorized use of the current profile branch; the shared allocation's branch label remains stale but Sequence 5 is within Yao's feature allocation.
+- Affected design chain: F4.1.5/F5.1, Sprint Sequence 5/7, CHANGE-072, ADR-020, lifecycle scheduler, Order query/row lock, completion transition, tests, architecture/scope/sequence/class diagrams and traceability.
+- Migration/rollback: No schema migration. Revert the scheduler/config and restore the scope deferral only if no product data or automated completions require retaining the behavior; already-emitted completion events cannot be recalled.
+- Status: Implementation and documentation complete; focused Maven tests did not execute because Java 21 failed during compile resource cleanup.
+
+## ARCH-EVO-021: Share the OPEN-order refund event (2026-10-06)
+
+- Discovery classification: Architecture or specification change, explicitly directed by the user.
+- Approver: User.
+- Original approved rule: CHANGE-065/ADR-015 used a distinct `OrderExpirationTaskEvent` for scheduled expiry and `OpenOrderCancellationTaskEvent` for requester cancellation, despite both subscribers refunding/releasing the same OPEN-order transaction.
+- Effective rule: Both flows publish `OpenOrderRefundTaskEvent` through one publisher and one topic. Requester cancellation still commits `CANCELLED`; scheduler expiry still commits `EXPIRED`. Credit refunds both and may distinguish their cause using `order.status`; User is not involved.
+- Alternatives considered: Keep separate events/topics (rejected as duplicate Credit refund contracts); publish one generic event but retain separate topics (rejected because subscriber work and topic are also the same); use one event and one topic with status in the existing Order snapshot (selected).
+- Trade-offs: One consumer subscription and refund action reduce duplicated integration surface. The resulting status distinguishes the two causes without another event-specific field. The event name/topic changes, so future Credit consumers must use the new contract; already-published messages cannot be recalled. Pending old outbox rows are translated by the Order dispatcher with their stable `eventId` preserved.
+- Constraints: Order Service and Order-owned local Compose topic only; do not change Credit or User source. Keep event version 1 and current no-checkpoint snapshot. Spring expiry scheduling and atomic outbox processing do not change.
+- Affected design chain: F4.1.8/F10, Sequence 6/9, EV-DEC-005/007, CHANGE-071, ADR-019; event DTO, mapper/factory, both producers, dispatcher, publisher pair, topic config, tests, peer/service contracts, class/sequence diagrams, traceability and handoff.
+- Migration/rollback: No database schema migration. Legacy pending outbox rows are routed to the new topic. Rollback requires restoring old publisher/topic routing only after checking whether new-contract events have been emitted; already-published events cannot be recalled.
+- Status: Implementation and verification in progress.
+
+## ARCH-EVO-020: Keep Order versions out of synchronous Credit requests (2026-10-06)
+
+- Discovery classification: User-approved cross-service contract refinement.
+- Approver: User.
+- Effective rule: Order validates its expected version, ownership, and amount locally. Credit assignment sends `orderId` and `courierId`; hold/reset sends only `orderId`, with no body. Credit reads the rest from its transaction record. Published event payloads continue to carry `orderVersion` for event identity and context.
+- Alternatives considered: Send redundant requester/amount/command details to Credit (rejected because Credit resolves transaction details from Order ID and these updates can be idempotent by state); remove versions from events too (rejected because consumers may use them to identify/order event facts).
+- Trade-offs: Minimal peer requests avoid coupling Credit to Order concurrency state or duplicating transaction data. Credit must make same-courier assignment and repeated hold/reset idempotent by Order ID/state; event consumers can use event ID/version for deduplication and ordering policy.
+- Constraints: Order Service scope only. Do not modify Credit Service. FEEDBACK-003's hold/reset contract is agreed but its endpoint is missing; FEEDBACK-004 assignment contract/endpoint remains pending.
+- Affected design chain: F3/F13 and F4.1.7; CHANGE-069; ADR-018; peer/service/sprint contracts; Sequence 3 and Credit class diagrams; adapter DTOs, idempotency records, and tests. Event schemas, Order API versions, and data model are unchanged.
+- Migration/rollback: No database or event-schema migration. Credit must implement the agreed FEEDBACK-003 contract and agree production authentication/recovery before live integration.
+- Status: Minimal Order port/mock/HTTP shapes implemented; FEEDBACK-003's bodyless hold contract user-confirmed by CHANGE-070. Credit provider implementation is still missing. Focused Maven verification was blocked before tests by local Java compilation failure.
+
 ## ARCH-EVO-016: Accepted cancellation holds Credit before reopening (2026-10-03)
 
 - Discovery classification: User-directed architecture refinement; the user's request explicitly approves the design and implementation.
@@ -7,7 +58,7 @@
 - Effective rule: Only the assigned courier may cancel. Before `expiresAt`, Order synchronously asks Credit to hold/reset the existing transaction without refund; only confirmed success allows direct `ACCEPTED -> OPEN` and clears the assignment. At/after expiry, Order transitions to `ABORTED` and emits the cancellation event for Credit refund and User penalty. Recheck expiry after a slow Credit response.
 - Alternatives considered: Publish an event for all cancellations (rejected because asynchronous consumption can race a new courier's acceptance); always abort/refund (rejected because an unexpired errand should be available again); use synchronous hold after expiry (unnecessary because the expired outcome stays event-driven).
 - Trade-offs: Synchronous confirmation protects reopening order but adds Credit latency and needs idempotency/reconciliation if Credit succeeds before the Order database commit. Expired cancellation stays decoupled through the outbox.
-- Constraints: Order Service and shared frontend only; no Credit/User source edits. Credit lacks the endpoint, so local mock mode is supported and the proposed HTTP endpoint is tracked in `FEEDBACK-003`; production HTTP-peer verification remains pending.
+- Constraints: Order Service and shared frontend only; no Credit/User source edits. Credit lacks the endpoint, so local mock mode is supported. CHANGE-070 confirms the final HTTP contract in `FEEDBACK-003`; provider implementation and production authentication/recovery remain pending.
 - Affected design chain: requirement `CHANGE-064`; `ADR-014`; service/architecture/peer contracts; updated Sequence 7 and publisher class diagram; no schema/data-model change; Credit endpoint contract pending; application/domain/mock/HTTP adapter and frontend tests.
 - Migration/rollback: No database migration. Rollback is a code/configuration rollback; do not restore the unconditional event path without a replacement rule. Any confirmed Credit hold must be safely idempotent and reconcilable.
 - Status: Order-side implementation verified by 107 passing Maven tests and frontend checks. Peer endpoint and subscriber implementations remain unverified.
@@ -30,15 +81,19 @@ The initial approved context is recorded in:
 
 ARCH-EVO-001 records the user-supplied correction to the Order Service high-level diagram's application/domain/outbound-port control flow. Existing ADRs remain effective according to their own status and supersession rules.
 
-CHANGE-052 records the requested `messagingpublisher/interfaces/` and `messagingpublisher/publisher/` layout and proposed updated diagrams for the four events in CHANGE-051. CHANGE-053 supplies the approved Order-side full snapshot, topic placeholders, assumed future peer consumers, and publish-before-status behavior.
+CHANGE-052 records the requested `messagingpublisher/interfaces/` and `messagingpublisher/publisher/` layout and proposed updated diagrams for the four events in CHANGE-051. CHANGE-053 supplies the approved Order-side snapshot, topic placeholders, assumed future peer consumers, and publish-before-status behavior; CHANGE-067/ADR-016 later removes checkpoint history from the effective payload.
 
-CHANGE-053 records the user's explicit direction to publish each task event before persisting its Order status. CHANGE-063/ADR-013 later supersedes only that ordering for completion and cancellation: Order state and event intent are committed through a transactional outbox, then an after-commit listener tries delivery immediately and a Spring cron job recovers due rows. Full snapshots, topic placeholders, Pub/Sub, peer-consumer assumptions, and Order-only scope remain effective. Delivery is at least once, with stable IDs for consumer deduplication.
+CHANGE-053 records the user's explicit direction to publish each task event before persisting its Order status. CHANGE-063/ADR-013 later supersedes only that ordering for completion and cancellation: Order state and event intent are committed through a transactional outbox, then an after-commit listener tries delivery immediately and a Spring cron job recovers due rows. Resulting Order/repost fields, topic placeholders, Pub/Sub, peer-consumer assumptions, and Order-only scope remain effective; checkpoint history is excluded by CHANGE-067/ADR-016. Delivery is at least once, with stable IDs for consumer deduplication.
 
-CHANGE-054 records the user's explicit Google Cloud Pub/Sub selection. The Order producer uses Application Default Credentials in production and supports the Pub/Sub emulator by explicit endpoint/channel configuration. Topic IDs stay `TODO_TOPIC` placeholders until the user fills them in.
+CHANGE-054 records the user's explicit Google Cloud Pub/Sub selection. ARCH-EVO-023/ADR-021 supersedes the emulator path: local Compose and production use real Pub/Sub with personal ADC and Cloud Run service identity respectively. The dev topic IDs are set; production IDs remain deployment configuration.
 
 CHANGE-056 and ADR-011 supersede the separate normal/overdue completion routing from CHANGE-053/ADR-009. The effective completion event is `OrderCompletionTaskEvent` for every completion, with `overdue` and `overdueAt` facts consumed by both User and Credit. The prior records remain historical; the current diagrams and contracts contain no overdue-only publisher.
 
 CHANGE-063 and ADR-013 supersede CHANGE-053's publish-before-status ordering. The post-transition state, checkpoint, receipt, and serialized event now commit atomically; immediate dispatch occurs after commit and cron is recovery only. Cloud Run scale-to-zero/request-based CPU means the in-process scheduler is not guaranteed to execute while idle; deployment billing/minimum-instance changes require a separate cost decision.
+
+CHANGE-065 and ADR-015 originally extended the outbox flow to scheduled OPEN-order expiration. CHANGE-071/ADR-019 supersedes their separate event type: Spring `@Scheduled` still finds due unassigned OPEN orders, and EXPIRED state, checkpoint, and `OpenOrderRefundTaskEvent` commit atomically. Requester-triggered cancellation uses that same event with `CANCELLED`; Credit refunds both. The prior synchronous Credit release call is removed. Cloud Run's scale-to-zero/request-based CPU limitation remains.
+
+CHANGE-067 and ADR-016 refine the event data contract: checkpoint history is not serialized into Order events. The Order and outbox still commit the checkpoint in the database; the event carries the resulting Order/repost fields, while completion overdue facts continue to derive from internal checkpoint history. Event version 1 remains the future-consumer contract because no peer consumers were found.
 
 ## Change classification
 
@@ -77,6 +132,7 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 
 | Evolution ID | Date | Feature | Change type | Status | Current rule or outcome | Decision/change links | Supersedes |
 |---|---|---|---|---|---|---|---|
+| ARCH-EVO-023 | 2026-10-07 | Use real Pub/Sub with separate dev/prod topics | Architecture or specification change | USER-APPROVED; IMPLEMENTED; CLOUD/COMPOSE VERIFICATION PENDING | One existing GCP project, dev/prod topics, personal local ADC, Cloud Run service identity, topic-scoped IAM | CHANGE-073 / ADR-021 | Emulator as the default local transport in CHANGE-060 |
 | ARCH-EVO-001 | 2026-09-28 | High-level internal control flow | Design refinement | IMPLEMENTED | Application components invoke outbound ports; domain rules return decisions/data | CHANGE-012 | Previous diagram revision `875238E1...` |
 | ARCH-EVO-002 | 2026-09-29 | Order Service persistence and deployment | Architecture or specification change | APPROVED | Order Service uses PostgreSQL on one Cloud SQL instance and deploys to Cloud Run with a public-IP Cloud SQL Java Connector | CHANGE-015 / ADR-008 | Unresolved PostgreSQL/Firestore and Kubernetes/Cloud Run conflict |
 | ARCH-EVO-003 | 2026-09-30 | Unified Order dashboard and authenticated actor identity | Architecture or specification change | APPROVED | Shared dashboard exposes requester and courier functions without a client-side mode switch; Order uses User Service-confirmed actor IDs; supplier labels never flash opaque IDs | CHANGE-029 | Previous mode-switching frontend slice in CHANGE-022 |
@@ -85,9 +141,13 @@ Ask the user to approve, reject, or modify every architecture/specification chan
 | ARCH-EVO-006 | 2026-10-01 | Domain repository boundary and traditional API DTOs | Design refinement | IMPLEMENTED; full suite verified by CHANGE-054 | Application services use domain repository interfaces; Spring Data stays in infrastructure; API contracts use named DTO classes | CHANGE-050 / CHANGE-054 | Direct Spring Data injection and nested API DTO records |
 | ARCH-EVO-007 | 2026-10-02 | Updated overall sequences 5-8 and typed outcome events | Architecture or specification change | APPROVED SOURCE; implementation ordering restored by ARCH-EVO-015 | Typed completion/cancellation events, broker fan-out, independent Credit/User subscriptions, and same-order accepted reopening are current; atomic outbox consistency applies to Sequences 5-7 | CHANGE-051 | Synchronous Credit outcome boundary and deferred accepted reopening in Sprint 1 records |
 | ARCH-EVO-009 | 2026-10-02 | Publish task event before status persistence | Architecture or specification change | USER-APPROVED; SUPERSEDED BY ARCH-EVO-015 | Historical rule: publish full Order snapshot before status/checkpoint; this ordering no longer applies to completion/cancellation | CHANGE-053 / CHANGE-054 / ADR-009 | Outbox-first ordering in CHANGE-051/ADR-009; superseded by ARCH-EVO-015 |
-| ARCH-EVO-010 | 2026-10-02 | Select Google Cloud Pub/Sub for Order task publishers | Architecture or specification change | USER-APPROVED; IMPLEMENTED; transport choice effective | Use Google's Java Pub/Sub client; await message ID before marking an outbox row published; use explicit emulator channel when configured; leave topic IDs as placeholders | CHANGE-054 / ADR-009/013 | Unselected broker client in CHANGE-053 |
+| ARCH-EVO-010 | 2026-10-02 | Select Google Cloud Pub/Sub for Order task publishers | Architecture or specification change | USER-APPROVED; IMPLEMENTED; transport choice effective; emulator detail superseded by ARCH-EVO-023 | Use Google's Java Pub/Sub client; await message ID before marking an outbox row published | CHANGE-054 / ADR-009/013 | Unselected broker client in CHANGE-053 |
 | ARCH-EVO-012 | 2026-10-02 | Unify order completion publication | Architecture or specification change | USER-APPROVED; IMPLEMENTED; publish-before-status ordering superseded by ARCH-EVO-015 | Publish one completion event for both overdue and on-time orders; include overdue facts for User and Credit | CHANGE-056 / ADR-011 | Separate normal and overdue completion routes in ADR-009/CHANGE-053 |
 | ARCH-EVO-015 | 2026-10-03 | Transactional outbox for outcome events | Architecture or specification change | USER-APPROVED; IMPLEMENTED AND VERIFIED | Commit Order transition plus event intent atomically; attempt delivery after commit; Spring cron recovers due rows; at-least-once delivery; Cloud Run scheduling limitation remains | CHANGE-063 / ADR-013 | Publish-before-status ordering in ARCH-EVO-009 for completion/cancellation |
+| ARCH-EVO-017 | 2026-10-03 | Spring-scheduled OPEN expiry event | Architecture or specification change | USER-APPROVED; IMPLEMENTATION IN PROGRESS; SEPARATE EVENT SUPERSEDED BY ARCH-EVO-021 | Spring scheduler expires due unassigned OPEN orders and persists the shared `OpenOrderRefundTaskEvent` in the state/checkpoint transaction; Credit refunds asynchronously | CHANGE-065 / ADR-015 / EV-DEC-005/007; CHANGE-071 / ADR-019 | Synchronous Credit release during expiry; separate expiration event type |
+| ARCH-EVO-018 | 2026-10-06 | Exclude checkpoint history from Order event payloads | Architecture or specification change | USER-APPROVED; IMPLEMENTED; MAVEN VERIFICATION BLOCKED LOCALLY | Publish current Order/repost fields without checkpoints; retain history storage/query and internal overdue calculation; event contract remains v1 for future consumers | CHANGE-067 / ADR-016 | Full event snapshot including checkpoint history in CHANGE-053/054 |
+| ARCH-EVO-019 | 2026-10-06 | Synchronously assign the Credit reservation before Order acceptance | Architecture or specification change | USER-APPROVED; ORDER-SIDE STUB IMPLEMENTED; PEER API OPEN; MAVEN VERIFICATION BLOCKED LOCALLY | After validating the locked OPEN Order, await Credit courier assignment and a matching response before persisting ACCEPTED; recheck expiry after the call | CHANGE-068 / ADR-017 / FEEDBACK-004 | Acceptance without a Credit courier assignment |
+| ARCH-EVO-021 | 2026-10-06 | Share the OPEN-order refund event | Architecture or specification change | USER-APPROVED; IMPLEMENTATION AND VERIFICATION IN PROGRESS | Requester cancellation and scheduled expiry use one `OpenOrderRefundTaskEvent` and topic; resulting `CANCELLED`/`EXPIRED` status remains distinct | CHANGE-071 / ADR-019; supersedes event-type portion of CHANGE-065 / ADR-015 | Separate OPEN-cancellation and OPEN-expiration refund events/topics |
 
 Use stable `ARCH-EVO-NNN` identifiers. The detailed entry and its linked ADR/change record together preserve the decision history; do not copy full ADR contents into this table.
 
@@ -414,6 +474,8 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 
 ## ARCH-EVO-010: Select Google Cloud Pub/Sub for Order task publishers
 
+The emulator-support portion below is superseded by ARCH-EVO-023/ADR-021.
+
 - Change ID: CHANGE-054
 - Date: 2026-10-02
 - Developer: Yao Xiang
@@ -422,7 +484,7 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Problem discovered: The publisher and transition workflow cannot return a real publish confirmation without a concrete transport client.
 - Change type: Architecture or specification change
 - Status: USER-APPROVED; IMPLEMENTED; `mvn verify` PASSED; live broker delivery pending
-- Approved change: Use Google Cloud Pub/Sub's Java client, await the Pub/Sub message ID as the success signal, retain `TODO_TOPIC` defaults, and support the Pub/Sub emulator through an explicit endpoint/channel when configured.
+- Approved change: Use Google Cloud Pub/Sub's Java client and await the Pub/Sub message ID as the success signal. The later approved environment/topic/authentication rules are recorded in ARCH-EVO-023/ADR-021.
 - What was added: Pub/Sub dependency management, a shared transport adapter, four typed publisher pairs, event snapshots, checkpoint-history retrieval, and publish-first transition orchestration.
 - What was changed: Completion/cancellation transitions publish before mutating/saving status. Credit outcome work moves to the future event consumers; synchronous Credit settlement/release is removed from those four transitions.
 - What was removed: Nothing from peer services; they remain outside the scope.
@@ -556,6 +618,84 @@ Allowed evolution statuses are `PROPOSED`, `APPROVED`, `IMPLEMENTED`, `REJECTED`
 - Related decision: ADR-013.
 - Related traceability: Project D1 F4.1.5/F4.1.7/F5.1 and Sequences 5-7.
 - Remaining deployment issue: current Cloud Run min-instances-zero/request-based CPU does not guarantee cron recovery while idle; no cost-affecting deployment setting was changed.
+
+## ARCH-EVO-017: Spring-scheduled OPEN expiry event
+
+Historical decision: the separate expiration event recorded below was superseded for event naming/topic by ARCH-EVO-021/CHANGE-071/ADR-019. Spring scheduling, EXPIRED state/checkpoint, and outbox behavior remain effective.
+
+- Change ID: CHANGE-065
+- Date: 2026-10-03
+- Developer: Yao Xiang
+- Feature: Expiration of due, unassigned OPEN orders and Credit refund trigger
+- Original design or requirement: Sprint Sequence 9 set due unassigned OPEN orders to EXPIRED and synchronously called Credit to release the reservation. Updated overall Sequence 6 was revised to contain both requester-triggered OPEN cancellation and scheduled expiry, whose outcome differs by event.
+- Problem discovered: The expiry transition's direct Credit release call bypassed the event-driven refund pattern requested for OPEN-order outcomes and differed from the updated Sequence 6 contract.
+- Change type: User-approved architecture/specification change
+- Status: USER-APPROVED; implementation in progress
+- Approved change: Use Spring `@Scheduled` with configurable cron to scan due unassigned OPEN orders. Persist EXPIRED state, checkpoint, and full-snapshot `OrderExpirationTaskEvent` in the same transaction. Dispatch via the existing after-commit outbox path. Credit consumes the event and refunds/releases; Order does not synchronously call Credit or await a subscriber. Keep requester cancellation in the same Sequence 6 with `CANCELLED` and `OpenOrderCancellationTaskEvent`.
+- Alternatives considered: Keep synchronous Credit release (rejected by user); use an external scheduler trigger (viable operational option but user selected Spring scheduler); select an event per Order (selected as consistent with updated Sequence 6 and durable-outbox flow).
+- Trade-offs: Order remains independent of Credit refund availability, but refund is eventual and automatic repost reservation may run before Credit processes the refund. At-least-once delivery requires consumer deduplication. Spring scheduling requires an active, scheduler-capable instance; Cloud Run scale-to-zero/request-based CPU does not guarantee expiry during idle periods.
+- Affected architecture: Lifecycle processing, Order outbox, Credit refund subscription expectation; no peer code, shared Compose, deployment billing, or database schema change.
+- Affected class diagram: `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md`.
+- Affected sequence diagram: `sprints/sprint-1/sequence-diagrams/updated-overall/sequence-6-cancel-open-order.md`; Sprint Sequence 9 remains lifecycle scope, now explicitly tied to overall Sequence 6.
+- Affected data model: No new Order/outbox columns or migration.
+- Affected contracts: `docs/service-contracts.md`, FEEDBACK-002 and `OrderExpirationTaskEvent`; Credit refunds the expired OPEN reservation; User is not subscribed.
+- Affected tests: Expiry state/checkpoint/outbox intent, stable full-snapshot event mapping, event-specific publisher dispatch, scheduled trigger, and row-lock query.
+- Affected source files: Order Service only; Credit/User consumers not modified.
+- Approved by: User, explicit requests to add an expiration event, match updated overall Sequence 6, and use Spring scheduler, 2026-10-03.
+- Effective from: CHANGE-065.
+- Supersedes: Synchronous Credit `release` in lifecycle expiration.
+- Related decision: ADR-015.
+- Remaining deployment issue: Cloud Run idle schedule guarantee and local emulator topic initialization remain unresolved; no deployment or root Compose change authorized.
+
+## ARCH-EVO-018: Exclude checkpoint history from Order events
+
+- **Change ID:** CHANGE-067
+- **Date:** 2026-10-06
+- **Developer:** Yao Xiang
+- **Feature:** Typed completion, cancellation, and expiration event payloads
+- **Original design:** CHANGE-053/054 included all checkpoint history in every full Order event snapshot.
+- **Problem discovered:** Checkpoint history grows over the Order lifetime and is separately persisted and available through Order Service history queries. Replicating it in each event increases payload size without being needed for Credit settlement/refund or User penalty/score actions.
+- **Change type:** User-approved architecture/specification change
+- **Status:** USER-APPROVED; implementation in progress
+- **Approved change:** Omit the `checkpoints` field from `OrderEventSnapshot` and all serialized outcome events. Retain all current Order/repost fields and event-specific facts. Continue to persist/query checkpoints and calculate completion overdue facts internally from accepted/delivered checkpoints.
+- **Alternatives considered:** Keep all history in every event (rejected due unbounded/repeated payload); include only the latest checkpoint (not needed by current subscribers); omit checkpoint history (selected).
+- **Trade-offs:** Smaller messages with size independent of checkpoint count; a subscriber cannot build a full timeline from events and must query Order Service if future behavior requires it.
+- **Versioning:** Keep `eventVersion: 1` as the current pre-consumer contract. No peer consumer was found. If an older-contract consumer is discovered, coordinate a versioned transition before rollout.
+- **Affected architecture:** Publisher event mapping and peer event contracts; Order checkpoint ownership/history endpoints remain unchanged.
+- **Affected class diagram:** `sprints/sprint-1/class-diagrams/updated-overall/publisher-class-diagram.md` removes checkpoint snapshot from `OrderEventSnapshot`.
+- **Affected sequence diagrams:** No interaction changes; messages continue to carry event envelope and resulting Order fields without history.
+- **Affected data model:** None; no database migration.
+- **Affected contracts:** Peer feedback, service contracts, event candidates, sprint context, and consumer handoff specify checkpoint-free snapshots.
+- **Affected tests:** Assert JSON excludes `order.checkpoints`, retains Order/repost fields and completion overdue facts, and preserves internal history-based overdue calculation.
+- **Affected source:** `OrderEventSnapshot`, event mapper/factory, and obsolete checkpoint-event-snapshot DTO only; peer services untouched.
+- **Approved by:** User, explicit request on 2026-10-06.
+- **Remaining risk:** No live Pub/Sub/peer consumer compatibility test; no consumer implementation was found in the inspected repositories.
+
+## ARCH-EVO-019: Synchronously assign the Credit reservation before acceptance
+
+- **Change ID:** CHANGE-068
+- **Date:** 2026-10-06
+- **Developer:** Yao Xiang
+- **Feature:** Courier acceptance and eventual Credit settlement recipient
+- **Original design:** Sequence 3 locally changed the Order to `ACCEPTED` after verifying courier identity, with no Credit-side association made at assignment time.
+- **Problem discovered:** Credit's reservation has a nullable courier field, but the inspected provider API has no operation to set it. Without recording the courier before completion, Credit cannot reliably transfer funds to the actual assignee.
+- **Change type:** User-approved architecture/specification change
+- **Status:** USER-APPROVED; ORDER-SIDE STUB IMPLEMENTED; PEER API OPEN; MAVEN VERIFICATION BLOCKED LOCALLY
+- **Approved change:** Validate the locked `OPEN` Order, synchronously call `CreditServicePort.assignCourier`, validate Credit's confirmation, recheck expiry, and only then persist `ACCEPTED`, checkpoint, and command receipt. Keep a local in-memory mock for mock-peer mode and a typed HTTP adapter for the proposed route. Do not modify Credit Service.
+- **Alternatives considered:** Depend only on the later completion event (does not synchronously bind or confirm the reserved transaction before acceptance); change Order status first (violates required Credit-before-acceptance ordering); add a synchronous Credit port with a local mock and proposed HTTP contract (selected).
+- **Trade-offs:** Credit knows the intended recipient early and failure leaves Order unchanged, but acceptance now depends on Credit latency/availability and holds the Order row lock/database transaction open while waiting. The remote Credit update and local database commit cannot be atomic; Credit must define safe idempotent recovery. The current user bearer forwarding in the proposed HTTP adapter is not an agreed service-authentication design.
+- **Affected architecture:** `OrderAssignmentService`, `Order` validation, `CreditServicePort`, mock/HTTP adapters, and the future Credit completion consumer consistency check.
+- **Affected class diagram:** `sprints/sprint-1/class-diagrams/updated-overall/accept-order-credit-assignment-class-diagram.md` adds the port, adapters, request/response DTOs, and Order/application/persistence dependencies; the index links it. No canonical source class image was present to directly edit.
+- **Affected sequence diagram:** `sprints/sprint-1/sequence-diagrams/updated-overall/sequence-3-accept-order.md` captures Credit confirmation before Order mutation.
+- **Affected data model:** No Order schema change. The Credit reservation's existing courier field is the intended provider target.
+- **Affected contracts:** FEEDBACK-004, service contracts, sprint contracts, and acceptance criteria specify the proposed request/response and open security/failure questions.
+- **Affected tests:** TDD acceptance order/failure tests, local mock assignment/idempotency/settlement tests, and HTTP adapter response validation tests were authored. Focused Maven execution stopped during production compilation with the local Java fatal error `Cannot close compiler resources`.
+- **Affected source:** Order Service only; no sibling Credit source or frontend files changed.
+- **Approved by:** User, explicit follow-up authorizing the mock/contract stub, 2026-10-06.
+- **Effective from:** CHANGE-068.
+- **Related decision:** ADR-017.
+- **Related traceability:** Sprint Sequence 3, F3/F13 and `docs/requirements-traceability.md`.
+- **Remaining risks:** Credit route/authentication/idempotency/reconciliation are unagreed and unimplemented; HTTP mode will fail until provider work lands. Maven verification must be rerun under a working Java compiler; no live integration is claimed.
 
 When a newer rule is approved:
 

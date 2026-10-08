@@ -1,9 +1,110 @@
 # Yao Xiang - Sprint 1 Active Work
 
+## Current request - fix CI/CD failure (2026-10-08)
+
+- Request: diagnose and fix the failing CI/CD check, preserving the existing uncommitted work.
+- Status: investigating workflow configuration and available run logs; no CI fix applied yet.
+
+## Current request - use real Pub/Sub dev topics locally (2026-10-07)
+- Follow-up request (2026-10-08): document the exact local `gcloud auth application-default login`, quota-project, and `GOOGLE_APPLICATION_CREDENTIALS_HOST` setup. Complete: README now provides both the persistent root `.env` entry and a one-session PowerShell form.
+
+- Request: stop using the Pub/Sub emulator; publish locally to the actual Google Pub/Sub service using `order-completion-dev-v1`, `open-order-refund-dev-v1`, and `accepted-order-cancellation-dev-v1`. Reuse the existing GCP project; keep production topics separate; user will handle GCP resource/IAM setup and asked for instructions, not direct cloud changes.
+- Workflow: reloaded parent/Order instructions, profile, shared allocation, active-work, current sprint, architecture, peer/event contracts, decision/evolution records, project context, current app/Compose config, and relevant skill. Current developer is Yao Xiang / Developer 1 / Sprint 1. Current branch is `order-service/sprint-1/yx-seq1-to-seq11`, matching the profile and this active-work record; shared allocation still lists the older `sprint-1/seq-1-to-6` branch. The earlier user-approved combined-branch handoff remains applicable. Many pre-existing uncommitted Order Service changes exist; they were preserved.
+- Approval: User approved real Pub/Sub, one existing GCP project, topic-level IAM separation, the three dev topic IDs, and implementation. No GCP resources, IAM, peer service, or frontend changes are authorized or performed.
+- Implementation: Replaced the root Compose emulator with real Pub/Sub and a read-only per-developer ADC mount; configured the specified dev topics/project; removed emulator channel support from the Google publisher factory; added environment-backed production topic values; documented the setup in CHANGE-073/ADR-021 and the affected workflow/context files. `ORDER_PEERS_MODE=mock` is unchanged.
+- Verification: The test was changed before the factory implementation. The Maven wrapper could not start (`Cannot start maven from wrapper`), so the focused test did not execute. Docker Compose validation was unavailable because the local Docker CLI could not read `C:\Users\thamy\.docker\config.json` (access denied). Real publish verification remains pending until the GCP topics and IAM are available.
+- Next: Configure Pub/Sub API/topics/topic-scoped IAM in GCP, set the local ADC path in each developer's ignored `.env`, validate Compose, run the focused/full Maven tests, then test a real dev-topic publish.
+
+## Current request - 48-hour delivered-order auto-completion (2026-10-07)
+
+- Request: add a Spring scheduler that finds `DELIVERED` orders whose delivered checkpoint is at least 48 hours old and completes them through the established completion/outbox flow.
+- Workflow finding: `sprints/sprint-1/scope.md` explicitly listed 48-hour auto-completion as out of scope. The user's “continue doing” authorizes this feature and the proposed implementation on the current branch.
+- Approved design: configurable Spring `@Scheduled` trigger; database-side selection of due `DELIVERED` orders from their delivered checkpoint with row locking; exact eligibility is `deliveredAt <= now - 48 hours`; complete each through a trusted lifecycle path sharing the existing completion checkpoint, overdue calculation, command receipt/idempotency, and `OrderCompletionTaskEvent` transactional outbox behavior. Normal requester completion remains available before the threshold. Scheduler actor is `lifecycle`; no peer-service or schema change expected.
+- Branch discrepancy: profile/current branch are `order-service/sprint-1/yx-seq1-to-seq11`; shared `docs/work-allocation.md` lists `sprint-1/seq-1-to-6`. The user authorized proceeding on the current branch; Sequence 5 remains within Yao's assigned feature range. Shared allocation is left unchanged.
+- Implementation: added the lifecycle cron, DB-filtered/locked due-order query, 48-hour recheck, automatic completion transition, and shared completion event/outbox path; updated scope, acceptance/traceability, sequence/class diagrams, ADR/change/evolution, current context, handoff, and usage disclosure. Tests were written before source changes. No peer/frontend changes or schema migration.
+- Status: source and documentation updates complete. `git diff --check` passed. Focused Maven tests did not reach test execution: Java 21 failed during production compilation (`Cannot close compiler resources`); forked compilation also stopped before tests. PostgreSQL query/lock integration test is added but unverified. Run focused tests and `mvn verify` in CI or a working local Java environment.
+
+## Current request - unify OPEN-order refund event (2026-10-06)
+
+- Request: replace separate requester-cancellation and scheduled-expiration events with `OpenOrderRefundTaskEvent`, remove the expiration publisher/topic, and share the new refund topic for both outcomes.
+- Workflow: Order Service spec-driven workflow rehydrated. Developer profile and active branch are Yao Xiang / Developer 1 / Sprint 1 / `order-service/sprint-1/yx-seq1-to-seq11`; this Sequence 6 change is within the shared allocation's sequences 1-6. Existing worktree contains prior uncommitted approved Order Service work, including CHANGE-065 expiry/outbox implementation; preserve it.
+- Approval/classification: the user's direct instruction approves the Sequence 6 event-contract change. This supersedes the separate OPEN-expiration event in CHANGE-065/ADR-015; status transitions remain `CANCELLED` for requester cancellation and `EXPIRED` for scheduler expiry.
+- Implementation: both requester cancellation and scheduled expiry create the shared full-Order refund event; one typed publisher and local topic are configured. Dispatcher tests cover the new route and conversion of pending legacy cancellation/expiry records while preserving stable event IDs. No schema migration or peer-service source change.
+- Status: source and docs complete. `git diff --check` and current-contract/source consistency inspection passed. Focused Maven tests reached production compilation but Java 21 failed with `Fatal Error: Cannot close compiler resources`; forked compilation also stopped before tests. Compose validation is blocked by local Docker CLI/config access. Rerun focused/full tests and Compose validation in CI or a working local environment. Credit subscriber implementation remains future work.
+
+## Current request - finalize accepted-cancellation hold contract (2026-10-06)
+
+- Request: remove the `To be discussed` label for the synchronous hold-for-reopen flow; the user confirmed it as final.
+- Workflow: Order Service spec workflow re-invoked. Profile is Yao Xiang, Sprint 1, branch `order-service/sprint-1/yx-seq1-to-seq11`; branch matches profile and active-work record. Shared allocation still lists initial split sequences 1-6/7-11, so this turn is limited to the user-directed shared contract documentation. Reviewed applicable approval, peer-feedback, ADR, current-sprint, traceability, and completion-report records. No application source or tests are in scope.
+- Decision: FEEDBACK-003 is now `AGREED` for `POST /api/credits/orders/{orderId}/hold-for-reopen`, no body, synchronous `200 OK`, and transaction-state idempotency. Credit implementation remains missing; production authentication and reconciliation are still required.
+- Records: CHANGE-070, FEEDBACK-003, ADR-014, service/current-sprint/traceability/architecture context, structured project context, and AI usage log.
+- Status: Documentation update complete; no runtime/test behavior changed. Credit peer implementation remains unverified.
+
+## Current request - keep Order version local to synchronous Credit calls (2026-10-06)
+
+- Request: retain Order versions in events where they help consumers identify/order event facts, but do not send versions in synchronous requests from Order Service to Credit Service.
+- Workflow: Order Service workflow invoked. Developer profile is Yao Xiang (Developer 1), Sprint 1, branch `order-service/sprint-1/yx-seq1-to-seq11`; the active-work handoff records combined sequences 1-11 on this branch, while the shared allocation table retains the earlier 1-6/7-11 split. User explicitly directed this shared Credit-contract update. Root/Order instructions, current sprint, context/ADRs, peer feedback, existing code/tests, and frontend baseline were rechecked. No frontend change is in scope.
+- Approval: User clarified the rule: keep versions in events, omit versions from synchronous peer-service calls, and send Credit only the Order ID for hold/reset or Order ID plus courier ID for assignment. This supersedes the wider request fields previously proposed in FEEDBACK-003/004.
+- Scope: Keep expected versions at Order API/domain boundaries and event versions in published payloads. Send only `orderId` and `courierId` for assignment, and only `orderId` (no request body) for hold/reset; remove redundant command/requester/amount fields from these Credit calls. Keep settlement versionless. Do not modify Credit Service or frontend.
+- Provider finding: Credit's courier-assignment and hold/reset routes remain missing. Event consumers may use event `orderVersion`; no event contract change is approved.
+- Test-first plan: update HTTP adapter and mock adapter expectations first; assert assignment serializes only courier ID, hold has no request body, and repeated identical transaction-state operations are safe; update acceptance/cancellation call assertions. Then update code and docs.
+- Status: implemented in Order port, HTTP DTOs, mock behavior, and application calls; contract/docs updated. The focused Maven attempt before this final request-shape refinement failed before tests with javac's `Cannot close compiler resources`; the reduced contract still needs verification in a working Java 21 environment. Actual Credit API routes remain open.
+
+## Current request - record Credit courier assignment on acceptance (2026-10-06)
+
+- Request: before accepting an Order, synchronously ask Credit Service to associate the reservation/transaction with the acting courier; only persist `ACCEPTED` after Credit confirms.
+- Workflow: rechecked Order Service instructions and spec-driven workflow, developer profile, work allocation, active work, branch, acceptance application/domain code, Credit controller/service/repository/model/API tests, contracts, and peer-feedback workflow. Yao Xiang's Developer 1 profile and approved combined sequences 1-11 branch match `order-service/sprint-1/yx-seq1-to-seq11`.
+- Approval: user directly specified the synchronous interaction and then explicitly authorized an Order-side mock/contract-stub milestone to link acceptance, with the real Credit endpoint to replace it later. Do not represent the stub as a verified Credit integration.
+- Finding/classification: `MISSING`. Credit's reservation record contains nullable `courierId`, but its controller/service exposes no operation to set it. Order now has an approved contract stub to call while provider work remains pending.
+- Scope: Order Service port, mock/HTTP adapters, acceptance service/domain validation, tests, and synchronized stub/change docs. Do not modify Credit Service or frontend.
+- Source drift/blocker: referenced Project D1 and updated overall-design PDFs remain absent. Credit assignment route is missing; trusted service authentication/idempotency/failure-recovery semantics remain open for the real provider.
+- Status: Order-side port/mock/HTTP contract stub and acceptance sequencing implemented. FEEDBACK-004 remains `OPEN`; actual Credit integration is unverified. Focused Maven tests were blocked at compilation by `Fatal Error: Cannot close compiler resources`.
+- Design: `OrderAssignmentService` holds/validates the Order, awaits `assignCourier`, then rechecks expiry and persists acceptance. Mock behavior enforces active reservation, exact command idempotency, assignment conflicts, settlement-to-assigned-courier, and assignment clearing on reopen hold. HTTP DTOs validate the proposed `200 OK` confirmation.
+- Records: CHANGE-068, ADR-017, Sequence 3 contract diagram, service contracts, sprint acceptance criteria, architecture context, traceability, and AI usage log were updated. No Credit Service or frontend source changed.
+- Remaining: rerun Maven in a functioning local compiler environment; Credit must implement/agree trusted service authentication, route/response, idempotency, and failure recovery before HTTP-peer use or FEEDBACK-004 verification.
+
+## Current request - remove completed endpoints from peer feedback (2026-10-06)
+
+- Request: keep the peer API feedback focused on endpoints that still need an adjustment or peer implementation; remove the completed Credit reservation endpoint.
+- Workflow: rechecked Order Service instructions, profile, allocation, active work, current branch, peer-feedback document, and the implementation references. Yao Xiang's Developer 1 profile and combined sequences 1-11 authorization match `order-service/sprint-1/yx-seq1-to-seq11`.
+- Scope: documentation-only cleanup in `docs/peer-service-api-feedback.md`; retain the Supplier response-handling gap and missing event consumers/Credit hold endpoint. No peer source or endpoint implementation changes.
+- Source drift: referenced Project D1 and updated overall-design PDFs remain absent from this checkout; this cleanup changes no business behavior or approved contract.
+- Status: complete. Removed completed User role/eligibility and Credit reservation endpoint descriptions; retained Supplier validation because Order must handle its `valid: false` response, plus missing event consumers and the proposed Credit hold endpoint. `git diff --check` passed; no peer source changed.
+
+## Current request - remove checkpoint history from Order events (2026-10-06)
+
+- Request: omit checkpoint history from published Order event payloads because it duplicates the order's history; update peer API feedback accordingly.
+- Workflow: checked parent/Order instructions, profile, work allocation, active-work record, current sprint, relevant contracts/ADRs, and branch. Yao Xiang's Developer 1 profile and combined sequences 1-11 handoff match branch `order-service/sprint-1/yx-seq1-to-seq11`.
+- Approval: user's direct request approves the contract change. Current peer consumer implementation is absent, so the new payload field set is the contract future subscribers should implement.
+- Scope: Order event DTO/mapping and tests plus synchronized Order Service contracts, diagrams, evolution/change records, handoff, and AI disclosure. Preserve internal checkpoints and completion overdue calculation; no peer source or database schema change.
+- Source drift: Project D1 and updated overall-design PDFs referenced by `docs/project-d1-reference.md` are absent from this checkout. Use approved Markdown decisions and the inspected current event implementation.
+- Status: source and documentation updates complete; focused Maven verification blocked by the local Java compiler (`Fatal Error: Cannot close compiler resources`, also generic failure with forked compilation). `git diff --check` passed; CI verification remains pending.
+
+## Current request - rewrite peer service API feedback (2026-10-04)
+
+- Request: rewrite `docs/peer-service-api-feedback.md` to give peer teams concrete contracts and payload field formats, and add a clearly labeled “To be discussed” section for Credit's unexpired accepted-cancellation hold endpoint.
+- Workflow: reloaded Order Service instructions, local developer profile, allocation, active work, current sprint, relevant contracts/decisions/diagrams, peer-feedback rules, and completion format. Current branch is `order-service/sprint-1/yx-seq1-to-seq11`, matching Yao Xiang's approved combined sequences 1-11 handoff.
+- Source drift: Project D1 and updated overall-design PDF files referenced by `docs/project-d1-reference.md` are not present in this checkout, so their fingerprints could not be rechecked. This documentation rewrite follows the approved current Markdown amendments and the actual peer/Order DTO implementations.
+- Scope: documentation only in Order Service plus the permitted AI usage disclosure. Preserve other in-progress scheduler/outbox work in the shared working tree; do not modify peer source.
+- Peer inspection: confirmed Credit implements reservation and lookup HTTP routes but has no hold-for-reopen route or requested event consumers; User implements role-context/courier-eligibility HTTP routes but lacks the requested outcome event consumers; Supplier implements the validation route used by Order. Contract wording will distinguish current peer implementations from future requirements.
+- Result: rewrote FEEDBACK-001 as superseded history, expanded FEEDBACK-002 with subscriber contracts and complete event fields, and added FEEDBACK-003 “To be discussed” with the hold-for-reopen request/success format and required behavior. Corrected ADR-014 and Vincent handoff references, and recorded CHANGE-066.
+- Verification: inspected the current peer controllers/DTOs and Order event models/adapter; `git diff --check` passed for changed Markdown. No tests were run for this documentation-only change. Peer consumers and the Credit hold endpoint remain unverified.
+
 - Developer: Developer 1
 - Sprint: Sprint 1
 - Scope: Approved combined Order Service sequences/features 1-11 handoff
 - Branch: `order-service/sprint-1/yx-seq1-to-seq11`
+
+## Current request - scheduled OrderExpirationTaskEvent (2026-10-03)
+
+- Request and approval: the user confirmed that updated overall Sequence 6 combines requester-triggered OPEN cancellation and scheduler-triggered OPEN expiry, with different event types; Credit consumes the expiry event and refunds. The user explicitly selected Spring scheduler.
+- Workflow findings: use the existing transactional outbox after-commit path; add a separate Spring `@Scheduled` scan because the existing outbox cron only recovers pending events and does not find expired orders.
+- Source review: the updated overall PDF was located, but local PDF text/render tools and Python were unavailable. The user explicitly supplied the Sequence 6 relationship and event behavior; that direction was used for the synchronized Markdown sequence.
+- Implementation: added `OrderExpirationTaskEvent`, mapper, publisher interface/implementation, dispatcher route, and a configurable `OrderExpiryScheduler`; expiry persists status, checkpoint, and outbox intent atomically. Added row-level pessimistic locking to the due-order query and removed the synchronous Credit `release` port and adapters.
+- Documentation: synchronized updated overall Sequence 6, Sequence 9 requirements/acceptance, publisher class diagram, service/peer contracts, event decisions, ADR-015, CHANGE-065, architecture evolution, traceability, current sprint, and Vincent handoff. No Credit/User source or root Compose changes.
+- Peer status: Credit expiration-event consumer remains future work and was not modified. Local emulator topic initialization does not include the new topic; set `ORDER_EXPIRATION_TOPIC` / initialize it before a local publish test.
+- Operational limit: Cloud Run scale-to-zero with request-based CPU does not guarantee Spring scheduling while idle; the user selected Spring scheduling, but production runtime reliability remains unresolved and no deployment/billing changes were made.
+- Verification: focused Maven test invocation is currently blocked during Java compilation by the local Windows toolchain's `Fatal Error: Cannot close compiler resources` / generic compilation failure. An attempted `mvn clean` could not resolve the uncached clean plugin because network access is denied. `git diff --check` passed; rerun Maven/CI in a working toolchain before marking verified.
 
 ## Current task - Pub/Sub publisher factory CI test (2026-10-03)
 
@@ -115,7 +216,7 @@ The implementation uses Pub/Sub for completion, open cancellation, and expired a
 
 ## Blockers
 
-- FEEDBACK-001 remains open for real Credit Service settlement and release operations.
+- FEEDBACK-001 is superseded for outcome processing by FEEDBACK-002; current peer work is the missing Credit/User event consumers (FEEDBACK-002) and Credit hold-for-reopen endpoint (FEEDBACK-003). The Supplier pair-validation response also requires an Order-side adapter fix because HTTP 200 with `valid: false` is currently ignored.
 - CHANGE-050's full-suite test execution is now verified by CHANGE-054; its API/runtime peer contracts retain their separate integration risks.
 - CHANGE-054 selected Pub/Sub. Topic IDs remain placeholders and the event path fails closed until a real topic is supplied. Full snapshots include persisted Order fields and checkpoint history; overdue facts derive from accepted/delivered checkpoints, so no new schema field is needed. Pub/Sub emulator runtime availability is unconfirmed.
 - FEEDBACK-002 remains OPEN because actual peer consumers are absent/unverified, but their future implementation is assumed and does not block this Order-only milestone.
@@ -158,7 +259,7 @@ The implementation uses Pub/Sub for completion, open cancellation, and expired a
 - Recommended local development direction: run the Pub/Sub emulator and point the Order container to it. The existing Java publisher factory already configures plaintext transport and no credentials for a nonblank emulator host. Topics must be created in the emulator before publishing; the emulator does not provide production IAM validation.
 - No implementation/configuration change was made in this advisory turn. Emulator integration and real-cloud smoke-test workflow remain design options, not approved implementation changes.
 
-## CHANGE-060 - Local Pub/Sub emulator
+## CHANGE-060 - Local Pub/Sub emulator (superseded by CHANGE-073/ADR-021)
 
 - User approved using only the emulator for local publishing while keeping the configured Google Cloud project/topic defaults for deployment.
 - Root `compose.yaml` now starts Google's Cloud SDK emulator image, waits for its port, initializes all three Order event topics, and starts Order Service only after topic setup succeeds. Local Order Service gets `PUBSUB_EMULATOR_HOST=pubsub-emulator:8085`, `PUBSUB_PROJECT_ID=demo-foc`, and the three local topic IDs. `ORDER_PEERS_MODE=mock` remains unchanged.

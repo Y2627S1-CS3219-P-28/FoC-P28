@@ -23,7 +23,6 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
     private final Map<String, Reservation> reservations = new ConcurrentHashMap<>();
     private final Map<String, Outcome> outcomes = new ConcurrentHashMap<>();
-    private final Map<String, ReopenHold> reopenHolds = new ConcurrentHashMap<>();
 
     @Override
     public String verifyRequester(String userId, String authorization) {
@@ -79,7 +78,30 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
         account.reserved += amount;
         reservations.put(
                 orderId,
-                new Reservation(requesterId, amount, ReservationState.RESERVED));
+                new Reservation(requesterId, amount, ReservationState.RESERVED, null));
+    }
+
+    @Override
+    public synchronized void assignCourier(
+            String orderId,
+            String courierId,
+            String authorization) {
+        require(orderId, "order");
+        require(courierId, "courier");
+
+        Reservation reservation = reservations.get(orderId);
+        if (reservation == null
+                || (reservation.getState() != ReservationState.RESERVED
+                    && reservation.getState() != ReservationState.HELD_FOR_REOPEN)
+                || (reservation.getCourierId() != null && !reservation.getCourierId().equals(courierId))) {
+            throw new IllegalStateException("Credit reservation cannot be assigned to this courier.");
+        }
+
+        if (courierId.equals(reservation.getCourierId())) {
+            return;
+        }
+        reservations.put(orderId, new Reservation(
+                reservation.getRequesterId(), reservation.getAmount(), ReservationState.RESERVED, courierId));
     }
 
     @Override
@@ -89,7 +111,6 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
             String requesterId,
             String courierId,
             long amount,
-            long expectedOrderVersion,
             String authorization) {
         require(commandId, "credit command");
         require(orderId, "order");
@@ -108,6 +129,10 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
         }
 
         requireReservation(orderId, requesterId, amount);
+        Reservation reservation = reservations.get(orderId);
+        if (!courierId.equals(reservation.getCourierId())) {
+            throw new IllegalStateException("Credit reservation is assigned to a different courier.");
+        }
         Account requester = account(requesterId);
         Account courier = account(courierId);
         requester.total -= amount;
@@ -115,87 +140,29 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
         courier.total += amount;
         reservations.put(
                 orderId,
-                new Reservation(requesterId, amount, ReservationState.SETTLED));
+                new Reservation(requesterId, amount, ReservationState.SETTLED, courierId));
         outcomes.put(commandId, new Outcome(orderId, "SETTLED"));
     }
 
     @Override
     public synchronized void holdForReopen(
-            String commandId,
             String orderId,
-            String requesterId,
-            String courierId,
-            long amount,
-            long expectedOrderVersion,
             String authorization) {
-        require(commandId, "credit command");
         require(orderId, "order");
-        require(requesterId, "requester");
-        require(courierId, "courier");
-        requireAmount(amount);
-
-        Outcome previous = outcomes.get(commandId);
-        if (previous != null) {
-            ReopenHold priorHold = reopenHolds.get(commandId);
-            if (!previous.getOrderId().equals(orderId)
-                    || !previous.getKind().equals("HELD_FOR_REOPEN")
-                    || priorHold == null
-                    || !priorHold.matches(orderId, requesterId, courierId, amount, expectedOrderVersion)) {
-                throw new IllegalStateException("Credit command conflicts with an earlier outcome.");
-            }
-            return;
-        }
 
         Reservation reservation = reservations.get(orderId);
-        if (reservation == null
-                || (reservation.getState() != ReservationState.RESERVED
-                    && reservation.getState() != ReservationState.HELD_FOR_REOPEN)
-                || !reservation.getRequesterId().equals(requesterId)
-                || reservation.getAmount() != amount) {
-            throw new IllegalStateException("Credit reservation does not match the order being reopened.");
-        }
-        reservations.put(orderId, new Reservation(requesterId, amount, ReservationState.HELD_FOR_REOPEN));
-        outcomes.put(commandId, new Outcome(orderId, "HELD_FOR_REOPEN"));
-        reopenHolds.put(commandId, new ReopenHold(
-                orderId, requesterId, courierId, amount, expectedOrderVersion));
-    }
-
-    @Override
-    public synchronized void release(
-            String commandId,
-            String orderId,
-            String requesterId,
-            long amount,
-            String outcome,
-            long expectedOrderVersion,
-            String authorization) {
-        require(commandId, "credit command");
-        require(orderId, "order");
-        require(requesterId, "requester");
-        requireAmount(amount);
-        require(outcome, "credit outcome");
-
-        if (!outcome.equals("CANCELLED") && !outcome.equals("EXPIRED")) {
-            throw new IllegalArgumentException(
-                    "Credit outcome must be CANCELLED or EXPIRED.");
-        }
-
-        Outcome previous = outcomes.get(commandId);
-        if (previous != null) {
-            if (!previous.getOrderId().equals(orderId)
-                    || !previous.getKind().equals(outcome)) {
-                throw new IllegalStateException(
-                        "Credit command conflicts with an earlier outcome.");
-            }
+        if (reservation != null
+                && reservation.getState() == ReservationState.HELD_FOR_REOPEN
+                && reservation.getCourierId() == null) {
             return;
         }
-
-        requireReservation(orderId, requesterId, amount);
-        account(requesterId).reserved -= amount;
-        reservations.put(
-                orderId,
-                new Reservation(requesterId, amount, ReservationState.RELEASED));
-        outcomes.put(commandId, new Outcome(orderId, outcome));
+        if (reservation == null
+                || reservation.getState() != ReservationState.RESERVED
+                || reservation.getCourierId() == null) {
+            throw new IllegalStateException("Credit reservation does not match the order being reopened.");
+        }
+        reservations.put(orderId, new Reservation(
+                reservation.getRequesterId(), reservation.getAmount(), ReservationState.HELD_FOR_REOPEN, null));
     }
 
     /** Test/support view; not a production Credit API. */
@@ -208,6 +175,12 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     public synchronized String reservationState(String orderId) {
         Reservation reservation = reservations.get(orderId);
         return reservation == null ? null : reservation.getState().name();
+    }
+
+    /** Test/support view; not a production Credit API. */
+    public synchronized String reservationCourier(String orderId) {
+        Reservation reservation = reservations.get(orderId);
+        return reservation == null ? null : reservation.getCourierId();
     }
 
     private Account account(String userId) {
@@ -258,35 +231,13 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
         String requesterId;
         long amount;
         ReservationState state;
-    }
-
-    @Value
-    private static class ReopenHold {
-        String orderId;
-        String requesterId;
         String courierId;
-        long amount;
-        long expectedOrderVersion;
-
-        private boolean matches(
-                String orderId,
-                String requesterId,
-                String courierId,
-                long amount,
-                long expectedOrderVersion) {
-            return this.orderId.equals(orderId)
-                    && this.requesterId.equals(requesterId)
-                    && this.courierId.equals(courierId)
-                    && this.amount == amount
-                    && this.expectedOrderVersion == expectedOrderVersion;
-        }
     }
 
     private enum ReservationState {
         RESERVED,
         HELD_FOR_REOPEN,
-        SETTLED,
-        RELEASED
+        SETTLED
     }
 
     private static final class Account {

@@ -1,5 +1,9 @@
 # CHANGE-053: Publish task event before Order status commit
 
+> Current outbox behavior and Pub/Sub environment/topic configuration are recorded in CHANGE-063/ADR-013 and CHANGE-073/ADR-021. Placeholder topics and publish-before-status below are historical.
+
+> Historical payload note: CHANGE-067/ADR-016 supersedes this record's inclusion of checkpoint history in the event snapshot. The effective payload omits history; completion overdue facts still derive from it internally.
+
 - Date: 2026-10-02
 - Developer: Yao Xiang
 - Status: User-approved ordering/payload direction; Pub/Sub transport and implementation tracked in CHANGE-054

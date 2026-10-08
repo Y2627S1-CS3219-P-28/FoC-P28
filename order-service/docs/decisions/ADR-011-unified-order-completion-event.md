@@ -1,5 +1,7 @@
 # ADR-011: Unified order completion event
 
+> Current Pub/Sub project/topic/authentication configuration is recorded in CHANGE-073/ADR-021; the historical topic-placeholder note below is superseded.
+
 - Status: Accepted by the user's explicit request; implementation and suite verification passed
 - Date: 2026-10-02
 - Owner: Order Service
@@ -8,7 +10,7 @@
 
 ## Decision
 
-Order Service publishes exactly one `OrderCompletionTaskEvent` whenever a requester completes a delivered order. The event contains the full Order snapshot plus `overdue` and `overdueAt` facts. `overdue` is true when the delivery checkpoint occurred strictly after the deadline derived from the acceptance checkpoint and the Order's delivery limit. User Service receives every completion and applies its policy based on those facts (penalty when overdue, score decrease when not overdue). Credit Service also receives every completion and applies its settlement policy from the same event. Order Service does not wait for either subscriber.
+Order Service publishes exactly one `OrderCompletionTaskEvent` whenever a requester completes a delivered order. The event contains the resulting Order/repost fields (without checkpoint history) plus `overdue` and `overdueAt` facts. `overdue` is true when the delivery checkpoint occurred strictly after the deadline derived from the acceptance checkpoint and the Order's delivery limit. Order reads the persisted checkpoints internally to derive these facts; it does not serialize them into the event. User Service receives every completion and applies its policy based on those facts (penalty when overdue, score decrease when not overdue). Credit Service also receives every completion and applies its settlement policy from the same event. Order Service does not wait for either subscriber.
 
 Under CHANGE-063/ADR-013, Order Service persists `COMPLETED`, its checkpoint, command receipt, and the completion event in one PostgreSQL transaction. The event snapshot represents the resulting `COMPLETED` state. An after-commit listener attempts Pub/Sub delivery immediately; a scheduled recovery job retries durable pending rows. A Pub/Sub failure does not undo the committed completion. Delivery is at least once, so consumers must deduplicate by stable `eventId`.
 
