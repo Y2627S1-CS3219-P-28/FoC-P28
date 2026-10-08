@@ -1,5 +1,8 @@
 # ADR-022: Quarter-hour errand time selection and scheduler cadence
 
+> Scheduler settings/cadence superseded by ADR-026 / CHANGE-083: one shared
+> minute job and 15-minute recovery. Quarter-hour UI selectors remain.
+
 > The pending-event recovery interval in this ADR was superseded by [ADR-023](ADR-023-hourly-outbox-recovery.md). The 15-minute expiry, one-minute auto-completion, and immediate after-commit dispatch decisions remain effective.
 
 - Status: Accepted by explicit user direction; implementation verified locally; browser/cloud scheduling checks pending

@@ -2,6 +2,7 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-083](../changes/CHANGE-083-diagram-cadence-and-repost-review.md) | 2026-10-08/09 | Cadence/Supplier repair verified; repost design pending | Shared minute job, 15-minute recovery, Supplier valid:false guard; target diagram and peer retry/auth feedback; 163 backend / 34 frontend tests |
 | [CHANGE-082](../changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md) | 2026-10-08 | Order slice implemented; local gates pass; production integration pending | V3 internal UUID and immutable courier attempts, every-abort reset/penalty, expired refund, requester repost filtering, replay authorization; 162 backend/34 frontend tests and >=80% line/branch coverage |
 | [CHANGE-081](../changes/CHANGE-081-sprint-2-3-scope-and-decisions.md) | 2026-10-08 | Historical partial approval; resolved/implemented by CHANGE-082 | Vincent's Order-owned Sprint 2-3 scope/history/events and local assignment mock; preserve approved old/new IDs and requester visibility override |
 | [CHANGE-078](../changes/CHANGE-078-hourly-outbox-recovery.md) | 2026-10-08 | Implemented; static configuration checks passed; test suite not run | Hourly outbox recovery poll; preserves immediate after-commit publication, 15-minute expiry and minute auto-completion |

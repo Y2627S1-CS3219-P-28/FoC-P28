@@ -6,7 +6,7 @@ This document is the Order Service integration handoff for User, Supplier, and C
 
 | Peer service     | Integration                                                                       | Current status                                                 | Peer action                                                                                                              |
 | ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Supplier Service | Validate pickup/delivery supplier pair                                            | Endpoint exists; Order-side response handling needs adjustment | Order must reject `valid: false` responses even when Supplier returns `200 OK`.                                          |
+| Supplier Service | Validate pickup/delivery supplier pair | Existing provider inspected; Order handling repaired in CHANGE-083 | Order rejects valid:false and missing confirmation; stub tests are not live verification. |
 | Credit Service   | Completion and shared refund consumers (including expired abort)                 | Not found in inspected peer source                             | Implement FEEDBACK-002; coordinate legacy accepted-cancellation refund replay.                                           |
 | User Service     | Completion and EVERY courier-abort penalty consumer                               | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
 | Credit Service   | Synchronous hold/reset on EVERY accepted-order abort                               | Contract agreed; no matching endpoint found                    | Credit must implement the agreed FEEDBACK-003 endpoint before HTTP-peer mode supports this flow.                         |
@@ -16,7 +16,7 @@ Historical inspection is based on peer controllers/DTOs/services/repositories/te
 
 ## Existing endpoint requiring an Order-side adjustment
 
-Supplier Service has implemented pickup/delivery pair validation. Order Service must inspect its response and treat `valid: false` as a validation failure; the current HTTP adapter only treats HTTP errors as rejection.
+Supplier Service has implemented pickup/delivery pair validation. CHANGE-083 repairs Order's adapter: valid:false rejects even HTTP 200; a missing body/valid field fails closed. The old adapter discarded this body. Supplier source is unchanged; an authenticated live test remains required.
 
 ### Supplier Service: validate the pickup/delivery pair
 
@@ -285,6 +285,39 @@ The user approved an Order-side mock/contract-stub milestone while the Credit en
 This is **not** a Credit endpoint implementation and does not verify a live peer integration. FEEDBACK-004 remains `OPEN`; Credit must agree/implement the route, trusted service authentication, state-based idempotency, and recovery semantics. The local base Compose configuration selects the mock adapter; `compose.http-peers.yaml` will fail on this operation until Credit provides the route.
 
 ## Feedback status rules
+
+### 2026-10-08: Updated diagram/provider reconciliation
+
+Local controller/service/DTO/security/repository source was re-inspected, not live peer APIs. User role-context/courier-eligibility and Supplier validation already exist. Credit PUT/GET reservation exists; assignment/reset routes and Credit/User PubSub outcome consumers were not found. FEEDBACK-002/003/004 remain open/provider missing. Mock mode alone models missing providers; HTTP mode never silently falls back.
+
+| Local/staging topic (production suffix prod-v1) | Event / consumer | Required consequence |
+| --- | --- | --- |
+| open-order-refund-dev-v1 | OpenOrderRefundTaskEvent / Credit | Release old-ID reservation for CANCELLED or EXPIRED, including expired abort. |
+| accepted-order-cancellation-dev-v1 | AcceptedOrderCancellationTaskEvent / User | Penalize aborting actorId once for EVERY abort; current snapshot OPEN or EXPIRED. |
+| order-completion-dev-v1 | OrderCompletionTaskEvent / Credit and User | Credit settles to snapshot courier; User applies overdue/on-time consequences. |
+
+All bodies: eventId, eventType, eventVersion:1, orderId, orderVersion, occurredAt, actorId, order (full current snapshot documented above). Completion additionally has overdue, overdueAt. No checkpoint/internal row/attempt IDs. All intents attempt publication immediately after commit; ADR-026 recovers pending/failed/expired leases every 15 minutes. Expected publish response is PubSub messageId; consumer must deduplicate, commit its business transaction, then ACK. No synchronous business response returns to Order; a publish ACK is not refund confirmation. EXPIRED refund is already present in Order code.
+
+### FEEDBACK-006: Reservation confirmation and safe repost recovery (OPEN)
+
+- **Owner:** Annablee / Credit; Order owns response handling and any approved retry persistence.
+- **Existing request:** PUT /api/credits/orders/{newOrderId}/reservation, Authorization: Bearer <Firebase ID token>, JSON `{"requesterId":"requester-uid","amount":12}`. NewOrderId is NEW for a repost, not the expired original ID. Existing provider requires caller UID == requesterId.
+- **Existing success:** 201 new / 200 replay; JSON `{"orderId":"new-order-id","requesterId":"requester-uid","courierId":null,"amount":12,"status":"RESERVED","balance":{"userId":"requester-uid","totalBalance":50,"reservedBalance":12,"usableBalance":38,"version":1,"asOf":"ISO-8601"},"createdAt":"ISO-8601","updatedAt":"ISO-8601","refundedAt":null,"paidAt":null}`. Timestamp strings here are format placeholders; use real ISO-8601 instants. Field names were checked against the actual ReservationResponse/BalanceResponse DTOs.
+- **Existing recovery read:** GET /api/credits/orders/{newOrderId}/reservation, same bearer, no body; 200 returns reservation/status/timestamps (balance may be absent); 404 RESERVATION_NOT_FOUND indicates absent at that observation, not proof an in-flight write cannot later commit.
+- **Required confirmation:** Order must validate 200/201, matching orderId/requesterId/amount and active RESERVED state. Empty/202/malformed/mismatched/REFUNDED/PAID responses must not create OPEN.
+- **Provider gap:** current FirestoreCreditRepository.reserve replays an existing same-ID/requester/amount reservation without rejecting terminal status. Please agree terminal replay behavior (recommended 409 RESERVATION_CONFLICT), transactional idempotency and unknown-outcome reconciliation. Never overwrite refunded/paid reservations or allocate a different ID just to retry an unknown outcome.
+- **Insufficient funds:** existing 409 envelope has `error:"INSUFFICIENT_CREDITS"`, status/message/path/timestamp/details. Only this semantic code should produce the small insufficient-credit card message, never every 409 or message-substring matching. It does not tell Order whether an old refund is pending.
+- **Other errors:** 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 ACCOUNT_NOT_FOUND/RESERVATION_NOT_FOUND; 409 RESERVATION_CONFLICT; 503 SERVICE_UNAVAILABLE; 500 INTERNAL_ERROR. Agree transient timeout/connection-loss/429/5xx recovery versus permanent failures, and safe compensation for a reservation committed after expiry/local failure.
+- **Proposed, NOT approved:** durable retry request with one fixed candidate UUID saved before external reservation; commandId bound to requester/original/payload; retry temporary failures until success or configured expiry, not malformed/revoked requests forever. Isolate attempts and reconcile SAME candidate ID; preserve independent old-ID refund/outbox. Trusted credentials need FEEDBACK-005 agreement.
+- **Current limitation:** original remains EXPIRED/unlinked on reservation failure, but Order does not yet persist failures/retries, validate reservation bodies, classify Credit semantic errors or display persistent repost failure messages. This inspection is not live verification.
+
+### FEEDBACK-005 follow-up: queued/automatic retry authentication
+
+The internal repost endpoint passes a lifecycle secret as a bearer; it is not a Firebase user token. User-bound Supplier/Credit APIs cannot safely be retried indefinitely after logout/restart with that credential.
+
+Proposed for owner discussion (not implemented/peer-approved): trusted Order service identity with restricted audience/delegated requester authorization on existing validation/reservation/status routes. Keep documented body fields; agree issuer/audience, permitted actions, requester delegation, audit, refresh/rotation/storage, timeouts and denial semantics. Do not add an anonymous/secret bypass, retain user bearers indefinitely, or mock-fallback in HTTP mode. Pending user choice: this proposal versus retries requiring a freshly authenticated user request. No refund-confirmation event is silently introduced.
+
+## Feedback status meanings
 
 - `OPEN`: required peer capability is missing or agreement/implementation is pending.
 - `AGREED`: Order-side behavior and contract are finalized, but the required peer implementation is missing.

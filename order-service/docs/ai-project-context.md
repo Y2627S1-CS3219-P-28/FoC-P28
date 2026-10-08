@@ -1,5 +1,12 @@
 # Order Service Permanent Project Context
 
+Latest CHANGE-083 / ADR-026: one minute expiry/completion job, 15-minute outbox
+recovery and retained immediate dispatch; retired timer settings do not apply.
+Supplier valid:false handling repaired on Order side. Explicit repost expiry,
+durable retries and insufficient-credit-only card feedback remain incomplete.
+Retry persistence/security approval is pending; read the diagram reconciliation
+gap table, Vincent active-work and FEEDBACK-005/006 before continuing.
+
 This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
 
 ## Current workstream - CHANGE-081/082 (2026-10-08)
@@ -223,7 +230,12 @@ CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order ca
 
 ## Current time-selection and scheduler defaults (CHANGE-077 / ADR-022)
 
-USER Requester creation/repost clock minutes are 00/15/30/45; local defaults/minimum suggestions round up, with at least 30 minutes before expiry. API callers and existing rows retain arbitrary valid timestamps. Expiry runs every 15 minutes; pending outbox recovery hourly under ADR-023; delivered auto-completion every minute with the unrounded delivered checkpoint. Immediate after-commit publication stays active. Configuration is synchronized across application defaults, Compose, .env.example and both cloud environment files/template. Browser/Cloud Run idle scheduling remain unverified; scale-to-zero/request CPU limits are unchanged.
+USER Requester creation/repost clock minutes remain 00/15/30/45; suggestions
+round up and existing 30-minute creation expiry validation remains. API/legacy
+timestamps are not rounded. ADR-026 replaces ADR-022/023 cadence with one shared
+minute expiry/completion job and 15-minute all-event recovery; immediate dispatch
+retained. Application/Compose/env/deployment timer configuration is synchronized.
+Browser/idle Cloud Run scheduling is unverified; execution-model limits unchanged.
 
 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)

@@ -4,12 +4,20 @@ Developer Vincent, branch `sprint-2-3`. Authority: Project D1, user-selected `Or
 
 ## Class and data responsibilities
 
+CHANGE-083 / ADR-026 uses one OrderLifecycleScheduler every minute for expiry
+and >=48h completion, with 15-minute recovery and immediate dispatch retained.
+See [the updated target diagram and gap table](../../docs/diagrams/order-lifecycle-reconciliation.md).
+Explicit automatic repost expiry/durable retries/failure UI remain incomplete.
+
 ```mermaid
 flowchart LR
   Controller[OrderController / authentication] --> Transition[OrderTransitionService]
   Controller --> Assignment[OrderAssignmentService]
   Controller --> Repost[OrderRepostService]
   Controller --> Query[OrderQueryService]
+  Tick[OrderLifecycleScheduler: every minute] --> Lifecycle[LifecycleProcessingService]
+  Lifecycle --> Transition
+  Lifecycle --> Outbox
   Transition --> Domain[Order: one current state / ownership / version]
   Assignment --> Domain
   Repost --> Domain
@@ -21,7 +29,7 @@ flowchart LR
   Persistence --> Current[orders: row UUID PK / unique business ID]
   Persistence --> Attempts[immutable courier attempts: attempt UUID / business ID]
   Transition --> Outbox[transactional outbox: stable event ID / business ID]
-  Outbox --> Relay[after-commit relay / cron recovery / PubSub]
+  Outbox --> Relay[immediate after-commit relay / 15-minute recovery / PubSub]
 ```
 
 User/Supplier ports remain authoritative identity/catalogue providers. `OrderCourierAttempt` is a snapshot, not a second current aggregate. Checkpoints can repeat statuses and remain chronological. Events contain current Order fields, not internal row/attempt IDs. Credit owns funds, User owns penalties.

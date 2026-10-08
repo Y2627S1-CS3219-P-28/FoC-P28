@@ -1,5 +1,28 @@
 # Vincent - Active Work
 
+## Current diagram reconciliation - 2026-10-08 (CHANGE-083)
+
+- Same developer/branch/boundaries as below; PDFs and learning unchanged.
+- Approved cadence implemented: one minute lifecycle job for OPEN expiry and
+  >=48-hour DELIVERED completion; 15-minute outbox recovery for all event types;
+  immediate dispatch retained. Single ORDER_LIFECYCLE_CRON replaces old settings.
+  Atomic cadence commit: 392104b.
+- Supplier valid:false/missing-confirmation repair follows the inspected existing
+  provider contract; two new regressions failed before the adapter change.
+- Approved explicit repost expiry/strict timing remains unimplemented; existing
+  automatic expiry is still duration-derived. Frontend failure/status unchanged.
+- Pending decisions: durable fixed-ID retries bounded by expiry/permanent errors;
+  trusted background service authorization versus freshly authenticated user calls.
+- Missing Credit assignment/reset and Credit/User consumers rechecked; feedback
+  gives formats/responses and reservation reconciliation. HTTP stays fail-closed.
+- Final verify after Supplier repair: 163 backend tests, no failures/errors/skips;
+  isolated PostgreSQL tests pass; fresh coverage 93.37% lines / 82.82% branches.
+  Unchanged frontend baseline: 34 Vitest/RTL tests pass. Base/HTTP Compose static
+  checks and normalized timer settings pass; no full stack/browser/cloud test.
+  Supplier implementation commit: d21c450. Detailed evidence in CHANGE-083.
+- Next: decisions -> detailed retry/schema/API/security approval -> explicit expiry,
+  durable auto/manual retries and Order UI/tests. Status [~]; peers/browser/cloud pending.
+
 ## Current Sprint 2-3 implementation - 2026-10-08
 
 - Developer: Vincent, Developer 2; explicitly confirmed by the user.

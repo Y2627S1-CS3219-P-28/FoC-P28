@@ -1,5 +1,23 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-028: Updated diagram cadence and repost reconciliation
+
+- Approved by Vincent, 2026-10-08, CHANGE-083 / ADR-026: one shared minute
+  expiry/completion job and 15-minute recovery for all three event types.
+  Supersedes only cadence/settings of ADR-022/023; keeps immediate dispatch,
+  >=48h latest-delivery completion and ADR-025 abort/history/new-repost-ID rules.
+- Ordinary implementation defect: Supplier valid:false/missing confirmation
+  repaired against its existing contract; no peer design change.
+- Approved NTH4 target: repostExpiresAt > repostDueAt >= original.expiresAt;
+  late processing only while new expiry is future. Explicit field/retry/UI
+  failure state is NOT implemented yet.
+- Proposed, pending decisions: fixed-ID durable retries with expiry/permanent-error
+  limits; trusted background service authorization versus fresh-user requests.
+  No new retry schema/peer endpoint/refund-confirmation event silently approved.
+- Context/diagram/contract/traceability/feedback/timer/test chain synchronized;
+  original PDF/PNG and learning unchanged. Local verify passed 163 backend tests,
+  34 unchanged frontend tests, >=80% line/branch gates; peers/browser/cloud open.
+
 ## ARCH-EVO-027: Sprint 2-3 abort history and lifecycle amendments (2026-10-08)
 
 - Classification: Approved architecture/specification change, implemented and locally verified; not production-complete.

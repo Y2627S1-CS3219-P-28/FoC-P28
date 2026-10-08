@@ -176,11 +176,23 @@ updated_overall_design_vs_sprint_scope = "CHANGE-082/ADR-025 supersedes ADR-001/
 decision = "ADR-022 / CHANGE-077"
 requester_clock_minutes = [0, 15, 30, 45]
 restriction_scope = "frontend creation and repost time selection; existing API timestamp shape unchanged"
-expiry_cron = "0 */15 * * * *"
-outbox_recovery_cron = "0 0 * * * *"
-auto_completion_cron = "0 * * * * *"
+lifecycle_decision = "ADR-026 / CHANGE-083"
+shared_lifecycle_cron = "0 * * * * *"
+shared_lifecycle_checks = ["OPEN/unassigned/deadline reached -> EXPIRED/refund", "DELIVERED/latest delivery at least 48h ago -> COMPLETED/completion"]
+outbox_recovery_cron = "0 */15 * * * *"
 immediate_after_commit_dispatch = true
 existing_deadlines_rounded = false
+
+[requested_repost_timing_and_retry]
+requirement_approved = true
+timing = "repostExpiresAt > repostDueAt >= original.expiresAt"
+late_execution = "allowed only while repostExpiresAt > current time"
+explicit_repost_expiry_implemented = false
+durable_retry_implemented = false
+insufficient_credit_card_message_implemented = false
+retry_design_approval = "pending: fixed candidate ID, expiry/permanent-error limits"
+background_authentication_approval = "pending: trusted service proposal versus fresh authenticated user request"
+peer_dependencies = ["FEEDBACK-002", "FEEDBACK-003", "FEEDBACK-004", "FEEDBACK-005", "FEEDBACK-006"]
 
 [approved_role_annotations]
 decision = "ADR-024 / CHANGE-079"

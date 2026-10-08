@@ -4,7 +4,8 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
-| [ADR-023](ADR-023-hourly-outbox-recovery.md) | Accepted by user direction; implemented | Hourly retry scan for failed/interrupted outbox publishing; preserves immediate after-commit dispatch |
+| [ADR-026](ADR-026-shared-lifecycle-and-quarter-hour-outbox.md) | Accepted; locally verified | Shared minute expiry/completion, 15-minute all-event recovery, immediate dispatch retained |
+| [ADR-023](ADR-023-hourly-outbox-recovery.md) | Cadence superseded by ADR-026 | Historical hourly recovery; immediate dispatch retained |
 | [ADR-022](ADR-022-quarter-hour-ui-and-scheduler-cadence.md) | Accepted by user direction; implemented; outbox interval superseded by ADR-023 | Quarter-hour Requester timestamp selection, 15-minute expiry, and preserved minute auto-completion/immediate dispatch |
 | [ADR-001](ADR-001-approved-project-amendments.md) | Accepted | OVERDUE, ABORTED reopening, service ownership, supplier authority, and reposting amendments supplied for persistent use |
 | [ADR-002](ADR-002-courier-outcome-contract-split.md) | Accepted | Replaces the generic courier outcome flag/facts contract with explicit completed, overdue, and aborted operations |

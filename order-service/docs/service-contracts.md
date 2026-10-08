@@ -1,5 +1,11 @@
 # Service Contracts
 
+CHANGE-083 / ADR-026 replaces Order's two timer settings with ORDER_LIFECYCLE_CRON
+(every minute) and sets outbox recovery to 15 minutes. Business endpoint/event
+shapes remain unchanged in this repair. Explicit repost expiry/retry/status API
+changes remain unimplemented; see the target diagram and FEEDBACK-005/006.
+Supplier pair validation now requires explicit valid:true; false/missing rejects.
+
 ## Effective Sprint 2-3 amendments (CHANGE-082 / ADR-025)
 
 This section supersedes historical abort/reopen descriptions below. Every ACCEPTED-only abort first calls bodyless `POST /api/credits/orders/{orderId}/hold-for-reopen`, requiring 200 after courierId reset and reservation retention. Current Order keeps its business ID and becomes OPEN/EXPIRED after a fresh deadline check; an immutable ABORTED courier attempt is stored separately. EVERY abort emits the accepted-cancellation event for User; only EXPIRED additionally emits the shared refund event for Credit. New refunds are not requested through the User penalty event. Peer feedback documents legacy reconciliation, missing APIs/subscribers, payload/status/authentication/retry requirements.
@@ -73,7 +79,11 @@ Only approved active-workstream contracts are implementable. See `sprints/sprint
 
 ## UI time selection and background cadence
 
-CHANGE-077/ADR-022 restricts Requester creation/repost UI clock minutes to 00/15/30/45 and rounds suggestions upward. It does not add a backend/API quarter-hour constraint or change ISO timestamp/event fields. Expiry scans all DB-due OPEN unassigned orders every 15 minutes, outbox recovery runs hourly, and 48-hour delivered auto-completion stays every minute. Every committed outcome still attempts immediate publication. These intervals are defaults rather than guaranteed delivery/expiry SLAs, especially under the existing Cloud Run idle CPU settings.
+CHANGE-077/ADR-022 keeps Requester UI clock minutes 00/15/30/45 and upward
+rounding without a backend quarter-hour constraint. ADR-026 supersedes timer
+cadence: one minute job for due unassigned OPEN expiry and >=48h latest-delivery
+completion; all-event outbox recovery every 15 minutes; immediate publication
+retained. These are defaults, not runtime SLAs, especially with idle Cloud Run CPU.
 
 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)

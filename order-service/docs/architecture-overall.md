@@ -1,5 +1,10 @@
 # Overall Architecture
 
+Current cadence override (CHANGE-083 / ADR-026): one minute-based Order job
+checks OPEN expiry and >=48-hour DELIVERED completion; all-three-event outbox
+recovery every 15 minutes, immediate dispatch retained. No peer/cloud resources
+changed. Repost target/gaps: docs/diagrams/order-lifecycle-reconciliation.md.
+
 Authoritative diagram: `../../../High Level Architecture Diagram - FOC.png`.
 
 ## Runtime topology

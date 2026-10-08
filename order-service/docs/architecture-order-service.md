@@ -2,6 +2,11 @@
 
 ## Effective current workstream
 
+CHANGE-083 / ADR-026 supersedes historical timer cadence/settings: one shared
+minute lifecycle job and 15-minute recovery with immediate dispatch retained.
+Approved target and current gaps: docs/diagrams/order-lifecycle-reconciliation.md.
+Explicit automatic expiry and durable repost retry/UI state are not implemented.
+
 CHANGE-082 / ADR-025 implements the user-selected overall PDF with approved lifecycle overrides. Editable class/sequence/data responsibilities are in `sprints/sprint-2-3/README.md`; the historical Updated PDF named below is absent locally. Order now has an internal UUID primary key plus a unique business ID and immutable courier-attempt snapshots. No peer service writes Order storage, and domain classes still do not invoke external ports.
 
 Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../../../High Level Architecture Diagram - Order Service.png`, and `../../../Class Diagram - Order Service.png`. The updated overall design informed Sequences 5-7 and typed event contracts; CHANGE-056 supersedes its separate overdue completion flow. Standalone diagrams remain separately fingerprinted artifacts.
@@ -12,8 +17,8 @@ Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../.
 2. Inbound contracts: commands, queries, admin integration, expiry, auto-completion, and auto-repost triggers.
 3. Application components: creation, assignment, transitions, queries/history, completion-time overdue evaluation, scheduled auto-completion, expiry, and reposting.
 4. Order-owned domain rules: lifecycle/status, authorization, checkpoints/history, one-time overdue evaluation, and repost policy.
-5. Outbound ports: Order persistence, event-outbox persistence, User/Supplier/Credit contracts, and typed completion/cancellation/refund event publishers. Acceptance synchronously asks Credit to assign the reservation to the courier before persisting `ACCEPTED` (CHANGE-068/ADR-017; provider endpoint pending). OPEN expiry is discovered by `OrderExpiryScheduler` and records the shared `OpenOrderRefundTaskEvent` in the transactional outbox.
-6. Messaging infrastructure: a transactionally persisted outbox, immediate after-commit relay, Spring cron recovery relay, and typed completion/cancellation/refund publishers backed by Google Cloud Pub/Sub. Local Compose and Cloud Run use the same project with separate dev/prod topics. Local Compose uses personal ADC mounted read-only; Cloud Run uses its attached service identity. Topic-level IAM grants publisher access only to the matching environment's topics. OPEN expiry is triggered separately by `OrderExpiryScheduler`; peer subscriptions are future work and are not awaited by Order Service.
+5. Outbound ports: Order persistence/outbox, User/Supplier/Credit and typed outcome publishers. Acceptance waits for synchronous Credit assignment before ACCEPTED (provider missing). The shared OrderLifecycleScheduler discovers OPEN expiry and >=48h delivery completion, using existing lifecycle/transition services to queue the respective refund/completion intents.
+6. Messaging infrastructure: transactional outbox, immediate after-commit relay, 15-minute recovery and typed Google PubSub publishers. Same project/separate dev/prod topics; personal read-only ADC locally, attached Cloud Run identity in production, topic-scoped IAM. The shared lifecycle job triggers expiry/completion; peer subscriptions are future work and are not awaited by Order.
 
 Order Service owns only Order data: status, assignment, checkpoints, flags, supplier references, and repost links.
 
@@ -41,13 +46,13 @@ This direction keeps domain rules independent of persistence and peer-service in
 - `OrderQueryInterface`/`OrderQueryService` provide available, current, account, and checkpoint/history views as their sprint scope permits.
 - CHANGE-057 adds an admin-only all-orders query through `AdminOrderController` -> `OrderQueryService` -> `OrderRepository` -> persistence adapter; the controller never accesses JPA directly.
 - `LifecycleTrigger`/`LifecycleProcessingService` handle expiry, auto-completion, and automatic repost processing when in scope.
-- CHANGE-072/ADR-020 adds `OrderAutoCompletionScheduler` -> `LifecycleProcessingService` -> `OrderRepository` due-delivery selection -> `OrderTransitionService.autoComplete`; the transition shares the normal completion checkpoint, overdue facts, command receipt and outbox event.
+- ADR-026 uses OrderLifecycleScheduler -> LifecycleProcessingService -> OrderRepository due-delivery selection -> OrderTransitionService.autoComplete; the transition shares normal completion/checkpoint/overdue/receipt/outbox behavior. The other pass expires due OPEN orders and queues refunds.
 - Specialized application services handle creation, assignment, transitions, administration, and reposting.
 - `OrderRepository` is the only Order persistence abstraction.
 - `UserServicePort`, `SupplierServicePort`, and `CreditServicePort` isolate synchronous external calls. Credit reservation and unexpired accepted-cancellation `holdForReopen` remain synchronous; Order waits for hold confirmation before reopening. Completion, cancellation, and OPEN-refund consequences otherwise use typed events.
 - Credit `assignCourier` is also synchronous: `OrderAssignmentService` validates before the call, waits for the proposed matching reservation confirmation, then rechecks expiry before acceptance. The Order mock and HTTP adapter do not verify that Credit provides the route.
 - `OrderTransitionService` and `LifecycleProcessingService` create the shared `OpenOrderRefundTaskEvent` through `OrderTaskEventFactory` for requester-cancelled and scheduler-expired OPEN orders; `OrderOutboxDispatcher` routes it through one refund publisher (and retains a compatibility route for already-persisted legacy outbox rows).
-- A second configurable lifecycle cron selects only `DELIVERED` orders with delivered checkpoints at least 48 hours old in PostgreSQL, using pessimistic no-wait row locks. It rechecks the eligibility under lock and uses the same `OrderCompletionTaskEvent` outbox path as requester completion.
+- The shared minute lifecycle job also selects DELIVERED orders with delivery checkpoints at least 48 hours old using PostgreSQL locks. The transition rechecks latest-delivery eligibility under lock and reuses the requester completion event/outbox path.
 - `OrderTransitionService` records the post-transition event through `OrderEventOutboxRepository` in the same transaction as the Order, checkpoint, and command receipt. `OrderOutboxAfterCommitListener` requests immediate delivery before the transactional service call returns; `OrderOutboxScheduler` invokes the recovery dispatcher on its configured cron. `OrderOutboxDispatcher` claims rows with leases, calls the typed publisher, and records success or bounded-backoff retry state.
 - Matching publishers retain the existing three typed topics. Credit consumes shared refunds and completion transfers. User consumes accepted-cancellation penalty facts for EVERY abort and all completion facts. Legacy ABORTED cancellation-event refunds need coordinated replay/reconciliation; new expired aborts emit a separate shared refund. Neither subscriber writes Order data.
 - Every ACCEPTED-only abort first resets Credit synchronously, then saves immutable ABORTED history and current OPEN/EXPIRED under the same business ID. It always queues User penalty, plus Credit refund only when expired. ADR-025 supersedes the prior ADR-001/014 behavior for this slice. Current Order, history, checkpoints, receipt and outbox commit atomically; the external Credit reset does not share that transaction.
@@ -63,7 +68,11 @@ The updated overall design supersedes the previous generic outcome/synchronous c
 
 The shared frontend QuarterHourDateTimePicker owns local date/hour/quarter-minute presentation; orders helpers own rounding and client validation; Post Request/RepostControls coordinate the existing authenticated API calls. Order application/domain layers retain API validation and authoritative deadlines. No backend class dependencies or data-model fields change.
 
-OrderExpiryScheduler uses a 15-minute default, OrderOutboxScheduler recovers pending events hourly, and OrderAutoCompletionScheduler remains minute-based. Immediate outbox dispatch and repository DB cutoff/locking remain unchanged. Legacy/direct API deadlines can wait for the next expiry pass; a failed publish may wait nearly an hour for recovery while the service is running. See CHANGE-078 for the current cadence and Cloud Run scale-to-zero limitation.
+Historical ADR-022/023 cadence is superseded by ADR-026: OrderLifecycleScheduler
+checks expiry and completion every minute; OrderOutboxScheduler recovers all
+pending/failed event kinds every 15 minutes. Immediate dispatch and repository
+cutoff/locking are unchanged. Failed publication can wait for the next quarter-hour
+recovery pass; Cloud Run idle/scale-to-zero can delay it further.
 
 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)

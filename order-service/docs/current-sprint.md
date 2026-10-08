@@ -2,6 +2,14 @@
 
 Current sprint: Sprint 2 and Sprint 3 (Order-owned lifecycle slice; `[~]`)
 
+Latest CHANGE-083 / ADR-026: one minute-based expiry/completion job and
+15-minute outbox recovery; immediate AFTER_COMMIT publication retained.
+Approved target: `repostExpiresAt > repostDueAt >= original.expiresAt`.
+Explicit repost expiry, durable retries and insufficient-credit-only persistent
+UI feedback are NOT implemented yet. Two retry/authentication design decisions
+are pending; FEEDBACK-005/006 and the diagram reconciliation record the gaps.
+Do not claim 100% diagram compliance.
+
 Current developer/workstream: Vincent, `sprint-2-3`, approved on 2026-10-08 in
 CHANGE-081/082. Read `changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md` and the
 current section of `docs/active-work/vincent.md` before implementation. The user
