@@ -24,23 +24,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import sg.edu.nus.foc.credit.support.FirestoreEmulator;
+import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class CreditApiIntegrationTest {
 
-    private static final String DATABASE = "credit-api-test";
     private static final String USER = "firebase-user-123";
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("foc.credit.firestore.emulator-host", FirestoreEmulator::endpoint);
-        registry.add("foc.credit.firestore.database-id", () -> DATABASE);
+        PostgreSqlTestContainer.register(registry);
     }
 
     @Autowired
@@ -49,9 +48,13 @@ class CreditApiIntegrationTest {
     @Autowired
     private JsonMapper mapper;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     @BeforeEach
     void reset() {
-        FirestoreEmulator.clear(DATABASE);
+        jdbc.execute("truncate table credit_ledger, credit_reservations, "
+                + "credit_idempotency_records, credit_accounts cascade");
     }
 
     @Test
@@ -107,7 +110,7 @@ class CreditApiIntegrationTest {
                 .andExpect(jsonPath("$.totalBalance").value(50))
                 .andExpect(jsonPath("$.reservedBalance").value(20))
                 .andExpect(jsonPath("$.usableBalance").value(30))
-                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.version").doesNotExist())
                 .andExpect(jsonPath("$.asOf").exists());
 
         String otherUser = "firebase-user-456";
@@ -218,7 +221,10 @@ class CreditApiIntegrationTest {
     void responseNeverUsesDeprecatedActiveStatusOrOperationId() throws Exception {
         register(USER);
         String response = reserve("order-1", USER, 5);
-        assertThat(response).contains("RESERVED").doesNotContain("ACTIVE").doesNotContain("operationId");
+        assertThat(response).contains("RESERVED")
+                .doesNotContain("ACTIVE")
+                .doesNotContain("operationId")
+                .doesNotContain("version");
     }
 
     private RegistrationFactRequest registration(String userId) {

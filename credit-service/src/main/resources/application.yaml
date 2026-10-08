@@ -7,6 +7,20 @@
 spring:
   application:
     name: credit-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/credit_service}
+    username: ${SPRING_DATASOURCE_USERNAME:credit_dev}
+    password: ${SPRING_DATASOURCE_PASSWORD:credit_dev_password}
+    hikari:
+      connection-timeout: 5000
+      validation-timeout: 3000
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    clean-disabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
   threads:
     virtual:
       enabled: true
@@ -22,10 +36,6 @@ server:
 
 foc:
   credit:
-    firestore:
-      project-id: ${FIRESTORE_PROJECT_ID:demo-foc}
-      database-id: ${FIRESTORE_DATABASE_ID:(default)}
-      emulator-host: ${FIRESTORE_EMULATOR_HOST:}
     auth:
       project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
       emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}

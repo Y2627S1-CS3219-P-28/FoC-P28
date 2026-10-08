@@ -26,19 +26,19 @@ public class CreditService {
     }
 
     public RegistrationResult initializeAccount(UUID eventId, String userId, Instant occurredAt) {
-        requireDocumentId(userId, "userId");
+        requireOpaqueId(userId, "userId");
         return repository.initializeAccount(eventId, userId, occurredAt);
     }
 
     public CreditAccount getAccount(String userId) {
-        requireDocumentId(userId, "userId");
+        requireOpaqueId(userId, "userId");
         return repository.findAccount(userId)
                 .orElseThrow(() -> new AccountNotFoundException(userId));
     }
 
     public ReservationResult reserve(String orderId, String requesterId, long amount) {
-        requireDocumentId(orderId, "orderId");
-        requireDocumentId(requesterId, "requesterId");
+        requireOpaqueId(orderId, "orderId");
+        requireOpaqueId(requesterId, "requesterId");
         if (amount <= 0) {
             throw new InvalidCreditAmountException(amount);
         }
@@ -46,13 +46,13 @@ public class CreditService {
     }
 
     public CreditReservation getReservation(String orderId, String requesterId) {
-        requireDocumentId(orderId, "orderId");
+        requireOpaqueId(orderId, "orderId");
         return repository.findReservation(orderId)
                 .filter(reservation -> reservation.requesterId().equals(requesterId))
                 .orElseThrow(() -> new ReservationNotFoundException(orderId));
     }
 
-    static void requireDocumentId(String value, String field) {
+    static void requireOpaqueId(String value, String field) {
         if (value == null || value.isBlank() || value.length() > 128 || value.contains("/")
                 || value.equals(".") || value.equals("..")
                 || value.startsWith("__") && value.endsWith("__")) {

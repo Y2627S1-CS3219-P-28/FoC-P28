@@ -171,3 +171,70 @@ for failures show credits unavailable
 - **Affected locations:** Frontend navigation configuration, application shell, Dashboard and new
   placeholder routes, the shared coming-soon component, and this usage log.
 - **Author verification:** I have reviewed the code generated and ensured that it complies with the plan I wanted 
+
+## Migration of credit service to use a relational database to align with order service implementations
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-07
+- **Mode:** Implementation and testing assistance.
+- **Exact prompt:**
+
+  ```text
+  plan the implementation to move credit service to use a postgresql
+  4 database models:
+  1. credit_accounts
+    user_id varchar(128) primary key,
+    total_balance bigint not null,
+    reserved_balance bigint not null,
+    created_at timestamptz not null,
+    updated_at timestamptz not null,
+
+    constraint ck_credit_account_total
+        check (total_balance >= 0),
+    constraint ck_credit_account_reserved
+        check (reserved_balance >= 0),
+    constraint ck_credit_account_usable
+        check (reserved_balance <= total_balance)
+  2. credit_reservations
+    order_id              varchar(128) primary key
+    requester_id          varchar(128) not null
+    courier_id            varchar(128) null
+    amount                bigint not null
+    status                varchar(20) not null
+    created_at            timestamptz not null
+    updated_at            timestamptz not null
+    refunded_at           timestamptz null
+    paid_at               timestamptz null
+  3. credit_idempotency_records
+    operation        varchar(80)  not null,
+    idempotency_key  varchar(128) not null,
+    source_type      varchar(20)  not null,
+    payload_hash     char(64)     not null,
+    resource_id      varchar(128),
+    processed_at     timestamptz  not null,
+    primary key (operation, idempotency_key),
+    check (source_type in ('EVENT', 'COMMAND'))
+  4. credit_ledger
+    entry_id               uuid primary key
+    user_id                varchar(128) not null
+    order_id               varchar(128) null
+    source_type            varchar(80) not null
+    source_id              varchar(128) not null
+    entry_type             varchar(40) not null
+    amount                 bigint not null
+    total_balance_delta    bigint not null
+    reserved_balance_delta bigint not null
+    occurred_at             timestamptz not null
+    created_at              timestamptz not null
+  replace the current firestore non relational db and remove the firestore implementation and dependency from the credit service
+
+  - Use Spring Data JPA, PostgreSQL, and Flyway.
+  - Remove Firestore source, configuration, dependencies, emulator tests, and runtime variables from Credit Service.
+  - Reuse Order Service’s Cloud SQL instance with separate Credit databases, users, passwords, and secrets.
+  - Remove `version` from `credit_accounts`, the domain model, and API responses.
+  - Use pessimistic row locking and database constraints for concurrency.
+  - Preserve current endpoint paths, request bodies, authorization, errors, and validation otherwise.
+  ```
+
+- **Key response:** Replace Credit Service’s Firestore persistence completely with PostgreSQL while preserving the current registration, balance, reservation, and reservation-recovery behavior. Updated bootstrap, configs for PostgreSQL setups for credit service.
+- **Author verification:** I have reviewed the code generated and ensured that it complies with the plan I wanted, and the requirements and schemas supplied

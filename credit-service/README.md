@@ -18,9 +18,10 @@ authenticated user view their own balances, and reserves usable credits before a
 # Whole system through the gateway at http://localhost:8080
 docker compose up --build
 
-# Service from source against the emulators
-docker compose up -d firebase-emulator
-PORT=8084 FIRESTORE_EMULATOR_HOST=localhost:8090 FIRESTORE_DATABASE_ID=credit-local \
+# Service from source against local PostgreSQL and the Auth emulator
+docker compose up -d credit-postgres firebase-emulator
+PORT=8084 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5434/credit_service \
+SPRING_DATASOURCE_USERNAME=credit_dev SPRING_DATASOURCE_PASSWORD=credit_dev_password \
 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./mvnw spring-boot:run
 ```
 
@@ -45,16 +46,18 @@ There is no gift, withdrawal, top-up, direct balance update, or generic CRUD API
 
 ## Data model
 
-Credit Service exclusively owns the `credit-<environment>` Firestore database:
+Credit Service exclusively owns a PostgreSQL database for each environment. Flyway creates and
+validates the schema at application startup:
 
-| Collection | Document ID | Purpose |
+| Table | Primary key | Purpose |
 |---|---|---|
-| `creditAccounts` | `userId` | Authoritative total and reserved balances. Usable balance is derived. |
-| `creditReservations` | `orderId` | One idempotent reservation per order. |
-| `processedEvents` | `eventId` | Registration and future outcome-event replay protection. |
-| `creditLedger` | `entryId` | Immutable evidence of every successful balance change. |
+| `credit_accounts` | `user_id` | Authoritative total and reserved balances. Usable balance is derived. |
+| `credit_reservations` | `order_id` | One idempotent reservation per order. |
+| `credit_idempotency_records` | `(operation, idempotency_key)` | Event and command replay protection. |
+| `credit_ledger` | `entry_id` | Immutable evidence of every successful balance change. |
 
-Account, reservation/event, and ledger writes commit in one Firestore transaction.
+Account, reservation/idempotency, and ledger writes commit in one PostgreSQL transaction.
+Account rows are locked during balance mutations so concurrent reservations cannot overdraw an account.
 
 ## Test
 
@@ -62,5 +65,5 @@ Account, reservation/event, and ledger writes commit in one Firestore transactio
 ./mvnw verify
 ```
 
-Integration tests use a Testcontainers Firestore emulator. The build enforces at least 80%
+Integration tests use a Testcontainers PostgreSQL instance. The build enforces at least 80%
 line and branch coverage and writes `target/openapi.json`.
