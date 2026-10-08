@@ -1,11 +1,11 @@
 # Vincent - Active Work
 
-## Current Sprint 2-3 planning - 2026-10-08
+## Current Sprint 2-3 implementation - 2026-10-08
 
 - Developer: Vincent, Developer 2; explicitly confirmed by the user.
 - Branch: `sprint-2-3`.
 - Scope: Order-owned parts only, using Project D1 and `Order Service Overall Doc.pdf`.
-- Change: CHANGE-081; status `[!]` for unresolved integration/data design, not completion.
+- Change: CHANGE-081/082, ADR-025; status `[~]`, Order-owned slice implemented, not production-complete.
 - Approved: separate immutable courier-attempt history with one current Order;
   internal row UUID separate from business orderId; abort only from ACCEPTED;
   every abort signals User through the accepted-cancellation topic; expiry and
@@ -14,26 +14,30 @@
   for repost; minute-based completion after at least 48 hours since delivery.
 - Local exception: mock the existing proposed courier-assignment route when the
   Credit implementation is missing. HTTP mode must not silently fall back to mocks.
-- Follow-up approved: synchronous Credit courier update on abort; after-expiry
-  current order stays under the same business ID as EXPIRED, with separate ABORTED
-  courier-attempt history. Exact reset value/route and retry safety remain pending.
-- Pending: confirm null/reset semantics and whether to reuse the proposed hold
-  route; detailed internal UUID/history migration and stale-retry design.
+- Follow-up approved/implemented: EVERY abort synchronously calls bodyless
+  hold-for-reopen to clear Credit courierId, then rechecks expiry; current Order
+  keeps its business ID as OPEN/EXPIRED, separate immutable ABORTED attempts.
+  Peer stale-retry protection/reconciliation is required, not provider-verified.
 - Repost retention/visibility approved: keep old EXPIRED row and new OPEN row
   with different business IDs; hide the successfully reposted old expired row
-  from My Requests using repost linkage, not deletion. Source query not changed.
-- Last action: inspected Order.createRepost, OrderRepostService and requester
-  query; confirmed existing originalOrderId/repostedOrderId links, but no requester
-  filtering yet. Recorded retention approval and updated ignored learning.
-  Official Pub/Sub docs confirm finite retention; live refunds are unverified.
-- Verification: source/configuration/document inspection only; no new tests,
-  migrations, application changes, cloud operations or live peer checks this turn.
-  TOML parsing and explicit pending-decision assertions, unique evolution ID,
-  change-record existence and `git diff --check` passed. The local profile is
-  tracked, not ignored. Follow-up learning is ignored and excluded from commits.
-- Next action: resolve reset semantics; then synchronize detailed design,
-  traceability/contracts/diagrams, write and observe failing tests, implement in
-  atomic slices and run the required backend/frontend/persistence/contract gates.
+  from My Requests using repost linkage, not deletion; query/count and immediate
+  frontend update are implemented. Manual replay verifies requester/original.
+- Commits: `e7b6a09` requester query/count; `9e7aa3c` Order frontend; `e6063b0`
+  abort/history/schema and latest-checkpoint/replay regressions.
+- Verification: Java 21 Maven verify 162 tests, 0 failures/errors/skips; Docker
+  PostgreSQL clean V3, V2 upgrade, repeat attempts, ownership/pagination and
+  transactional rollback passed. Fresh JaCoCo 94.01% lines / 82.37% branches;
+  no threshold weakening. Frontend 34 tests, typecheck/build pass; lint 0 errors,
+  12 pre-existing peer login/profile warnings. Red tests observed before query,
+  abort, requester replay and frontend visibility implementations. Initial V3
+  constraint-drop and old migration-version assertions were repaired and rerun.
+  Windows `clean` failed on a locked generated directory; regular verify and
+  fresh non-appending coverage passed. Existing application DBs were not reset.
+- Next action: Annablee implements assignment/reset/refund/settlement contracts;
+  User owner implements penalty/completion subscribers. Resolve trusted automated
+  repost credentials and stale reset reconciliation, then real HTTP/PubSub,
+  authenticated responsive UI and Cloud Run scheduling checks. Full NTH3
+  report/hold/resolution remains outside this approved lifecycle slice.
 - Boundaries: do not edit sibling backend services; do not commit learning files;
   shared frontend/configuration changes require the approved Order-only slice.
 - Historical Sprint 1 evidence below is not verification of Sprint 2-3.

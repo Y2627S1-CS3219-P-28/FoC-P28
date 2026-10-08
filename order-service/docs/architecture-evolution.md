@@ -2,9 +2,9 @@
 
 ## ARCH-EVO-027: Sprint 2-3 abort history and lifecycle amendments (2026-10-08)
 
-- Classification: Architecture/specification change; partial approval, not applied.
-- Approver: Vincent; CHANGE-081 records the exact approvals and open questions.
-- Approved in principle: one current Order plus immutable courier-attempt history;
+- Classification: Approved architecture/specification change, implemented and locally verified; not production-complete.
+- Approver: Vincent; CHANGE-081/082 and ADR-025 record explicit follow-up approvals.
+- Approved/implemented: one current Order plus immutable courier-attempt history;
   separate internal primary UUID/business orderId; ACCEPTED-only abort; User
   penalty event on every abort; requester current state OPEN/EXPIRED with refund
   only for the expired outcome; missing assignment endpoint mocked locally.
@@ -16,18 +16,21 @@
 - Follow-up retention approved: keep the old EXPIRED row/ID and new repost row/ID;
   suppress successfully reposted expired originals from My Requests using the
   existing repost links. This supersedes the earlier row-delete/overwrite proposal.
-  Query filtering must precede pagination; no visibility code was changed.
-- Pending: exact reset value/endpoint and stale-retry protection, detailed UUID/
-  history migration. Broker retries do not guarantee completed refunds.
+  Query and count filtering precede pagination; UI immediately replaces reposted cards.
+- Reset contract confirmed: bodyless hold-for-reopen, clear courierId while retaining
+  funds on EVERY abort. Peer stale-retry protection/reconciliation remains missing
+  or unverified; broker retries do not guarantee completed refunds.
 - Schema evidence: V2 outbox rows reference orders(id); deleting/rekeying an order
-  currently conflicts with those references. New migration design remains pending.
-- Data risk: current checkpoints are unique per order/status and reference the
-  current orders primary ID. Repeated accept/abort/reopen cycles and mutable
-  business IDs need reviewed migration, history and idempotency design.
+  conflicts with those references. V3 instead preserves old IDs/FKs, adds internal
+  UUID PK and immutable snapshots, and removes the one-status checkpoint constraint.
+- Data risk: legacy unexpired abortions without checkpoints cannot be reconstructed.
+  Legacy cancellation-event refund handling must be coordinated before rollout.
 - Affected chain: F3/F4/F5/F7-F11, NTH2/NTH4; Order/attempt/history persistence,
   query isolation, transitions/repost, task events, mocks/HTTP contracts and UI.
-- Evidence: local code/schema and PDF diagram inspection only; no source/test/
-  migration change or runtime verification. Full synchronization remains pending.
+- Evidence: CHANGE-082 records 162 passing backend tests including clean/upgrade
+  PostgreSQL/history/pagination/rollback, 34 frontend tests, production build,
+  lint/typecheck and fresh >=80% line/branch coverage. Effective editable diagrams,
+  traceability/contracts/context are synchronized; peer/browser/cloud gates pending.
 
 ## ARCH-EVO-025: Hourly outbox recovery polling (2026-10-08)
 

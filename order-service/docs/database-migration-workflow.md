@@ -10,8 +10,9 @@ This document applies to every schema-affecting change, including tables, column
 
 - This is a workflow rule; ADR-008 approves PostgreSQL on Cloud SQL for Order Service.
 - The parent Firestore convention remains applicable to sibling services and does not replace the Order Service decision.
-- Flyway, Liquibase, or another migration tool must be explicitly selected before database-backed implementation begins.
-- After a tool is selected, use its configured migration directory. `src/main/resources/db/migration/` is a proposed Flyway-style location only; do not create migrations there until the tool and location are approved.
+- Flyway was approved in CHANGE-017; the configured migration directory is `src/main/resources/db/migration/`. Do not introduce a second migration format.
+- CHANGE-082 / ADR-025 adds V3: internal `orders.row_id` UUID PK, unique business `orders.id`, immutable `order_courier_attempts` snapshots and repeatable checkpoints. Existing business references/FKs/outbox payloads remain unchanged. Clean PostgreSQL and V2-to-V3 upgrade tests passed; existing application volumes were not reset.
+- Back up before production upgrade and deploy matching application/schema together. V3 normalizes legacy current ABORTED rows to EXPIRED and backfills recoverable courier attempts; past unexpired aborts without checkpoints cannot be recreated. There is no destructive automatic down migration. Restore the pre-upgrade backup or create a reviewed forward correction; do not drop new history or rewrite V1/V2 to roll back.
 
 ## Non-negotiable rules
 

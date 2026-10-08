@@ -1,5 +1,9 @@
 # Order Service Architecture
 
+## Effective current workstream
+
+CHANGE-082 / ADR-025 implements the user-selected overall PDF with approved lifecycle overrides. Editable class/sequence/data responsibilities are in `sprints/sprint-2-3/README.md`; the historical Updated PDF named below is absent locally. Order now has an internal UUID primary key plus a unique business ID and immutable courier-attempt snapshots. No peer service writes Order storage, and domain classes still do not invoke external ports.
+
 Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../../../High Level Architecture Diagram - Order Service.png`, and `../../../Class Diagram - Order Service.png`. The updated overall design informed Sequences 5-7 and typed event contracts; CHANGE-056 supersedes its separate overdue completion flow. Standalone diagrams remain separately fingerprinted artifacts.
 
 ## Layers and ports
@@ -45,8 +49,8 @@ This direction keeps domain rules independent of persistence and peer-service in
 - `OrderTransitionService` and `LifecycleProcessingService` create the shared `OpenOrderRefundTaskEvent` through `OrderTaskEventFactory` for requester-cancelled and scheduler-expired OPEN orders; `OrderOutboxDispatcher` routes it through one refund publisher (and retains a compatibility route for already-persisted legacy outbox rows).
 - A second configurable lifecycle cron selects only `DELIVERED` orders with delivered checkpoints at least 48 hours old in PostgreSQL, using pessimistic no-wait row locks. It rechecks the eligibility under lock and uses the same `OrderCompletionTaskEvent` outbox path as requester completion.
 - `OrderTransitionService` records the post-transition event through `OrderEventOutboxRepository` in the same transaction as the Order, checkpoint, and command receipt. `OrderOutboxAfterCommitListener` requests immediate delivery before the transactional service call returns; `OrderOutboxScheduler` invokes the recovery dispatcher on its configured cron. `OrderOutboxDispatcher` claims rows with leases, calls the typed publisher, and records success or bounded-backoff retry state.
-- Matching publishers emit one event type to a shared broker. Credit consumes shared OPEN-refund events, expired accepted-cancellation refunds, and completion transfers. User consumes expired accepted-cancellation events to apply courier penalties and every completion event to apply overdue penalties or on-time score reduction. Neither subscriber writes Order data.
-- An unexpired accepted cancellation transitions directly `ACCEPTED -> OPEN` only after Credit synchronously confirms the transaction hold. An expired accepted cancellation transitions `ACCEPTED -> ABORTED` and publishes the event. `ABORTED -> OPEN` remains prohibited by ADR-001.
+- Matching publishers retain the existing three typed topics. Credit consumes shared refunds and completion transfers. User consumes accepted-cancellation penalty facts for EVERY abort and all completion facts. Legacy ABORTED cancellation-event refunds need coordinated replay/reconciliation; new expired aborts emit a separate shared refund. Neither subscriber writes Order data.
+- Every ACCEPTED-only abort first resets Credit synchronously, then saves immutable ABORTED history and current OPEN/EXPIRED under the same business ID. It always queues User penalty, plus Credit refund only when expired. ADR-025 supersedes the prior ADR-001/014 behavior for this slice. Current Order, history, checkpoints, receipt and outbox commit atomically; the external Credit reset does not share that transaction.
 
 The diagrams are logical architecture, not permission to implement future-sprint operations.
 

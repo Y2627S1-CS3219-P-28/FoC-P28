@@ -3,7 +3,7 @@
 - Date: 2026-10-08 (Asia/Singapore)
 - Developer/approver: Vincent; identity and Order-owned scope explicitly confirmed.
 - Branch: `sprint-2-3`.
-- Status: Partial approval recorded; implementation pending unresolved choices.
+- Status: Historical partial-approval record; subsequent explicit approvals resolved reset/history/schema in CHANGE-082 / ADR-025. Order slice implemented and locally verified; peer/cloud/browser gates pending.
 - Classification: Scope transition and approved architecture/specification amendments.
 
 ## Sources and inspection

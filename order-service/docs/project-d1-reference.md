@@ -14,6 +14,8 @@ Project D1 is the default source for Order Service F1-F13, platform NFR1-NFR5, a
 
 ## Latest approved Order Service design sources
 
+Current workstream selection on 2026-10-08: the user explicitly selected `Order Service Overall Doc.pdf`. Its hash and D1 hash still match the table. The historical Updated PDF is absent locally, not equivalent by assumption. CHANGE-082 / ADR-025 and `sprints/sprint-2-3/README.md` record approved overrides: immutable ABORTED courier attempts with immediate current OPEN/EXPIRED, every-abort penalty/reset, expired refund, and hiding successfully reposted expired originals (F10.1.3 display override). Original PDFs/standalone diagrams were not modified. The older prohibition below is historical for Sprint 1, superseded for this approved slice.
+
 | Document | Modified | SHA-256 | Role |
 |---|---|---|---|
 | `../../../Order Service Overall Doc - Updated.pdf` | 2026-10-02 00:28:11 | `EFBA1503C7D50B5A6C1214F09ECBCD1FF453004E0A6CA3F3F9F717C78831EA40` | Current updated overall FR/NTH design, sequences, class design, event contracts, amendments |

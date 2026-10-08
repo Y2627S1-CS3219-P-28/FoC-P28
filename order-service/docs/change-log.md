@@ -2,7 +2,8 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
-| [CHANGE-081](../changes/CHANGE-081-sprint-2-3-scope-and-decisions.md) | 2026-10-08 | Partial approval recorded; implementation pending | Vincent's Order-owned Sprint 2-3 scope/history/events and local assignment mock; retain old/new repost rows and hide reposted originals from requester list; Credit reset semantics and detailed migration remain unresolved |
+| [CHANGE-082](../changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md) | 2026-10-08 | Order slice implemented; local gates pass; production integration pending | V3 internal UUID and immutable courier attempts, every-abort reset/penalty, expired refund, requester repost filtering, replay authorization; 162 backend/34 frontend tests and >=80% line/branch coverage |
+| [CHANGE-081](../changes/CHANGE-081-sprint-2-3-scope-and-decisions.md) | 2026-10-08 | Historical partial approval; resolved/implemented by CHANGE-082 | Vincent's Order-owned Sprint 2-3 scope/history/events and local assignment mock; preserve approved old/new IDs and requester visibility override |
 | [CHANGE-078](../changes/CHANGE-078-hourly-outbox-recovery.md) | 2026-10-08 | Implemented; static configuration checks passed; test suite not run | Hourly outbox recovery poll; preserves immediate after-commit publication, 15-minute expiry and minute auto-completion |
 | [CHANGE-077](../changes/CHANGE-077-quarter-hour-ui-and-schedulers.md) | 2026-10-08 | Implemented; deterministic checks passed; visual/runtime checks pending | Quarter-hour creation/repost time picker; 15-minute expiry; the five-minute recovery setting is superseded by CHANGE-078; auto-completion remains every minute |
 | [CHANGE-076](../changes/CHANGE-076-deployment-pubsub-topic-values.md) | 2026-10-08 | Configuration statically verified; cloud publication pending | Sets production Order publishers to the three prod-v1 topics and staging to the existing dev-v1 topics |

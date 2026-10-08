@@ -32,7 +32,7 @@ responsive_web_required = true
 native_mobile_application_in_scope = false
 frontend_live_inspection_before_coding_required = true
 frontend_shared_file_coordination_required = true
-production_code_started = false
+production_code_started = true
 developer_scope_validation_required = true
 feature_completion_gate_required = true
 architecture_approval_required = true
@@ -58,12 +58,12 @@ pre_push_ci_rehearsal_default = "explicit-trigger-only"
 pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
 [current_workstream]
-decision_record = "changes/CHANGE-081-sprint-2-3-scope-and-decisions.md"
+decision_record = "changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md"
 developer = "Vincent"
 branch = "sprint-2-3"
 sprints = [2, 3]
 scope = "Order-owned parts only; sibling backend services read-only"
-stage = "planning; partial approval; implementation pending"
+stage = "approved Order lifecycle/history slice implemented and locally verified; live peer/browser/cloud gates pending"
 selected_overall_source = "../../../Order Service Overall Doc.pdf"
 selected_overall_sha256 = "F0E925278FCCC0FCBB48F6C7BE1C23D908E15BEF75BB7C013EEC28C3F05DA602"
 updated_overall_source_available_locally = false
@@ -74,18 +74,22 @@ internal_uuid_primary_key_approved = true
 abort_allowed_status = "ACCEPTED only, before IN_PROGRESS"
 abort_penalty_topic = "existing accepted-order-cancellation topic"
 expired_refund_topic = "existing open-order-refund topic"
-credit_reset_or_reassignment_decided = false
+credit_reset_or_reassignment_decided = true
 abort_synchronous_credit_update_approved = true
 abort_after_expiry_current_status = "EXPIRED; same business orderId; separate ABORTED courier history"
 repost_row_replacement_mechanics_decided = true
 repost_storage_policy = "retain old EXPIRED row and new repost row with different business orderIds and immutable refund/history references"
 requester_hide_reposted_expired_approved = true
-repost_visibility_query_implemented = false
-new_lifecycle_implementation_started = false
+repost_visibility_query_implemented = true
+new_lifecycle_implementation_started = true
+production_completion_verified = false
+effective_design = "docs/decisions/ADR-025-sprint-2-3-abort-history-and-repost-visibility.md"
+effective_diagrams = "sprints/sprint-2-3/README.md"
 
 [sources]
 project_d1 = "../../../Project-D1.pdf"
-order_service_overall = "../../../Order Service Overall Doc - Updated.pdf"
+order_service_overall = "../../../Order Service Overall Doc.pdf"
+historical_updated_overall = "../../../Order Service Overall Doc - Updated.pdf"
 architecture_overall = "../../../High Level Architecture Diagram - FOC.png"
 architecture_order_service = "../../../High Level Architecture Diagram - Order Service.png"
 class_diagram_overall = "../../../Class Diagram - Order Service.png"
@@ -137,7 +141,7 @@ full_order_snapshot_in_events = true
 event_snapshots_include_checkpoint_history = false
 event_version_after_checkpoint_history_removal = 1
 peer_consumer_implementation_assumed_for_order_scope = true
-same_order_aborted_reopening_implementation_approved = false
+same_order_aborted_reopening_implementation_approved = true
 
 [approved_order_service_infrastructure]
 persistence = "PostgreSQL on Google Cloud SQL"
@@ -165,7 +169,7 @@ service_account_key_sharing = false
 
 [open_conflicts]
 frontend_role_authority_mapping = "RESOLVED for Order Service: Firebase-authenticated role authorities come from User Service role-context; Admin endpoints use ROLE_ADMIN and Supplier-style @PreAuthorize. Frontend role/mode behavior remains backend-authoritative. See CHANGE-057/ADR-012."
-updated_overall_design_vs_sprint_scope = "CHANGE-063/ADR-013 approves atomic Order-state/outbox persistence, immediate after-commit dispatch, and Spring cron recovery. CHANGE-065/ADR-015 adds a Spring @Scheduled scan for due unassigned OPEN orders; CHANGE-071/ADR-019 supersedes its separate OrderExpirationTaskEvent so both expiry and requester cancellation emit OpenOrderRefundTaskEvent on one topic. CHANGE-072/ADR-020 amends the earlier Sprint 1 exclusion and adds scheduled completion for DELIVERED orders after 48 hours using the existing OrderCompletionTaskEvent/outbox. CHANGE-054 selects Pub/Sub; CHANGE-056 unifies completion events. CHANGE-073/ADR-021 removes the local emulator default and uses separate dev/prod topics in one GCP project with personal ADC and Cloud Run service identity. CHANGE-064/ADR-014 requires synchronous Credit hold confirmation before unexpired accepted cancellation transitions directly ACCEPTED to OPEN; expired accepted cancellation emits the refund/penalty event. ABORTED-to-OPEN remains prohibited by ADR-001. Cloud Run scale-to-zero/request CPU limits in-process cron while idle."
+updated_overall_design_vs_sprint_scope = "CHANGE-082/ADR-025 supersedes ADR-001/014 for this workstream: every ACCEPTED-only abort synchronously resets Credit, retains immutable courier history and resolves current state to OPEN/EXPIRED. Every abort queues User penalty; EXPIRED additionally queues Credit refund. Reposts retain old/new IDs but hide linked expired originals from requester pagination. Existing outbox/typed PubSub/48h completion approvals remain. Peer providers/subscribers and trusted automatic-repost authentication are missing or unverified. Cloud Run scale-to-zero/request CPU still limits idle scheduling; NTH3 report/hold/resolution is not completed by this slice."
 
 
 [approved_time_selection_and_scheduler_cadence]

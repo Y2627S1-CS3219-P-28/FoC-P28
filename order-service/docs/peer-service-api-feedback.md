@@ -7,12 +7,12 @@ This document is the Order Service integration handoff for User, Supplier, and C
 | Peer service     | Integration                                                                       | Current status                                                 | Peer action                                                                                                              |
 | ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Supplier Service | Validate pickup/delivery supplier pair                                            | Endpoint exists; Order-side response handling needs adjustment | Order must reject `valid: false` responses even when Supplier returns `200 OK`.                                          |
-| Credit Service   | Completion, shared OPEN-refund, and expired accepted-cancellation event consumers | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
-| User Service     | Completion and expired accepted-cancellation event consumers                      | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
-| Credit Service   | Synchronous hold/reset before an unexpired accepted Order reopens                 | Contract agreed; no matching endpoint found                    | Credit must implement the agreed FEEDBACK-003 endpoint before HTTP-peer mode supports this flow.                         |
+| Credit Service   | Completion and shared refund consumers (including expired abort)                 | Not found in inspected peer source                             | Implement FEEDBACK-002; coordinate legacy accepted-cancellation refund replay.                                           |
+| User Service     | Completion and EVERY courier-abort penalty consumer                               | Not found in inspected peer source                             | Implement the subscriptions and actions in FEEDBACK-002.                                                                 |
+| Credit Service   | Synchronous hold/reset on EVERY accepted-order abort                               | Contract agreed; no matching endpoint found                    | Credit must implement the agreed FEEDBACK-003 endpoint before HTTP-peer mode supports this flow.                         |
 | Credit Service   | Record the assigned courier on an order's active reservation during acceptance    | No matching endpoint found                                     | Agree and implement the synchronous operation in FEEDBACK-004; Order must wait for success before persisting `ACCEPTED`. |
 
-Current peer inspection is based on the checked-in controllers, DTOs, services, repositories, and relevant tests in `credit-service`, `supplier-service`, and `user-service` as of 2026-10-06. Recheck the live peer code and tests before changing any item to `VERIFIED`.
+Historical inspection is based on peer controllers/DTOs/services/repositories/tests as of 2026-10-06. On 2026-10-08 the assignment/reset/outcome-consumer absence was rechecked in local peer source without editing those directories. No live peer call was verified; recheck actual implementation/tests before setting `VERIFIED`.
 
 ## Existing endpoint requiring an Order-side adjustment
 
@@ -139,6 +139,47 @@ Example common shape (event-specific fields are shown below):
 
 Consumers must tolerate redelivery, deduplicate durably by `eventId`, and acknowledge only after their own action commits. Order delivery is at least once; subscriber retry, dead-letter, replay, and monitoring behavior must be agreed by the subscriber owner.
 
+## Sprint 2-3 effective contract update (CHANGE-082, 2026-10-08)
+
+Vincent approved the Order-side implementation and local-only stubs. This does not approve or implement a peer's service. Current local source inspection still finds only registration/read/reservation Credit routes, no courier-assignment or hold/reset routes, and no outcome subscribers in Credit/User. User's HTTP outcome routes exist but are not the approved Pub/Sub consumer and are not substituted silently.
+
+### What Annablee / Credit Service must provide
+
+1. **Acceptance:** `PUT /api/credits/orders/{orderId}/courier-assignment`, JSON `{"courierId":"authenticated-courier-uid"}`. Return bodyless **200** only after confirming that courier has an eligible Credit account and recording its ID on the active reservation. Do not change the amount or transfer funds. Same assignment is idempotent; a conflicting courier is rejected. Missing account/reservation must fail, not implicitly create an account. Order stays OPEN on failure.
+2. **Every abort, including an expired abort:** `POST /api/credits/orders/{orderId}/hold-for-reopen`, **no body**, bodyless **200** after setting `courierId=null` and retaining reserved funds. This existing route name is retained even when Order subsequently becomes EXPIRED. The request uses the old business ID. Idempotent reset succeeds; refunded/settled/conflicting transactions fail. Order remains ACCEPTED on failure and does not save abort history or queue either outcome. A timeout/commit failure needs safe reconciliation: Credit might have reset while Order rolled back.
+3. **Refund subscriber:** consume `OpenOrderRefundTaskEvent` for resulting `CANCELLED` or `EXPIRED`; release the reservation for `orderId` to `order.requesterId` once. Abort after expiry uses this same event, after the synchronous reset. A repost is a NEW reservation under a NEW ID: a late old-ID refund must never refund the repost's reservation.
+4. **Settlement subscriber:** consume `OrderCompletionTaskEvent`, validate recorded courier against `order.courierId`, and atomically release the requester's held funds / transfer the offered amount under Credit's existing policy. Handle manual and 48-hour automatic completion identically. Credit owns ledger/balance math; Order publishes facts only.
+
+Assignment/reset must authenticate and authorize trusted Order calls. The current adapter forwards a Firebase bearer token identifying the courier; requester-only reservation authorization is unsuitable for these two operations. Protect reset from a stale retry by validating the verified aborting courier against the CURRENT reservation assignment; never clear a different newly assigned courier. If the credential cannot safely prove that actor, the peer owners must agree trusted service identity plus actor binding before production use. Do not infer authorization from an order ID or an untrusted body alone.
+
+Expected failures: 401 unauthenticated, 403 unauthorized, 404 missing reservation/account, 409 incompatible state or conflicting assignment; use a JSON error with `status`, `error`, `message`, `path`, `timestamp` (exact provider error codes to be agreed). Order requires exactly 200 success and fails closed on any other status/timeout. No body is needed for success. HTTP mode NEVER falls back to the in-memory mock.
+
+### What User Service must provide
+
+Subscribe to `AcceptedOrderCancellationTaskEvent` for **every** courier abort, whether its current Order snapshot is OPEN or EXPIRED. Apply the penalty once to **actorId**, the aborting courier; `order.courierId` is now null and MUST NOT identify the penalized user. This event is User-only for new aborts; do not refund Credit from it. Subscribe to completion facts for the existing overdue/on-time policy, identifying the courier from `order.courierId`. User owns penalty amounts/suspension policy.
+
+### Event delivery / payload / replies
+
+Keep the existing three configured topic IDs and typed event schemas. Payload is the common full Order snapshot already documented above: `eventId`, `eventType`, `eventVersion`, `orderId`, `orderVersion`, `occurredAt`, `actorId`, `order`; completion additionally carries `overdue` and `overdueAt`. Abort history/internal row UUID/attemptId are NOT event fields. Example expired-abort facts:
+
+```json
+{
+  "eventType": "OpenOrderRefundTaskEvent",
+  "eventVersion": 1,
+  "orderId": "old-business-order-id",
+  "actorId": "aborting-courier-uid",
+  "order": { "id": "old-business-order-id", "requesterId": "requester-uid", "courierId": null, "status": "EXPIRED" }
+}
+```
+
+This is a shortened illustration, not a replacement for the complete required schema. The separately queued User fact has `eventType: AcceptedOrderCancellationTaskEvent` and the same current Order snapshot/actor but a distinct stable eventId. Both intents commit atomically with Order/history/checkpoints/receipt; publication happens after commit. No synchronous business response is expected from a subscriber: acknowledge only after its own deduplicated transaction commits. For a push subscription this means the agreed successful HTTP acknowledgement; pull subscribers ACK the message. A publish acknowledgement does not prove a refund/penalty completed. Subscriber owners must provide durable eventId deduplication, retries, dead-letter/replay, monitoring and reconciliation.
+
+**Legacy compatibility:** older queued AcceptedOrderCancellationTaskEvent payloads with ABORTED snapshots predate CHANGE-082 and originally requested a Credit refund as well. Preserve those durable payloads; coordinate legacy replay/refund reconciliation before enabling new consumers. Do not apply both a legacy refund and a new refund twice. Missing subscribers remain FEEDBACK-002 OPEN; reset remains Order-side AGREED/provider missing; assignment remains FEEDBACK-004 OPEN.
+
+### FEEDBACK-005: Trusted automated repost credentials (OPEN)
+
+Automatic repost uses existing Supplier validation and Credit reservation endpoints, but the configured lifecycle token is not a Firebase user ID token. Peers currently authorize user-bound calls. Before real scheduled integration, agree how trusted Order service identity proves requester identity and is allowed to validate suppliers/reserve NEW-order credits without a browser session. Existing request bodies stay as documented; no new peer endpoint, anonymous bypass or production mock is implemented. Verify this credential, audience, IAM/service authorization, timeout and retry behavior with the peer owners. Local mock testing alone cannot close this item.
+
 ## FEEDBACK-001: Historical synchronous outcome endpoints (superseded)
 
 - **Status:** `SUPERSEDED` by FEEDBACK-002 for completion/cancellation/expiry outcomes.
@@ -156,13 +197,13 @@ Consumers must tolerate redelivery, deduplicate durably by `eventId`, and acknow
 
 | Event type                           | Subscriber          | Action after consuming                                                                                                                                                                                                                   |
 | ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenOrderRefundTaskEvent`           | Credit Service only | Refund/release the reserved transaction for an OPEN order. Inspect `order.status`: `CANCELLED` means requester cancellation; `EXPIRED` means scheduler expiry. No User Service subscription is needed.                                   |
-| `AcceptedOrderCancellationTaskEvent` | Credit Service      | Refund/release the transaction when the assigned courier cancels at or after `order.expiresAt`; the resulting status is `ABORTED`.                                                                                                       |
-| `AcceptedOrderCancellationTaskEvent` | User Service        | Apply the configured cancellation penalty to the courier identified by `actorId`. This event is emitted only for the expired branch.                                                                                                     |
+| `OpenOrderRefundTaskEvent`           | Credit Service only | Refund/release the old-ID reservation. Resulting CANCELLED means requester cancellation; EXPIRED covers scheduler expiry OR expired courier abort after synchronous reset. No User refund subscription. |
+| `AcceptedOrderCancellationTaskEvent` | Credit Service      | Legacy ABORTED payloads only: agree reconciliation as described in CHANGE-082 above. New abort refunds use OpenOrderRefundTaskEvent, never this event. |
+| `AcceptedOrderCancellationTaskEvent` | User Service        | Apply the configured penalty once to actorId on EVERY abort; the current Order snapshot is OPEN or EXPIRED, while immutable ABORTED history stays internal. |
 | `OrderCompletionTaskEvent`           | Credit Service      | Settle/transfer the reserved credits to `order.courierId`, verifying it matches the courier recorded on the reservation during acceptance. Process every completion event once at the business level.                                    |
 | `OrderCompletionTaskEvent`           | User Service        | For every completion, apply the existing overdue penalty when `overdue` is true; otherwise apply the established on-time penalty-score reduction. The courier is `order.courierId`; `actorId` is the requester who confirmed completion. |
 
-Unexpired accepted cancellation emits **no event**: Order waits for Credit's synchronous hold confirmation before setting the same order back to `OPEN`. See FEEDBACK-003.
+Unexpired accepted cancellation emits the User penalty event but NO Credit refund event. Every abort waits for Credit's synchronous reset confirmation. Expired abort additionally queues OpenOrderRefundTaskEvent. CHANGE-082 supersedes the historical no-event rule.
 
 ### Current peer inspection and next action
 
@@ -171,30 +212,30 @@ Unexpired accepted cancellation emits **no event**: Order waits for Credit's syn
 - No event consumer was found in the inspected User source. Existing User HTTP routes are not the approved event contract and are not called by the Order event flow.
 - **Next action:** Credit and User owners implement the subscriptions/actions in the table, agree topic/subscription configuration and trusted publisher validation, and define operational retry/dead-letter/replay/monitoring. For `OpenOrderRefundTaskEvent`, subscribe to the single shared OPEN-refund topic and use the resulting status to distinguish cancellation from expiry. Order Service must inspect the actual consumer code/tests before marking this feedback `VERIFIED`.
 
-## FEEDBACK-003: Credit Service hold/reset before reopening an unexpired accepted order
+## FEEDBACK-003: Credit Service hold/reset on every accepted-order abort
 
 - **Status:** `AGREED` — Order's synchronous hold-for-reopen behavior and minimal endpoint contract are finalized by the user; Credit has not implemented the endpoint.
 - **Responsible service:** Credit Service.
-- **Affected flow:** assigned courier cancels an `ACCEPTED` order before its original expiry; updated overall Sequence 7; CHANGE-064 / ADR-014.
+- **Affected flow:** EVERY assigned-courier abort from ACCEPTED; overall Sequence 7; CHANGE-082 / ADR-025 supersedes CHANGE-064's before-expiry-only reset rule.
 
 ### Required behavior
 
-When the assigned courier cancels before `expiresAt`, Order must synchronously wait for Credit to confirm that the existing transaction is safely held/reset without refunding or transferring it. Only after a successful response may Order clear `courierId` and change the same order from `ACCEPTED` to `OPEN`. This prevents another courier from accepting the order while Credit is still processing a cancellation. If Credit rejects or is unavailable, Order remains `ACCEPTED`. At or after expiry, Order skips this endpoint and publishes `AcceptedOrderCancellationTaskEvent` instead.
+On EVERY assigned-courier abort, Order synchronously waits for Credit to clear the previous courier and retain reserved funds. After success and a fresh expiry check, the current same-ID Order becomes OPEN or EXPIRED. Both outcomes queue the User penalty fact; EXPIRED also queues the Credit refund fact. If Credit rejects or is unavailable, Order remains ACCEPTED. CHANGE-082 supersedes the former expired-branch skip.
 
 ### Agreed endpoint contract
 
-This is the final Order Service contract for reopening an unexpired accepted order. It specifies the required Credit behavior and request shape; it is not a claim that Credit has implemented the endpoint.
+This is the approved Order-side contract for every accepted-order abort, whether the resulting current order is OPEN or EXPIRED. It is not a claim that Credit has agreed/implemented its provider or production authentication/reconciliation design.
 
 - **Operation:** `POST /api/credits/orders/{orderId}/hold-for-reopen`
 - **Request body:** none. Credit locates the transaction from `orderId` in the path.
 
-- **Success:** synchronous `200 OK` only after Credit has confirmed the transaction is retained in the hold/reset state. No response body is required. Order waits for this response before changing the order to `OPEN`.
+- **Success:** bodyless synchronous `200 OK` after courierId=null and retained reservation. Order waits before saving OPEN/EXPIRED, history and outbox.
 - **Required semantics:** locate the transaction by `orderId`; do not refund/release credits and do not transfer them. Retain the transaction and clear its current courier assignment. Make the operation idempotent by transaction state: a repeat when the same order is already held/reset with no courier assignment succeeds; missing transactions and conflicting states fail.
 - **Minimal request contract:** the path Order ID is the only transaction input. Order validates its version and courier ownership before the call; Credit validates transaction state and identity from its own data. Event payloads continue to carry `orderVersion` for event identity and context.
 - **Failure behavior:** any non-`200 OK` response means Order keeps the order `ACCEPTED` with its courier assignment. Credit should use an error response for an unauthenticated/forbidden caller, missing transaction, or conflicting transaction state.
 - **Production authentication:** Order-to-Credit requires trusted service authentication. The current adapter forwards an `Authorization` value; that credential must be confirmed as suitable or replaced before live HTTP-peer use.
 - **Recovery:** Credit may confirm the hold before Order's later database commit fails. Repeating the hold for the same already-held transaction must succeed so Order can retry/reconcile without refunding or stranding the transaction.
-- **Related flow:** if the deadline passes while the synchronous request is in flight, Order rechecks `expiresAt`; it follows the expired path and emits the accepted-cancellation event for Credit refund and User penalty.
+- **Related flow:** if the deadline passes in flight, Order rechecks expiresAt and follows EXPIRED: AcceptedOrderCancellationTaskEvent for User penalties and OpenOrderRefundTaskEvent for Credit refund.
 
 ### Implementation status
 

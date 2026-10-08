@@ -1,19 +1,23 @@
 # Active Sprint
 
-Current sprint: Sprint 2 and Sprint 3 (Order-owned work; planning gate)
+Current sprint: Sprint 2 and Sprint 3 (Order-owned lifecycle slice; `[~]`)
 
 Current developer/workstream: Vincent, `sprint-2-3`, approved on 2026-10-08 in
-CHANGE-081. Read `changes/CHANGE-081-sprint-2-3-scope-and-decisions.md` and the
+CHANGE-081/082. Read `changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md` and the
 current section of `docs/active-work/vincent.md` before implementation. The user
 selected the local `Order Service Overall Doc.pdf` alongside D1. The previously
 fingerprinted Updated PDF is absent; do not claim the two PDFs are equivalent.
 
-The missing Credit courier-assignment endpoint may be mocked for the local
-Order-side milestone; it is not verified integration. Credit reset value/route
-and retry safety are awaiting clarification. Repost retention is now approved:
-keep old/new rows with distinct business IDs, and hide the successfully reposted
-old expired row from My Requests using their linkage. No
-Sprint 2-3 source changes, migrations, new tests or completion claims exist yet.
+The approved lifecycle/history/reset/repost design is implemented under ADR-025.
+V3 preserves business IDs and adds internal UUID/immutable attempts; every abort
+resets Credit before OPEN/EXPIRED, queues User penalty and refunds only EXPIRED.
+Reposts retain both IDs and hide linked expired originals before requester pagination.
+Local verification passed 162 backend tests (no skips), 34 frontend tests,
+lint/typecheck/build and fresh >=80% line/branch coverage. Peer assignment/reset
+and event subscribers are missing/unverified; HTTP must fail closed, not mock-fallback.
+Trusted auto-repost credentials, authenticated browser and Cloud Run scheduling
+remain pending. This does not finish NTH3 Admin/report/hold/resolution features.
+Read `sprints/sprint-2-3/README.md` for effective diagrams and boundaries.
 Prior Sprint 1 records remain historical and must not be deleted.
 
 ## Historical Sprint 1 context

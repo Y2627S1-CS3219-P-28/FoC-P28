@@ -2,10 +2,10 @@
 
 This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
 
-## Current workstream - CHANGE-081 (2026-10-08)
+## Current workstream - CHANGE-081/082 (2026-10-08)
 
 Vincent is working on `sprint-2-3`, scoped to Order-owned Sprint 2-3 behavior.
-Read CHANGE-081, the current-sprint pointer and Vincent's current active-work
+Read CHANGE-082 / ADR-025, the current-sprint pointer and Vincent's current active-work
 section before using the historical Sprint 1 context below. The user selected
 `../../../Order Service Overall Doc.pdf` for this work alongside D1; the previously
 recorded Updated PDF is absent locally. Existing approved ADRs remain effective
@@ -15,13 +15,18 @@ The user approved one current Order plus immutable courier-attempt history,
 an internal UUID separate from business orderId, ACCEPTED-only abortion,
 User penalty signaling for every abort and Credit refund signaling for expired
 outcomes. The missing courier-assignment API may be mocked locally, not silently
-in HTTP mode. Synchronous Credit update on abort is approved, but its reset value/
-route and retry safety remain unresolved. Repost retains the old EXPIRED row and
-new row/new business ID; hide the successfully reposted original from My Requests
-using repost links. Refund/history references retain the old ID. This visibility
-change and the new abort lifecycle have not been applied in source.
-Do not interpret the historical Sprint 1 flags below as blocking an approved
-Sprint 2-3 requirement, or interpret partial approval as completion.
+in HTTP mode. Every abort synchronously calls the approved bodyless hold/reset
+route to clear Credit courierId, then resolves current state OPEN/EXPIRED and
+saves separate ABORTED history. Every abort queues User penalty; EXPIRED also
+queues Credit refund. Repost retains the old EXPIRED row and new row/new business
+ID; the implemented requester query hides linked expired originals before
+pagination/counting. Refund/history references retain the old ID. V3 adds an
+internal row UUID and immutable attempt IDs without changing business references.
+The local source/migration/UI test gates passed; live provider/subscriber retry
+safety and trusted auto-repost credentials remain pending in peer feedback.
+Editable effective diagrams/traceability: `sprints/sprint-2-3/README.md`.
+Do not interpret historical Sprint 1 flags as blocking this approved Sprint 2-3
+slice, or passing local tests as production completion of every overall capability.
 
 ## Repository state at workflow setup
 
@@ -34,8 +39,8 @@ No production code was created as part of the workflow setup.
 The following source paths are relative to the repository root.
 
 - Product backlog and platform NFRs: `../../../Project-D1.pdf`
-- Current overall Order Service FR/NTH design, diagrams, amendments, and logical contracts: `../../../Order Service Overall Doc - Updated.pdf`
-- Superseded overall design retained for comparison: `../../../Order Service Overall Doc.pdf`
+- User-selected current workstream overall design: `../../../Order Service Overall Doc.pdf` plus approved amendments (CHANGE-081/082).
+- Historical updated design (currently absent locally): `../../../Order Service Overall Doc - Updated.pdf`; do not assume equivalence.
 - Overall platform architecture: `../../../High Level Architecture Diagram - FOC.png`
 - Order Service architecture: `../../../High Level Architecture Diagram - Order Service.png`
 - Overall Order Service class diagram: `../../../Class Diagram - Order Service.png`

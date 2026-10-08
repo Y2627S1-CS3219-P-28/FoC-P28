@@ -6,10 +6,12 @@ Vincent (Developer 2) is assigned the Order-owned Sprint 2-3 work on `sprint-2-3
 explicitly authorized by the user in CHANGE-081. Source: Project D1 and the local
 `Order Service Overall Doc.pdf`. Scope includes the requested lifecycle/history,
 repost and completion work; it does not authorize sibling-service implementation.
-The accepted one-current-Order plus immutable courier-attempt history model is
-approved in principle; Credit reset semantics and detailed migration remain pending.
-Reposting retains old/new rows and hides the reposted expired original from the
-requester list; implementation is pending. This allocation does not reassign Yao Xiang's historical work or
+The one-current-Order plus immutable courier-attempt design, synchronous reset,
+V3 migration and requester repost visibility are approved and implemented in
+CHANGE-082 / ADR-025. Local test/coverage gates pass, but real providers/consumers,
+browser and cloud gates remain; status is `[~]`, not Sprint completion.
+The approved shared frontend slice touches only My Errands/My Requests and Order
+helpers/tests; no auth/layout/peer feature edits. This allocation does not reassign Yao Xiang's historical work or
 grant blanket ownership of shared frontend/configuration files.
 
 ## Historical Sprint 1 allocation
