@@ -140,22 +140,6 @@ services:
       start_period: 30s
       retries: 10
 
-  # Temporary local development dependency for User Service. This does not
-  # change User Service code or its managed/staging MongoDB configuration.
-  user-mongodb:
-    image: mongo:7
-    ports:
-      # Keep the host port configurable; 27018 avoids colliding with an
-      # existing local MongoDB installation while containers still use 27017.
-      - "${USER_MONGODB_PORT:-27018}:27017"
-    volumes:
-      - user-mongodb-data:/data/db
-    healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' --authenticationDatabase admin | grep 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-
   order-postgres:
     image: postgres:15-alpine
     ports:

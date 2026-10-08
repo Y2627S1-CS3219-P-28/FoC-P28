@@ -82,3 +82,5 @@
 | [CHANGE-065](../changes/CHANGE-065-scheduled-order-expiration-event.md) | 2026-10-03 | Spring expiry behavior remains; separate event superseded by CHANGE-071 | Adds Spring-scheduled discovery of due OPEN orders and atomically persists `EXPIRED` plus checkpoint; CHANGE-071 changes its refund event to the shared `OpenOrderRefundTaskEvent` |
 
 - CHANGE-079: Central role annotations — implemented; 134 tests passed, six Docker checks unavailable, fresh coverage gates passed; see changes/CHANGE-079-central-role-annotations.md and ADR-024.
+
+- [CHANGE-080](../changes/CHANGE-080-retired-mongo-compose-cleanup.md): Removed the obsolete user-mongodb helper after merge; main's peer configuration and Order's storage preserved; both Compose profiles validate locally.

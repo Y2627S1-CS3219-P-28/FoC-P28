@@ -2,6 +2,8 @@
 
 Current sprint: Sprint 1
 
+CHANGE-080 repairs post-merge Compose validation by removing the retired user-mongodb helper whose volume was undeclared. Main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration are preserved. Base and HTTP-peer config validation pass locally; hosted CI rerun remains pending.
+
 CHANGE-078/ADR-023 changes only the outbox recovery poll to hourly (top of each hour). The after-commit listener still attempts publication immediately; expiry remains every 15 minutes and auto-completion every minute. Failed events may wait nearly an hour for the next scan while the service runs; Cloud Run scale-to-zero can delay recovery further.
 
 CHANGE-077/ADR-022 adds quarter-hour minute selectors to Requester creation/repost times and rounds default/minimum suggestions upward. Expiry defaults to every 15 minutes and outbox recovery hourly under ADR-023; auto-completion stays every minute and after-commit dispatch remains immediate. Frontend tests/lint/type checks and backend tests/coverage pass locally; six Docker integration tests and browser visual/deployed scheduling checks remain unverified.

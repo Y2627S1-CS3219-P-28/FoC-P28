@@ -1626,3 +1626,14 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** When we put the project on stage or deploy on prod, will it automatically use all the actual endpoint and set up all the thing when we stage. We dont have to do extra stuff. Cuz those mock should only be used locally for testing
 - **Key response:** Explained automatic deployment wiring (prod profile, HTTP peers and current Order HTTP role default, environment URLs, Cloud SQL/secret injection, attached runtime identity and dev/prod topics). Identified shared USER_SERVICE_MODE=mock still enabling Supplier mock roles, missing Credit assignment/hold endpoints and Credit/User event consumers, and the recorded scheduling limitation. HTTP mode has no automatic mock fallback. Deploy health checks cannot establish full end-to-end readiness.
 - **Author verification:** Read current repository configurations and peer source. No live deployment, cloud permissions/subscriptions, or end-to-end tests verified. No application or infrastructure configuration modified; user review of deployment readiness remains pending.
+
+
+## Post-merge Compose CI cleanup (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-08
+- **Mode:** Configuration repair and static validation
+- **Affected locations:** compose.yaml; order-service/changes/CHANGE-080-retired-mongo-compose-cleanup.md; Order current-sprint/change-log/active-work; this disclosure
+- **Prompt:** service "user-mongodb" refers to undefined volume user-mongodb-data: invalid compose project (fix the ci, now it got problem after I resolve ot)
+- **Key response:** Removed the retired temporary user-mongodb helper instead of adding back its obsolete volume. Preserved main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration. The existing CI placeholder ADC step was not changed.
+- **Author verification:** Reproduced the reported error before the fix; base and HTTP-peer Compose config checks exit 0 after the fix. Normalized JSON has no dangling named-volume references. Exact peer/Order block preservation checks pass. No live containers/cloud publishing, application tests or hosted CI run performed. Developer review and hosted CI rerun remain pending.
