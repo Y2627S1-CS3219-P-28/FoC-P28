@@ -17,10 +17,7 @@ class CreditPropertiesTest {
 
     @Test
     void appliesSafeDefaults() {
-        CreditProperties properties = new CreditProperties(null, null, null);
-        assertThat(properties.firestore().projectId()).isEqualTo("demo-foc");
-        assertThat(properties.firestore().databaseId()).isEqualTo("(default)");
-        assertThat(properties.firestore().emulatorHost()).isEmpty();
+        CreditProperties properties = new CreditProperties(null, null);
         assertThat(properties.auth().projectId()).isEqualTo("demo-foc");
         assertThat(properties.auth().usesEmulator()).isFalse();
         assertThat(properties.corsOrigins()).isEmpty();
@@ -30,12 +27,8 @@ class CreditPropertiesTest {
     void trimsConfigurationAndCopiesOrigins() {
         List<String> origins = new java.util.ArrayList<>(List.of("https://example.com"));
         CreditProperties properties = new CreditProperties(
-                new CreditProperties.FirestoreSettings(" project ", " database ", " host:8080 "),
                 new CreditProperties.AuthSettings(" auth-project ", " localhost:9099 "), origins);
         origins.clear();
-        assertThat(properties.firestore().projectId()).isEqualTo("project");
-        assertThat(properties.firestore().databaseId()).isEqualTo("database");
-        assertThat(properties.firestore().emulatorHost()).isEqualTo("host:8080");
         assertThat(properties.auth().projectId()).isEqualTo("auth-project");
         assertThat(properties.auth().usesEmulator()).isTrue();
         assertThat(properties.corsOrigins()).containsExactly("https://example.com");

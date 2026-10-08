@@ -1637,3 +1637,14 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** service "user-mongodb" refers to undefined volume user-mongodb-data: invalid compose project (fix the ci, now it got problem after I resolve ot)
 - **Key response:** Removed the retired temporary user-mongodb helper instead of adding back its obsolete volume. Preserved main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration. The existing CI placeholder ADC step was not changed.
 - **Author verification:** Reproduced the reported error before the fix; base and HTTP-peer Compose config checks exit 0 after the fix. Normalized JSON has no dangling named-volume references. Exact peer/Order block preservation checks pass. No live containers/cloud publishing, application tests or hosted CI run performed. Developer review and hosted CI rerun remain pending.
+
+
+## Credit Service PostgreSQL migration assistance
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-07
+- **Mode:** Implementation and testing assistance
+- **Affected locations:** Credit Service persistence, Flyway schema, tests, local Compose, Cloud SQL provisioning/deployment configuration, and CI infrastructure checks
+- **Prompt:** Replace Credit Service Firestore persistence with PostgreSQL using `credit_accounts`, `credit_reservations`, `credit_idempotency_records`, and `credit_ledger`; use Spring Data JPA, Flyway, pessimistic locking, database constraints, isolated Credit databases/users/secrets on the shared Cloud SQL instance, and preserve existing API behavior.
+- **Key response:** Replaced Credit Service’s Firestore persistence with PostgreSQL while preserving registration, balance, reservation, and reservation-recovery behavior. Added local PostgreSQL and shared Cloud SQL configuration and infrastructure validation.
+- **Author verification:** The developer reviewed the generated code against the supplied plan, requirements, and schemas.

@@ -29,9 +29,9 @@ class SecurityComponentsTest {
 
     @Test
     void selectsConfiguredJwtDecoder() {
-        CreditProperties emulator = new CreditProperties(null,
+        CreditProperties emulator = new CreditProperties(
                 new CreditProperties.AuthSettings("p", "localhost:9099"), List.of());
-        CreditProperties production = new CreditProperties(null,
+        CreditProperties production = new CreditProperties(
                 new CreditProperties.AuthSettings("p", ""), List.of());
         assertThat(config.jwtDecoder(emulator)).isInstanceOf(EmulatorJwtDecoder.class);
         assertThat(config.jwtDecoder(production)).isInstanceOf(NimbusJwtDecoder.class);
@@ -39,7 +39,7 @@ class SecurityComponentsTest {
 
     @Test
     void configuresCorsForCreditMethodsAndOrigins() {
-        CreditProperties properties = new CreditProperties(null, null, List.of("https://example.com"));
+        CreditProperties properties = new CreditProperties(null, List.of("https://example.com"));
         CorsConfiguration cors = config.corsConfigurationSource(properties)
                 .getCorsConfiguration(new MockHttpServletRequest("GET", "/api/credits"));
         assertThat(cors.getAllowedOrigins()).containsExactly("https://example.com");

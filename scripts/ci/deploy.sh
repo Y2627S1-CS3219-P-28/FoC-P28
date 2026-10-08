@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-5), date: 2026-10-08
+# Mode: CI deployment update.
+# Scope: Limited Firestore runtime configuration to services that use Firestore.
+# Author review: I reviewed for correctness.
+
 # Deploys services at one image tag to one environment on Cloud Run.
 #
 # Usage: scripts/ci/deploy.sh <staging|production> <image-tag> [service ...]
@@ -67,19 +73,21 @@ render_env_file() {
 
   # Standard runtime contract for backend services (AGENTS.md); a service's env.yaml wins.
   if is_backend "$svc"; then
-    local name=${svc%-service}
     local -A defaults=(
       [ENVIRONMENT]="$ENVIRONMENT"
       [LOG_LEVEL]="${LOG_LEVEL:-INFO}"
       [LOGGING_STRUCTURED_FORMAT_CONSOLE]="ecs"
-      [FIRESTORE_PROJECT_ID]="$FIRESTORE_PROJECT_ID"
-      [FIRESTORE_DATABASE_ID]="$name-$ENVIRONMENT"
       [FIREBASE_AUTH_PROJECT_ID]="$FIREBASE_AUTH_PROJECT_ID"
       [USER_SERVICE_MODE]="$USER_SERVICE_MODE"
       [USER_SERVICE_URL]="${USER_SERVICE_URL:-}"
       [MOCK_ADMIN_EMAILS]="$MOCK_ADMIN_EMAILS"
       [CORS_ORIGINS]="$(service_url gateway)"
     )
+    if scripts/ci/list-services.sh --firestore | grep -qx "$svc"; then
+      local name=${svc%-service}
+      defaults[FIRESTORE_PROJECT_ID]="$FIRESTORE_PROJECT_ID"
+      defaults[FIRESTORE_DATABASE_ID]="$name-$ENVIRONMENT"
+    fi
     local key
     for key in "${!defaults[@]}"; do
       grep -q "^$key:" "$out" || printf '%s: "%s"\n' "$key" "${defaults[$key]}" >>"$out"

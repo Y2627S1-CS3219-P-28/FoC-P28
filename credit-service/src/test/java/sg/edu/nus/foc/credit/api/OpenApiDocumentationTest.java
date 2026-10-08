@@ -25,7 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import sg.edu.nus.foc.credit.support.FirestoreEmulator;
+import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,8 +38,7 @@ class OpenApiDocumentationTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("foc.credit.firestore.emulator-host", FirestoreEmulator::endpoint);
-        registry.add("foc.credit.firestore.database-id", () -> "credit-docs-test");
+        PostgreSqlTestContainer.register(registry);
     }
 
     @Autowired

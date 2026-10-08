@@ -2,7 +2,7 @@
  * AI Assistance Disclosure:
  * Tool: OpenAI Codex (GPT-5), date: 2026-09-25
  * Mode: Test generation and testing assistance.
- * Scope: Generated initial unit and Firestore integration tests for team-finalized credit behavior.
+ * Scope: Generated initial unit tests for team-finalized credit behavior.
  * Author review: I reviewed for correctness.
  */
 package sg.edu.nus.foc.credit.credit;
@@ -37,7 +37,7 @@ class CreditServiceTest {
     }
 
     @Test
-    void rejectsUnsafeFirestoreIdentifiers() {
+    void rejectsUnsafeOpaqueIdentifiers() {
         for (String invalid : new String[]{null, "", " ", ".", "..", "a/b", "__reserved__",
                 "x".repeat(129)}) {
             assertThatThrownBy(() -> service.reserve(invalid, "user-1", 1))
@@ -66,7 +66,7 @@ class CreditServiceTest {
     }
 
     private static final class RecordingRepository implements CreditRepository {
-        private final CreditAccount account = new CreditAccount("user-1", 50, 5, 1,
+        private final CreditAccount account = new CreditAccount("user-1", 50, 5,
                 Instant.EPOCH, Instant.EPOCH);
         private final CreditReservation creditReservation = new CreditReservation("order-1", "user-1", null,
                 5, ReservationStatus.RESERVED, Instant.EPOCH, Instant.EPOCH, null, null);
