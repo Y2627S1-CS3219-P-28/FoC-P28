@@ -57,6 +57,27 @@ on_demand_pre_push_ci_rehearsal = true
 pre_push_ci_rehearsal_default = "explicit-trigger-only"
 pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
+[current_workstream]
+decision_record = "changes/CHANGE-081-sprint-2-3-scope-and-decisions.md"
+developer = "Vincent"
+branch = "sprint-2-3"
+sprints = [2, 3]
+scope = "Order-owned parts only; sibling backend services read-only"
+stage = "planning; partial approval; implementation pending"
+selected_overall_source = "../../../Order Service Overall Doc.pdf"
+selected_overall_sha256 = "F0E925278FCCC0FCBB48F6C7BE1C23D908E15BEF75BB7C013EEC28C3F05DA602"
+updated_overall_source_available_locally = false
+courier_assignment_local_mock_approved = true
+http_peer_mock_fallback_approved = false
+courier_attempt_history_approved = true
+internal_uuid_primary_key_approved = true
+abort_allowed_status = "ACCEPTED only, before IN_PROGRESS"
+abort_penalty_topic = "existing accepted-order-cancellation topic"
+expired_refund_topic = "existing open-order-refund topic"
+credit_reset_or_reassignment_decided = false
+repost_row_replacement_mechanics_decided = false
+new_lifecycle_implementation_started = false
+
 [sources]
 project_d1 = "../../../Project-D1.pdf"
 order_service_overall = "../../../Order Service Overall Doc - Updated.pdf"

@@ -1,5 +1,26 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-027: Sprint 2-3 abort history and lifecycle amendments (2026-10-08)
+
+- Classification: Architecture/specification change; partial approval, not applied.
+- Approver: Vincent; CHANGE-081 records the exact approvals and open questions.
+- Approved in principle: one current Order plus immutable courier-attempt history;
+  separate internal primary UUID/business orderId; ACCEPTED-only abort; User
+  penalty event on every abort; requester current state OPEN/EXPIRED with refund
+  only for the expired outcome; missing assignment endpoint mocked locally.
+- Historical conflict: ADR-001's Sprint 1 prohibition and ADR-014's before-expiry
+  no-event/after-expiry ABORTED behavior do not describe the new requested rules.
+  Preserve those records as history; do not implement from them for this slice.
+- Pending: removing the synchronous Credit reset and assuming courier overwrite
+  is NOT approved; repost row replacement/audit retention is NOT finalized.
+- Data risk: current checkpoints are unique per order/status and reference the
+  current orders primary ID. Repeated accept/abort/reopen cycles and mutable
+  business IDs need reviewed migration, history and idempotency design.
+- Affected chain: F3/F4/F5/F7-F11, NTH2/NTH4; Order/attempt/history persistence,
+  query isolation, transitions/repost, task events, mocks/HTTP contracts and UI.
+- Evidence: local code/schema and PDF diagram inspection only; no source/test/
+  migration change or runtime verification. Full synchronization remains pending.
+
 ## ARCH-EVO-025: Hourly outbox recovery polling (2026-10-08)
 
 - Classification/approval: User-directed scheduling refinement; accepted in ADR-023 / CHANGE-078.

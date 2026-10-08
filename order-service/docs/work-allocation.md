@@ -1,4 +1,17 @@
-# Sprint 1 Work Allocation
+# Order Service Work Allocation
+
+## Current Sprint 2-3 workstream (2026-10-08)
+
+Vincent (Developer 2) is assigned the Order-owned Sprint 2-3 work on `sprint-2-3`,
+explicitly authorized by the user in CHANGE-081. Source: Project D1 and the local
+`Order Service Overall Doc.pdf`. Scope includes the requested lifecycle/history,
+repost and completion work; it does not authorize sibling-service implementation.
+The accepted one-current-Order plus immutable courier-attempt history model is
+approved in principle; Credit reset/reassignment and repost replacement details
+remain pending. This allocation does not reassign Yao Xiang's historical work or
+grant blanket ownership of shared frontend/configuration files.
+
+## Historical Sprint 1 allocation
 
 | Developer | Developer number | Assigned scope | Branch |
 |---|---|---|---|

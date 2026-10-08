@@ -2,6 +2,24 @@
 
 This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
 
+## Current workstream - CHANGE-081 (2026-10-08)
+
+Vincent is working on `sprint-2-3`, scoped to Order-owned Sprint 2-3 behavior.
+Read CHANGE-081, the current-sprint pointer and Vincent's current active-work
+section before using the historical Sprint 1 context below. The user selected
+`../../../Order Service Overall Doc.pdf` for this work alongside D1; the previously
+recorded Updated PDF is absent locally. Existing approved ADRs remain effective
+except where current explicit approvals supersede them; do not equate the PDFs.
+
+The user approved one current Order plus immutable courier-attempt history,
+an internal UUID separate from business orderId, ACCEPTED-only abortion,
+User penalty signaling for every abort and Credit refund signaling for expired
+outcomes. The missing courier-assignment API may be mocked locally, not silently
+in HTTP mode. Credit reset versus reassignment and expired-order row replacement
+remain unresolved; none of this new lifecycle design has been applied in source.
+Do not interpret the historical Sprint 1 flags below as blocking an approved
+Sprint 2-3 requirement, or interpret partial approval as completion.
+
 ## Repository state at workflow setup
 
 On 2026-09-23, the repository contained only empty `AGENTS.md`, `README.md`, and `Dockerfile` files. No Spring Boot source, React source, tests, PostgreSQL configuration, Docker implementation, Kubernetes manifests, CI/CD workflow, or service-local documentation existed. The approved stack is therefore a constraint for later setup, not an installed implementation.

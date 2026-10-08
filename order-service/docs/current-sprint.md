@@ -1,6 +1,20 @@
 # Active Sprint
 
-Current sprint: Sprint 1
+Current sprint: Sprint 2 and Sprint 3 (Order-owned work; planning gate)
+
+Current developer/workstream: Vincent, `sprint-2-3`, approved on 2026-10-08 in
+CHANGE-081. Read `changes/CHANGE-081-sprint-2-3-scope-and-decisions.md` and the
+current section of `docs/active-work/vincent.md` before implementation. The user
+selected the local `Order Service Overall Doc.pdf` alongside D1. The previously
+fingerprinted Updated PDF is absent; do not claim the two PDFs are equivalent.
+
+The missing Credit courier-assignment endpoint may be mocked for the local
+Order-side milestone; it is not verified integration. Credit reset/reassignment
+and expired-row replacement/history retention are awaiting clarification. No
+Sprint 2-3 source changes, migrations, new tests or completion claims exist yet.
+Prior Sprint 1 records remain historical and must not be deleted.
+
+## Historical Sprint 1 context
 
 CHANGE-080 repairs post-merge Compose validation by removing the retired user-mongodb helper whose volume was undeclared. Main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration are preserved. Base and HTTP-peer config validation pass locally; hosted CI rerun remains pending.
 

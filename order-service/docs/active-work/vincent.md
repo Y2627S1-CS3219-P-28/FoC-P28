@@ -1,4 +1,40 @@
-# Vincent - Sprint 1 Active Work
+# Vincent - Active Work
+
+## Current Sprint 2-3 planning - 2026-10-08
+
+- Developer: Vincent, Developer 2; explicitly confirmed by the user.
+- Branch: `sprint-2-3`.
+- Scope: Order-owned parts only, using Project D1 and `Order Service Overall Doc.pdf`.
+- Change: CHANGE-081; status `[!]` for unresolved integration/data design, not completion.
+- Approved: separate immutable courier-attempt history with one current Order;
+  internal row UUID separate from business orderId; abort only from ACCEPTED;
+  every abort signals User through the accepted-cancellation topic; expiry and
+  requester cancellation signal Credit through the refund topic; preserve the
+  aborting courier's history while requester sees OPEN/EXPIRED; new business ID
+  for repost; minute-based completion after at least 48 hours since delivery.
+- Local exception: mock the existing proposed courier-assignment route when the
+  Credit implementation is missing. HTTP mode must not silently fall back to mocks.
+- Pending: retain synchronous hold/reset versus approve an explicitly guarded
+  Credit reassignment contract; what the user means by overwriting the old expired
+  order ID/row and which historical linkage must be retained. Neither proposal is
+  approved merely because the user asked whether it is possible.
+- Last action: inspected local source/schema, Credit controller and overall PDF
+  sequence/class diagrams; recorded the user's approvals and explained the two
+  remaining choices. The proposed assignment API is absent locally; the mock
+  exception does not prove courier-account existence in the peer service.
+- Verification: source/configuration/document inspection only; no new tests,
+  migrations, application changes, cloud operations or live peer checks this turn.
+  TOML parsing and explicit pending-decision assertions, unique evolution ID,
+  change-record existence and `git diff --check` passed. The local profile is
+  tracked, not ignored; no unrelated or learning paths were changed.
+- Next action: resolve the two choices; then synchronize detailed design,
+  traceability/contracts/diagrams, write and observe failing tests, implement in
+  atomic slices and run the required backend/frontend/persistence/contract gates.
+- Boundaries: do not edit sibling backend services; do not commit learning files;
+  shared frontend/configuration changes require the approved Order-only slice.
+- Historical Sprint 1 evidence below is not verification of Sprint 2-3.
+
+## Historical Sprint 1 active work
 
 - Developer: Developer 2
 - Sprint: Sprint 1

@@ -1628,6 +1628,16 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Author verification:** Read current repository configurations and peer source. No live deployment, cloud permissions/subscriptions, or end-to-end tests verified. No application or infrastructure configuration modified; user review of deployment readiness remains pending.
 
 
+## Sprint 2-3 lifecycle clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-08
+- **Mode:** Local source/specification review and approval documentation
+- **Affected locations:** Order workflow profile, allocation, current-sprint, Vincent active work, CHANGE-081, change log and architecture evolution; this disclosure
+- **Prompt:** Use the existing Credit assignment endpoint as a mock if missing; ask whether reopened acceptance may overwrite its courier and whether the old expired order ID can be overwritten; work only on Order-owned parts and record under Vincent.
+- **Key response:** Recorded the developer's confirmed scope and local mock exception, distinguished abort-to-EXPIRED from repost-to-new-OPEN, and identified the proposed Credit contract's conflicting-assignment restriction and stale-retry risk. Credit reset/reassignment and repost replacement/retention remain pending; no application source, tests, peer service or infrastructure changed.
+- **Author verification:** Vincent explicitly selected the scope, identity, mock exception and previously the separate courier-attempt history model. Further design choices and runtime tests are pending; AI advice is not developer approval.
+
 ## Post-merge Compose CI cleanup (Order Service)
 
 - **Tool:** OpenAI Codex (GPT-6)
