@@ -33,7 +33,7 @@ class OrderOutboxMigrationTest {
 
         flyway.migrate();
 
-        assertEquals("2", latestVersion("outbox_clean"));
+        assertEquals("3", latestVersion("outbox_clean"));
         assertTrue(tableExists("outbox_clean", "order_event_outbox"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_due"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_expired_lease"));
@@ -46,7 +46,7 @@ class OrderOutboxMigrationTest {
 
         flyway("outbox_upgrade").migrate();
 
-        assertEquals("2", latestVersion("outbox_upgrade"));
+        assertEquals("3", latestVersion("outbox_upgrade"));
         assertTrue(tableExists("outbox_upgrade", "order_event_outbox"));
     }
 

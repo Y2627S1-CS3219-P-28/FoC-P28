@@ -5,6 +5,7 @@ import jakarta.persistence.QueryHint;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,7 +16,19 @@ import org.springframework.data.repository.query.Param;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
-public interface JpaOrderRepository extends JpaRepository<Order, String> {
+public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findById(@Param("id") String id);
+
+    @Query(value = "select id as \"orderId\", cast(null as uuid) as \"attemptId\", created_at as \"visibleAt\" "
+            + "from orders where courier_id = :courierId "
+            + "union all select order_id as \"orderId\", id as \"attemptId\", aborted_at as \"visibleAt\" "
+            + "from order_courier_attempts where courier_id = :courierId "
+            + "order by \"visibleAt\" desc, \"orderId\", \"attemptId\"",
+            countQuery = "select (select count(*) from orders where courier_id = :courierId) "
+                    + "+ (select count(*) from order_courier_attempts where courier_id = :courierId)",
+            nativeQuery = true)
+    Page<CourierOrderReference> findCourierTimeline(@Param("courierId") String courierId, Pageable pageable);
     Page<Order> findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(
             OrderStatus status,
             Instant now,

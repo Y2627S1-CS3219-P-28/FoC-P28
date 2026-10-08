@@ -121,7 +121,7 @@ class OrderDomainBehaviorTest {
         assertEquals("courier", order.getCourierId());
 
         order.abortAfterAcceptedCancellation("courier", 0, expiresAt);
-        assertEquals(OrderStatus.ABORTED, order.getStatus());
+        assertEquals(OrderStatus.EXPIRED, order.getStatus());
         assertNull(order.getCourierId());
     }
 

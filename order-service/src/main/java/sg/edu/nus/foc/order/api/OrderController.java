@@ -220,7 +220,7 @@ public class OrderController {
                 authorization));
     }
 
-    @Operation(summary = "Cancel an accepted order; reopen before expiry or publish cancellation after expiry")
+    @Operation(summary = "Abort an accepted errand; retain courier history, reopen or expire, and queue outcome events")
     @PostMapping("/{id}/cancel-accepted")
     @RequireCourierRole
     public OrderResponse cancelAccepted(

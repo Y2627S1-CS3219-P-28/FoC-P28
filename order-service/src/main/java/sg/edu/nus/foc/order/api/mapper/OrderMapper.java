@@ -17,6 +17,7 @@ public interface OrderMapper {
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
+    @Mapping(target = "attemptId", source = "attemptId")
     @Mapping(target = "requesterId", source = "requesterId")
     @Mapping(target = "courierId", source = "courierId")
     @Mapping(target = "itemDescription", source = "itemDescription")

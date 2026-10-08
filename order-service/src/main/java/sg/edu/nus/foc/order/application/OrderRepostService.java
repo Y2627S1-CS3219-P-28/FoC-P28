@@ -79,14 +79,21 @@ public class OrderRepostService {
             int duration,
             Instant expiresAt,
             String authorization) {
+        String authenticatedActor = users.verifyRequester(actor, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "MANUAL_REPOST",
                 commandId);
         if (previous.isPresent()) {
-            return orders.get(previous.get().getOrderId()).orElseThrow();
+            Order repost = orders.get(previous.get().getOrderId()).orElseThrow();
+            if (!repost.getRequesterId().equals(authenticatedActor)) {
+                throw OrderProblem.forbidden("Only the requester may repost.");
+            }
+            if (!id.equals(repost.getOriginalOrderId())) {
+                throw OrderProblem.conflict("Command ID was already used for a different original order.");
+            }
+            return repost;
         }
 
-        String authenticatedActor = users.verifyRequester(actor, authorization);
         Order original = findForUpdate(id);
         original.requireVersion(version);
 

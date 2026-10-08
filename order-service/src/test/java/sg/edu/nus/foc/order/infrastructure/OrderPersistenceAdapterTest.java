@@ -40,7 +40,7 @@ class OrderPersistenceAdapterTest {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         Instant cutoff = Instant.parse("2026-10-05T10:00:00Z");
         when(jpa.findDueForAutoCompletion(OrderStatus.DELIVERED, cutoff)).thenReturn(List.of());
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
 
         adapter.findDueForAutoCompletion(cutoff);
 
@@ -51,7 +51,7 @@ class OrderPersistenceAdapterTest {
     void absentStatusUsesPagedUnfilteredQuerySortedNewestFirst() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         when(jpa.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
 
         adapter.findAllOrders(null, 2, 25);
 
@@ -65,7 +65,7 @@ class OrderPersistenceAdapterTest {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         when(jpa.findByStatusOrderByCreatedAtDesc(eq(OrderStatus.COMPLETED), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
 
         adapter.findAllOrders(OrderStatus.COMPLETED, 0, 200);
 

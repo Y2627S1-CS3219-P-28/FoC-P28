@@ -12,6 +12,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class OrderResponse {
     private String id;
+    private String attemptId;
     private String requesterId;
     private String courierId;
     private String itemDescription;

@@ -25,6 +25,7 @@ import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 import sg.edu.nus.foc.order.domain.OutboxState;
 import sg.edu.nus.foc.order.domain.OrderStatus;
+import sg.edu.nus.foc.order.application.OrderTransitionService;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 
@@ -56,6 +57,12 @@ class OrderOutboxJpaIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private OrderTransitionService transitions;
+
+    @Autowired
+    private JpaOrderCourierAttemptRepository attempts;
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry properties) {
@@ -134,7 +141,7 @@ class OrderOutboxJpaIntegrationTest {
             throw new IllegalStateException("force rollback");
         }));
 
-        assertFalse(orders.existsById(order.getId()));
+        assertFalse(orders.findById(order.getId()).isPresent());
         assertFalse(jpaOutbox.existsById(event.getEventId()));
     }
 
@@ -158,6 +165,30 @@ class OrderOutboxJpaIntegrationTest {
         List<Order> dueOrders = orders.findDueForAutoCompletion(OrderStatus.DELIVERED, cutoff);
 
         assertEquals(List.of(dueOrder.getId()), dueOrders.stream().map(Order::getId).toList());
+    }
+
+    @Test
+    void abortHistoryCurrentStateAndPenaltyIntentRollBackTogether() {
+        Instant now = Instant.now();
+        Order order = Order.open("requester-abort-rollback", "item", "pickup", "delivery", 2, 15,
+                now, now.plusSeconds(3600));
+        order.accept("courier-abort-rollback", order.getVersion(), now);
+        orders.saveAndFlush(order);
+        long expectedVersion = orders.findById(order.getId()).orElseThrow().getVersion();
+        long attemptCount = attempts.count();
+
+        assertThrows(IllegalStateException.class, () -> new TransactionTemplate(transactionManager).execute(status -> {
+            transitions.cancelAccepted("abort-rollback", order.getId(), "courier-abort-rollback", expectedVersion, null);
+            throw new IllegalStateException("force failure after abort persistence");
+        }));
+
+        Order persisted = orders.findById(order.getId()).orElseThrow();
+        assertEquals(OrderStatus.ACCEPTED, persisted.getStatus());
+        assertEquals("courier-abort-rollback", persisted.getCourierId());
+        assertEquals(attemptCount, attempts.count());
+        assertFalse(jpaOutbox.findAll().stream().anyMatch(event -> order.getId().equals(event.getOrderId())));
+        assertFalse(checkpoints.findByOrderIdOrderByOccurredAtAsc(order.getId()).stream()
+                .anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.ABORTED));
     }
 
     private Order deliveredOrder(String requesterId, Instant deliveredAt) {

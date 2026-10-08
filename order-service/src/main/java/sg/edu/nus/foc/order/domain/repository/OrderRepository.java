@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface OrderRepository {
@@ -12,6 +13,8 @@ public interface OrderRepository {
     Optional<Order> getForUpdate(String id);
 
     Order save(Order order);
+
+    void saveAbortedAttempt(OrderCourierAttempt attempt);
 
     OrderPage findAvailable(Instant now, int page, int size);
 

@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.Duration;
@@ -24,7 +25,12 @@ public class Order {
     public static final Duration AUTOMATIC_COMPLETION_DELAY = Duration.ofHours(48);
 
     @Id
+    @Column(name = "row_id", nullable = false)
+    private UUID rowId;
+    @Column(nullable = false, unique = true, length = 36)
     private String id;
+    @Transient
+    private UUID attemptId;
     @Column(nullable = false, length = 128)
     private String requesterId;
     @Column(length = 128)
@@ -57,6 +63,7 @@ public class Order {
 
     private Order(String id, String requesterId, String description, String pickup, String delivery,
                    long credits, int duration, Instant createdAt, Instant expiresAt, String originalOrderId) {
+        this.rowId = UUID.randomUUID();
         this.id = id;
         this.requesterId = requesterId;
         this.itemDescription = description;
@@ -179,7 +186,7 @@ public class Order {
         if (now.isBefore(expiresAt)) {
             throw OrderProblem.conflict("Unexpired order must be reopened after Credit confirms the hold.");
         }
-        status = OrderStatus.ABORTED;
+        status = OrderStatus.EXPIRED;
         courierId = null;
     }
 
@@ -231,6 +238,20 @@ public class Order {
         if (version != expected) {
             throw OrderProblem.conflict("Order version is stale.");
         }
+    }
+
+    public static Order historicalAttempt(OrderCourierAttempt attempt) {
+        Order history = new Order(attempt.getOrderId(), attempt.getRequesterId(),
+                attempt.getItemDescription(), attempt.getPickupSupplierId(), attempt.getDeliverySupplierId(),
+                attempt.getOfferedCredits(), attempt.getDeliveryTimeLimitMinutes(), attempt.getCreatedAt(),
+                attempt.getExpiresAt(), attempt.getOriginalOrderId());
+        history.rowId = attempt.getId();
+        history.attemptId = attempt.getId();
+        history.courierId = attempt.getCourierId();
+        history.status = OrderStatus.ABORTED;
+        history.version = attempt.getOrderVersion();
+        history.repostedOrderId = attempt.getRepostedOrderId();
+        return history;
     }
 
     private void requireStatus(OrderStatus expected) {
