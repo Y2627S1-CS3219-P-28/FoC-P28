@@ -25,8 +25,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderPage;
 @SpringBootTest(properties = {
     "spring.profiles.active=local",
     "order.messaging.outbox.recovery-cron=-",
-    "order.lifecycle.expiry-cron=-",
-    "order.lifecycle.auto-completion-cron=-"
+    "order.lifecycle.cron=-"
 })
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional

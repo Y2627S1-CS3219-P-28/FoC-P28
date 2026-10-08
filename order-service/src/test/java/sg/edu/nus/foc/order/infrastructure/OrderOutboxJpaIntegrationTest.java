@@ -32,8 +32,7 @@ import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 @SpringBootTest(properties = {
     "spring.profiles.active=local",
     "order.messaging.outbox.recovery-cron=-",
-    "order.lifecycle.expiry-cron=-",
-    "order.lifecycle.auto-completion-cron=-"
+    "order.lifecycle.cron=-"
 })
 @Testcontainers(disabledWithoutDocker = true)
 class OrderOutboxJpaIntegrationTest {
