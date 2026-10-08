@@ -18,6 +18,9 @@
 # Credit Service Cloud SQL:
 #   - per-environment databases and users exist on the shared instance
 #   - credit-service runtime identity can connect and read its password secrets
+# Credit Service Pub/Sub push (when enabled in project.env):
+#   - three Order-topic subscriptions target the authenticated Credit push endpoint
+#   - shared dead-letter topic/recovery subscription and required IAM bindings exist
 #
 # Anything missing is fixed by the CI/CD owner re-running infra/gcp/bootstrap.sh, which
 # derives the same service lists from the repository.
@@ -45,6 +48,13 @@ sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "
 credit_sql_database() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_DATABASE" || echo "$CREDIT_SQL_PRODUCTION_DATABASE"; }
 credit_sql_user() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_USER" || echo "$CREDIT_SQL_PRODUCTION_USER"; }
 credit_sql_secret() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_SECRET" || echo "$CREDIT_SQL_PRODUCTION_SECRET"; }
+credit_pubsub_enabled() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_ENABLED" || echo "$CREDIT_PUBSUB_PRODUCTION_ENABLED"; }
+credit_dlq_topic() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_TOPIC" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_TOPIC"; }
+credit_dlq_subscription() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_SUBSCRIPTION" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_SUBSCRIPTION"; }
+environment_value() {
+  local env=$1 key=$2
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "infra/environments/$env.env"
+}
 
 echo "Service identities"
 for svc in "${services[@]}"; do
@@ -168,6 +178,110 @@ else
   done
 fi
 
+echo "Credit Service Pub/Sub push"
+for env in "${environments[@]}"; do
+  if [[ $(credit_pubsub_enabled "$env") != true ]]; then
+    ok "credit-service: Pub/Sub push for '$env' is intentionally not activated"
+    continue
+  fi
+
+  push_sa=$(environment_value "$env" CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT)
+  push_url="https://credit-service-$env-$PROJECT_NUMBER.$REGION.run.app"
+  push_endpoint="$push_url/api/credits/internal/order-events"
+  dlq_topic=$(credit_dlq_topic "$env")
+  dlq_subscription=$(credit_dlq_subscription "$env")
+  pubsub_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+  if gcloud iam service-accounts describe "$push_sa" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    ok "credit-service: Pub/Sub push identity '$push_sa'"
+  else
+    problem "credit-service: Pub/Sub push identity '$push_sa' does not exist"
+  fi
+  if ! gcloud pubsub topics describe "$dlq_topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "credit-service: Pub/Sub dead-letter topic '$dlq_topic' does not exist"
+  elif ! gcloud pubsub subscriptions describe "$dlq_subscription" --project "$PROJECT_ID" \
+      --format='value(topic)' | grep -Fxq "projects/$PROJECT_ID/topics/$dlq_topic"; then
+    problem "credit-service: dead-letter recovery subscription '$dlq_subscription' is missing or misconfigured"
+  else
+    ok "credit-service: dead-letter topic and recovery subscription for '$env'"
+  fi
+  if gcloud pubsub topics get-iam-policy "$dlq_topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$pubsub_agent" \
+        '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+    ok "credit-service: Pub/Sub may forward failures to '$dlq_topic'"
+  else
+    problem "credit-service: Pub/Sub cannot publish to dead-letter topic '$dlq_topic'"
+  fi
+
+  topics=(
+    "$(environment_value "$env" ORDER_OPEN_REFUND_TOPIC)"
+    "$(environment_value "$env" ORDER_ACCEPTED_CANCELLATION_TOPIC)"
+    "$(environment_value "$env" ORDER_COMPLETION_TOPIC)"
+  )
+  subscriptions=(
+    "$(environment_value "$env" CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION)"
+    "$(environment_value "$env" CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION)"
+    "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
+  )
+  for index in "${!subscriptions[@]}"; do
+    topic=${topics[$index]}
+    subscription=${subscriptions[$index]}
+    if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      problem "order-service: Pub/Sub topic '$topic' does not exist"
+      continue
+    fi
+    if ! subscription_json=$(gcloud pubsub subscriptions describe "$subscription" \
+        --project "$PROJECT_ID" --format=json 2>/dev/null); then
+      problem "credit-service: Pub/Sub subscription '$subscription' does not exist"
+      continue
+    fi
+    if jq -e \
+      --arg topic "projects/$PROJECT_ID/topics/$topic" \
+      --arg endpoint "$push_endpoint" \
+      --arg audience "$push_url" \
+      --arg service_account "$push_sa" \
+      --arg dead_letter "projects/$PROJECT_ID/topics/$dlq_topic" \
+      '.topic == $topic
+        and .pushConfig.pushEndpoint == $endpoint
+        and .pushConfig.oidcToken.audience == $audience
+        and .pushConfig.oidcToken.serviceAccountEmail == $service_account
+        and .deadLetterPolicy.deadLetterTopic == $dead_letter
+        and .deadLetterPolicy.maxDeliveryAttempts == 10
+        and .ackDeadlineSeconds == 60
+        and .retryPolicy.minimumBackoff == "10s"
+        and .retryPolicy.maximumBackoff == "600s"' <<<"$subscription_json" >/dev/null; then
+      ok "credit-service: Pub/Sub push subscription '$subscription'"
+    else
+      problem "credit-service: Pub/Sub push subscription '$subscription' is misconfigured"
+    fi
+    if gcloud pubsub subscriptions get-iam-policy "$subscription" --project "$PROJECT_ID" \
+        --format=json 2>/dev/null |
+        jq -e --arg member "serviceAccount:$pubsub_agent" \
+          '.bindings // [] | any(.role == "roles/pubsub.subscriber" and (.members | index($member)))' >/dev/null; then
+      ok "credit-service: Pub/Sub may forward failures from '$subscription'"
+    else
+      problem "credit-service: Pub/Sub cannot acknowledge dead-lettered messages from '$subscription'"
+    fi
+  done
+
+  if gcloud run services get-iam-policy "credit-service-$env" --region "$REGION" \
+      --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$push_sa" \
+        '.bindings // [] | any(.role == "roles/run.invoker" and (.members | index($member)))' >/dev/null; then
+    ok "credit-service: '$push_sa' may invoke credit-service-$env"
+  else
+    problem "credit-service: '$push_sa' cannot invoke credit-service-$env"
+  fi
+
+  if gcloud iam service-accounts get-iam-policy "$push_sa" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$pubsub_agent" \
+        '.bindings // [] | any(.role == "roles/iam.serviceAccountTokenCreator" and (.members | index($member)))' >/dev/null; then
+    ok "credit-service: Pub/Sub may mint OIDC tokens for '$push_sa'"
+  else
+    problem "credit-service: Pub/Sub cannot mint OIDC tokens for '$push_sa'"
+  fi
+done
+
 echo "Config buckets"
 for env in "${environments[@]}"; do
   bucket="${PROJECT_ID}-foc-config-$env"
@@ -180,13 +294,13 @@ done
 
 if [[ ${#problems[@]} -gt 0 ]]; then
   echo
-  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh (it provisions every service in this repo), then re-run this check."
+  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
   if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     {
       echo "### Cloud infrastructure incomplete"
       printf -- '- %s\n' "${problems[@]}"
       echo
-      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\`, then re-run this job."
+      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\` and the enabled Credit Pub/Sub provisioning script, then re-runs this job."
     } >>"$GITHUB_STEP_SUMMARY"
   fi
   exit 1

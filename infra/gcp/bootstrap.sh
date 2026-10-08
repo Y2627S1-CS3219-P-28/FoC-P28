@@ -12,6 +12,8 @@
 #   - one Firestore database per service per env         <name>-<env>, only readable by foc-<service>@
 #   - one shared Cloud SQL PostgreSQL instance with isolated Order/Credit databases,
 #     runtime users, and secrets per environment (approved by order-service ADR-008)
+#   - Pub/Sub API prerequisites; Credit push subscriptions are provisioned separately by
+#     infra/gcp/configure-credit-pubsub.sh after the target Cloud Run service exists
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
 #   - deployer service account used by GitHub Actions    foc-deployer@
 #   - read-only custom role focInfraReader (deployer), used by the CI infrastructure check
@@ -91,7 +93,7 @@ gc services enable \
   run.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
   secretmanager.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com \
-  sqladmin.googleapis.com
+  sqladmin.googleapis.com pubsub.googleapis.com
 
 log "Artifact Registry repository: $AR_REPO ($REGION)"
 exists gc artifacts repositories describe "$AR_REPO" --location "$REGION" ||
@@ -193,7 +195,7 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 
 log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
-reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy"
 if exists gc iam roles describe focInfraReader; then
   gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
 else
