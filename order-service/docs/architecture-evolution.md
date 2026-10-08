@@ -11,8 +11,12 @@
 - Historical conflict: ADR-001's Sprint 1 prohibition and ADR-014's before-expiry
   no-event/after-expiry ABORTED behavior do not describe the new requested rules.
   Preserve those records as history; do not implement from them for this slice.
-- Pending: removing the synchronous Credit reset and assuming courier overwrite
-  is NOT approved; repost row replacement/audit retention is NOT finalized.
+- Follow-up approved: synchronous Credit courier update on abort and same-ID
+  EXPIRED current order plus separate ABORTED courier history after expiry.
+- Pending: exact reset value/endpoint and stale-retry protection; repost current-row
+  replacement/audit retention. Broker retries do not guarantee completed refunds.
+- Schema evidence: V2 outbox rows reference orders(id); deleting/rekeying an order
+  currently conflicts with those references. New migration design remains pending.
 - Data risk: current checkpoints are unique per order/status and reference the
   current orders primary ID. Repeated accept/abort/reopen cycles and mutable
   business IDs need reviewed migration, history and idempotency design.

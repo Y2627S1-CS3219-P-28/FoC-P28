@@ -49,22 +49,33 @@ completed before implementation; no requirement is marked verified by this recor
 8. The minute-based scheduler completes DELIVERED tasks only after at least
    48 hours, using the normal completion workflow. It exists already; correctness
    and production scheduling availability still require verification.
+9. Follow-up approval: abort must synchronously update Credit's courier assignment;
+   do not rely on a later acceptance blindly overwriting the previous courier.
+   The exact reset value, endpoint and stale-retry protection remain unapproved.
+10. Follow-up clarification: abort after expiry keeps the current business orderId
+    and changes its current state to EXPIRED, with a separate immutable ABORTED
+    attempt for the aborting courier. This does not authorize duplicate live orders.
 
 Items 3-5 supersede conflicting historical Sprint 1 policy in principle;
 application, contracts, diagram/data design and tests are not synchronized yet.
 
 ## Unresolved decisions and risks
 
-- ADR-014/FEEDBACK-003 currently reset Credit's assigned courier synchronously
-  before OPEN. The user asks whether reassignment can overwrite instead.
-  FEEDBACK-004 currently rejects a conflicting existing courier. Blind overwrite
-  would change that peer contract and permit stale retries to replace a newer
-  courier. Do not remove reset or assert overwrite support without a decision and
-  a provider-compatible contract; the provider is currently missing.
-- Clarify whether overwriting means abort-to-EXPIRED with the SAME business ID,
-  or replacing an EXPIRED order with a new OPEN business ID during repost.
-  Refund snapshots must retain the OLD ID, history must not be rewritten, and
-  failed reservation/repost must leave the expired original recoverable.
+- Synchronous Credit update on abort is now approved in principle. Confirm whether
+  this clears courierId to null, retains the reservation, and uses the existing
+  proposed hold-for-reopen route or a revised assignment contract. FEEDBACK-004's
+  assignment contract does not establish null/reset or guarded overwrite support.
+  A delayed retry must not clear/replace a newer courier. Peer routes remain missing.
+- Abort-to-EXPIRED with the SAME ID is now explicitly confirmed. Repost still
+  creates a NEW business ID; replacing/removing its original current row remains
+  pending. Publication confirmation is not confirmation of a completed refund.
+  Pub/Sub retention/dead-letter behavior means retry is not an infinite business
+  guarantee. Retain the old ID and self-contained refund payload in durable records
+  and preserve courier history; failed reservation must leave the original intact.
+- V2 currently gives order_event_outbox.order_id a foreign key to orders(id);
+  checkpoints also reference that key. Literal row deletion or ID replacement is
+  not currently supported and requires an explicitly reviewed new migration.
+  Historical references must not be changed to the repost's new business ID.
 - No allocation or user approval authorizes edits to Credit/User/Supplier/Admin.
 - Actual consumers, trusted lifecycle authentication and Cloud Run cron behavior
   remain separate production gates. No automatic HTTP-to-mock fallback is approved.
@@ -75,7 +86,10 @@ Only workflow/approval records and the local profile are updated. The local
 profile is currently tracked in Git despite historical instructions describing
 it as ignored; no ignore/untrack operation is performed by this change. No
 application source, tests, migrations, event schemas, API implementations,
-frontend, Compose, infrastructure or learning files are changed. TOML parsing,
+frontend, Compose or infrastructure files are changed. A follow-up learning note
+in the ignored learning/refund-events-and-order-history.md explains publication
+versus refund completion and the current foreign-key constraint; it is not committed.
+TOML parsing,
 explicit pending-decision assertions, unique evolution ID, change-record existence
 and `git diff --check` passed. No runtime tests are claimed.
 

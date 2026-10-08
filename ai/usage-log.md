@@ -1647,3 +1647,13 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** service "user-mongodb" refers to undefined volume user-mongodb-data: invalid compose project (fix the ci, now it got problem after I resolve ot)
 - **Key response:** Removed the retired temporary user-mongodb helper instead of adding back its obsolete volume. Preserved main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration. The existing CI placeholder ADC step was not changed.
 - **Author verification:** Reproduced the reported error before the fix; base and HTTP-peer Compose config checks exit 0 after the fix. Normalized JSON has no dangling named-volume references. Exact peer/Order block preservation checks pass. No live containers/cloud publishing, application tests or hosted CI run performed. Developer review and hosted CI rerun remain pending.
+
+## Abort Credit update and refund retention clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-08
+- **Mode:** Source review, documentation and technical research
+- **Affected locations:** CHANGE-081, Vincent active-work, architecture evolution, context TOML, ignored refund/history learning and this log
+- **Prompt:** Upon abort send a synchronous Credit courier overwrite; keep the same expired current order ID and separate aborted history; can broker retries justify replacing the expired order after publishing its refund?
+- **Key response:** Recorded synchronous update approval without inventing null/reset endpoint semantics. Confirmed V2 outbox's order foreign key and distinguished publication from Credit refund completion using official Pub/Sub retention/retry documentation. Explained active-row replacement can retain self-contained old-ID events/history; replacement mechanics remain proposed. No application, peer, migration, test or cloud configuration changes.
+- **Author verification:** Vincent explicitly approved synchronous update and same-ID EXPIRED plus separate ABORTED history. Reset value/route, retry-safety and repost retention still require confirmation. Source and documentation inspection are not live refund verification.

@@ -14,20 +14,23 @@
   for repost; minute-based completion after at least 48 hours since delivery.
 - Local exception: mock the existing proposed courier-assignment route when the
   Credit implementation is missing. HTTP mode must not silently fall back to mocks.
-- Pending: retain synchronous hold/reset versus approve an explicitly guarded
-  Credit reassignment contract; what the user means by overwriting the old expired
-  order ID/row and which historical linkage must be retained. Neither proposal is
-  approved merely because the user asked whether it is possible.
-- Last action: inspected local source/schema, Credit controller and overall PDF
-  sequence/class diagrams; recorded the user's approvals and explained the two
-  remaining choices. The proposed assignment API is absent locally; the mock
-  exception does not prove courier-account existence in the peer service.
+- Follow-up approved: synchronous Credit courier update on abort; after-expiry
+  current order stays under the same business ID as EXPIRED, with separate ABORTED
+  courier-attempt history. Exact reset value/route and retry safety remain pending.
+- Pending: confirm null/reset semantics and whether to reuse the proposed hold
+  route; confirm repost replacement with retained immutable history/refund payload.
+  A broker publish confirmation does not verify the refund. V2's outbox foreign
+  key prevents simply deleting its original order row; migration design is pending.
+- Last action: recorded follow-up abort approvals; inspected CreditServicePort,
+  HttpPeerAdapters and V2 outbox references; checked official Pub/Sub retention/
+  retry documentation. Added ignored refund/history learning. The proposed peer
+  APIs remain unverified; publication is not refund completion.
 - Verification: source/configuration/document inspection only; no new tests,
   migrations, application changes, cloud operations or live peer checks this turn.
   TOML parsing and explicit pending-decision assertions, unique evolution ID,
   change-record existence and `git diff --check` passed. The local profile is
-  tracked, not ignored; no unrelated or learning paths were changed.
-- Next action: resolve the two choices; then synchronize detailed design,
+  tracked, not ignored. Follow-up learning is ignored and excluded from commits.
+- Next action: resolve reset semantics and repost retention; then synchronize detailed design,
   traceability/contracts/diagrams, write and observe failing tests, implement in
   atomic slices and run the required backend/frontend/persistence/contract gates.
 - Boundaries: do not edit sibling backend services; do not commit learning files;

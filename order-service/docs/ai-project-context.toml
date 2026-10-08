@@ -75,6 +75,8 @@ abort_allowed_status = "ACCEPTED only, before IN_PROGRESS"
 abort_penalty_topic = "existing accepted-order-cancellation topic"
 expired_refund_topic = "existing open-order-refund topic"
 credit_reset_or_reassignment_decided = false
+abort_synchronous_credit_update_approved = true
+abort_after_expiry_current_status = "EXPIRED; same business orderId; separate ABORTED courier history"
 repost_row_replacement_mechanics_decided = false
 new_lifecycle_implementation_started = false
 
