@@ -94,12 +94,20 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     @Override
     public void validatePair(String pickup, String delivery, String authorization) {
-        supplier.post()
+        SupplierPairValidationResponse response = supplier.post()
                 .uri("/api/suppliers/validate")
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                 .body(new SupplierPairRequest(pickup, delivery))
                 .retrieve()
-                .toBodilessEntity();
+                .body(SupplierPairValidationResponse.class);
+        if (response == null || response.getValid() == null) {
+            throw new OrderProblem("DEPENDENCY_UNAVAILABLE",
+                    "Supplier Service did not confirm the pickup and delivery locations.");
+        }
+        if (!response.getValid()) {
+            throw new OrderProblem("VALIDATION_ERROR",
+                    "The selected pickup or delivery location is no longer available. Choose active, different locations.");
+        }
     }
 
     @Override
@@ -210,6 +218,13 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     private static class SupplierPairRequest {
         private String pickupSupplierId;
         private String deliverySupplierId;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    private static class SupplierPairValidationResponse {
+        private Boolean valid;
     }
 
     @Getter

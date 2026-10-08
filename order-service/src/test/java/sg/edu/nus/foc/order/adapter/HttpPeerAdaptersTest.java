@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.web.client.RestClient;
+import sg.edu.nus.foc.order.domain.OrderProblem;
 
 class HttpPeerAdaptersTest {
     @Test
@@ -121,7 +122,7 @@ class HttpPeerAdaptersTest {
 
         supplierServer.expect(requestTo("/api/suppliers/validate"))
             .andExpect(method(org.springframework.http.HttpMethod.POST))
-            .andRespond(withSuccess());
+            .andRespond(withSuccess("{\"valid\":true,\"problems\":[]}", MediaType.APPLICATION_JSON));
         creditServer.expect(requestTo("/api/credits/orders/order/reservation"))
             .andExpect(method(org.springframework.http.HttpMethod.PUT))
             .andRespond(withSuccess());
@@ -195,5 +196,39 @@ class HttpPeerAdaptersTest {
                 "order", "Bearer token"));
 
         creditServer.verify();
+    }
+
+    @Test
+    void rejectsInvalidSupplierPairEvenWhenSupplierReturns200() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(RestClient.builder().build(),
+                builder.build(), RestClient.builder().build());
+        server.expect(requestTo("/api/suppliers/validate"))
+                .andExpect(header("Authorization", "Bearer token"))
+                .andExpect(content().json("{\"pickupSupplierId\":\"p\",\"deliverySupplierId\":\"d\"}"))
+                .andRespond(withSuccess("{\"valid\":false,\"problems\":[{\"field\":\"pickupSupplierId\",\"supplierId\":\"p\",\"reason\":\"INACTIVE\"}]}",
+                        MediaType.APPLICATION_JSON));
+
+        OrderProblem problem = assertThrows(OrderProblem.class, () -> adapters.validatePair("p", "d", "Bearer token"));
+        assertEquals("VALIDATION_ERROR", problem.getCode());
+        server.verify();
+    }
+
+    @Test
+    void missingSupplierValidationConfirmationFailsClosed() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(RestClient.builder().build(),
+                builder.build(), RestClient.builder().build());
+        server.expect(requestTo("/api/suppliers/validate")).andRespond(withSuccess());
+        server.expect(requestTo("/api/suppliers/validate"))
+                .andRespond(withSuccess("{\"problems\":[]}", MediaType.APPLICATION_JSON));
+
+        assertEquals("DEPENDENCY_UNAVAILABLE", assertThrows(OrderProblem.class,
+                () -> adapters.validatePair("p", "d", null)).getCode());
+        assertEquals("DEPENDENCY_UNAVAILABLE", assertThrows(OrderProblem.class,
+                () -> adapters.validatePair("p", "d", null)).getCode());
+        server.verify();
     }
 }

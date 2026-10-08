@@ -29,6 +29,10 @@ TDD files: scheduler/cadence unit tests first; existing lifecycle/domain/outbox/
 
 No runtime/browser/cloud behavior is verified by these inspections. Full implementation and Sprint completion remain `[~]`.
 
+## Supplier contract repair (ordinary implementation correction)
+
+Against the existing inspected Supplier contract, Order now consumes the validation response. HTTP 200/valid:false rejects with VALIDATION_ERROR; missing body/valid confirmation fails closed with DEPENDENCY_UNAVAILABLE. No Supplier contract/source is changed. Both new tests failed before this implementation because no exception was thrown. After the repair the full Java 21 Maven verify run passed **163 tests, 0 failures/errors/skips** and unchanged coverage gates, including isolated PostgreSQL tests. This is HTTP contract-stub verification, not live Supplier integration.
+
 ## Cadence verification
 
 New scheduler tests first failed compilation because the shared scheduler did not exist; after implementation all five focused tests passed. Full Java 21 Maven verify passed **161 tests, 0 failures/errors/skips**, including isolated PostgreSQL integration tests, and the unchanged JaCoCo line/branch gates. Two old four-test scheduler suites were replaced by one three-test combined suite; the lower total is this consolidation, not skipped tests. A separate Maven clean attempt failed on the pre-existing Windows-locked target/maven-archiver directory; regular verify rebuilt classes and packaged successfully. Generated class inspection showed only the shared lifecycle and outbox schedulers, not retired scheduler classes. No application DBs or peer sources were modified.
