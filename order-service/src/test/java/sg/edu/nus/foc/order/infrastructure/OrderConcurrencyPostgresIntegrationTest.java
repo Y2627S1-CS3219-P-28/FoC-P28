@@ -31,7 +31,7 @@ import sg.edu.nus.foc.order.application.*;
 import sg.edu.nus.foc.order.domain.*;
 
 /**
- * CHANGE-092 / F3, F4.1.5, F4.1.7-8, F5.1, F10, NFR3.
+ * CHANGE-092/093 / F3, F4.1.5, F4.1.7-8, F5.1, F10, NFR3.
  * Real PostgreSQL, Flyway, repositories and transactional service proxies.
  * Peers and external delivery are deliberately NOT under integration test.
  */
@@ -95,6 +95,54 @@ class OrderConcurrencyPostgresIntegrationTest {
         verify(peers).assignCourier(order.getId(), first, null);
         verify(peers, never()).assignCourier(order.getId(), second, null);
         verifyNoInteractions(dispatcher);
+    }
+
+    @ParameterizedTest(name = "acceptance before requester cancellation = {0}")
+    @ValueSource(booleans = {true, false})
+    void acceptanceAndRequesterCancellationCommitOnlyOneOutcome(boolean acceptanceFirst) throws Exception {
+        Order order = saveOpen(Instant.now().plusSeconds(3600));
+        String courier = "courier-accept-cancel";
+        String cancelCommandId = "cancel-" + order.getId();
+        Supplier<Object> accept = () -> accept(order, courier);
+        Supplier<Object> cancel = () -> transitions.cancel(
+                cancelCommandId, order.getId(), order.getRequesterId(), order.getVersion(), null);
+        Race result = race(
+                order,
+                acceptanceFirst ? OrderStatus.ACCEPTED : OrderStatus.CANCELLED,
+                acceptanceFirst ? accept : cancel,
+                acceptanceFirst ? cancel : accept,
+                false);
+
+        assertSuccess(result.first());
+        assertConflict(result.second());
+        assertCommitted(
+                order,
+                acceptanceFirst ? OrderStatus.ACCEPTED : OrderStatus.CANCELLED,
+                acceptanceFirst ? courier : null,
+                1,
+                acceptanceFirst ? 0 : 1,
+                1);
+        assertEquals(1, checkpoints.findByOrderIdOrderByOccurredAtAsc(order.getId()).size());
+        List<CommandReceipt> committedReceipts = receipts.findAll().stream()
+                .filter(receipt -> receipt.getOrderId().equals(order.getId()))
+                .toList();
+        assertEquals(acceptanceFirst ? "ACCEPT" : "CANCEL", committedReceipts.getFirst().getOperation());
+        assertEquals(
+                acceptanceFirst ? "accept-" + courier + "-" + order.getId() : cancelCommandId,
+                committedReceipts.getFirst().getCommandId());
+
+        if (acceptanceFirst) {
+            verify(peers, times(1)).assignCourier(order.getId(), courier, null);
+            verifyNoInteractions(dispatcher);
+        } else {
+            verify(peers, never()).assignCourier(anyString(), anyString(), nullable(String.class));
+            assertEvent(order, "OpenOrderRefundTaskEvent");
+            OrderEventOutbox refund = outbox.findAll().stream()
+                    .filter(event -> event.getOrderId().equals(order.getId()))
+                    .findFirst().orElseThrow();
+            verify(dispatcher, times(1)).dispatch(refund.getEventId());
+        }
+        verify(peers, never()).holdForReopen(anyString(), nullable(String.class));
     }
 
     @ParameterizedTest(name = "cancellation first = {0}")
