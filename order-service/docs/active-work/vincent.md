@@ -1,5 +1,104 @@
 # Vincent - Active Work
 
+## CHANGE-093: Courier acceptance versus requester cancellation - 2026-10-09
+
+- Test slice locally verified. Vincent explicitly approves the fifth real PostgreSQL race on
+  sprint-2-3-credit-service-concurrency. Profile/allocation match; preserve prior
+  uncommitted advisory/disclosure notes. Scope: Order test only, both winner
+  orderings, actual row contention, one outcome/version/checkpoint/receipt,
+  no losing Credit assignment and refund only for winning cancellation.
+- Effective references: F3/F13, F4.1.7, NFR3; existing ADR-017/018/019 and
+  CHANGE-092 test harness. Existing source locks both paths; this characterizes
+  already-implemented behavior, not a new production feature or API assumption.
+  User approval covers test design described in the preceding status turn.
+- D1 and selected Overall PDF SHA-256 match recorded fingerprints. Java 21 and
+  Docker 27.5.1 available. Broader historical context batches partly truncated;
+  no full workflow audit, new peer contract verification or Sprint completion
+  claimed. Existing generic workflow-format and live integration gates remain.
+- New parameterized test added before any production edit; existing behavior
+  passed first execution unchanged, not an invented red/green claim. Focused pair
+  2/2; full concurrency class 10/10 + 13 service regressions = 23/23; separate
+  actual domain/transition regressions 36/36. Zero failures/errors/skips in each
+  Java 21 offline Maven test run. No fresh full verify/JaCoCo/frontend/live test.
+- Generic drift checker exits 2 (manifest headers incompatible), while manual
+  PDF fingerprints match. verify_gate exits 1 with five format/history issues;
+  no unrelated workflow repair or full Sprint completion. Patch check passes.
+- Atomic test commit 827844b and separate verification-record commit 0f50886;
+  no push. New traceability/change/context records
+  and ignored learning updated. Prior uncommitted advisory/disclosure changes
+  preserved; active-work/AI disclosure remain unstaged so unrelated prior notes
+  are not mixed into the verified test commit. Next: developer review and existing
+  live integration/cross-service recovery work; no additional lock needed.
+- Final checks: learning links/fences, TOML parsing and staged diff checks pass.
+  Only pre-existing/mixed advisory files docs/active-work/vincent.md and
+  ../ai/usage-log.md remain tracked/uncommitted; learning stays Git-excluded.
+
+## Acceptance/cancellation lock confirmation - 2026-10-09
+
+- Follow-up test inventory inspection confirms exactly four parameterized race
+  methods/eight cases; no dedicated accept-versus-cancel test has been added.
+  Saved report: eight cases, zero failures/errors/skips, not a fresh execution.
+  To verify this fifth pair, test both winner orderings and assert one state,
+  no losing Credit assignment and refund intent only when cancellation wins.
+  User asked status only; no tests/source added on their behalf.
+- Lightweight source confirmation, Vincent on matching concurrency branch.
+  accept, cancel and cancelAccepted are transactional and call findForUpdate
+  before domain mutation; adapter delegates to PESSIMISTIC_WRITE JPA query.
+  Acceptance holds the lock during Credit assignment; abort during Credit reset.
+- Same-order accept versus requester cancel is serialized by this existing path;
+  loser must revalidate state/version. That exact pair is not one of CHANGE-092's
+  four dedicated race tests. No new runtime tests, implementation or design change.
+  Existing notes/disclosure preserved; this active-work note is uncommitted for
+  review. No further implementation is needed merely to add a redundant lock.
+
+## Concurrent locking learning document - 2026-10-09
+
+- User requested a separate learning Markdown explaining SQL locks and flow.
+  Vincent/profile/allocation match sprint-2-3-credit-service-concurrency;
+  documentation-only scope, no new architecture or implementation approval needed.
+- Created ignored learning/concurrent-order-locking-sql-and-flow.md: Java/JPQL
+  to observed Hibernate FOR NO KEY UPDATE SQL, commit/rollback/outer-transaction
+  lifetime, four transition races, completion NOWAIT, batch scheduler locks,
+  versions/receipts/outbox, safe SQL diagnostics, alternatives and remote Credit
+  partial-success limitation. Prior learning and existing uncommitted notes preserved.
+- Inspected actual assignment/transition/lifecycle/domain/repositories/tests,
+  V1/V3 migrations, AFTER_COMMIT listener and saved SQL/test reports. Existing
+  eight-case report remains zero failures/errors/skips; no new Maven/Docker/SQL
+  execution or live peer verification. Parent/nested context batch was truncated;
+  no complete historical workflow audit or full completion gate claimed.
+- Documentation validation passed: 26 balanced fence markers, 12 local links
+  resolve, git diff --check passes (existing CRLF notice only), and git
+  check-ignore confirms the new learning file is excluded. Source/contracts/schema/diagrams,
+  deployment and peer files unchanged. AI disclosure appended separately.
+  Learning remains Git-excluded; active-work/disclosure left uncommitted for review,
+  not mixed into prior user changes. Next: user reads guide; existing Sprint and
+  deferred integration/recovery blockers remain unchanged.
+
+## Staging Swagger URL clarification - 2026-10-09
+
+- Lightweight read-only workflow; Vincent/profile/allocation/current branch match.
+  application.yaml configures /api/orders/docs and /api/orders/v3/api-docs;
+  gateway forwards /api/orders to Order. No source/configuration change needed.
+- Live browser lookup could not access the staging docs URL; deployed page is
+  not independently verified. User can open the configured route in their browser.
+  No tests rerun; existing blockers unchanged. This active-work note remains
+  uncommitted for review alongside prior advisory notes.
+
+## Acceptance lock lifetime clarification - 2026-10-09
+
+- Advisory-only task, Vincent on sprint-2-3-credit-service-concurrency. Inspected
+  OrderAssignmentService.accept and controller call site: default @Transactional,
+  getForUpdate before Credit assignment, repository save and method return.
+- PostgreSQL releases the row lock at physical transaction commit/rollback,
+  not repository save or Java method-body return. Spring normally commits after
+  that return and before handing the result to the controller; an existing outer
+  REQUIRED transaction keeps the lock until the outer transaction ends.
+- No source, test, contract, schema or architecture change; no tests rerun.
+  Existing sprint/integration blockers remain unchanged. Learning clarification
+  recorded in the existing ignored learning document. Active-work update remains
+  uncommitted for review; prior status notes preserved. No implementation next
+  step is required for this terminology question.
+
 ## Staging ACCOUNT_NOT_FOUND diagnosis - 2026-10-09
 
 - Follow-up clarification: missing migration/provisioning is a suspicion, not
@@ -31,6 +130,14 @@
   and UID row/history; no delete/re-signup/reset recommendation. Sprint unchanged.
 
 ## Real PostgreSQL concurrency verification - 2026-10-09 / CHANGE-092
+
+- Status follow-up: re-read saved Surefire/JaCoCo reports at HEAD 3d26ff8;
+  all eight named races pass with zero failures/errors/skips; recorded Maven
+  full-run result is 215 tests. The directory-wide XML sum is 219 because older
+  reports remain, so it is not a fresh-run total. Coverage is 95.67% lines /
+  84.70% branches. Production and race-test
+  source unchanged since 1906afb. No new execution or live peer verification
+  performed; this confirmation note left uncommitted for review.
 
 - VERIFIED test unit: user confirms branch sprint-2-3-credit-service-concurrency for
   the four Order races. Clean worktree at start; profile/allocation reconciled.
