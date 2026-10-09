@@ -1,5 +1,15 @@
 # Active Sprint
 
+## One-time Credit push security repair - CHANGE-090 (2026-10-09)
+
+Vincent approved the narrow Credit converter/test exception. Signed push no longer
+uses Firebase user-role lookup; ordinary user guards and all Google validators
+remain. Fifteen new regressions and fresh clean Credit verify pass: 80 tests,
+no skips, 95.48% line/85.56% branch coverage. Source/test commit 198cd7c.
+See the interference MD and FEEDBACK-008 READY_FOR_VERIFICATION. Credit owner
+review, local image rebuild and real Google refund/transfer/duplicate/DLQ checks
+remain open. This does not close Sprint [~] or other peer/repost blockers.
+
 ## Effective local-live connector — CHANGE-088 (2026-10-09)
 
 Vincent's approved local-only deployment refinement is implemented/tested in

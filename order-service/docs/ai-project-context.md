@@ -1,5 +1,17 @@
 # Order Service Permanent Project Context
 
+## One-time Credit push security exception - CHANGE-090 (2026-10-09)
+
+Vincent explicitly approved isolating the existing Google push converter from
+Firebase role lookup and regression tests. See the interference record under
+changes/CHANGE-090-credit-push-security-interference.md. This task-specific
+exception does not authorize Credit business/contract/schema changes or other
+peer edits. Annablee owns Credit; FEEDBACK-008 is READY_FOR_VERIFICATION: fresh
+Java 21 clean verify passes 80 tests/no skips, 95.48% line/85.56% branch coverage;
+real Google/ledger/backlog checks and local application rebuild remain open.
+Source/test commit 198cd7c. Existing event architecture and paused repost retries
+are unchanged. The dated documentation-only scope below is historical.
+
 ## Local real broker connector — CHANGE-088 (2026-10-09)
 
 Vincent approved isolated local-live testing, implemented by ADR-029. Use base +

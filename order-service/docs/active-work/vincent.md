@@ -1,5 +1,33 @@
 # Vincent - Active Work
 
+## Approved one-time Credit security interference - 2026-10-09
+
+- Vincent explicitly approved the narrowly scoped Credit push-security fix and
+  regression tests on sprint-2-3-credit, plus a Markdown interference record.
+  CHANGE-090 supersedes only the pending-permission stopping point below.
+- Scope: isolate Pub/Sub authentication conversion from Firebase role lookup;
+  preserve Google signature/expiry/issuer/audience/verified-service-account
+  validation and ordinary user authorization. No financial logic, contracts,
+  schema, other peers, cloud/IAM or application database changes authorized.
+- Test first through real HTTP bearer/security filters using locally signed
+  service JWTs; prove the existing failure, then positive/negative identity and
+  user-role regressions. Run Credit verification in isolated Java 21 containers.
+- D1 and Overall PDF fingerprints match; historical generic drift-manifest
+  format failure remains separate. Frontend inspected, unchanged: this is an
+  explicitly backend-security-only exception, not a new UI/architecture design.
+- Complete locally: pre-fix 14 pass/1 expected converter error; post-fix clean
+  source-only Java 21 `mvnw -o -B -ntp clean verify` passes all 80 Credit tests,
+  no failures/errors/skips. Fifteen new real-bearer regressions pass. Fresh JaCoCo
+  95.48% lines (844/884), 85.56% branches (231/270); unchanged 80% gates.
+- Source/test commit 198cd7c. Interference MD lists the exact two Credit paths,
+  preserved security, tests, rollback and narrow local-live rebuild command.
+  Context/feedback/traceability/disclosure updated; learning remains ignored.
+- FEEDBACK-008 READY_FOR_VERIFICATION, not live VERIFIED. Running Credit was not
+  rebuilt/restarted, no cloud writes or application DB changes. Owner review and
+  actual Google push/ledger/duplicate/backlog/DLQ checks remain; Sprint [~].
+  User rebuilds only Credit, keeps tunnel, verifies original refunds/settlement.
+  Do not republish with new event IDs or silently redrive money from the DLQ.
+
 ## Local push HTTP 500 diagnosis - 2026-10-09
 
 - Read-only runtime diagnosis requested by Vincent on sprint-2-3-credit; Git

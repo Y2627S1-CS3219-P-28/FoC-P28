@@ -269,3 +269,23 @@ staging_resources_changed = false
 schema_changed = false
 background_retries_paused = true
 user_consumers_provided = false
+
+[credit_push_security_exception]
+change = "CHANGE-090"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+scope = "One-time Credit push converter and regression test only; no financial/contract/schema/cloud edits"
+interference_record = "changes/CHANGE-090-credit-push-security-interference.md"
+feedback = "FEEDBACK-008"
+feedback_status = "READY_FOR_VERIFICATION"
+new_security_tests_passed = 15
+credit_tests_passed = 80
+clean_coverage_verified = true
+source_test_commit = "198cd7c"
+credit_line_coverage = 95.48
+credit_branch_coverage = 85.56
+live_financial_verified = false
+credit_owner_review_pending = true
+running_credit_rebuilt = false
+background_retries_paused = true

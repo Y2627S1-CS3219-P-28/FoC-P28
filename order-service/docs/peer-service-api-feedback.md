@@ -545,7 +545,7 @@ callback/event or refund-confirmation gate is requested by this review.
 
 ## FEEDBACK-008: Pub/Sub push incorrectly inherits Firebase user-role conversion
 
-Date: 2026-10-09. Owner: Credit (Annablee). Status: OPEN.
+Date: 2026-10-09. Owner: Credit (Annablee). Status: READY_FOR_VERIFICATION.
 Classification: INCOMPLETE_OR_INCOMPATIBLE. Existing endpoint, not a missing API.
 CHANGE-088 / ADR-029 live verification blocker; no new contract proposed.
 
@@ -560,7 +560,7 @@ CHANGE-088 / ADR-029 live verification blocker; no new contract proposed.
   FirebaseRoleAuthoritiesConverter -> HttpUserServiceRoleProvider -> User's
   /api/users/role-context -> 401 Invalid authentication token, before the
   Credit event controller can process the refund. User's rejection is correct.
-- Source: credit-service/security/SecurityConfig.java (under its Java package),
+- Source before CHANGE-090: credit-service/security/SecurityConfig.java (under its Java package),
   push chain line 68 supplies a dedicated decoder but no dedicated authentication
   converter. The global JwtAuthenticationConverter bean at lines 137-140 uses
   FirebaseRoleAuthoritiesConverter. Spring Security 7.1.1 automatically selects
@@ -575,13 +575,35 @@ CHANGE-088 / ADR-029 live verification blocker; no new contract proposed.
   issuer, expiry, audience, email or email_verified fails; user APIs still use
   Firebase roles/ownership guards. Then test live CANCELLED/EXPIRED refunds and
   COMPLETED transfers, plus duplicate delivery, with ledger/balance evidence.
-- Current evidence: logs and source inspection, not a fixed/tested implementation.
+- Initial evidence: logs and source inspection, before a fixed/tested implementation.
   Earlier 27 Credit outcome tests did not verify this live security-chain path.
   Initial Check's unauthenticated 401 and ingress 404/405 are expected negative
   probes; they cannot establish authenticated financial delivery. CANCELLED Order
   state and broker publication are not confirmation of refund completion.
-- Stopping point: peer source remains unchanged. Vincent requested a fix, but
-  explicit separate Credit-edit authorization is still pending clarification.
+- Initial stopping point: peer source remained unchanged while explicit separate
+  Credit-edit authorization was pending clarification. Superseded by approval below.
   Preserve queued/DLQ events for recovery; do not reset databases or republish with
   new event IDs. After a fix, rebuild only Credit, retain the tunnel URL, and verify
   retry/DLQ recovery and exactly-once financial effects before marking VERIFIED.
+
+### Approved narrow repair - CHANGE-090 (2026-10-09)
+
+Vincent explicitly approved the Credit security fix and regression tests for this
+one task, with an interference Markdown. Only SecurityConfig's push-chain converter
+selection and new PubSubPushSecurityTest change. Existing Google decoder/validators,
+Firebase user chain, business logic, schemas, consumers, endpoints and cloud
+configuration remain unchanged. Annablee's ownership and all other peer boundaries
+are retained. See changes/CHANGE-090-credit-push-security-interference.md.
+
+Observed red: valid locally signed push fails through FirebaseRoleAuthoritiesConverter.
+After the explicit independent converter, all 15 new bearer-filter cases and the
+full 80-test Credit suite pass (no failures/errors/skips), including a fresh clean
+source-only Java 21 run: 95.48% lines / 85.56% branches, existing 80% gates unchanged.
+Source/test commit 198cd7c. A local JWKS replaces Google's public-key URL only for tests. Role lookup
+and financial collaborators are mocked in the security slice, not live integrations.
+
+Still required: owner review, rebuild the local Credit image, real Google push 204,
+CANCELLED/EXPIRED refund and COMPLETED transfer balance/ledger evidence, duplicate
+delivery and queued/DLQ recovery. Local tests do not close this live gate or prove
+the user's existing cancelled reservation has been refunded. Status is deliberately
+not VERIFIED. Background repost credentials/retries remain paused.

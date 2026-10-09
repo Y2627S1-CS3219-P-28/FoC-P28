@@ -1,5 +1,13 @@
 # Order Service Work Allocation
 
+## One-time approved Credit security exception (2026-10-09)
+
+Vincent explicitly authorizes CHANGE-090 on sprint-2-3-credit: isolate Credit's
+Pub/Sub push authentication converter and add its regression tests, plus an
+interference handoff. This supersedes the documentation-only restriction solely
+for those two Credit source/test paths. Annablee retains Credit ownership; no
+business logic, contract, schema, other peer, cloud/IAM or blanket edit approval.
+
 ## Credit integration review branch (2026-10-09)
 
 Vincent explicitly requests the Order-side feedback review on `sprint-2-3-credit`

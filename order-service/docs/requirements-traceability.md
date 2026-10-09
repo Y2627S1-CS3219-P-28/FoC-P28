@@ -1,5 +1,17 @@
 # Order Service Requirements Traceability
 
+## CHANGE-090: Credit push security exception
+
+| Existing requirement / approved invariant | Repair | Verification / remaining gate |
+| --- | --- | --- |
+| F4.1.7 cancellation, F4.1.8/F10 expiry; F4.1.5/F5.1 completion; ADR-029 | Existing Credit push chain explicitly isolates conversion from Firebase roles | Valid signed local push reaches consumer; no User lookup; real Google and financial ledger checks pending |
+| NFR3.1.1/3.1.3, existing Google push validation and user role/ownership guards | PubSubPushSecurityTest sends real bearer headers through production filter chains | 15 cases pass after observed red; fresh clean 80 Credit tests/no skips; 95.48% lines/85.56% branches |
+
+One-time Vincent approval, exact Credit interference and test limitations are in
+CHANGE-090. No Order lifecycle, financial contract, diagrams, database or frontend
+behavior changed. FEEDBACK-008 is READY_FOR_VERIFICATION, not live VERIFIED;
+Sprint remains [~].
+
 ## Effective CHANGE-088 local delivery traceability
 
 CHANGE-089 verifies its Windows PS5.1 setup invariant under NFR3.1.3: harmless
