@@ -6,6 +6,12 @@ Current review branch: Vincent, `sprint-2-3-credit`, user explicitly requested
 documentation-only review of integrated revision 09e04a0. Source now has Credit
 courier assignment/core hold and refund/completion push consumers. Earlier
 missing-route/consumer statements are historical, not the current source state.
+Follow-up ran 27 existing focused Credit tests successfully (including 12 isolated
+PostgreSQL tests) from read-only copied source. Refund and completion transfer/
+duplicate behavior verified at Credit's layers; no deployed/end-to-end verification.
+Normal Order abort is locked/status-version checked and waits for Credit 200;
+completed command receipt replay prevents repeating Credit reset. The earlier
+short stale-clear example did not describe that protected normal sequence.
 Feedback section 6 records implemented capabilities without claiming live
 verification. Remaining Credit gaps: 003 reset replay authorization; 006 terminal
 reservation replay/cross-database recovery; 007 superseded ABORTED refund consumer

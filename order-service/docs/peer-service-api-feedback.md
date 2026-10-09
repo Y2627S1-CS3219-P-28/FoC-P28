@@ -3,6 +3,15 @@
 Current handoff: **2026-10-09**, Vincent, `sprint-2-3-credit`, CHANGE-087.
 Inspected integrated revision: `09e04a0` (`pull: credit service`).
 
+Follow-up financial verification (2026-10-09, source unchanged): existing focused
+Credit tests ran in Java 21 Docker from a read-only source copy, with isolated
+Testcontainers PostgreSQL/credit_test (Flyway V1/V2). **27 tests passed, 0 failures,
+0 errors, 0 skipped**, including 12 persistence integration tests. Refund for
+CANCELLED/EXPIRED and completion transfer/deduplication are implemented and locally
+tested at Credit's layers. This is NOT live Pub/Sub delivery, deployed IAM/OIDC,
+full Order-to-Credit or coverage verification. Accepted-cancellation code/config
+is intentionally unchanged at the user's request; 007 remains a separate gap.
+
 This user-requested rewrite removes already-implemented Credit routes and
 refund/completion handlers from the **missing implementation** list. Section 6
 retains a small evidence register, not requests to build those capabilities again.
@@ -76,6 +85,14 @@ Request: **NO body**. Expected response: **exactly 200 OK, NO body**.
   accepting again. Current path/token alone cannot distinguish same-courier
   attempts; any new command/attempt/generation field requires owner/user approval.
   This review does NOT add a field or select that design.
+- Current Order safeguards must not be omitted when explaining this risk:
+  cancelAccepted locks and validates the current ACCEPTED order/version, waits
+  for Credit's exact 200, then commits OPEN/EXPIRED and a command receipt. A
+  failed call leaves it ACCEPTED, preventing new acceptance; a committed command
+  replay returns before another Credit call. Thus a normal serialized abort/
+  acceptance does NOT exhibit the simplified stale-clear example. Credit-side
+  replay authorization and delayed/direct duplicate requests or a future retry
+  mechanism remain separate hardening concerns, not an observed normal-flow bug.
 - Preserve the existing no-body request and bodyless 200 unless a coordinated
   contract amendment is approved. No refund in this call; retain reserved amount.
   Unauthorized replay should return 403; incompatible state/generation 409;
@@ -398,8 +415,9 @@ hold. Current manual errors and authenticated read polling work independently.
 ## 6. Implemented Credit capabilities — evidence, NOT outstanding build requests
 
 These have been ruled out as absent endpoints/handlers on `09e04a0`.
-Status: READY_FOR_VERIFICATION where compatible; NOT live VERIFIED. Their source
-tests were inspected, not executed in this documentation-only review.
+Status: READY_FOR_VERIFICATION for live integration where compatible; NOT live
+VERIFIED. Initial review inspected test source only; the subsequent focused
+execution below verifies Credit-local behavior, not deployed subscriptions.
 
 | Feedback / capability | Actual implemented contract | Source comparison |
 | --- | --- | --- |
@@ -439,6 +457,17 @@ Paths below are relative to repository root; peer files remain read-only.
   `api/CreditOrderEventControllerTest.java`, `security/SecurityComponentsTest.java`.
   Positive, negative and duplicate cases exist; legacy ABORTED consumer cases do
   NOT establish ADR-025 compliance. Missing replay cases are listed in section 1.
+- Executed follow-up: ./mvnw -B -ntp clean test
+  -Dtest=CreditOrderEventConsumerTest,CreditOrderEventControllerTest,CreditServiceTest,JpaCreditRepositoryIntegrationTest
+  in Java 21 with isolated PostgreSQL and source mounted read-only. PASS:
+  consumer 5, controller 3, service 7, persistence 12 (27 total, no failures/errors/
+  skips). Tested persistence settlement moved requester 50 -> 40, reserved 10 ->
+  0, courier 50 -> 60; replay did not transfer again. Expired refund released
+  reserved funds and marked REFUNDED; CANCELLED service/consumer mapping is also
+  covered. This split-layer run does not exercise cloud transport or live Order
+  publishing. Some existing cases test the legacy accepted-cancellation handler;
+  their success is NOT current 007 compliance. Maven test, not verify: no coverage
+  gate or full Credit test-suite pass is claimed.
 - Order comparison: `order-service/src/main/java/sg/edu/nus/foc/order/adapter/HttpPeerAdapters.java`,
   `order-service/src/main/java/sg/edu/nus/foc/order/application/OrderTransitionService.java`
   and Order's `messagingpublisher/dto/` and `messagingpublisher/mapper/` files.

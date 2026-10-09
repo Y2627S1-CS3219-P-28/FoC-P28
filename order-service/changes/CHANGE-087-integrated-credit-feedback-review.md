@@ -54,6 +54,28 @@ User/platform review and live contracts remain gates; Sprint [~].
 
 ## Recovery and next action
 
+### Focused financial verification and reset clarification follow-up (2026-10-09)
+
+Vincent asks specifically to verify CANCELLED/EXPIRED refunds and COMPLETED
+transfer, leaving accepted-cancellation alone. Existing provider tests executed
+unchanged in Java 21 Docker with read-only source copy; dependencies cached,
+all build output container-local, temporary Testcontainers PostgreSQL credit_test.
+Command: ./mvnw -B -ntp clean test
+-Dtest=CreditOrderEventConsumerTest,CreditOrderEventControllerTest,CreditServiceTest,JpaCreditRepositoryIntegrationTest.
+PASS 27 tests: consumer 5, controller 3, service 7, persistence 12; zero failures,
+errors or skips. Flyway V1/V2 applied. Refund releases reserved funds; completion
+asserts requester total 50 -> 40 / reserved 10 -> 0 and courier 50 -> 60, with
+duplicate processing not paying twice. Includes legacy handler cases; these do
+NOT close 007. No full suite, verify/coverage, live Pub/Sub, push OIDC or full
+Order-to-Credit integration claim. No peer source/config/test/application edits.
+
+Corrected 003 explanation in feedback/learning: Order's current locked ACCEPTED
+status/version guard, exact-200 reset and atomic command receipt prevent the
+ordinary sequential abort/reaccept from replaying an already committed reset.
+Failed reset leaves ACCEPTED; replayed completed command avoids Credit. Residual
+Credit-only cleared-state caller/stale-direct-request protection remains distinct.
+No retry worker or new generation contract implemented; no design override.
+
 Documentation-only; no migration, data deletion or runtime change. Git preserves
 the previous feedback for comparison; a reviewed forward documentation correction
 can restore/update it without resetting user work. Annablee/platform resolve

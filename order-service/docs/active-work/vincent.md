@@ -1,5 +1,34 @@
 # Vincent - Active Work
 
+## Focused Credit outcome verification — 2026-10-09
+
+- Vincent asks whether refund CANCELLED/EXPIRED and completion transfer work
+  through the two implemented streams; explicitly leave accepted-cancellation
+  handler/subscription alone. No peer/application/infrastructure edits authorized.
+- Current source: refund validates requester/amount and null stored courier,
+  releases reserved funds and marks REFUNDED; completion verifies recorded
+  courier, debits requester and credits courier, marks PAID; transaction/event
+  deduplication and post-processing 204 push acknowledgment exist.
+- Corrected 003 explanation: normal abort waits for exact Credit 200 while Order
+  locked and ACCEPTED; commits OPEN/EXPIRED plus command receipt; only OPEN can
+  be accepted. Same committed command replay avoids another Credit call, stale
+  Order versions fail validation. No background reset/repost retry worker exists.
+  Credit-only null replay authorization/delayed direct calls remain distinct.
+- Running existing CreditOrderEventConsumerTest, CreditOrderEventControllerTest,
+  CreditServiceTest, JpaCreditRepositoryIntegrationTest in Java 21 Docker on a
+  read-only source copy; Testcontainers creates isolated credit_test PostgreSQL.
+  Build output is container-local; dependency cache only reused. No app DB touched.
+  PASS: 27 tests, 0 failures/errors/skips (consumer 5, controller 3, service 7,
+  persistence 12). PostgreSQL Flyway V1/V2 applied; refund and exactly-once-effect
+  transfer assertions passed, including requester 50 -> 40, courier 50 -> 60,
+  reserved 10 -> 0. Duplicate effects guarded. This is not live Pub/Sub, push
+  auth, full Order-to-Credit, the full Credit suite or coverage gate verification.
+  Source/config unchanged; accepted-cancellation intentionally left alone.
+- Documentation checks pass: TOML and 27/local-only assertions, all 8 feedback
+  JSON examples, whitespace and exact path scope. Learning remains ignored.
+  Confirmed the two isolated PostgreSQL/Ryuk test containers were removed;
+  no application-container/database removal or restart. Sprint remains [~].
+
 ## Credit feedback clarification — 2026-10-09
 
 - Advisory follow-up to CHANGE-087 on sprint-2-3-credit; worktree initially clean.
