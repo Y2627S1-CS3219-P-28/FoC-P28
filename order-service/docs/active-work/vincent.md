@@ -27,6 +27,7 @@
 - Generic drift/gate scripts failed existing record formats/history (five gate
   blockers); actual D1/selected overall hashes match. No false gate pass.
 - Source commits 4609abc, b60f74d, 826dea9. Learning ignored/not staged.
+- Workflow/peer handoff commit 9d2cee9; AI disclosure recorded separately.
 - Manual message remains client-local; auto next-expiry/persistent outcomes/
   same-candidate tasks remain incomplete. No background worker added in either
   HTTP or mock mode. Next: peers agree 002-006 and user resumes deferred scope;
