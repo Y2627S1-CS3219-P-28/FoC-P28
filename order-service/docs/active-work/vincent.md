@@ -1,5 +1,38 @@
 # Vincent - Active Work
 
+## Simultaneous acceptance inspection - 2026-10-09
+
+- Vincent asks whether concurrent courier acceptance is protected and requests
+  adding protection if absent. Branch/profile match sprint-2-3-credit; worktree
+  clean before inspection. Task resolved as existing-source verification, not
+  a new application, peer, schema, deadline-policy or frontend change.
+- OrderAssignmentService.accept is transactional. Its getForUpdate call reaches
+  JpaOrderRepository.findByIdForUpdate with PESSIMISTIC_WRITE before validating
+  acceptance and before credits.assignCourier. The lock spans the peer call and
+  local persistence through transaction completion. Status, expected version,
+  self-acceptance, existing assignment and deadline are checked. A competing
+  distinct acceptance must acquire that same database row lock before Credit.
+  No duplicate lock or process-local function lock added.
+- Existing code also revalidates the deadline AFTER Credit confirmation. Earlier
+  chat advice to determine eligibility only before Credit was a recommendation,
+  not approval or the implemented rule. Preserve the current behavior. Remote
+  assignment success followed by expiry rejection, timeout ambiguity or local
+  rollback remains the existing FEEDBACK-006 recovery gap; row locking alone
+  does not make the two services atomic. Receipt actor-binding gaps are separate.
+- Executed with Java 21: mvnw.cmd -o -B -ntp
+  -Dtest=OrderAssignmentServiceTest,OrderApplicationServicesTest,OrderDomainBehaviorTest,OrderAggregateTest,OrderPersistenceAdapterTest
+  test. Result: 33 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
+  Tests use mocked peers/repositories: no actual two-transaction PostgreSQL race,
+  live Credit call, browser flow or coverage gate was exercised by this command.
+- Full historical context reads were truncated; no full workflow/completion claim
+  or behavior change is made. Tests compile existing source; no implementation
+  tests added. Application databases, containers and cloud resources unchanged.
+- Next verification: approved real PostgreSQL simultaneous-acceptance regression
+  with two independent transactions, one winning assignment and loser making no
+  Credit call; then peer-owner-approved uncertain-outcome recovery. Current
+  concurrency implementation exists but that end-to-end race gate is unverified.
+  Sprint remains [~]. This entry and AI disclosure await developer review.
+
 ## Order-to-Credit payload audit - 2026-10-09
 
 - Vincent requests checking every Credit endpoint/event for sufficient, minimal
