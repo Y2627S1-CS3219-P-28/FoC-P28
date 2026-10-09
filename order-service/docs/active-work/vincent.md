@@ -2,6 +2,11 @@
 
 ## Local live Docker/PubSub readiness review — 2026-10-09
 
+- Follow-up clarification: proposed tunnel testing keeps Order, Credit and their
+  databases local, but exercises the real cloud broker and Google push auth.
+  Success requires local ledger/balance effects, not just a published message.
+  Cloud Run deployment/scaling and missing User penalty processing remain separate
+  gates. User asked whether it works; this is NOT setup/cloud-write approval.
 - Vincent requests one local Docker run against real Credit for expiry, abort,
   cancellation and completion on sprint-2-3-credit. Clean worktree at start.
   Rehydrated Order workflow, ADR-021/026, current scope and integrated evidence.
