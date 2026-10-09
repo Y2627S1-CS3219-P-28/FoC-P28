@@ -65,7 +65,9 @@ class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
-                        .jwt(jwt -> jwt.decoder(pubSubPushJwtDecoder(properties)))
+                        // Push service identities must not inherit Firebase user-role conversion.
+                        .jwt(jwt -> jwt.decoder(pubSubPushJwtDecoder(properties))
+                                .jwtAuthenticationConverter(new JwtAuthenticationConverter()))
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers))
                 .exceptionHandling(exceptions -> exceptions
