@@ -2,6 +2,21 @@
 
 ## Current Sprint 2-3 effective slice
 
+CHANGE-085 verification chain (no completion marker upgrade):
+
+| D1 / approved refinement | Implementation | Test evidence / boundary |
+| --- | --- | --- |
+| F2/F8/F9; approved polling | useVisiblePolling/useOrderList; Browse/My Errands/My Requests | Fake timers: auth wait, 15 seconds, hidden/focus, no overlap, cleanup, account isolation, stale mutation guard |
+| NTH4; short manual failure UX | RepostControls; HttpPeerAdapters.reserve | Credit exact insufficient vs other 409/malformed/authorization/transport cases; RTL keeps EXPIRED/no successful mutation, short appropriate message |
+| NFR2 / NFR3; shared web/test discipline | Existing frontend primitives/useApi; no new UI transport | Frontend tests/lint/type/build; backend verify/coverage. Authenticated browser/responsive live evidence still pending |
+| ADR-027 user scope follow-up | NO background worker/task/schema/credentials | All background retry implementation explicitly PAUSED pending peer agreement; automatic persistent failures/next-expiry not completed |
+
+Current manual failure message is not retained across a full reload. Provider
+source was read-only inspected, not live-tested. Feedback rewritten by service
+with user approval; contracts 002-006 remain open. Generic workflow verifiers
+do not fit existing record columns; their failures are recorded in CHANGE-085
+rather than changing historical records merely to make a gate green.
+
 CHANGE-084 / ADR-027 records approved NTH4 retry/failure refinements and polling:
 one stable NEW candidate ID per saved request, temporary-only retries before its
 expiry, EXPIRED original until success, short insufficient/permanent rejection

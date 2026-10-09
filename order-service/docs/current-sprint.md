@@ -2,6 +2,14 @@
 
 Current sprint: Sprint 2 and Sprint 3 (Order-owned lifecycle slice; `[~]`)
 
+CHANGE-085 implements visible authenticated 15-second polling and current manual
+EXPIRED-card failure messages. Full reload does not retain that client message;
+automatic persistent outcomes remain deferred. User now PAUSES ALL background
+retry implementation until peer agreement, including mock-mode jobs.
+Credentials remain proposal-only. Read the rewritten service-classified
+peer-service-api-feedback.md (002-006) for provider work. Historical approval
+and test evidence below are retained, not current completion claims.
+
 Latest CHANGE-083 / ADR-026: one minute-based expiry/completion job and
 15-minute outbox recovery; immediate AFTER_COMMIT publication retained.
 Approved target: `repostExpiresAt > repostDueAt >= original.expiresAt`.

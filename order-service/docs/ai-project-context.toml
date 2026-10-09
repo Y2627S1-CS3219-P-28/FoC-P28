@@ -190,7 +190,10 @@ timing = "repostExpiresAt > repostDueAt >= original.expiresAt"
 late_execution = "allowed only while repostExpiresAt > current time"
 explicit_repost_expiry_implemented = false
 durable_retry_implemented = false
-insufficient_credit_card_message_implemented = false
+insufficient_credit_card_message_implemented = true
+failure_message_scope = "current manual repost component; not persistent across full reload; automatic outcome persistence deferred"
+background_retry_implementation_paused = true
+background_retry_resume_condition = "user resumes after peer agreement; no mock-mode retry worker either"
 retry_design_approval = "approved: fixed new candidate ID, temporary failures only, stop at new expiry or permanent rejection; concrete task/schema/API design still needed"
 terminal_failure_messages_approved = true
 insufficient_credit_reason = "confirmed semantic INSUFFICIENT_CREDITS only; cannot infer delayed refund versus inadequate balance"
@@ -203,8 +206,8 @@ peer_dependencies = ["FEEDBACK-002", "FEEDBACK-003", "FEEDBACK-004", "FEEDBACK-0
 [approved_order_ui_refresh]
 decision = "ADR-027 / CHANGE-084; Vincent 2026-10-09"
 mechanism = "authenticated HTTP polling; no WebSocket/SSE/frontend broker"
-polling_implemented = false
-interval = "recommended visible-page 10-15 seconds; precise setting not selected"
+polling_implemented = true
+interval = "15 seconds while visible; focus/visibility/mutation refresh; AbortController cleanup and no overlap"
 auth_ready_required = true
 immediate_mutation_refetch = true
 

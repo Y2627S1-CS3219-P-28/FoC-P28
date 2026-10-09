@@ -1,5 +1,37 @@
 # Vincent - Active Work
 
+## Current polling/failure-message implementation - 2026-10-09 (CHANGE-085)
+
+- Vincent, `sprint-2-3`, clean worktree at task start; Order backend and approved
+  shared frontend slice only. User/Supplier/Credit implementations read-only.
+- Latest user decision supersedes the earlier retry implementation request:
+  **pause ALL background retry implementation until peers agree**. No retry
+  worker/table, same-candidate job persistence or trusted credentials this turn.
+- Implement auth-ready visible-page polling (15-second default, focus refresh,
+  cleanup/no overlap), retain immediate mutation invalidation, preserve existing
+  cards during refresh and reject stale/aborted responses.
+- Confirmed Credit semantic INSUFFICIENT_CREDITS -> short manual repost card
+  message; other permanent failures get short appropriate messages. Original
+  remains EXPIRED. No delayed-refund inference or automatic background retry.
+- Rewrite peer feedback by service as explicitly requested, preserving stable
+  FEEDBACK identifiers and historical contracts in Git rather than a stale body.
+- Status: polling/manual-message slice implemented and locally verified;
+  full Sprint remains [~], not production-complete.
+- TDD observed missing hook / two RTL assertions / two adapter semantic failures
+  before implementation. Final current-source backend: 170 tests, no failures/
+  errors/skips; fresh coverage 93.47% lines / 83.19% branches. Isolated PostgreSQL
+  tests ran. Regular verify passed; Windows clean deletion failed on generated
+  metadata, so final run selected every current test class with append=false.
+- Frontend: 45 tests, lint 0 errors/12 pre-existing warnings, typecheck/build pass.
+  Authenticated/responsive live browser, peers/cloud/hosted CI not verified.
+- Generic drift/gate scripts failed existing record formats/history (five gate
+  blockers); actual D1/selected overall hashes match. No false gate pass.
+- Source commits 4609abc, b60f74d, 826dea9. Learning ignored/not staged.
+- Manual message remains client-local; auto next-expiry/persistent outcomes/
+  same-candidate tasks remain incomplete. No background worker added in either
+  HTTP or mock mode. Next: peers agree 002-006 and user resumes deferred scope;
+  inspect/verify providers before implementation. No peer files changed.
+
 ## Current approval-documentation task - 2026-10-09 (CHANGE-084)
 
 - Developer/branch: Vincent, `sprint-2-3`; clean worktree at task start.

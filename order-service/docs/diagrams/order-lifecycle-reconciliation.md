@@ -3,7 +3,9 @@
 Authority: Vincent's PNG plus textual corrections, CHANGE-083 / ADR-026 and
 retained ADR-025 and CHANGE-084 / ADR-027 retry/polling decisions. Source PDF/PNG artifacts are not overwritten. This is an
 **approved target**, not a claim of 100% implementation. Explicit repost expiry,
-durable retries, polling and short terminal-failure card messages remain unimplemented.
+durable retries and persistent automatic terminal-failure state remain unimplemented.
+CHANGE-085 implements visible-page polling and current manual failure messages.
+Latest user explicitly PAUSES ALL background retry implementation until peers agree.
 Trusted peer credentials are approved for discussion/documentation ONLY;
 implementation explicitly deferred pending peer agreement.
 
@@ -17,8 +19,8 @@ implementation explicitly deferred pending peer agreement.
 | EXPIRED/CANCELLED refund and every-abort User penalty | Implemented Order-side; missing peer routes/subscribers in feedback. |
 | Validate Supplier response before reservation | Repaired: explicit valid:true required; valid:false/missing confirmation rejects. |
 | Confirm matching active Credit reservation | Request is synchronous but response body discarded; confirmation/recovery gap remains. |
-| Failed repost EXPIRED; short confirmed insufficient/permanent failure message; retry only temporary failures before new expiry with same candidate ID | User-approved ADR-027 target; no durable attempt/error/status or retry/message implementation yet. |
-| Authenticated polling for near-real-time lists/status/balance | Approved direction, not implemented; precise interval not selected. |
+| Failed repost EXPIRED; short confirmed insufficient/permanent failure message; retry only temporary failures before new expiry with same candidate ID | Manual component messages implemented, not durable/automatic. All background retry implementation PAUSED pending peer agreement. |
+| Authenticated polling for near-real-time lists/status/balance | Implemented: every 15 visible/auth-ready seconds; focus/mutation refresh, cleanup/no overlap/stale guards. |
 
 The Mermaid below preserves the supplied creation/progress/abort/refund/repost
 branches. TARGET labels mark approved but unimplemented nodes; credential
@@ -87,9 +89,9 @@ flowchart TD
     SAVE --> OPEN
     REPOSTRESERVE -->|Failure| FAILED["Original stays EXPIRED/unlinked<br/>TARGET: durable attempt/outcome"]
     FAILED --> INSUFFICIENT{"Confirmed INSUFFICIENT_CREDITS?"}
-    INSUFFICIENT -->|Yes| MESSAGE["TARGET UI: small insufficient-credit failure message<br/>Do not infer old refund progress"]
+    INSUFFICIENT -->|Yes| MESSAGE["Manual UI: small insufficient-credit failure message<br/>Auto persistent outcome TARGET only; no refund inference"]
     INSUFFICIENT -->|No| CLASSIFY{"TARGET: temporary failure<br/>and new expiry still future?"}
-    CLASSIFY -->|Yes| RETRY["APPROVED TARGET: durable same-candidate-ID retry<br/>Reconcile unknown reservation; backoff; stop at new expiry"]
+    CLASSIFY -->|Yes| RETRY["PAUSED: durable same-candidate-ID background retry<br/>Needs peer agreement; no worker implemented"]
     CLASSIFY -->|No| STOP["TARGET: original stays EXPIRED<br/>Short appropriate permanent/expiry message; no futile retry"]
     RETRY -.-> REPOSTRESERVE
 
@@ -111,7 +113,8 @@ event IDs; OPEN abort queues no Credit refund. Production topics use prod-v1.
 
 Approved refresh target: authenticated HTTP polling after auth readiness, paused
 while hidden, focus/mutation refetch and no overlapping requests. No WebSocket,
-frontend broker or change to existing server timer cadence. Not implemented.
+frontend broker or change to existing server timer cadence. CHANGE-085 implements
+15-second visible/auth-ready polling; background retry work remains paused.
 
 Manual POST fields: commandId, actorId, expectedVersion, itemDescription,
 offeredCredits, deliveryTimeLimitMinutes, expiresAt. A transport retry is not a

@@ -1,5 +1,18 @@
 # ADR-027: Repost retry limits, polling and deferred peer authorization
 
+## Effective follow-up — CHANGE-085, 2026-10-09
+
+Vincent subsequently requests application polling/messages and explicitly says
+**pause ALL background retry implementation until peers agree**. This narrows
+execution scope, not the retained same-ID retry design below. No worker/task
+schema/candidate persistence or trusted credentials implemented, even in mocks.
+Polling now uses a 15-second visible/auth-ready hook with focus/mutation refresh,
+cleanup/no overlap and ownership/revision guards. Manual EXPIRED card messages
+are implemented for semantic insufficient funds and other appropriate errors,
+but remain client-local; automatic/persistent outcomes and explicit next expiry
+are still deferred. Historical NOT IMPLEMENTED statements below describe the
+earlier approval-only task, not current polling/manual-message code.
+
 - Date/approver: 2026-10-09 / Vincent, explicit decisions in the current request.
 - Status: **USER-APPROVED DESIGN; NOT IMPLEMENTED**. Trusted authorization is
   **approved for peer discussion/documentation only; implementation deferred**.

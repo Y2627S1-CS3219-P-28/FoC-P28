@@ -1,5 +1,16 @@
 # Service Contracts
 
+CHANGE-085: existing endpoint/DTO/topic shapes unchanged. Reservation 409 is
+exposed as INSUFFICIENT_CREDITS ONLY when Credit confirms that semantic code;
+other conflicts stay CONFLICT, 400/401/403/404 retain their classes and transport/
+server failures become SERVICE_UNAVAILABLE. No raw peer diagnostic is exposed.
+Frontend reads Order lists and /api/credits/me every 15 visible/auth-ready seconds
+plus focus/mutation refresh. Manual repost failures do not produce a new OPEN
+order; the short card message is client-local. Latest user instruction pauses
+ALL background retry implementation pending peer agreement. No candidate task,
+worker, security bypass, trusted credentials or new peer route implemented.
+Current exact missing-provider handoff is peer-service-api-feedback.md.
+
 CHANGE-084 / ADR-027 approves Order-side bounded same-ID retry and polling
 principles, not new implemented endpoints/DTOs. Trusted service authorization
 is a documentation-only proposal, explicitly deferred pending User/Supplier/

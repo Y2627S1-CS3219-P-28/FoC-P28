@@ -4,6 +4,15 @@ Developer Vincent, branch `sprint-2-3`. Authority: Project D1, user-selected `Or
 
 ## Class and data responsibilities
 
+CHANGE-085 follow-up: authenticated visible-page 15-second polling and current
+manual EXPIRED-card failure messages are implemented. Reusable frontend
+useVisiblePolling handles timers/cleanup; useOrderList handles account/path
+ownership and revision guards; useCreditBalance retains mutation invalidation.
+Backend HttpPeerAdapters preserves only confirmed INSUFFICIENT_CREDITS as that
+semantic error. ALL background retry implementation is explicitly PAUSED until
+peer agreement; credentials remain documentation-only. No new task/data schema.
+Earlier unimplemented wording below is historical approval context.
+
 CHANGE-084 / ADR-027 records approved polling and durable fixed-candidate-ID
 temporary retry limits/terminal EXPIRED messages. These are NOT implemented.
 Trusted unattended peer credentials are documented for discussion ONLY; do not

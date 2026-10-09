@@ -1,5 +1,23 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-030: Polling/manual failure implementation; all background retries paused
+
+- Vincent, 2026-10-09, CHANGE-085: explicit implementation request for polling
+  and short repost messages; subsequent explicit decision pauses ALL background
+  retry implementation until peers agree. ADR-027 principles remain a deferred
+  design, not a worker/table/candidate implementation.
+- Classification: approved scope narrowing; 15-second visible hook, reusable
+  list ownership/revision guards and semantic error translation are implementation
+  refinements inside the approved polling/failure design.
+- Order UI/list and shared Credit hook use authenticated gateway/useApi reads,
+  no overlap, focus/mutation refresh, hidden pause and abort cleanup. Existing
+  cards survive temporary background errors. Manual failure text is local to
+  the EXPIRED component, not a persisted automatic outcome.
+- Peer feedback replacement explicitly user-authorized; retained stable IDs and
+  old Git history. No peer source, migration, deployment or event schema changed.
+- Explicit next-expiry/persistent auto outcomes, live consumers/contracts/browser
+  and cloud are still gates. No Sprint [x] upgrade.
+
 ## ARCH-EVO-029: Repost retry/polling approval; credential proposal deferred
 
 - Vincent, 2026-10-09, CHANGE-084 / ADR-027: approved same-candidate-ID temporary

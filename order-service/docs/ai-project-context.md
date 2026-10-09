@@ -1,5 +1,17 @@
 # Order Service Permanent Project Context
 
+CHANGE-085 (2026-10-09): authenticated visible-page 15-second Order-list and Credit
+polling implemented with focus/mutation refresh, no overlap and stale/session
+response guards. Manual repost shows short semantic insufficient/permanent errors
+inside its EXPIRED card; message is client-local, not persisted across reload.
+Credit reservation errors are mapped without guessing delayed refund status.
+Latest explicit user instruction PAUSES ALL background retry implementation
+(including mock mode) until peers agree; credentials remain documentation ONLY.
+Peer feedback was replaced by service at user request; historical versions remain
+in Git. Explicit auto next-expiry and durable automatic failure state remain
+unimplemented. The approval-only paragraphs below describe the earlier turn,
+not the current polling/manual-message implementation status.
+
 Latest decision CHANGE-084 / ADR-027 (2026-10-09): Vincent approved polling and
 same-candidate-ID temporary repost retries bounded by new expiry, stopping
 confirmed insufficient credits, invalid details and authorization/permanent
