@@ -17,9 +17,8 @@ type AuthContextValue = {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  // Temporary: creates the Firebase account only. The User Service owns registration
-  // (profile, roles, NUS-domain checks) and should replace this once its API exists.
   signUp: (email: string, password: string) => Promise<void>
+  resendVerificationEmail: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   getIdToken: () => Promise<string | null>
 }
@@ -34,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const auth = getFirebaseAuth(config)
     return onIdTokenChanged(auth, (next) => {
-      setUser(next)
+      setUser(next?.emailVerified ? next : null)
       setLoading(false)
     })
   }, [config])
@@ -130,9 +129,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return current ? current.getIdToken() : null
   }, [config])
 
+  const resendVerificationEmail = useCallback(async (email: string, password: string) => {
+      const auth = getFirebaseAuth(config)
+
+      // Sign in temporarily so Firebase can send the verification email.
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      )
+
+      try {
+        if (credential.user.emailVerified) {
+          throw new Error("EMAIL_ALREADY_VERIFIED")
+        }
+
+        await sendEmailVerification(credential.user)
+      } finally {
+        // Sign out unverified user
+        await firebaseSignOut(auth)
+      }
+    },
+    [config]
+  )
+
   const value = useMemo(
-    () => ({ user, loading, signIn, signUp, signOut, getIdToken }),
-    [user, loading, signIn, signUp, signOut, getIdToken],
+    () => ({ user, loading, signIn, signUp, signOut, getIdToken, resendVerificationEmail }),
+    [user, loading, signIn, signUp, signOut, getIdToken, resendVerificationEmail],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
