@@ -1,5 +1,45 @@
 # Vincent - Active Work
 
+## Local live Docker/PubSub readiness review — 2026-10-09
+
+- Vincent requests one local Docker run against real Credit for expiry, abort,
+  cancellation and completion on sprint-2-3-credit. Clean worktree at start.
+  Rehydrated Order workflow, ADR-021/026, current scope and integrated evidence.
+- Existing HTTP override enables real User/Supplier/Credit Order adapters.
+  Its comments restricting live tests to Sequences 1-3 are historical/stale:
+  refund/completion handlers now exist, but local broker delivery is not wired.
+  No Dockerfile/source changes are necessary merely to activate those handlers.
+- Reproduced combined Compose config failure: missing
+  GOOGLE_APPLICATION_CREDENTIALS_HOST. The standard local gcloud ADC path was
+  absent; gcloud and tunnel commands were unavailable on the current PATH.
+  No secret contents were read or logged; no substitute credentials created.
+- Credit receives authenticated push at /api/credits/internal/order-events,
+  checks Google signature/issuer, audience and configured verified SA email,
+  and matches subscription paths. No local pull subscriber/relay exists.
+  Compose's internal hostname and demo push identity do not create cloud ingress.
+- configure-credit-pubsub.sh supports staging/production Cloud Run delivery,
+  NOT local Docker delivery. Source inspection does not establish actual GCP
+  subscription state. Running that script for local testing could target the
+  cloud Credit database, not the local Credit database.
+- Proposed (NOT approved/implemented): isolated developer test topics/subscriptions,
+  temporary HTTPS ingress restricted to the Credit push endpoint, real push SA
+  and matching audience/subscription environment overrides. Preserve Google OIDC
+  validation, existing shared/staging subscriptions and peer-owned application
+  code. Alternative local authenticated pull relay requires a separate design.
+  Obtain approval for connector/configuration and cloud owner permission first.
+- Existing one-minute OPEN expiry/48-hour DELIVERED completion scheduler and
+  immediate after-commit dispatch with 15-minute outbox recovery remain unchanged.
+  Abort before expiry retains hold; abort after expiry resets courier then queues
+  refund; cancellation queues refund; completion queues transfer. Previous focused
+  27 Credit tests are component evidence, not a live local broker test this turn.
+- No stack/image build/start, database mutation, cloud provisioning, IAM or peer
+  configuration edit performed. Accepted-cancellation remains User-only intended
+  routing; existing incompatible Credit subscriber is left untouched per request.
+  Trusted background repost delegation and all retry implementation remain paused.
+- Next: user approve local authenticated ingress/isolation plan; then configure,
+  validate Compose and run two-user UI tests with Order outbox, Credit ledger and
+  balance assertions. Pending live gates keep Sprint [~].
+
 ## Focused Credit outcome verification — 2026-10-09
 
 - Vincent asks whether refund CANCELLED/EXPIRED and completion transfer work
