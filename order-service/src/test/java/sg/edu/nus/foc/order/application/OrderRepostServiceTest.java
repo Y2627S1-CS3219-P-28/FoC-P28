@@ -25,6 +25,26 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
 class OrderRepostServiceTest {
     @Test
+    void manualExpiryLessThanThirtyMinutesRejectsBeforePeerReservation() {
+        OrderRepository orders = mock(OrderRepository.class);
+        SupplierServicePort suppliers = mock(SupplierServicePort.class);
+        CreditServicePort credits = mock(CreditServicePort.class);
+        UserServicePort users = mock(UserServicePort.class);
+        Order original = expiredOriginal();
+        when(users.verifyRequester("owner", "Bearer owner")).thenReturn("owner");
+        when(orders.getForUpdate(original.getId())).thenReturn(Optional.of(original));
+        when(orders.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
+                mock(CommandReceiptRepository.class), suppliers, credits, users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
+        OrderProblem error = assertThrows(OrderProblem.class, () -> service.manual("short", original.getId(), "owner", 0,
+                "item", 1, 15, Instant.now().plusSeconds(1799), "Bearer owner"));
+        assertEquals("expiresAt", error.getDetails().getFirst().getField());
+        assertEquals("VALIDATION_ERROR", error.getCode());
+        verifyNoInteractions(suppliers, credits);
+        verify(orders, never()).save(any());
+    }
+
+    @Test
     void failedNewReservationDoesNotHideOrLinkExpiredOriginal() {
         OrderRepository orders = mock(OrderRepository.class);
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);

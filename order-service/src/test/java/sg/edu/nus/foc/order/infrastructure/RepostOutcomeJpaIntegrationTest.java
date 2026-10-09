@@ -46,6 +46,7 @@ class RepostOutcomeJpaIntegrationTest {
     @Autowired private JpaOrderRepository orders;
     @Autowired private OrderRepostService reposts;
     @Autowired private CreditServicePort credits;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
@@ -134,9 +135,25 @@ class RepostOutcomeJpaIntegrationTest {
     }
 
     @Test
+    void savedShortAutomaticPlanIsGrandfatheredAfterDatabaseReload() {
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        Instant due = now.minusSeconds(60);
+        Order original = expired(new RepostPlan(true, due, 2, 15, due.plusSeconds(3600)));
+        Instant legacyExpiry = due.plusSeconds(900);
+        // Simulate a previously valid saved plan, not new application input.
+        jdbc.update("UPDATE orders SET repost_expires_at = ? WHERE id = ?", java.sql.Timestamp.from(legacyExpiry), original.getId());
+        Order loaded = orders.findById(original.getId()).orElseThrow();
+        assertEquals(legacyExpiry, loaded.getRepostPlan().getExpiresAt());
+        Order repost = reposts.automatic("legacy-short", original.getId(), now, null);
+        assertEquals(legacyExpiry, repost.getExpiresAt());
+        assertNotEquals(original.getId(), repost.getId());
+        verify(credits).reserve(eq(repost.getId()), eq("owner"), eq(2L), any());
+    }
+
+    @Test
     void elapsedAutomaticExpiryCannotReserveOrCreateAnOrder() {
         Instant now = Instant.now();
-        Order original = expired(new RepostPlan(true, now.minusSeconds(120), 2, 15, now.minusSeconds(1)));
+        Order original = expired(new RepostPlan(true, now.minusSeconds(1801), 2, 15, now.minusSeconds(1)));
         long count = orders.count();
         assertThrows(OrderProblem.class, () -> reposts.automatic("elapsed", original.getId(), now, null));
         assertEquals(count, orders.count());

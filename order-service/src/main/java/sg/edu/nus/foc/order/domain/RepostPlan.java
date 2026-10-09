@@ -3,6 +3,8 @@ package sg.edu.nus.foc.order.domain;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.Column;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,9 +22,14 @@ public class RepostPlan {
     private boolean used;
 
     public RepostPlan(boolean enabled, Instant dueAt, long creditAmount, int deliveryDurationMinutes, Instant expiresAt) {
-        if (enabled && (dueAt == null || expiresAt == null || !expiresAt.isAfter(dueAt)
-                || creditAmount <= 0 || deliveryDurationMinutes < 15)) {
-            throw new OrderProblem("VALIDATION_ERROR", "Invalid repost plan.");
+        if (enabled) {
+            List<OrderProblem.Detail> errors = new ArrayList<>();
+            if (dueAt == null) errors.add(new OrderProblem.Detail("repostDueAt", "Choose a repost time when automatic repost is enabled."));
+            if (expiresAt == null) errors.add(new OrderProblem.Detail("repostExpiresAt", "Choose a repost expiry when automatic repost is enabled."));
+            else if (dueAt != null && expiresAt.isBefore(dueAt.plus(Order.MINIMUM_POSTING_WINDOW))) errors.add(new OrderProblem.Detail("repostExpiresAt", "Repost expiry must be at least 30 minutes after the repost time."));
+            if (creditAmount < 1) errors.add(new OrderProblem.Detail("repostCreditAmount", "Repost credits must be at least 1."));
+            if (deliveryDurationMinutes < 15) errors.add(new OrderProblem.Detail("repostDeliveryDurationMinutes", "Repost delivery time must be at least 15 minutes."));
+            if (!errors.isEmpty()) throw new OrderProblem("VALIDATION_ERROR", String.join(" ", errors.stream().map(OrderProblem.Detail::getMessage).toList()), errors);
         }
         this.enabled = enabled;
         this.dueAt = dueAt;
@@ -39,7 +46,8 @@ public class RepostPlan {
         if (enabled && (dueAt == null || dueAt.isBefore(originalExpiry) || expiresAt == null
                 || !expiresAt.isAfter(dueAt))) {
             throw new OrderProblem("VALIDATION_ERROR",
-                    "Repost expiry must be later than repost time, and repost time must be at or after the original expiry.");
+                    "Repost time must be at or after the original order expiry.",
+                    List.of(new OrderProblem.Detail("repostDueAt", "Repost time must be at or after the original order expiry.")));
         }
     }
 

@@ -44,7 +44,6 @@ public class OrderCreationService {
         }
 
         String authenticatedRequester = users.verifyRequester(requesterId, authorization);
-        suppliers.validatePair(pickup, delivery, authorization);
 
         Order order = Order.open(
                 authenticatedRequester,
@@ -56,6 +55,8 @@ public class OrderCreationService {
                 Instant.now(),
                 expiresAt,
                 repostPlan);
+
+        suppliers.validatePair(pickup, delivery, authorization);
 
         credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
         audit.dependency("credit-service", "reserve", order.getId(), "accepted");

@@ -65,7 +65,7 @@ public class OrderRepostService {
                 plan.getCreditAmount(),
                 plan.getDeliveryDurationMinutes(),
                 now,
-                plan.getExpiresAt(), authorization);
+                plan.getExpiresAt(), authorization, false);
 
         return saveRepost("AUTO_REPOST", commandId, original, repost, now, authorization);
     }
@@ -112,7 +112,7 @@ public class OrderRepostService {
                 creditsAmount,
                 duration,
                 createdAt,
-                expiresAt, authorization);
+                expiresAt, authorization, true);
 
         return saveRepost(
                 "MANUAL_REPOST",
@@ -147,9 +147,11 @@ public class OrderRepostService {
     }
 
     private Order prepareRepost(Order original, String description, long amount, int duration,
-            Instant createdAt, Instant expiresAt, String authorization) {
+            Instant createdAt, Instant expiresAt, String authorization, boolean manual) {
         try {
-            Order repost = original.createRepost(description, amount, duration, createdAt, expiresAt);
+            Order repost = manual
+                    ? original.createManualRepost(description, amount, duration, createdAt, expiresAt)
+                    : original.createRepost(description, amount, duration, createdAt, expiresAt);
             suppliers.validatePair(original.getPickupSupplierId(), original.getDeliverySupplierId(), authorization);
             credits.reserve(repost.getId(), repost.getRequesterId(), repost.getOfferedCredits(), authorization);
             return repost;

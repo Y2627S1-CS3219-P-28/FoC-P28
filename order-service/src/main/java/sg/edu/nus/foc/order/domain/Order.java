@@ -13,6 +13,8 @@ import jakarta.persistence.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +24,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
+    public static final Duration MINIMUM_POSTING_WINDOW = Duration.ofMinutes(30);
     public static final Duration AUTOMATIC_COMPLETION_DELAY = Duration.ofHours(48);
 
     @Id
@@ -89,12 +92,13 @@ public class Order {
 
     public static Order open(String requesterId, String description, String pickup, String delivery,
                              long credits, int duration, Instant createdAt, Instant expiresAt, RepostPlan repostPlan) {
-        if (requesterId == null || requesterId.isBlank() || description == null || description.isBlank()
-                || pickup == null || delivery == null || pickup.equals(delivery) || credits <= 0
-                || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)
-                || expiresAt.isBefore(createdAt.plusSeconds(30 * 60L))) {
-            throw new OrderProblem("VALIDATION_ERROR", "Invalid order creation data.");
-        }
+        List<OrderProblem.Detail> errors = new ArrayList<>();
+        if (requesterId == null || requesterId.isBlank()) errors.add(new OrderProblem.Detail("requesterId", "A verified requester is required."));
+        validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
+        if (pickup == null || pickup.isBlank()) errors.add(new OrderProblem.Detail("pickupSupplierId", "Select a pickup supplier."));
+        if (delivery == null || delivery.isBlank()) errors.add(new OrderProblem.Detail("deliverySupplierId", "Select a delivery supplier."));
+        else if (delivery.equals(pickup)) errors.add(new OrderProblem.Detail("deliverySupplierId", "Delivery supplier must differ from pickup supplier."));
+        rejectInvalidFields(errors);
         Order order = new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
                 credits, duration, createdAt, expiresAt, null);
         if (repostPlan != null) {
@@ -248,6 +252,32 @@ public class Order {
         }
         return new Order(UUID.randomUUID().toString(), requesterId, description, pickupSupplierId,
                 deliverySupplierId, credits, duration, createdAt, expiresAt, id);
+    }
+
+    public Order createManualRepost(String description, long credits, int duration, Instant createdAt, Instant expiresAt) {
+        if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
+            throw OrderProblem.conflict("Order is not eligible for repost.");
+        }
+        List<OrderProblem.Detail> errors = new ArrayList<>();
+        validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
+        rejectInvalidFields(errors);
+        return createRepost(description, credits, duration, createdAt, expiresAt);
+    }
+
+    private static void validateRepostFields(String description, long credits, int duration,
+            Instant minimumExpiry, Instant expiresAt, List<OrderProblem.Detail> errors) {
+        if (description == null || description.isBlank()) errors.add(new OrderProblem.Detail("itemDescription", "Describe what you need."));
+        else if (description.length() > 100) errors.add(new OrderProblem.Detail("itemDescription", "Description must be 100 characters or fewer."));
+        if (credits < 1) errors.add(new OrderProblem.Detail("offeredCredits", "Offered credits must be at least 1."));
+        if (duration < 15) errors.add(new OrderProblem.Detail("deliveryTimeLimitMinutes", "Delivery time must be at least 15 minutes."));
+        if (expiresAt == null) errors.add(new OrderProblem.Detail("expiresAt", "Choose an order expiry time."));
+        else if (expiresAt.isBefore(minimumExpiry)) errors.add(new OrderProblem.Detail("expiresAt", "Order expiry must be at least 30 minutes from now. Choose a later time."));
+    }
+
+    private static void rejectInvalidFields(List<OrderProblem.Detail> errors) {
+        if (!errors.isEmpty()) {
+            throw new OrderProblem("VALIDATION_ERROR", String.join(" ", errors.stream().map(OrderProblem.Detail::getMessage).toList()), errors);
+        }
     }
 
     public void recordRepostFailure(String code, String message, Instant occurredAt) {

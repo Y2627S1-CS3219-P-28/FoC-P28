@@ -14,28 +14,28 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderRequest {
-    @NotBlank
+    @NotBlank(message = "A command ID is required.")
     private String commandId;
 
-    @NotBlank
+    @NotBlank(message = "A verified requester is required.")
     private String requesterId;
 
-    @NotBlank
+    @NotBlank(message = "Describe what you need.")
     private String itemDescription;
 
-    @NotBlank
+    @NotBlank(message = "Select a pickup supplier.")
     private String pickupSupplierId;
 
-    @NotBlank
+    @NotBlank(message = "Select a delivery supplier.")
     private String deliverySupplierId;
 
-    @Min(1)
+    @Min(value = 1, message = "Offered credits must be at least 1.")
     private long offeredCredits;
 
-    @Min(15)
+    @Min(value = 15, message = "Delivery time must be at least 15 minutes.")
     private int deliveryTimeLimitMinutes;
 
-    @NotNull
+    @NotNull(message = "Choose an order expiry time.")
     private Instant expiresAt;
 
     private boolean automaticRepost;
