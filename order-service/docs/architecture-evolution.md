@@ -1,5 +1,144 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-033: New repost minimum and actual-field errors (CHANGE-091)
+
+- Classification: user-approved specification refinement; Vincent, 2026-10-09,
+  ADR-030. Supersedes ADR-028 only for newly configured plan timing.
+- Original: explicit automatic expiry merely > due; manual backend merely future;
+  creation HTTP 400 replaced with all-rule UI message.
+- Approved: new automatic expiry >= due+30min, due>=original expiry; new manual
+  expiry >= submission+30min. Saved explicit plans keep original instructions,
+  without migration/disable/extension. Late automatic execution needs future
+  saved expiry only. Actual-field-only details reuse the approved API envelope.
+- Class refinement: Order owns creation/manual checks; RepostPlan constructor
+  validates NEW plan input, not JPA hydration. Creation validates local data after
+  requester verification but before Supplier/Credit. Repost service retains the
+  separate automatic path and eligible-failure rollback/outcome behavior.
+- Alternatives: silently normalize/disable legacy plans rejected by Vincent;
+  browser-only timing permits invalid direct API posts; applying manual min30 to
+  automatic execution wrongly rejects late runs. No new integration or schema.
+- Chain: CHANGE-091, ADR-030, contexts/sprint/contracts/traceability and editable
+  lifecycle diagram; tests/evidence in CHANGE-091. Peers/events/auth, paused
+  background retries and deployment remain unchanged. Sprint [~].
+
+
+## ARCH-EVO-032: Approved isolated local cloud push connector
+
+- Vincent, 2026-10-09, CHANGE-088 / ADR-029: explicit implementation approval.
+- Classification: local-only deployment/security-topology refinement; changes
+  neither business lifecycle nor peer contracts/data ownership.
+- Real HTTP peers + real isolated Pub/Sub topics; financial push reaches local
+  Credit through temporary HTTPS and exact-path POST-only nginx. Credit retains
+  Google OIDC; Order uses its existing authenticated profile with local DB/Auth.
+- Scoped IAM and resource ownership checks, stable custom audience, two financial
+  subscriptions, DLQ and Pause before down. No Credit User-penalty subscription.
+- 60 configuration/safety + 16 actual nginx/fixture assertions pass. Cloud setup,
+  Google identity and local financial/browser effects await personal gcloud/ADC.
+  No staging/peer source/database changes. User consumers and background retry/
+  delegated credential gates remain separate; Sprint `[~]`.
+
+## ARCH-EVO-031: Explicit automatic expiry and durable latest outcomes
+
+- Vincent, 2026-10-09, CHANGE-086 / ADR-027 follow-up: explicit implementation
+  request for the new expiry and latest manual/automatic failure persistence.
+  Vincent chose disabling legacy plans without expiry rather than backfilling.
+- Classification: user-approved Order-owned field/API/persistence refinement;
+  supersedes only prior missing-expiry/client-local-outcome limitations.
+- Domain RepostPlan owns strict timing; Order owns latest outcome and clearing.
+  OrderRepostService keeps rollback; RepostFailureRecorder writes safe outcomes
+  AFTER rollback in a separate locked REQUIRES_NEW transaction. Lifecycle
+  repost batch has no outer transaction so each attempt owns its rollback.
+- V4 adds nullable expiry/code/message/time plus a plan timing constraint;
+  disables legacy enabled plans without a deadline. No order/history/event
+  deletion, new peer API/topic, credentials or background retry worker.
+- UI reuses quarter-hour picker, reads durable result and refreshes row version.
+  Provider ownership and existing event payloads remain unchanged. Paused retry
+  design is not made implemented by outcome persistence; no Sprint [x] claim.
+
+
+## ARCH-EVO-030: Polling/manual failure implementation; all background retries paused
+
+- Vincent, 2026-10-09, CHANGE-085: explicit implementation request for polling
+  and short repost messages; subsequent explicit decision pauses ALL background
+  retry implementation until peers agree. ADR-027 principles remain a deferred
+  design, not a worker/table/candidate implementation.
+- Classification: approved scope narrowing; 15-second visible hook, reusable
+  list ownership/revision guards and semantic error translation are implementation
+  refinements inside the approved polling/failure design.
+- Order UI/list and shared Credit hook use authenticated gateway/useApi reads,
+  no overlap, focus/mutation refresh, hidden pause and abort cleanup. Existing
+  cards survive temporary background errors. Manual failure text is local to
+  the EXPIRED component, not a persisted automatic outcome.
+- Peer feedback replacement explicitly user-authorized; retained stable IDs and
+  old Git history. No peer source, migration, deployment or event schema changed.
+- Explicit next-expiry/persistent auto outcomes, live consumers/contracts/browser
+  and cloud are still gates. No Sprint [x] upgrade.
+
+## ARCH-EVO-029: Repost retry/polling approval; credential proposal deferred
+
+- Vincent, 2026-10-09, CHANGE-084 / ADR-027: approved same-candidate-ID temporary
+  retries bounded by explicit new expiry, short insufficient/permanent-failure
+  messages with original EXPIRED, and authenticated polling for UI refresh.
+- Classification: approved design refinement and failure-UX amendment; supersedes
+  ARCH-EVO-028's pending user choices/insufficient-credit-only message proposal.
+- Trusted background service authorization approved ONLY for documentation and
+  peer discussion; user explicitly prohibits implementing it yet. FEEDBACK-005
+  stays OPEN; FEEDBACK-006 provider semantics/recovery also requires agreement.
+- No task worker/schema/API/security/polling/UI implementation or new tests in
+  this decision turn. Existing source/timer/outbox rules and original sources
+  unchanged; no feature [x] or live integration claim. Target diagram, contexts,
+  contracts, feedback, sprint, acceptance obligations and disclosure synchronized.
+
+## ARCH-EVO-028: Updated diagram cadence and repost reconciliation
+
+- Approved by Vincent, 2026-10-08, CHANGE-083 / ADR-026: one shared minute
+  expiry/completion job and 15-minute recovery for all three event types.
+  Supersedes only cadence/settings of ADR-022/023; keeps immediate dispatch,
+  >=48h latest-delivery completion and ADR-025 abort/history/new-repost-ID rules.
+- Ordinary implementation defect: Supplier valid:false/missing confirmation
+  repaired against its existing contract; no peer design change.
+- Approved NTH4 target: repostExpiresAt > repostDueAt >= original.expiresAt;
+  late processing only while new expiry is future. Explicit field/retry/UI
+  failure state is NOT implemented yet.
+- Proposed, pending decisions: fixed-ID durable retries with expiry/permanent-error
+  limits; trusted background service authorization versus fresh-user requests.
+  No new retry schema/peer endpoint/refund-confirmation event silently approved.
+- Context/diagram/contract/traceability/feedback/timer/test chain synchronized;
+  original PDF/PNG and learning unchanged. Local verify passed 163 backend tests,
+  34 unchanged frontend tests, >=80% line/branch gates; peers/browser/cloud open.
+
+## ARCH-EVO-027: Sprint 2-3 abort history and lifecycle amendments (2026-10-08)
+
+- Classification: Approved architecture/specification change, implemented and locally verified; not production-complete.
+- Approver: Vincent; CHANGE-081/082 and ADR-025 record explicit follow-up approvals.
+- Approved/implemented: one current Order plus immutable courier-attempt history;
+  separate internal primary UUID/business orderId; ACCEPTED-only abort; User
+  penalty event on every abort; requester current state OPEN/EXPIRED with refund
+  only for the expired outcome; missing assignment endpoint mocked locally.
+- Historical conflict: ADR-001's Sprint 1 prohibition and ADR-014's before-expiry
+  no-event/after-expiry ABORTED behavior do not describe the new requested rules.
+  Preserve those records as history; do not implement from them for this slice.
+- Follow-up approved: synchronous Credit courier update on abort and same-ID
+  EXPIRED current order plus separate ABORTED courier history after expiry.
+- Follow-up retention approved: keep the old EXPIRED row/ID and new repost row/ID;
+  suppress successfully reposted expired originals from My Requests using the
+  existing repost links. This supersedes the earlier row-delete/overwrite proposal.
+  Query and count filtering precede pagination; UI immediately replaces reposted cards.
+- Reset contract confirmed: bodyless hold-for-reopen, clear courierId while retaining
+  funds on EVERY abort. Peer stale-retry protection/reconciliation remains missing
+  or unverified; broker retries do not guarantee completed refunds.
+- Schema evidence: V2 outbox rows reference orders(id); deleting/rekeying an order
+  conflicts with those references. V3 instead preserves old IDs/FKs, adds internal
+  UUID PK and immutable snapshots, and removes the one-status checkpoint constraint.
+- Data risk: legacy unexpired abortions without checkpoints cannot be reconstructed.
+  Legacy cancellation-event refund handling must be coordinated before rollout.
+- Affected chain: F3/F4/F5/F7-F11, NTH2/NTH4; Order/attempt/history persistence,
+  query isolation, transitions/repost, task events, mocks/HTTP contracts and UI.
+- Evidence: CHANGE-082 records 162 passing backend tests including clean/upgrade
+  PostgreSQL/history/pagination/rollback, 34 frontend tests, production build,
+  lint/typecheck and fresh >=80% line/branch coverage. Effective editable diagrams,
+  traceability/contracts/context are synchronized; peer/browser/cloud gates pending.
+
 ## ARCH-EVO-025: Hourly outbox recovery polling (2026-10-08)
 
 - Classification/approval: User-directed scheduling refinement; accepted in ADR-023 / CHANGE-078.

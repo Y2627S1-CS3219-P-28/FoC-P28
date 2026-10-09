@@ -30,7 +30,7 @@ class OrderApiValueAndErrorTest {
     void traditionalDtosExposeTheirValues() {
         Instant now = Instant.parse("2026-09-30T00:00:00Z");
         CreateOrderRequest create = new CreateOrderRequest(
-                "c", "u", "item", "p", "d", 2, 15, now, true, now, 3, 20);
+                "c", "u", "item", "p", "d", 2, 15, now, true, now, 3, 20, now.plusSeconds(3600));
         assertEquals("c", create.getCommandId());
 
         OrderActorRequest actor = new OrderActorRequest("a", "u", 1);

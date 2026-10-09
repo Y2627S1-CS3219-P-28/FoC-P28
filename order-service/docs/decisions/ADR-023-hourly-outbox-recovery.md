@@ -1,5 +1,8 @@
 # ADR-023: Hourly transactional-outbox recovery scan
 
+> Superseded recovery cadence/settings: ADR-026 / CHANGE-083 runs every
+> 15 minutes with immediate after-commit dispatch retained.
+
 - Status: Accepted by explicit user direction; configuration and documentation updated; automated tests not run
 - Date: 2026-10-08
 - Owner: Order Service

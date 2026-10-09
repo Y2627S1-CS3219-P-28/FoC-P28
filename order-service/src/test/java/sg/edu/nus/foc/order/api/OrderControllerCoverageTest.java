@@ -65,7 +65,7 @@ class OrderControllerCoverageTest {
     void createsReadsAndListsOrders() {
         when(creation.create(anyString(), anyString(), anyString(), anyString(), anyString(), anyLong(), anyInt(), any(), any(), anyString())).thenReturn(order);
         CreateOrderRequest request = new CreateOrderRequest("create", "requester", "item", "pickup", "delivery", 2, 15,
-            START.plusSeconds(86400), false, null, 0, 0);
+            START.plusSeconds(86400), false, null, 0, 0, null);
         assertEquals(order.getId(), controller.create(request, AUTH).getId());
         assertEquals(order.getId(), controller.get(order.getId()).getId());
         assertEquals(1, controller.available(1, 20).getItems().size());
@@ -80,9 +80,9 @@ class OrderControllerCoverageTest {
 
     @Test
     void createsWithAutomaticRepostPlanAndDispatchesActions() {
-        Instant due = START.plusSeconds(3600);
+        Instant due = START.plusSeconds(86400);
         CreateOrderRequest request = new CreateOrderRequest("create", "requester", "item", "pickup", "delivery", 2, 15,
-            START.plusSeconds(86400), true, due, 3, 20);
+            START.plusSeconds(86400), true, due, 3, 20, due.plusSeconds(3600));
         when(creation.create(anyString(), anyString(), anyString(), anyString(), anyString(), anyLong(), anyInt(), any(), any(), anyString())).thenReturn(order);
         controller.create(request, AUTH);
         verify(creation).create(eq("create"), eq("requester"), eq("item"), eq("pickup"), eq("delivery"), eq(2L),
@@ -97,7 +97,7 @@ class OrderControllerCoverageTest {
         when(transitions.complete(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
         when(transitions.cancel(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
         when(transitions.cancelAccepted(anyString(), eq(order.getId()), eq("actor"), eq(0L), eq(AUTH))).thenReturn(order);
-        when(reposts.configure(eq("config"), eq(order.getId()), eq("actor"), eq(0L), any(RepostPlan.class), eq(AUTH))).thenReturn(order);
+        when(reposts.configure(eq("config"), eq(order.getId()), eq("actor"), eq(0L), isNull(), eq(AUTH))).thenReturn(order);
         when(reposts.manual(eq("manual"), eq(order.getId()), eq("actor"), eq(0L), anyString(), anyLong(), anyInt(), any(), eq(AUTH))).thenReturn(order);
         assertEquals(order.getId(), controller.accept(order.getId(), actor, AUTH).getId());
         assertEquals(order.getId(), controller.start(order.getId(), actor, AUTH).getId());

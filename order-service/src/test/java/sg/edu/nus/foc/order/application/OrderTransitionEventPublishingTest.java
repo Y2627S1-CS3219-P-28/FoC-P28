@@ -12,6 +12,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -169,7 +170,7 @@ class OrderTransitionEventPublishingTest {
     }
 
     @Test
-    void unexpiredAcceptedCancellationHoldsCreditBeforeReopeningWithoutPublishing() {
+    void unexpiredAcceptedCancellationHoldsCreditBeforeReopeningAndPublishesOnlyUserPenalty() {
         Instant now = Instant.now();
         Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15,
                 now.minusSeconds(60), now.plusSeconds(3600));
@@ -188,15 +189,16 @@ class OrderTransitionEventPublishingTest {
         InOrder sequence = inOrder(dependencies.credits, dependencies.checkpoints, dependencies.orders, dependencies.receipts);
         sequence.verify(dependencies.credits).holdForReopen(
                 order.getId(), AUTHORIZATION);
-        sequence.verify(dependencies.checkpoints).save(any(OrderCheckpoint.class));
+        sequence.verify(dependencies.checkpoints, times(2)).save(any(OrderCheckpoint.class));
         sequence.verify(dependencies.orders).save(order);
         sequence.verify(dependencies.receipts).save(any(CommandReceipt.class));
-        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
-        verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
+        verify(dependencies.outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        verify(dependencies.outbox, never()).enqueue(any(OpenOrderRefundTaskEvent.class));
+        verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
     }
 
     @Test
-    void expiredAcceptedCancellationPublishesWithoutCreditHold() {
+    void expiredAcceptedCancellationResetsCreditAndPublishesPenaltyAndRefund() {
         Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15,
                 START, START.plusSeconds(3600));
         order.accept("courier-1", 0, START.plusSeconds(1));
@@ -209,14 +211,14 @@ class OrderTransitionEventPublishingTest {
         Order result = service(dependencies).cancelAccepted(
                 "cancel-accepted-expired", order.getId(), "courier-1", 0, AUTHORIZATION);
 
-        assertEquals(OrderStatus.ABORTED, result.getStatus());
-        verify(dependencies.credits, never()).holdForReopen(
-                any(), any());
+        assertEquals(OrderStatus.EXPIRED, result.getStatus());
+        verify(dependencies.credits).holdForReopen(order.getId(), AUTHORIZATION);
         ArgumentCaptor<AcceptedOrderCancellationTaskEvent> event =
                 ArgumentCaptor.forClass(AcceptedOrderCancellationTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertEquals(OrderStatus.ABORTED, event.getValue().getOrder().getStatus());
+        assertEquals(OrderStatus.EXPIRED, event.getValue().getOrder().getStatus());
         assertEquals(null, event.getValue().getOrder().getCourierId());
+        verify(dependencies.outbox).enqueue(any(OpenOrderRefundTaskEvent.class));
     }
 
     @Test
@@ -259,6 +261,37 @@ class OrderTransitionEventPublishingTest {
                 any(), any());
         verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
         verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void completionUsesLatestAcceptanceRatherThanAnEarlierAbortedCourierAttempt() {
+        Order order = deliveredOrder();
+        List<OrderCheckpoint> history = List.of(
+                checkpoint(order, OrderStatus.ACCEPTED, START.minusSeconds(3600)),
+                checkpoint(order, OrderStatus.ABORTED, START.minusSeconds(3500)),
+                checkpoint(order, OrderStatus.ACCEPTED, START.plusSeconds(60)),
+                checkpoint(order, OrderStatus.DELIVERED, START.plusSeconds(600)));
+        TestDependencies dependencies = dependencies(order, "COMPLETE", "latest-complete", history);
+
+        service(dependencies).complete("latest-complete", order.getId(), "requester-1", 0, AUTHORIZATION);
+
+        ArgumentCaptor<OrderCompletionTaskEvent> event = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
+        verify(dependencies.outbox).enqueue(event.capture());
+        assertFalse(event.getValue().isOverdue());
+        assertEquals(START.plusSeconds(960), event.getValue().getOverdueAt());
+    }
+
+    @Test
+    void autoCompletionDoesNotUseAnOlderDeliveredCheckpoint() {
+        Order order = deliveredOrder();
+        Instant oldDelivery = START.plusSeconds(600);
+        Instant newDelivery = oldDelivery.plusSeconds(3600);
+        TestDependencies dependencies = dependencies(order, "AUTO_COMPLETE", "AUTO_COMPLETE:" + order.getId(),
+                List.of(checkpoint(order, OrderStatus.ACCEPTED, START),
+                        checkpoint(order, OrderStatus.DELIVERED, oldDelivery),
+                        checkpoint(order, OrderStatus.DELIVERED, newDelivery)));
+        assertFalse(service(dependencies).autoComplete(order.getId(), oldDelivery.plusSeconds(48 * 3600L)));
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
     }
 
     private TestDependencies dependencies(

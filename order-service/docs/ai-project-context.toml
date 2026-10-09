@@ -32,7 +32,7 @@ responsive_web_required = true
 native_mobile_application_in_scope = false
 frontend_live_inspection_before_coding_required = true
 frontend_shared_file_coordination_required = true
-production_code_started = false
+production_code_started = true
 developer_scope_validation_required = true
 feature_completion_gate_required = true
 architecture_approval_required = true
@@ -57,9 +57,41 @@ on_demand_pre_push_ci_rehearsal = true
 pre_push_ci_rehearsal_default = "explicit-trigger-only"
 pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
+[current_workstream]
+validation_amendment = "CHANGE-091 / ADR-030: field-only errors; new auto expiry >= due+30min; manual expiry >= submit+30min"
+saved_explicit_expiry_plans = "grandfather unchanged; no migration; late execution allowed while expiry future"
+decision_record = "changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md"
+developer = "Vincent"
+branch = "sprint-2-3-credit"
+sprints = [2, 3]
+scope = "Order-owned parts only; sibling backend services read-only"
+stage = "approved Order lifecycle/history slice implemented and locally verified; live peer/browser/cloud gates pending"
+selected_overall_source = "../../../Order Service Overall Doc.pdf"
+selected_overall_sha256 = "F0E925278FCCC0FCBB48F6C7BE1C23D908E15BEF75BB7C013EEC28C3F05DA602"
+updated_overall_source_available_locally = false
+courier_assignment_local_mock_approved = true
+http_peer_mock_fallback_approved = false
+courier_attempt_history_approved = true
+internal_uuid_primary_key_approved = true
+abort_allowed_status = "ACCEPTED only, before IN_PROGRESS"
+abort_penalty_topic = "existing accepted-order-cancellation topic"
+expired_refund_topic = "existing open-order-refund topic"
+credit_reset_or_reassignment_decided = true
+abort_synchronous_credit_update_approved = true
+abort_after_expiry_current_status = "EXPIRED; same business orderId; separate ABORTED courier history"
+repost_row_replacement_mechanics_decided = true
+repost_storage_policy = "retain old EXPIRED row and new repost row with different business orderIds and immutable refund/history references"
+requester_hide_reposted_expired_approved = true
+repost_visibility_query_implemented = true
+new_lifecycle_implementation_started = true
+production_completion_verified = false
+effective_design = "docs/decisions/ADR-025-sprint-2-3-abort-history-and-repost-visibility.md"
+effective_diagrams = "sprints/sprint-2-3/README.md"
+
 [sources]
 project_d1 = "../../../Project-D1.pdf"
-order_service_overall = "../../../Order Service Overall Doc - Updated.pdf"
+order_service_overall = "../../../Order Service Overall Doc.pdf"
+historical_updated_overall = "../../../Order Service Overall Doc - Updated.pdf"
 architecture_overall = "../../../High Level Architecture Diagram - FOC.png"
 architecture_order_service = "../../../High Level Architecture Diagram - Order Service.png"
 class_diagram_overall = "../../../Class Diagram - Order Service.png"
@@ -99,7 +131,7 @@ synchronous_credit_requests_include_order_version = false
 published_order_events_include_order_version = true
 credit_assignment_request_fields = ["orderId (path)", "courierId (body)"]
 credit_reopen_hold_request_body = "none; orderId is in the path"
-credit_reopen_hold_contract_status = "user-confirmed; Credit endpoint implementation pending"
+credit_reopen_hold_contract_status = "route/core reset exists at 09e04a0; replay authorization incomplete; live verification pending; CHANGE-087"
 ordinary_progress_transitions_require_credit = false
 penalty_policy_owner = "user-service"
 penalty_fact_signaling_blocks_order_commit = false
@@ -111,7 +143,7 @@ full_order_snapshot_in_events = true
 event_snapshots_include_checkpoint_history = false
 event_version_after_checkpoint_history_removal = 1
 peer_consumer_implementation_assumed_for_order_scope = true
-same_order_aborted_reopening_implementation_approved = false
+same_order_aborted_reopening_implementation_approved = true
 
 [approved_order_service_infrastructure]
 persistence = "PostgreSQL on Google Cloud SQL"
@@ -139,18 +171,49 @@ service_account_key_sharing = false
 
 [open_conflicts]
 frontend_role_authority_mapping = "RESOLVED for Order Service: Firebase-authenticated role authorities come from User Service role-context; Admin endpoints use ROLE_ADMIN and Supplier-style @PreAuthorize. Frontend role/mode behavior remains backend-authoritative. See CHANGE-057/ADR-012."
-updated_overall_design_vs_sprint_scope = "CHANGE-063/ADR-013 approves atomic Order-state/outbox persistence, immediate after-commit dispatch, and Spring cron recovery. CHANGE-065/ADR-015 adds a Spring @Scheduled scan for due unassigned OPEN orders; CHANGE-071/ADR-019 supersedes its separate OrderExpirationTaskEvent so both expiry and requester cancellation emit OpenOrderRefundTaskEvent on one topic. CHANGE-072/ADR-020 amends the earlier Sprint 1 exclusion and adds scheduled completion for DELIVERED orders after 48 hours using the existing OrderCompletionTaskEvent/outbox. CHANGE-054 selects Pub/Sub; CHANGE-056 unifies completion events. CHANGE-073/ADR-021 removes the local emulator default and uses separate dev/prod topics in one GCP project with personal ADC and Cloud Run service identity. CHANGE-064/ADR-014 requires synchronous Credit hold confirmation before unexpired accepted cancellation transitions directly ACCEPTED to OPEN; expired accepted cancellation emits the refund/penalty event. ABORTED-to-OPEN remains prohibited by ADR-001. Cloud Run scale-to-zero/request CPU limits in-process cron while idle."
+updated_overall_design_vs_sprint_scope = "CHANGE-082/ADR-025 supersedes ADR-001/014 for this workstream: every ACCEPTED-only abort synchronously resets Credit, retains immutable courier history and resolves current state to OPEN/EXPIRED. Every abort queues User penalty; EXPIRED additionally queues Credit refund. Reposts retain old/new IDs but hide linked expired originals from requester pagination. Existing outbox/typed PubSub/48h completion approvals remain. Peer providers/subscribers and trusted automatic-repost authentication are missing or unverified. Cloud Run scale-to-zero/request CPU still limits idle scheduling; NTH3 report/hold/resolution is not completed by this slice."
 
 
 [approved_time_selection_and_scheduler_cadence]
 decision = "ADR-022 / CHANGE-077"
 requester_clock_minutes = [0, 15, 30, 45]
 restriction_scope = "frontend creation and repost time selection; existing API timestamp shape unchanged"
-expiry_cron = "0 */15 * * * *"
-outbox_recovery_cron = "0 0 * * * *"
-auto_completion_cron = "0 * * * * *"
+lifecycle_decision = "ADR-026 / CHANGE-083"
+shared_lifecycle_cron = "0 * * * * *"
+shared_lifecycle_checks = ["OPEN/unassigned/deadline reached -> EXPIRED/refund", "DELIVERED/latest delivery at least 48h ago -> COMPLETED/completion"]
+outbox_recovery_cron = "0 */15 * * * *"
 immediate_after_commit_dispatch = true
 existing_deadlines_rounded = false
+
+[requested_repost_timing_and_retry]
+decision = "ADR-028 / CHANGE-086 expiry/outcomes; ADR-027 / CHANGE-084 paused retry design; Vincent 2026-10-09"
+requirement_approved = true
+timing = "repostExpiresAt > repostDueAt >= original.expiresAt"
+late_execution = "allowed only while repostExpiresAt > current time"
+explicit_repost_expiry_implemented = true
+explicit_repost_expiry_change = "CHANGE-086; V4; legacy no-expiry plans disabled by Vincent"
+latest_manual_and_automatic_failure_persisted = true
+durable_retry_implemented = false
+insufficient_credit_card_message_implemented = true
+failure_message_scope = "latest safe eligible manual/automatic attempt failure on original EXPIRED row; overwrite newer result; clear on success; survives reload"
+background_retry_implementation_paused = true
+background_retry_resume_condition = "user resumes after peer agreement; no mock-mode retry worker either"
+retry_design_approval = "approved: fixed new candidate ID, temporary failures only, stop at new expiry or permanent rejection; concrete task/schema/API design still needed"
+terminal_failure_messages_approved = true
+insufficient_credit_reason = "confirmed semantic INSUFFICIENT_CREDITS only; cannot infer delayed refund versus inadequate balance"
+failed_original_status = "EXPIRED; visible/unlinked until successful repost"
+background_authentication_approval = "approved for peer proposal/documentation ONLY; implementation explicitly deferred"
+background_authentication_implemented = false
+background_authentication_peer_agreed = false
+peer_dependencies = ["FEEDBACK-002", "FEEDBACK-003", "FEEDBACK-004", "FEEDBACK-005", "FEEDBACK-006"]
+
+[approved_order_ui_refresh]
+decision = "ADR-027 / CHANGE-084; Vincent 2026-10-09"
+mechanism = "authenticated HTTP polling; no WebSocket/SSE/frontend broker"
+polling_implemented = true
+interval = "15 seconds while visible; focus/visibility/mutation refresh; AbortController cleanup and no overlap"
+auth_ready_required = true
+immediate_mutation_refetch = true
 
 [approved_role_annotations]
 decision = "ADR-024 / CHANGE-079"
@@ -161,3 +224,70 @@ role_reuse = "current request only; no cross-request cache"
 local_authentication_required = false
 courier_eligibility = "fresh HTTP check retained when HTTP peers selected"
 order_ownership = "existing locked domain guards retained"
+
+[credit_integration_source_review]
+change = "CHANGE-087"
+date = "2026-10-09"
+branch = "sprint-2-3-credit"
+integrated_revision = "09e04a0"
+scope = "Order documentation only; peer source and infrastructure read-only"
+assignment_route_present = true
+hold_route_present = true
+refund_consumer_present = true
+completion_consumer_present = true
+compatible_source_status = "Credit-local focused tests passed (27); READY_FOR_VERIFICATION for live integration; no cloud/end-to-end claim"
+focused_credit_tests_passed = 27
+focused_credit_tests_failures_errors_skips = 0
+focused_credit_test_runtime = "Java 21 Docker, read-only source copy, isolated Testcontainers PostgreSQL V1/V2"
+live_integration_verified = false
+subscription_provisioning_script_present = true
+subscription_provisioning_verified = false
+remaining_credit_feedback = ["FEEDBACK-003 replay authorization", "FEEDBACK-006 reservation/recovery", "FEEDBACK-007 accepted-cancellation semantics", "FEEDBACK-005 delegated authorization"]
+background_retries_remain_paused = true
+
+[local_live_connector]
+change = "CHANGE-088"
+decision = "ADR-029"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+compose_files = ["compose.yaml", "compose.http-peers.yaml", "compose.local-live.yaml"]
+runbook = "docs/local-live-testing.md"
+setup_script = "scripts/local-live.ps1"
+broker = "Real Google Pub/Sub; developer-isolated topics/subscriptions"
+ingress = "Temporary cloudflared HTTPS -> exact-path POST-only nginx -> local Credit"
+authentication = "Existing Google OIDC push; Order existing prod JWT/method profile with local emulator and HTTP User roles"
+configuration_safety_assertions = 60
+actual_nginx_fixture_assertions = 16
+live_cloud_financial_verified = false
+live_blocker = "User Setup progressed to Compose but PS5.1 stderr handling failed; CHANGE-089 fixes wrapper. Rerun real Setup/Check; Google IAM/push/financial verification still pending."
+script_compatibility_change = "CHANGE-089"
+native_stderr_regression_assertions = 11
+cli_installation_verified = true
+cli_version_exit = 0
+cli_sdk_version = "588.0.0"
+peer_source_changed = false
+staging_resources_changed = false
+schema_changed = false
+background_retries_paused = true
+user_consumers_provided = false
+
+[credit_push_security_exception]
+change = "CHANGE-090"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+scope = "One-time Credit push converter and regression test only; no financial/contract/schema/cloud edits"
+interference_record = "changes/CHANGE-090-credit-push-security-interference.md"
+feedback = "FEEDBACK-008"
+feedback_status = "READY_FOR_VERIFICATION"
+new_security_tests_passed = 15
+credit_tests_passed = 80
+clean_coverage_verified = true
+source_test_commit = "198cd7c"
+credit_line_coverage = 95.48
+credit_branch_coverage = 85.56
+live_financial_verified = false
+credit_owner_review_pending = true
+running_credit_rebuilt = false
+background_retries_paused = true

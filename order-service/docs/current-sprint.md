@@ -1,6 +1,97 @@
 # Active Sprint
 
-Current sprint: Sprint 1
+## Current validation slice - CHANGE-091 / ADR-030 (2026-10-09)
+
+Vincent approves Order/frontend field-specific creation errors and a 30-minute
+minimum for new automatic plans (scheduled due to expiry) and manual submissions
+(submission to expiry). Existing saved explicit-expiry plans are grandfathered;
+no migration, peer, retry or scheduler change. Source/test verification in
+CHANGE-091; live browser/peer gates remain and Sprint stays [~].
+
+
+## One-time Credit push security repair - CHANGE-090 (2026-10-09)
+
+Vincent approved the narrow Credit converter/test exception. Signed push no longer
+uses Firebase user-role lookup; ordinary user guards and all Google validators
+remain. Fifteen new regressions and fresh clean Credit verify pass: 80 tests,
+no skips, 95.48% line/85.56% branch coverage. Source/test commit 198cd7c.
+See the interference MD and FEEDBACK-008 READY_FOR_VERIFICATION. Credit owner
+review, local image rebuild and real Google refund/transfer/duplicate/DLQ checks
+remain open. This does not close Sprint [~] or other peer/repost blockers.
+
+## Effective local-live connector — CHANGE-088 (2026-10-09)
+
+Vincent's approved local-only deployment refinement is implemented/tested in
+ADR-029; [runbook](local-live-testing.md) supplies safe Setup/build/up/Check/Pause/down.
+Real HTTP peers and real cloud financial push target local Credit/database.
+60 config/safety and 16 restricted-ingress fixture assertions pass, not actual
+cloud/financial verification. No real stack/cloud changes performed by this run.
+User consumers, Credit semantic gaps and paused background retries stay open.
+No sequence/Sprint `[x]` upgrade.
+
+## Effective Credit review — CHANGE-087 (2026-10-09)
+
+Vincent's documentation-only review runs on sprint-2-3-credit (09e04a0).
+Credit assignment/core reset and refund/completion handlers now exist in source;
+do not ask peers to recreate them. Current gaps are replay authorization (003),
+terminal reservation/recovery (006), legacy accepted-cancellation refund routing
+(007) and delegated background auth (005). Separate push provisioning exists but
+live subscriptions/IAM/ledger are not verified. Read peer feedback section 6.
+User consumers remain missing; retries paused. No source/cloud changes or [x].
+
+## Effective CHANGE-086 follow-up (2026-10-09)
+
+Explicit automatic new expiry and persisted latest failure outcomes are
+implemented in the approved Order/frontend slice. V4 disables legacy plans
+without an expiry; it does not delete rows or invent deadlines. My Requests
+retains safe manual/automatic attempt messages after reload and clears them on
+successful repost linkage. Strict rule: expiry > due >= original expiry.
+Late execution only while saved expiry is future. Verification in CHANGE-086.
+All background retries/trusted credentials remain paused; peers/browser/cloud
+remain gates and Sprint status remains [~]. The dated paragraphs below are
+historical context, not the effective expiry/persistence status.
+
+
+Current sprint: Sprint 2 and Sprint 3 (Order-owned lifecycle slice; `[~]`)
+
+CHANGE-085 implements visible authenticated 15-second polling and current manual
+EXPIRED-card failure messages. Full reload does not retain that client message;
+automatic persistent outcomes remain deferred. User now PAUSES ALL background
+retry implementation until peer agreement, including mock-mode jobs.
+Credentials remain proposal-only. Read the rewritten service-classified
+peer-service-api-feedback.md (002-006) for provider work. Historical approval
+and test evidence below are retained, not current completion claims.
+
+Latest CHANGE-083 / ADR-026: one minute-based expiry/completion job and
+15-minute outbox recovery; immediate AFTER_COMMIT publication retained.
+Approved target: `repostExpiresAt > repostDueAt >= original.expiresAt`.
+Explicit repost expiry, durable retries and insufficient-credit-only persistent
+UI feedback are NOT implemented yet. CHANGE-084 / ADR-027 records Vincent's
+approval of bounded same-ID temporary retries, short permanent-failure messages
+and polling. Trusted credentials are approved for documentation/peer discussion
+only: DO NOT IMPLEMENT them yet. Concrete retry/security design and peer agreement
+remain open; FEEDBACK-005/006 and the diagram reconciliation record the gaps.
+Do not claim 100% diagram compliance.
+
+Current developer/workstream: Vincent, `sprint-2-3`, approved on 2026-10-08 in
+CHANGE-081/082. Read `changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md` and the
+current section of `docs/active-work/vincent.md` before implementation. The user
+selected the local `Order Service Overall Doc.pdf` alongside D1. The previously
+fingerprinted Updated PDF is absent; do not claim the two PDFs are equivalent.
+
+The approved lifecycle/history/reset/repost design is implemented under ADR-025.
+V3 preserves business IDs and adds internal UUID/immutable attempts; every abort
+resets Credit before OPEN/EXPIRED, queues User penalty and refunds only EXPIRED.
+Reposts retain both IDs and hide linked expired originals before requester pagination.
+Local verification passed 162 backend tests (no skips), 34 frontend tests,
+lint/typecheck/build and fresh >=80% line/branch coverage. Peer assignment/reset
+and event subscribers are missing/unverified; HTTP must fail closed, not mock-fallback.
+Trusted auto-repost credentials, authenticated browser and Cloud Run scheduling
+remain pending. This does not finish NTH3 Admin/report/hold/resolution features.
+Read `sprints/sprint-2-3/README.md` for effective diagrams and boundaries.
+Prior Sprint 1 records remain historical and must not be deleted.
+
+## Historical Sprint 1 context
 
 CHANGE-080 repairs post-merge Compose validation by removing the retired user-mongodb helper whose volume was undeclared. Main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration are preserved. Base and HTTP-peer config validation pass locally; hosted CI rerun remains pending.
 

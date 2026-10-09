@@ -7,11 +7,14 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,10 +24,16 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
+    public static final Duration MINIMUM_POSTING_WINDOW = Duration.ofMinutes(30);
     public static final Duration AUTOMATIC_COMPLETION_DELAY = Duration.ofHours(48);
 
     @Id
+    @Column(name = "row_id", nullable = false)
+    private UUID rowId;
+    @Column(nullable = false, unique = true, length = 36)
     private String id;
+    @Transient
+    private UUID attemptId;
     @Column(nullable = false, length = 128)
     private String requesterId;
     @Column(length = 128)
@@ -54,9 +63,15 @@ public class Order {
     private String repostedOrderId;
     @Embedded
     private RepostPlan repostPlan;
+    @Column(length = 40)
+    private String repostFailureCode;
+    @Column(length = 256)
+    private String repostFailureMessage;
+    private Instant repostFailureAt;
 
     private Order(String id, String requesterId, String description, String pickup, String delivery,
                    long credits, int duration, Instant createdAt, Instant expiresAt, String originalOrderId) {
+        this.rowId = UUID.randomUUID();
         this.id = id;
         this.requesterId = requesterId;
         this.itemDescription = description;
@@ -77,14 +92,18 @@ public class Order {
 
     public static Order open(String requesterId, String description, String pickup, String delivery,
                              long credits, int duration, Instant createdAt, Instant expiresAt, RepostPlan repostPlan) {
-        if (requesterId == null || requesterId.isBlank() || description == null || description.isBlank()
-                || pickup == null || delivery == null || pickup.equals(delivery) || credits <= 0
-                || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)
-                || expiresAt.isBefore(createdAt.plusSeconds(30 * 60L))) {
-            throw new OrderProblem("VALIDATION_ERROR", "Invalid order creation data.");
-        }
+        List<OrderProblem.Detail> errors = new ArrayList<>();
+        if (requesterId == null || requesterId.isBlank()) errors.add(new OrderProblem.Detail("requesterId", "A verified requester is required."));
+        validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
+        if (pickup == null || pickup.isBlank()) errors.add(new OrderProblem.Detail("pickupSupplierId", "Select a pickup supplier."));
+        if (delivery == null || delivery.isBlank()) errors.add(new OrderProblem.Detail("deliverySupplierId", "Select a delivery supplier."));
+        else if (delivery.equals(pickup)) errors.add(new OrderProblem.Detail("deliverySupplierId", "Delivery supplier must differ from pickup supplier."));
+        rejectInvalidFields(errors);
         Order order = new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
                 credits, duration, createdAt, expiresAt, null);
+        if (repostPlan != null) {
+            repostPlan.validateAgainst(expiresAt);
+        }
         order.repostPlan = repostPlan;
         return order;
     }
@@ -179,7 +198,7 @@ public class Order {
         if (now.isBefore(expiresAt)) {
             throw OrderProblem.conflict("Unexpired order must be reopened after Credit confirms the hold.");
         }
-        status = OrderStatus.ABORTED;
+        status = OrderStatus.EXPIRED;
         courierId = null;
     }
 
@@ -206,7 +225,8 @@ public class Order {
 
     public boolean eligibleForAutomaticRepost(Instant now) {
         return status == OrderStatus.EXPIRED && repostedOrderId == null && repostPlan != null
-                && repostPlan.isEnabled() && repostPlan.isDueAt(now) && !repostPlan.isUsed();
+                && repostPlan.isEnabled() && repostPlan.isDueAt(now) && !repostPlan.isUsed()
+                && repostPlan.hasFutureExpiry(now);
     }
 
     public void linkRepost(String repostId) {
@@ -214,6 +234,9 @@ public class Order {
             throw OrderProblem.conflict("Order already has a repost.");
         }
         repostedOrderId = repostId;
+        repostFailureCode = null;
+        repostFailureMessage = null;
+        repostFailureAt = null;
         if (repostPlan != null) {
             repostPlan.markUsed();
         }
@@ -223,14 +246,70 @@ public class Order {
         if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
             throw OrderProblem.conflict("Order is not eligible for repost.");
         }
+        if (description == null || description.isBlank() || description.length() > 100
+                || credits <= 0 || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)) {
+            throw new OrderProblem("VALIDATION_ERROR", "Invalid repost details or expired new expiry.");
+        }
         return new Order(UUID.randomUUID().toString(), requesterId, description, pickupSupplierId,
                 deliverySupplierId, credits, duration, createdAt, expiresAt, id);
+    }
+
+    public Order createManualRepost(String description, long credits, int duration, Instant createdAt, Instant expiresAt) {
+        if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
+            throw OrderProblem.conflict("Order is not eligible for repost.");
+        }
+        List<OrderProblem.Detail> errors = new ArrayList<>();
+        validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
+        rejectInvalidFields(errors);
+        return createRepost(description, credits, duration, createdAt, expiresAt);
+    }
+
+    private static void validateRepostFields(String description, long credits, int duration,
+            Instant minimumExpiry, Instant expiresAt, List<OrderProblem.Detail> errors) {
+        if (description == null || description.isBlank()) errors.add(new OrderProblem.Detail("itemDescription", "Describe what you need."));
+        else if (description.length() > 100) errors.add(new OrderProblem.Detail("itemDescription", "Description must be 100 characters or fewer."));
+        if (credits < 1) errors.add(new OrderProblem.Detail("offeredCredits", "Offered credits must be at least 1."));
+        if (duration < 15) errors.add(new OrderProblem.Detail("deliveryTimeLimitMinutes", "Delivery time must be at least 15 minutes."));
+        if (expiresAt == null) errors.add(new OrderProblem.Detail("expiresAt", "Choose an order expiry time."));
+        else if (expiresAt.isBefore(minimumExpiry)) errors.add(new OrderProblem.Detail("expiresAt", "Order expiry must be at least 30 minutes from now. Choose a later time."));
+    }
+
+    private static void rejectInvalidFields(List<OrderProblem.Detail> errors) {
+        if (!errors.isEmpty()) {
+            throw new OrderProblem("VALIDATION_ERROR", String.join(" ", errors.stream().map(OrderProblem.Detail::getMessage).toList()), errors);
+        }
+    }
+
+    public void recordRepostFailure(String code, String message, Instant occurredAt) {
+        requireStatus(OrderStatus.EXPIRED);
+        if (repostedOrderId != null) {
+            throw OrderProblem.conflict("Order already has a repost.");
+        }
+        if (repostFailureAt == null || !occurredAt.isBefore(repostFailureAt)) {
+            repostFailureCode = code;
+            repostFailureMessage = message;
+            repostFailureAt = occurredAt;
+        }
     }
 
     public void requireVersion(long expected) {
         if (version != expected) {
             throw OrderProblem.conflict("Order version is stale.");
         }
+    }
+
+    public static Order historicalAttempt(OrderCourierAttempt attempt) {
+        Order history = new Order(attempt.getOrderId(), attempt.getRequesterId(),
+                attempt.getItemDescription(), attempt.getPickupSupplierId(), attempt.getDeliverySupplierId(),
+                attempt.getOfferedCredits(), attempt.getDeliveryTimeLimitMinutes(), attempt.getCreatedAt(),
+                attempt.getExpiresAt(), attempt.getOriginalOrderId());
+        history.rowId = attempt.getId();
+        history.attemptId = attempt.getId();
+        history.courierId = attempt.getCourierId();
+        history.status = OrderStatus.ABORTED;
+        history.version = attempt.getOrderVersion();
+        history.repostedOrderId = attempt.getRepostedOrderId();
+        return history;
     }
 
     private void requireStatus(OrderStatus expected) {

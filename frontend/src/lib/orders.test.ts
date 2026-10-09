@@ -13,6 +13,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-10-01T10:00:00.000Z",
       automaticRepost: true,
       repostDueAt: "2026-10-01T11:00:00.000Z",
+      repostExpiresAt: "2026-10-01T12:00:00.000Z",
       repostCreditAmount: 14,
       repostDeliveryDurationMinutes: 35,
     }
@@ -28,6 +29,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-10-01T10:00:00.000Z",
       automaticRepost: true,
       repostDueAt: "2026-10-01T11:00:00.000Z",
+      repostExpiresAt: "2026-10-01T12:00:00.000Z",
       repostCreditAmount: 14,
       repostDeliveryDurationMinutes: 35,
     })
@@ -72,6 +74,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-09-30T07:29:59.000Z",
       automaticRepost: false,
       repostDueAt: "2026-09-30T08:00:00.000Z",
+      repostExpiresAt: "2026-09-30T09:00:00.000Z",
       repostCreditAmount: 1,
       repostDeliveryDurationMinutes: 15,
     }, now)).toBe("Order expiry must be at least 30 minutes from now. Choose a later time.")
@@ -85,6 +88,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-09-30T07:30:00.000Z",
       automaticRepost: false,
       repostDueAt: "2026-09-30T08:00:00.000Z",
+      repostExpiresAt: "2026-09-30T09:00:00.000Z",
       repostCreditAmount: 1,
       repostDeliveryDurationMinutes: 15,
     }, now)).toBeNull()
@@ -100,6 +104,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-09-30T08:00:00.000Z",
       automaticRepost: true,
       repostDueAt: "",
+      repostExpiresAt: "",
       repostCreditAmount: 1,
       repostDeliveryDurationMinutes: 15,
     }, new Date("2026-09-30T07:00:00.000Z"))).toBe("Choose a repost time when automatic repost is enabled.")
@@ -113,6 +118,7 @@ describe("Order Service frontend contract helpers", () => {
       expiresAt: "2026-09-30T08:00:00.000Z",
       automaticRepost: false,
       repostDueAt: "",
+      repostExpiresAt: "",
       repostCreditAmount: 0,
       repostDeliveryDurationMinutes: 0,
     }, new Date("2026-09-30T07:00:00.000Z"))).toBeNull()
@@ -121,6 +127,29 @@ describe("Order Service frontend contract helpers", () => {
 
 
 describe("quarter-hour errand times", () => {
+  it("requires explicit automatic expiry strictly after due, with due at or after the original expiry", () => {
+    const now = new Date(2026, 9, 8, 10, 0)
+    const form: CreateOrderForm = {
+      itemDescription: "item", pickupSupplierId: "store", deliverySupplierId: "hall",
+      offeredCredits: 1, deliveryTimeLimitMinutes: 15, expiresAt: "2026-10-08T11:00",
+      automaticRepost: true, repostDueAt: "2026-10-08T11:00", repostExpiresAt: "2026-10-08T11:30",
+      repostCreditAmount: 1, repostDeliveryDurationMinutes: 15,
+    }
+    expect(validateCreateOrderForm(form, now)).toBeNull()
+    expect(validateCreateOrderForm({ ...form, repostDueAt: "2026-10-08T10:45" }, now))
+      .toBe("Repost time must be at or after the original order expiry.")
+    for (const repostExpiresAt of ["2026-10-08T11:00", "2026-10-08T10:45", "2026-10-08T11:15"]) {
+      expect(validateCreateOrderForm({ ...form, repostExpiresAt }, now))
+        .toBe("Repost expiry must be at least 30 minutes after the repost time.")
+    }
+    expect(validateCreateOrderForm({ ...form, repostExpiresAt: "" }, now))
+      .toBe("Choose a repost expiry when automatic repost is enabled.")
+    expect(validateCreateOrderForm({ ...form, repostExpiresAt: "2026-10-08T11:16" }, now))
+      .toBe("Choose repost expiry minutes of 00, 15, 30, or 45.")
+    expect(buildCreateOrderPayload({ ...form, automaticRepost: false, repostExpiresAt: "" }, "owner").repostExpiresAt)
+      .toBeNull()
+  })
+
   it("rounds defaults up across an hour and date boundary without rounding valid slots", () => {
     expect(quarterHourDateTimeLocal(new Date(2026, 9, 8, 23, 59, 1))).toBe("2026-10-09T00:00")
     expect(quarterHourDateTimeLocal(new Date(2026, 9, 8, 10, 15))).toBe("2026-10-08T10:15")
@@ -142,7 +171,7 @@ describe("quarter-hour errand times", () => {
     const form: CreateOrderForm = {
       itemDescription: "Pick up a parcel", pickupSupplierId: "store-a", deliverySupplierId: "hall-b",
       offeredCredits: 1, deliveryTimeLimitMinutes: 15, expiresAt: "2026-10-08T11:07",
-      automaticRepost: false, repostDueAt: "2026-10-08T12:07",
+      automaticRepost: false, repostDueAt: "2026-10-08T12:07", repostExpiresAt: "2026-10-08T13:00",
       repostCreditAmount: 1, repostDeliveryDurationMinutes: 15,
     }
     expect(validateCreateOrderForm(form, now)).toBe("Choose expiry minutes of 00, 15, 30, or 45.")

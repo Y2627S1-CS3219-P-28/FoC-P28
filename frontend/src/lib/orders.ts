@@ -13,6 +13,7 @@ export type OrderStatus =
 
 export type Order = {
   id: string
+  attemptId?: string | null
   requesterId: string
   courierId: string | null
   itemDescription: string
@@ -28,6 +29,10 @@ export type Order = {
   repostedOrderId: string | null
   automaticRepostEnabled?: boolean
   repostDueAt?: string | null
+  repostExpiresAt?: string | null
+  repostFailureCode?: string | null
+  repostFailureMessage?: string | null
+  repostFailureAt?: string | null
   repostCreditAmount?: number
   repostDeliveryDurationMinutes?: number
 }
@@ -49,6 +54,7 @@ export type CreateOrderForm = {
   expiresAt: string
   automaticRepost: boolean
   repostDueAt: string
+  repostExpiresAt: string
   repostCreditAmount: number
   repostDeliveryDurationMinutes: number
 }
@@ -64,6 +70,7 @@ export type CreateOrderPayload = {
   expiresAt: string
   automaticRepost: boolean
   repostDueAt: string | null
+  repostExpiresAt: string | null
   repostCreditAmount: number
   repostDeliveryDurationMinutes: number
 }
@@ -90,21 +97,40 @@ export function minOrderExpiryDateTimeLocal(now = new Date()): string {
   return quarterHourDateTimeLocal(new Date(now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000))
 }
 
-export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
-  const expiry = new Date(form.expiresAt)
-  if (Number.isNaN(expiry.getTime())) return "Choose an order expiry time."
-  if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) {
-    return "Order expiry must be at least 30 minutes from now. Choose a later time."
+export type OrderFieldErrors = Partial<Record<keyof CreateOrderForm, string>>
+
+export function validateCreateOrderFields(form: CreateOrderForm, now = new Date()): OrderFieldErrors {
+  const errors: OrderFieldErrors = {}
+  if (!form.itemDescription.trim()) errors.itemDescription = "Describe what you need."
+  else if (form.itemDescription.trim().length > 100) errors.itemDescription = "Description must be 100 characters or fewer."
+  if (!form.pickupSupplierId.trim()) errors.pickupSupplierId = "Select a pickup supplier."
+  if (!form.deliverySupplierId.trim()) errors.deliverySupplierId = "Select a delivery supplier."
+  else if (form.pickupSupplierId.trim() === form.deliverySupplierId.trim()) {
+    errors.deliverySupplierId = "Delivery supplier must differ from pickup supplier."
   }
-  if (!isQuarterHourDateTime(form.expiresAt)) return "Choose expiry minutes of 00, 15, 30, or 45."
+  if (!Number.isSafeInteger(form.offeredCredits) || form.offeredCredits < 1) errors.offeredCredits = "Offered credits must be a whole number of at least 1."
+  if (!Number.isInteger(form.deliveryTimeLimitMinutes) || form.deliveryTimeLimitMinutes < 15) errors.deliveryTimeLimitMinutes = "Delivery time must be a whole number of at least 15 minutes."
+  const expiry = new Date(form.expiresAt)
+  if (Number.isNaN(expiry.getTime())) errors.expiresAt = "Choose an order expiry time."
+  else if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) errors.expiresAt = "Order expiry must be at least 30 minutes from now. Choose a later time."
+  else if (!isQuarterHourDateTime(form.expiresAt)) errors.expiresAt = "Choose expiry minutes of 00, 15, 30, or 45."
   if (form.automaticRepost) {
     const repostDueAt = new Date(form.repostDueAt)
-    if (Number.isNaN(repostDueAt.getTime())) return "Choose a repost time when automatic repost is enabled."
-    if (!isQuarterHourDateTime(form.repostDueAt)) return "Choose repost minutes of 00, 15, 30, or 45."
-    if (form.repostCreditAmount < 1) return "Repost credits must be at least 1."
-    if (form.repostDeliveryDurationMinutes < 15) return "Repost delivery time must be at least 15 minutes."
+    if (Number.isNaN(repostDueAt.getTime())) errors.repostDueAt = "Choose a repost time when automatic repost is enabled."
+    else if (!isQuarterHourDateTime(form.repostDueAt)) errors.repostDueAt = "Choose repost minutes of 00, 15, 30, or 45."
+    else if (repostDueAt.getTime() < expiry.getTime()) errors.repostDueAt = "Repost time must be at or after the original order expiry."
+    const repostExpiry = new Date(form.repostExpiresAt)
+    if (Number.isNaN(repostExpiry.getTime())) errors.repostExpiresAt = "Choose a repost expiry when automatic repost is enabled."
+    else if (!isQuarterHourDateTime(form.repostExpiresAt)) errors.repostExpiresAt = "Choose repost expiry minutes of 00, 15, 30, or 45."
+    else if (repostExpiry.getTime() < repostDueAt.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) errors.repostExpiresAt = "Repost expiry must be at least 30 minutes after the repost time."
+    if (!Number.isSafeInteger(form.repostCreditAmount) || form.repostCreditAmount < 1) errors.repostCreditAmount = "Repost credits must be at least 1."
+    if (!Number.isInteger(form.repostDeliveryDurationMinutes) || form.repostDeliveryDurationMinutes < 15) errors.repostDeliveryDurationMinutes = "Repost delivery time must be at least 15 minutes."
   }
-  return null
+  return errors
+}
+
+export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
+  return Object.values(validateCreateOrderFields(form, now))[0] ?? null
 }
 
 const commandId = () => crypto.randomUUID()
@@ -132,6 +158,7 @@ export function buildCreateOrderPayload(form: CreateOrderForm, requesterId: stri
     expiresAt: new Date(form.expiresAt).toISOString(),
     automaticRepost: form.automaticRepost,
     repostDueAt: form.automaticRepost ? new Date(form.repostDueAt).toISOString() : null,
+    repostExpiresAt: form.automaticRepost ? new Date(form.repostExpiresAt).toISOString() : null,
     repostCreditAmount: form.automaticRepost ? form.repostCreditAmount : 0,
     repostDeliveryDurationMinutes: form.automaticRepost ? form.repostDeliveryDurationMinutes : 0,
   }
@@ -159,9 +186,17 @@ export function formatOrderStatus(status: OrderStatus): string {
 
 export function updateCourierOrderList(orders: Order[], updated: Order): Order[] {
   if (updated.status === "ABORTED" || (updated.status === "OPEN" && updated.courierId === null)) {
-    return orders.filter((order) => order.id !== updated.id)
+    return orders.filter((order) => order.attemptId || order.id !== updated.id)
   }
 
+  return orders.map((order) => !order.attemptId && order.id === updated.id ? updated : order)
+}
+
+export function updateRequesterOrderList(orders: Order[], updated: Order): Order[] {
+  if (updated.originalOrderId) {
+    return [updated, ...orders.filter((order) => order.id !== updated.id &&
+      !(order.id === updated.originalOrderId && order.status === "EXPIRED"))]
+  }
   return orders.map((order) => order.id === updated.id ? updated : order)
 }
 

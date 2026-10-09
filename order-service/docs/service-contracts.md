@@ -1,5 +1,96 @@
 # Service Contracts
 
+## Effective validation amendment - CHANGE-091 / ADR-030
+
+New automatic plans require repostDueAt >= original.expiresAt and
+repostExpiresAt >= repostDueAt + 30 minutes. Manual submissions require expiresAt
+>= submission + 30 minutes. Existing saved explicit-expiry automatic plans retain
+their instructions, including shorter windows. Late automatic execution uses the
+saved future expiry without demanding another 30 minutes from execution.
+Creation/manual local validation failures use the existing details[field,message]
+error envelope and identify only actual invalid fields. No peer API/event/schema
+change. Latest user approval supersedes only the historical new-plan timing below.
+
+
+## Local delivery configuration — CHANGE-088 / ADR-029
+
+No endpoint/payload contract changes. Existing wrapped Google push POST to
+`/api/credits/internal/order-events` retains Google OIDC and subscription checks,
+204 after processing. Isolated local financial subscriptions/topic names and a
+stable custom audience now match Compose and Setup; HTTPS proxy preserves body
+and bearer. See [runbook](local-live-testing.md). User penalty topic has no Credit
+subscription here; User consumers/delegated authorization still require peers.
+Synthetic routing tests do NOT verify actual push identities or ledger processing.
+
+## Current provider evidence — CHANGE-087 (2026-10-09)
+
+On sprint-2-3-credit, Credit's integrated 09e04a0 source implements the existing
+PUT courier-assignment (courierId JSON, bodyless 200), POST hold-for-reopen
+(no body, bodyless 200), and wrapped authenticated push refund/completion
+(204 after durable processing) contracts. This is source evidence, not live
+contract verification. No wire/schema change is approved by this review.
+Remaining gaps: reset replay authorization (003), terminal replay/recovery (006),
+delegated credentials (005), and incompatible ABORTED/refund handling of the
+accepted-cancellation topic (007). ADR-025 remains authoritative: accepted
+cancellation signals User penalties on OPEN/EXPIRED; only a separate refund event
+releases an EXPIRED reservation. See peer feedback for requests/formats/evidence.
+Prior dated missing-provider statements below are historical.
+
+## Effective additive Order contract — CHANGE-086
+
+`POST /api/orders` adds nullable `repostExpiresAt` (ISO UTC timestamp), REQUIRED
+when automaticRepost=true. Require expiry > repostDueAt >= original expiresAt;
+false ignores automatic-plan details. New expiry is never execution+duration.
+Quarter-hour selection is a frontend rule, not a change to UTC wire format.
+New automatic plans must provide the field; V4 disables legacy plans without it.
+
+OrderResponse adds nullable repostExpiresAt, repostFailureCode,
+repostFailureMessage and repostFailureAt to existing reads/commands/list items.
+Only a safe latest eligible authorized attempt failure is persisted on the
+original EXPIRED/unlinked order after rollback. A newer failure replaces it;
+successful linkage clears it. Ownership/state/version/auth failures before an
+eligible attempt cannot overwrite another user's message. Raw diagnostics and
+tokens are never stored as outcomes. Failure persistence may increment the
+original version: clients refetch it before another versioned manual attempt.
+
+Manual repost request shape, all peer routes/topics/event JSON are unchanged.
+No same-candidate durable job, retry worker, trusted credential or refund
+confirmation gate is implemented. All background retry scope remains paused.
+Earlier dated contract statements below remain historical evidence.
+
+
+CHANGE-085: existing endpoint/DTO/topic shapes unchanged. Reservation 409 is
+exposed as INSUFFICIENT_CREDITS ONLY when Credit confirms that semantic code;
+other conflicts stay CONFLICT, 400/401/403/404 retain their classes and transport/
+server failures become SERVICE_UNAVAILABLE. No raw peer diagnostic is exposed.
+Frontend reads Order lists and /api/credits/me every 15 visible/auth-ready seconds
+plus focus/mutation refresh. Manual repost failures do not produce a new OPEN
+order; the short card message is client-local. Latest user instruction pauses
+ALL background retry implementation pending peer agreement. No candidate task,
+worker, security bypass, trusted credentials or new peer route implemented.
+Current exact missing-provider handoff is peer-service-api-feedback.md.
+
+CHANGE-084 / ADR-027 approves Order-side bounded same-ID retry and polling
+principles, not new implemented endpoints/DTOs. Trusted service authorization
+is a documentation-only proposal, explicitly deferred pending User/Supplier/
+Credit owner agreement (FEEDBACK-005). Existing Firebase-user routes remain
+unchanged. FEEDBACK-006 records reservation confirmation/reconciliation needs;
+no new broker/refund-confirmation event is approved by this decision.
+
+CHANGE-083 / ADR-026 replaces Order's two timer settings with ORDER_LIFECYCLE_CRON
+(every minute) and sets outbox recovery to 15 minutes. Business endpoint/event
+shapes remain unchanged in this repair. Explicit repost expiry/retry/status API
+changes remain unimplemented; see the target diagram and FEEDBACK-005/006.
+Supplier pair validation now requires explicit valid:true; false/missing rejects.
+
+## Effective Sprint 2-3 amendments (CHANGE-082 / ADR-025)
+
+This section supersedes historical abort/reopen descriptions below. Every ACCEPTED-only abort first calls bodyless `POST /api/credits/orders/{orderId}/hold-for-reopen`, requiring 200 after courierId reset and reservation retention. Current Order keeps its business ID and becomes OPEN/EXPIRED after a fresh deadline check; an immutable ABORTED courier attempt is stored separately. EVERY abort emits the accepted-cancellation event for User; only EXPIRED additionally emits the shared refund event for Credit. New refunds are not requested through the User penalty event. Peer feedback documents legacy reconciliation, missing APIs/subscribers, payload/status/authentication/retry requirements.
+
+Courier `/mine` uses database-paginated current assignments plus ONLY that courier's immutable attempts. Existing response adds nullable `attemptId`; it is non-null for read-only ABORTED snapshots, null for current Orders. Both may share business `id`; clients key history by attemptId and never mutate a history snapshot. Requester `/mine` excludes EXPIRED originals only after successful repost linkage, before pagination/counting. Repost reserves a NEW ID, keeps old/new rows, and authenticated manual receipt replay validates requester/original linkage. No event schema/topic rename.
+
+Acceptance still waits synchronously for bodyless 200 from `PUT /api/credits/orders/{orderId}/courier-assignment` with only courierId in JSON. Assignment/reset are Order-side approved stubs, not verified peer providers. No HTTP fallback to mocks. Automatic repost's current lifecycle credential is not a verified peer Firebase identity; FEEDBACK-005 remains open. Full NTH3 report/hold/admin contracts listed later are logical future scope, not implemented by CHANGE-082.
+
 These are logical approved contracts. CHANGE-053/054 approve Order event snapshots and Google Cloud Pub/Sub; CHANGE-067/ADR-016 clarifies that snapshots omit checkpoint history. CHANGE-056 defines one `OrderCompletionTaskEvent` with `overdue` and `overdueAt` facts. CHANGE-063/ADR-013 approves atomic Order/outbox persistence, after-commit dispatch, and cron recovery with at-least-once delivery. CHANGE-064/ADR-014 adds a synchronous Credit hold before an unexpired accepted errand returns to `OPEN`; expired accepted cancellation remains event-driven. CHANGE-065/ADR-015 added Spring-scheduled OPEN expiry; CHANGE-071/ADR-019 supersedes only its separate event type so requester cancellation and scheduled expiry both emit `OpenOrderRefundTaskEvent` on one topic, distinguished by the resulting Order status.
 
 CHANGE-073/ADR-021 configures real Pub/Sub with one GCP project and environment-specific topics. Local topic IDs are `order-completion-dev-v1`, `open-order-refund-dev-v1`, and `accepted-order-cancellation-dev-v1`; production topic IDs are deployment configuration. Grant publisher access at topic scope only. Local Compose uses each developer's ADC; Cloud Run uses its service identity.
@@ -16,7 +107,7 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
 - `getRoleContext(userId)`: return requester/courier/admin role context.
 - `getCourierEligibility(userId)`: return whether a courier may accept new errands.
 - `getUserSummary(userId)`: minimal display identity for authorized views.
-- User consumes `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation: apply the configured penalty to the cancelling courier (`actorId`). User does not subscribe to open cancellation.
+- User consumes `AcceptedOrderCancellationTaskEvent` for EVERY courier abort (current snapshot OPEN/EXPIRED): apply the configured penalty to actorId, not cleared courierId. User does not subscribe to requester OPEN-cancellation refunds.
 - User consumes `OrderCompletionTaskEvent` for every completion: use `overdue` and `overdueAt` to apply the configured penalty when late or decrease the score when on time. Penalty/score policy remains User-owned.
 - These are event subscriptions, not blocking Order-to-User requests. Payloads carry `eventId`, `eventVersion`, top-level `orderId`/`orderVersion`, the current Order/repost snapshot without checkpoint history, `actorId`, and `occurredAt`; consumers deduplicate at-least-once delivery. Completion carries overdue facts derived internally from checkpoints.
 
@@ -29,12 +120,12 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
 
 - `reserveCredits(orderId, requesterId, amount)`: reserve before an original or repost becomes `OPEN`.
 - `assignCourier(orderId, courierId)`: proposed synchronous operation during courier acceptance. `orderId` is in the path and `courierId` is the only request-body field. Order waits for `200 OK` before persisting `ACCEPTED`; Credit validates transaction details from its own record. See FEEDBACK-004.
-- `holdForReopen(orderId)`: synchronously hold/reset the transaction found by `orderId`, without refunding it. It has no request body. Order waits for `200 OK` before changing the accepted Order to `OPEN`; failure leaves it `ACCEPTED`. See FEEDBACK-003.
+- `holdForReopen(orderId)`: synchronously clear courierId while retaining funds on EVERY abort, including expired outcomes; no request body. Order waits for `200 OK` before saving OPEN/EXPIRED/history/events; failure leaves ACCEPTED. See FEEDBACK-003/CHANGE-082.
 - Order checks its version locally before these calls; it does not send that version to Credit. Published Order events retain `orderVersion`.
 - Credit consumes `OpenOrderRefundTaskEvent`: refund/release the reserved amount for either requester cancellation of an `OPEN` order (`order.status=CANCELLED`) or scheduled expiry of an unassigned `OPEN` order (`order.status=EXPIRED`). User is not involved. This event replaces Order's former synchronous Credit release call and the formerly separate expiration event.
-- Credit consumes `AcceptedOrderCancellationTaskEvent` only when cancellation occurs at or after `expiresAt`: refund/release the reserved amount.
+- Credit consumes `OpenOrderRefundTaskEvent` also for expired courier aborts. Legacy ABORTED accepted-cancellation payloads require coordinated refund reconciliation; NEW accepted-cancellation events are User penalty facts, not Credit refund instructions.
 - Credit consumes every `OrderCompletionTaskEvent`: transfer/settle the reserved credits to the courier.
-- Same-order direct `ACCEPTED -> OPEN` is distinct from prohibited `ABORTED -> OPEN`. The hold endpoint is missing from the inspected Credit API; see FEEDBACK-003.
+- Same-order current ACCEPTED resolves directly OPEN/EXPIRED while ABORTED survives in immutable courier history (ADR-025 supersedes the prior prohibition). The hold endpoint is missing from the inspected Credit API; see FEEDBACK-003.
 - `getReservationStatus(orderId)`: recovery/idempotency query after uncertain reservation responses.
 
 ## Order Service provides
@@ -50,7 +141,7 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
 - Admin integration: `placeCompletionHold`, `releaseCompletionHold`, `applyAdministrativeResolution`.
 - Facts: `subscribeToOrderOutcomes`, including typed completion, shared OPEN-refund, and accepted cancellation event contracts.
 
-Only contracts listed by the active sprint are implementable. See `sprints/sprint-1/contracts.md` for the current subset.
+Only approved active-workstream contracts are implementable. See `sprints/sprint-2-3/README.md` for the current slice and `sprints/sprint-1/contracts.md` for historical scope.
 
 ## Common guarantees
 
@@ -60,12 +151,16 @@ Only contracts listed by the active sprint are implementable. See `sprints/sprin
 - Stable order, user, and supplier identifiers; never exchange database entities.
 - Distinct validation, unauthorized, not found, conflict, dependency unavailable, reservation rejection, and accepted-for-processing failures.
 - Event payloads contain event ID/version, order ID/version, actor IDs, event-specific facts, and occurred-at time without unnecessary private data.
-- Completion, both OPEN-refund outcomes, and expired accepted cancellation commit state/checkpoint (and command receipt where triggered) plus event intent together, then dispatch after commit and retry due rows through the outbox cron. For unexpired accepted cancellation, Order synchronously waits for Credit's hold confirmation before persisting `OPEN` and emits no cancellation event. Pub/Sub consumers are asynchronous; Order does not wait for event subscriber replies. Delivery is at least once; consumers deduplicate stable event IDs. Future consumer guarantees are not verified by this Order-only milestone.
+- Completion/refund/abort commit state/checkpoints/history where applicable, receipt and event intent together; dispatch follows commit and recovery retries due outbox rows. Every abort waits synchronously for Credit reset, then emits User penalty, plus Credit refund only for EXPIRED. Pub/Sub subscribers are asynchronous; Order does not wait for their replies. Delivery is at least once and requires durable consumer deduplication. Provider/consumer guarantees are not verified by this Order-only milestone.
 
 
 ## UI time selection and background cadence
 
-CHANGE-077/ADR-022 restricts Requester creation/repost UI clock minutes to 00/15/30/45 and rounds suggestions upward. It does not add a backend/API quarter-hour constraint or change ISO timestamp/event fields. Expiry scans all DB-due OPEN unassigned orders every 15 minutes, outbox recovery runs hourly, and 48-hour delivered auto-completion stays every minute. Every committed outcome still attempts immediate publication. These intervals are defaults rather than guaranteed delivery/expiry SLAs, especially under the existing Cloud Run idle CPU settings.
+CHANGE-077/ADR-022 keeps Requester UI clock minutes 00/15/30/45 and upward
+rounding without a backend quarter-hour constraint. ADR-026 supersedes timer
+cadence: one minute job for due unassigned OPEN expiry and >=48h latest-delivery
+completion; all-event outbox recovery every 15 minutes; immediate publication
+retained. These are defaults, not runtime SLAs, especially with idle Cloud Run CPU.
 
 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)

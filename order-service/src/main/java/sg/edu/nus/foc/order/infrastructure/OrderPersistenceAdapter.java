@@ -8,7 +8,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.domain.repository.OrderPage;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
@@ -17,6 +20,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 @RequiredArgsConstructor
 public class OrderPersistenceAdapter implements OrderRepository {
     private final JpaOrderRepository repository;
+    private final JpaOrderCourierAttemptRepository attempts;
 
     @Override
     public Optional<Order> get(String id) {
@@ -30,7 +34,15 @@ public class OrderPersistenceAdapter implements OrderRepository {
 
     @Override
     public Order save(Order order) {
+        if (order.getAttemptId() != null) {
+            throw new IllegalArgumentException("Courier history cannot be saved as a current Order.");
+        }
         return repository.save(order);
+    }
+
+    @Override
+    public void saveAbortedAttempt(OrderCourierAttempt attempt) {
+        attempts.save(attempt);
     }
 
     @Override
@@ -51,11 +63,18 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public OrderPage findCourierOrders(String courierId, int page, int size) {
-        Page<Order> result = repository.findByCourierIdOrderByCreatedAtDesc(
+        Page<CourierOrderReference> result = repository.findCourierTimeline(
                 courierId,
                 pageRequest(page, size));
-        return toOrderPage(result);
+        List<Order> items = result.getContent().stream()
+                .map(reference -> reference.getAttemptId() == null
+                        ? repository.findById(reference.getOrderId()).orElseThrow()
+                        : Order.historicalAttempt(attempts.findById(reference.getAttemptId()).orElseThrow()))
+                .toList();
+        return new OrderPage(items, result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages());
     }
 
     @Override

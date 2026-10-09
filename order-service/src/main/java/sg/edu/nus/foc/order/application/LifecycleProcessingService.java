@@ -64,7 +64,6 @@ public class LifecycleProcessingService {
         return dueOrders.size();
     }
 
-    @Transactional
     public int repostDue(Instant now, String lifecycleAuthorization) {
         int repostedCount = 0;
         List<Order> expiredOrders = orders.findDueUnassigned(OrderStatus.EXPIRED, now);

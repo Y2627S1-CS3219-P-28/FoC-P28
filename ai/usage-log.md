@@ -1628,6 +1628,16 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Author verification:** Read current repository configurations and peer source. No live deployment, cloud permissions/subscriptions, or end-to-end tests verified. No application or infrastructure configuration modified; user review of deployment readiness remains pending.
 
 
+## Sprint 2-3 lifecycle clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-08
+- **Mode:** Local source/specification review and approval documentation
+- **Affected locations:** Order workflow profile, allocation, current-sprint, Vincent active work, CHANGE-081, change log and architecture evolution; this disclosure
+- **Prompt:** Use the existing Credit assignment endpoint as a mock if missing; ask whether reopened acceptance may overwrite its courier and whether the old expired order ID can be overwritten; work only on Order-owned parts and record under Vincent.
+- **Key response:** Recorded the developer's confirmed scope and local mock exception, distinguished abort-to-EXPIRED from repost-to-new-OPEN, and identified the proposed Credit contract's conflicting-assignment restriction and stale-retry risk. Credit reset/reassignment and repost replacement/retention remain pending; no application source, tests, peer service or infrastructure changed.
+- **Author verification:** Vincent explicitly selected the scope, identity, mock exception and previously the separate courier-attempt history model. Further design choices and runtime tests are pending; AI advice is not developer approval.
+
 ## Post-merge Compose CI cleanup (Order Service)
 
 - **Tool:** OpenAI Codex (GPT-6)
@@ -1638,13 +1648,112 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Removed the retired temporary user-mongodb helper instead of adding back its obsolete volume. Preserved main's MongoDB/User Service configuration and Order's PostgreSQL/PubSub configuration. The existing CI placeholder ADC step was not changed.
 - **Author verification:** Reproduced the reported error before the fix; base and HTTP-peer Compose config checks exit 0 after the fix. Normalized JSON has no dangling named-volume references. Exact peer/Order block preservation checks pass. No live containers/cloud publishing, application tests or hosted CI run performed. Developer review and hosted CI rerun remain pending.
 
+## Integrated Credit dependency review assistance (Order Service)
 
-## Credit Service PostgreSQL migration assistance
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Peer source/contract inspection and Order documentation update
+- **Affected locations:** Order peer-service-api-feedback, project context, profile/allocation, active work, current sprint, service contracts, change log and CHANGE-087; this disclosure. Peer source/config/tests inspected read-only.
+- **Prompt:** Check the current sprint-2-3-credit branch after integrating Credit changes; identify implemented endpoints and topic subscriptions and update peer feedback to leave outstanding provider work only.
+- **Key response:** Removed obsolete missing-assignment/reset/refund/completion requests and recorded actual implementations and push provisioning evidence. Retained reset replay authorization (003), reservation terminal replay/cross-service reconciliation (006), delegated background authorization (005), and documented the incompatible Credit accepted-cancellation refund subscriber (007). Current Order abort emits User penalty facts with OPEN/EXPIRED, not the legacy ABORTED Credit refund semantics. Provisioning script exists separately from bootstrap; cloud deployment is unverified. No peer, application, test or infrastructure fixes were made.
+- **Author verification:** User authorized branch inspection and feedback rewrite, not a peer implementation or architecture change. Source/test/config comparison performed; eight feedback JSON examples, context TOML/assertions, change-log links, exact scope and Git whitespace checks passed. Recorded D1/Overall hashes match; generic drift checker failed on pre-existing manifest column format (exit 2). No Maven, live APIs, browser, GCP subscriptions/IAM, or ledger delivery tests executed. Background retry implementation remains paused and Sprint [~]; peer/runtime verification is pending.
 
-- **Tool:** OpenAI Codex (GPT-5)
-- **Date:** 2026-10-07
-- **Mode:** Implementation and testing assistance
-- **Affected locations:** Credit Service persistence, Flyway schema, tests, local Compose, Cloud SQL provisioning/deployment configuration, and CI infrastructure checks
-- **Prompt:** Replace Credit Service Firestore persistence with PostgreSQL using `credit_accounts`, `credit_reservations`, `credit_idempotency_records`, and `credit_ledger`; use Spring Data JPA, Flyway, pessimistic locking, database constraints, isolated Credit databases/users/secrets on the shared Cloud SQL instance, and preserve existing API behavior.
-- **Key response:** Replaced Credit Service’s Firestore persistence with PostgreSQL while preserving registration, balance, reservation, and reservation-recovery behavior. Added local PostgreSQL and shared Cloud SQL configuration and infrastructure validation.
-- **Author verification:** The developer reviewed the generated code against the supplied plan, requirements, and schemas.
+## Focused Credit outcome verification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Existing peer-test execution, source review and clarification
+- **Affected locations:** Order feedback/context/active work and CHANGE-087 follow-up; local ignored learning; this disclosure. Credit source and tests read-only, build output in disposable Docker source copy.
+- **Prompt:** Confirm whether implemented refund/completion subscriptions can refund expired/cancelled orders and transfer completed credits; leave accepted-cancellation alone. Challenge the stale-reset example because acceptance follows only after confirmed reset and reopening.
+- **Key response:** Confirmed implemented Credit financial handlers and compatible Order event fields. Ran ./mvnw -B -ntp clean test -Dtest=CreditOrderEventConsumerTest,CreditOrderEventControllerTest,CreditServiceTest,JpaCreditRepositoryIntegrationTest in Java 21 Docker with isolated Testcontainers PostgreSQL V1/V2. All 27 tests passed (5 consumer, 3 controller, 7 service, 12 persistence), zero failures/errors/skips. Duplicate refund/settlement effects guarded; completion assertions move requester 50 -> 40, courier 50 -> 60 and reserved 10 -> 0. Corrected 003: current Order locks and checks status/version, waits for reset 200, commits OPEN/EXPIRED plus command receipt; committed replay avoids another Credit call. Simplified stale-clear story omitted these guards. Residual Credit-only replay protection remains distinct; no retry worker implemented.
+- **Author verification:** Vincent reaffirmed the sequential reset/open/accept behavior and requested no accepted-cancellation changes. Re-read actual guards and financial handlers; existing tests executed unchanged against temporary database, not application data. No peer/application/config/infrastructure source edited or cloud provisioning performed. Legacy accepted-cancellation tests passing do not establish current 007 compliance. Full Credit suite, coverage verify, actual Pub/Sub/OIDC/IAM and full Order-to-Credit integration remain unverified; no architecture decision made by AI. Human review of these results remains pending.
+
+## Local live Docker and Pub/Sub readiness assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Read-only configuration/source review and readiness documentation
+- **Affected locations:** Order Vincent active work; ignored local refund/history learning; this disclosure. Compose, Dockerfiles, Credit push security/configuration and cloud provisioning script inspected read-only.
+- **Prompt:** Review Docker and Order setup so a local run can exercise real Credit endpoints and Pub/Sub for expired, aborted, cancelled and completed workflows.
+- **Key response:** HTTP-peer override exists and Credit financial handlers are implemented, but no local cloud push delivery path is configured. Combined Compose config fails on missing GOOGLE_APPLICATION_CREDENTIALS_HOST. Credit requires Google-signed push identity/audience; the internal Docker URL/demo identity is not public cloud ingress. Existing provisioning script targets staging/production Cloud Run, not local Credit. Proposed isolated authenticated HTTPS ingress for local push testing; not implemented or approved. Noted historical Sequences 1-3-only override comments. Existing one-minute lifecycle and immediate/15-minute recovery publication remain unchanged.
+- **Author verification:** Source/configuration inspection and actual Compose config failure recorded; official Google push requirements checked. No images rebuilt, stack launched, app databases touched, cloud resources/IAM changed or peer source edited. Prior 27 focused Credit tests remain component-only evidence. User must approve new local delivery setup and cloud owner must authorize resources; developer review and live broker/browser/ledger verification pending. Learning excluded from commits; Sprint remains [~].
+
+## Approved local-live integration connector assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Approved local configuration, test-first helper implementation and handoff
+- **Affected locations:** compose.local-live.yaml, .env.example, HTTP-override comments; Order-owned deploy/local-live, scripts/fixtures/tests, CHANGE-088/ADR-029/runbook/context/traceability/active-work and ignored learning; this disclosure. All peer application source remains unchanged.
+- **Prompt:** Proceed with local real HTTP peer endpoints and real Pub/Sub delivery; supply Docker build/up/down commands for financial workflow integration testing.
+- **Key response:** Implemented developer-isolated topics/subscriptions, Google-authenticated wrapped financial push through temporary cloudflared HTTPS and exact-path POST-only non-root/read-only nginx. Scoped Setup/Check/Pause verifies resource ownership, config, audience, identity, DLQ and namespace before retargeting; no shared/staging subscription edits or key files. Enabled existing Order authenticated profile with local DB/Auth and real User roles. Credit accepted-cancellation subscription intentionally not created; User penalty consumers and all background retry/delegation implementation remain deferred. Runbook includes personal login/ADC prerequisites, commands, tunnel reconfiguration, safe stop and per-flow balance assertions.
+- **Author verification:** Vincent explicitly approved local ingress/configuration implementation; cloud owner permission still required. Observed red test before implementation. Final 60 actual Compose/safety assertions (gcloud mocked) and 16 real nginx/fixture assertions passed; read-only nginx temp-directory defect caught/fixed, baseline test's obsolete Mongo name corrected then rerun. Actual Setup fails safely before side effects because gcloud is unavailable; standard ADC absent. D1/Overall hashes match; generic drift checker retains pre-existing manifest-format failure (exit 2); completion checker fails five historical/fixed-format findings (exit 1). No application stack build/start, cloud provisioning, live Google auth/financial/browser tests, database reset or peer source edit claimed. Helper images pulled and temporary fixture containers/network cleaned. Maven/Vitest not rerun for config-only changes. Scope/whitespace/config metadata validated; human cloud/ledger verification remains pending, Sprint [~], learning excluded, no push.
+
+## Windows PowerShell Compose compatibility assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Reproduction, test-first script fix, regression verification and documentation
+- **Affected locations:** Order scripts/local-live.ps1, native output regression/fixture, CHANGE-089, active work/context/runbook/traceability/change log and ignored learning; this disclosure. No shared configuration, peer/application/FE source, database or cloud changes.
+- **Prompt:** User supplied Setup NativeCommandError at Invoke-Compose on `Network foc_default Creating`, continuing the approved local-live implementation.
+- **Key response:** Reproduced Windows PS5.1 treating harmless native stderr as terminating before exit-code inspection. Scoped Continue around Invoke-Compose, immediate exit capture and finally preference restoration preserve private stdout and genuine failure handling. Native Windows fixture red before fix, 11 assertions green afterward; 60 existing config/safety and 16 actual nginx/fixture regressions rerun successfully. No rebuild/database reset required; user reruns the same Setup command.
+- **Author verification:** Existing ADR-029/CHANGE-088 authorizes the connector; this is an implementation detail, not an AI architecture decision or peer contract amendment. Source fingerprints match, context/whitespace/scope checked; generic drift/completion checker format/history failures remain separate. No full cloud Setup, Google push/auth/ledger or browser verification claimed, no Java/FE suites rerun for this host-script-only fix. Fixture containers/network cleaned; learned stderr is not equivalent to nonzero status. Human review and live gates pending, Sprint [~], learning excluded, atomic commits and no push.
+
+## Live Credit push authentication diagnosis assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Read-only runtime/source diagnosis and peer blocker documentation
+- **Affected locations:** Order FEEDBACK-008 and Vincent active work; ignored learning; this disclosure. Credit source and local logs inspected read-only.
+- **Prompt:** Ingress returns repeated 500 when cancelling an OPEN order; UI becomes cancelled but credits are not refunded. Diagnose and fix; then explain why separate Credit security authorization is needed.
+- **Key response:** Matching Credit logs show the Pub/Sub service identity entering FirebaseRoleAuthoritiesConverter and User role-context, which rejects the non-Firebase token with 401; Credit throws and returns 500 before its refund handler. Push chain has a dedicated decoder but inherits the global Firebase authentication converter, consistent with official Spring Security 7.1.1 source. Proposed explicit independent push converter preserving all Google identity checks and ordinary user authorization. Initial unauthenticated 401 and proxy 404/405 are expected Check probes, not financial verification.
+- **Author verification:** Vincent has not approved separate peer-code edits; his follow-up asks why, not approval. No Credit/Order application source, tests, database, cloud/IAM or container configuration changed; no refund success claimed. Tests and live ledger/retry recovery remain pending. Peer feedback preserves prior entries and Sprint [~]; developer/Annablee review required.
+
+## One-time Credit push security repair assistance (Order Service / Credit Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Approved narrow peer exception, test-first security repair, regression verification and handoff
+- **Affected locations:** Credit SecurityConfig push converter and new PubSubPushSecurityTest only; Order CHANGE-090 interference Markdown, Vincent active work/profile/allocation, context, current sprint, traceability, feedback/change log and ignored learning; this disclosure. No other peer/source, frontend, consumer/financial logic, contract/schema, gateway/Compose/cloud/IAM or application database edits.
+- **Prompt:** "I approve the fix, for this time but also pls create at md file to document the interference what u change at credit service"
+- **Key response:** Isolated push authentication conversion from the global Firebase role converter while retaining existing Google decoder/signature/lifetime/issuer/audience/verified-service-account checks. User API role/identity checks remain intact. After correcting a test-fixture stub, pre-fix signed valid push alone failed through FirebaseRoleAuthoritiesConverter (14 other cases passed). Minimal converter selection then passes 15 signed/header-based security regressions. Full Credit verify rerun from clean source-only Java 21 Docker with isolated PostgreSQL: 80 tests, zero failures/errors/skips; fresh JaCoCo 95.48% lines (844/884), 85.56% branches (231/270), unchanged 80% gates. Package/OpenAPI export also pass. Source/test commit 198cd7c; requested interference record documents exact files, scope, security invariants, test limits, rebuild/rollback and owner handoff.
+- **Author verification:** Vincent explicitly approved this one-time exception, not blanket Credit ownership or financial design changes. Actual filter chains and signed JWT validation tested with local JWKS; role/financial collaborators mocked in the security slice, not a live Google integration. Fresh XML evidence extracted; whitespace/scope/context syntax checked; D1/Overall fingerprints match, historical generic drift checker manifest-format failure remains separate. No running application rebuild/restart, cloud writes, ledger/refund success or DLQ redrive performed. FEEDBACK-008 is READY_FOR_VERIFICATION; Annablee review and real push/refund/transfer/duplicate/backlog checks pending. Sprint [~], delegated/background retries paused, learning excluded, atomic source/docs/disclosure commits and no push.
+
+## Field-specific errors and new repost minimum assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Approved implementation, tests, verification and documentation
+- **Affected locations:** Order domain/application/CreateOrderRequest and related tests; shared Order request form/picker/manual controls/helpers/tests; CHANGE-091/ADR-030/context/evolution/sprint/contracts/diagram/traceability/active work; ignored learning and this disclosure. Peer source, shared auth/client, DB schema, timers and deployment unchanged.
+- **Prompt:** Show only actual field errors; automatic and manual repost expiry need a 30-minute window. "Ucan safely ifnore them but upcoming repost plan u shud imeplemnt the constaint" for already-saved automatic plans.
+- **Key response:** Preserved saved explicit-expiry plans; new automatic expiry >= scheduled due+30min and manual expiry >= submission+30min. Local creation checks before Supplier/Credit, existing field-detail envelope mapped inline. Late automatic execution still uses its saved future expiry. Tests-first missing-rule failures observed; fresh copied-source Java 21 wrapper verify passes 207 tests/no skips, 95.33% lines and 84.52% branches; 51 frontend tests pass, lint/typecheck/build pass with pre-existing warnings. Isolated PostgreSQL tests confirm legacy hydration/execution; no application DB reset.
+- **Author verification:** Vincent explicitly approved the slice and grandfathering rather than AI-recommended disabling. Final patch and scope checked; human review and authenticated/responsive browser/live peer verification pending. Mandatory historical context rehydration was incomplete because large outputs were truncated; do not claim the full workflow completion gate passed. D1/selected Overall hashes match; historical generic checker issues not waived. All background retries/trusted credentials remain paused, Sprint [~]; learning/evidence ignored, atomic scoped commits, no push or application restart/cloud writes.
+
+## Automatic repost trigger and requester visibility diagnosis assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Read-only source/runtime diagnosis, focused existing test verification and documentation
+- **Affected locations:** Vincent active work and ignored repost learning; this disclosure. Order/frontend source, compiled running scheduler/query, targeted application SELECTs and logs inspected without mutation.
+- **Prompt:** Check whether automatic repost creates a new OPEN successor, hides the old EXPIRED request and updates the UI through polling.
+- **Key response:** Source and running compiled scheduler invoke expiry/completion, not repostDue; inspected internal repost route has no scheduled caller. Real HTTP background delegated authorization remains FEEDBACK-005, paused/proposal-only. Target Test1.4 already has a different-ID OPEN manual successor and MANUAL_REPOST receipt at 16:52 Singapore, before auto due 17:00; used/link guards correctly prevent a second repost. Running requester filter and targeted SQL exclude its linked expired predecessor. Current frontend uses visible/authenticated 15-second replacement polling; 12 focused tests across four files passed.
+- **Author verification:** No application/peer code, database, financial event, container, cloud or credential modification; no full backend suite or live automatic repost triggered. Browser inventory contains no connected surface, so actual authenticated DOM/network remains unverified. D1/Overall hashes match; complete historical context audit remains incomplete due to truncated records. Diagnosis does not resume paused background credentials/retries or choose their design. Human review and peer agreement required; Sprint [~], learning ignored, no push.
+
+## Order-to-Credit data sufficiency and minimization audit assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Read-only application/contract/runtime audit and documentation
+- **Affected locations:** Order peer feedback section 7 and Vincent active work; ignored refund learning; this disclosure. Producer/consumer/HTTP/test/configuration source and runtime event field names inspected read-only.
+- **Prompt:** "Check for every endpoint and event posting .... are we posting necessary information only to credit service ... not too much not to less just right for the credit service to be able to do their task"
+- **Key response:** Active reservation/assignment/bodyless reset and browser provisioning/balance requests match required small shapes. Refund/completion v1 events contain all required financial/consistency/idempotency facts, but nine of fifteen nested Order fields are unused by Credit. This larger shape is previously approved, not silently changed. Completion overdue facts remain required/hash-bound/shared with User; Credit does not calculate penalties from them. Accepted-cancellation is User-only under ADR-025; local-live excludes Credit, older Credit consumer/provisioning remains FEEDBACK-007. Dormant HTTP settlement adapter has no provider route or production caller; actual completion uses Pub/Sub. Field-name-only runtime outbox SELECTs confirm all shapes; publication states do not prove financial completion.
+- **Author verification:** No application/test/peer/schema/deployment/cloud changes, financial requests or message replays. Source/test-source/static field comparisons and read-only SQL only; no test suite or live ledger/subscription verification claimed. D1/Overall hashes match; complete historical context audit remains incomplete due to truncated output. Any payload reduction requires explicit user and peer contract/old-message compatibility agreement. Existing gaps/retry/auth pause and Sprint [~] retained; human review pending, learning excluded, no push.
+
+## Simultaneous order acceptance inspection assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Existing-source inspection, focused regression verification and handoff
+- **Affected locations:** Order Vincent active-work record and this disclosure only; existing acceptance/domain/persistence source and tests inspected and executed unchanged.
+- **Prompt:** "Have u handled that when multipl users accept at the same time ? If not pls add, is it just adding of this lock will do"
+- **Key response:** Existing transactional acceptance obtains a PostgreSQL pessimistic row lock before validation and synchronous Credit assignment; no redundant lock added. Current code checks deadline both before and after Credit confirmation, not the earlier chat-only recommendation to check before only. Documented existing FEEDBACK-006 cross-service partial-success risk and absence of a real two-transaction race test. Java 21 offline focused run passed 33 tests with zero failures/errors/skips. No application source, implementation tests, peer contracts, deadline policy, schema or infrastructure changed.
+- **Author verification:** Automated evidence is unit/mock regression only, not real PostgreSQL simultaneous acceptance, live Credit, browser, coverage or Sprint completion. Full historical context reads were truncated; no completed workflow gate claimed. Developer review pending; Sprint remains [~]. No application database, cloud or Git history changes; documentation left for review.

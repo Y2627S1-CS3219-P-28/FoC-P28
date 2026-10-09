@@ -1,6 +1,144 @@
 # Order Service Permanent Project Context
 
+## Current validation amendment - CHANGE-091 / ADR-030
+
+Vincent explicitly approved field-specific creation errors and 30-minute new
+repost windows on sprint-2-3-credit, 2026-10-09. New automatic expiry >= scheduled
+due + 30 minutes; due >= original expiry. Manual expiry >= submission + 30 minutes.
+Existing saved explicit-expiry plans are grandfathered; no silent disable/update.
+Late automatic execution still uses its saved future expiry, not execution +30.
+Reuse existing field-error envelope; local creation checks precede Supplier and
+Credit calls after requester verification. Backend remains authoritative. Existing
+responsive Order controls only; no shared auth/client, peer, schema, retry or event
+changes. Prior V4 disable-without-expiry decision remains. Verification tracked in
+CHANGE-091; Sprint remains [~] pending live/browser/cloud and existing peer gates.
+
+
+## One-time Credit push security exception - CHANGE-090 (2026-10-09)
+
+Vincent explicitly approved isolating the existing Google push converter from
+Firebase role lookup and regression tests. See the interference record under
+changes/CHANGE-090-credit-push-security-interference.md. This task-specific
+exception does not authorize Credit business/contract/schema changes or other
+peer edits. Annablee owns Credit; FEEDBACK-008 is READY_FOR_VERIFICATION: fresh
+Java 21 clean verify passes 80 tests/no skips, 95.48% line/85.56% branch coverage;
+real Google/ledger/backlog checks and local application rebuild remain open.
+Source/test commit 198cd7c. Existing event architecture and paused repost retries
+are unchanged. The dated documentation-only scope below is historical.
+
+## Local real broker connector — CHANGE-088 (2026-10-09)
+
+Vincent approved isolated local-live testing, implemented by ADR-029. Use base +
+HTTP + `compose.local-live.yaml`, personal ADC, unique test namespace and
+`scripts/local-live.ps1` Setup/Check/Pause. Financial push goes through restricted
+HTTPS into local Credit; current Google OIDC retained. Existing Order authenticated
+profile selects HTTP roles, not cloud DB. Staging/base Compose/peer source unchanged.
+60 config/safety and 16 actual nginx/fixture assertions pass; actual cloud/ledger/
+browser tests await user's gcloud/ADC/permissions. [Runbook](local-live-testing.md).
+No User penalty consumer added, no accepted-cancellation Credit subscription.
+Background credentials/retries paused; previous feedback gaps/Sprint `[~]` retained.
+
+## Integrated Credit inspection — CHANGE-087 (2026-10-09)
+
+Current review branch: Vincent, `sprint-2-3-credit`, user explicitly requested
+documentation-only review of integrated revision 09e04a0. Source now has Credit
+courier assignment/core hold and refund/completion push consumers. Earlier
+missing-route/consumer statements are historical, not the current source state.
+Follow-up ran 27 existing focused Credit tests successfully (including 12 isolated
+PostgreSQL tests) from read-only copied source. Refund and completion transfer/
+duplicate behavior verified at Credit's layers; no deployed/end-to-end verification.
+Normal Order abort is locked/status-version checked and waits for Credit 200;
+completed command receipt replay prevents repeating Credit reset. The earlier
+short stale-clear example did not describe that protected normal sequence.
+Feedback section 6 records implemented capabilities without claiming live
+verification. Remaining Credit gaps: 003 reset replay authorization; 006 terminal
+reservation replay/cross-database recovery; 007 superseded ABORTED refund consumer
+on the now User-only accepted-cancellation topic. Separate provisioning script
+exists but deployed delivery/IAM/ledger effects remain unverified. Production
+provisioning is disabled; local Compose is not a public cloud push subscriber.
+005 delegated background auth is still missing/proposal-only; inbound Pub/Sub
+OIDC does not provide outbound requester delegation. ALL retries remain paused.
+No approved architecture, peer source, app code, schema or cloud setting changed.
+Sprint remains [~]. Read peer feedback for remaining provider work, not old
+dated missing-route paragraphs. D1/selected Overall hashes remain unchanged.
+
+## Effective follow-up — CHANGE-086 (2026-10-09)
+
+Vincent requested and approved explicit automatic `repostExpiresAt` and latest
+manual/automatic failure persistence. Both are now implemented in Order's source;
+the prior limitation paragraphs below are historical. UI uses 00/15/30/45 slots.
+Domain/API require `repostExpiresAt > repostDueAt >= original.expiresAt`;
+late execution uses the saved expiry and cannot run at/after it. V4 disables
+legacy enabled plans without an explicit expiry, per Vincent's chosen migration,
+rather than inventing deadlines. Existing orders/history/refund intents remain.
+
+Eligible authorized failures save only safe code/message/time on the original
+EXPIRED row after rollback, overwrite an older result, and clear on success.
+UI reads those fields after reload/polling and refetches the original version
+after a failed foreground POST. No new repost order is saved on peer rejection.
+Background retries and trusted credentials remain PAUSED/not implemented in
+every mode. Peer feedback 002-006 and live browser/cloud gates remain open.
+CHANGE-086 owns this task's actual tests/migration evidence; Sprint stays [~].
+
+## Historical implementation and approval context
+
+
+CHANGE-085 (2026-10-09): authenticated visible-page 15-second Order-list and Credit
+polling implemented with focus/mutation refresh, no overlap and stale/session
+response guards. Manual repost shows short semantic insufficient/permanent errors
+inside its EXPIRED card; message is client-local, not persisted across reload.
+Credit reservation errors are mapped without guessing delayed refund status.
+Latest explicit user instruction PAUSES ALL background retry implementation
+(including mock mode) until peers agree; credentials remain documentation ONLY.
+Peer feedback was replaced by service at user request; historical versions remain
+in Git. Explicit auto next-expiry and durable automatic failure state remain
+unimplemented. The approval-only paragraphs below describe the earlier turn,
+not the current polling/manual-message implementation status.
+
+Latest decision CHANGE-084 / ADR-027 (2026-10-09): Vincent approved polling and
+same-candidate-ID temporary repost retries bounded by new expiry, stopping
+confirmed insufficient credits, invalid details and authorization/permanent
+rejection with short appropriate messages while the original stays EXPIRED.
+The balance error cannot distinguish a delayed refund. Trusted peer credentials
+are approved for documentation/discussion ONLY; DO NOT IMPLEMENT them yet.
+Polling, durable retries and persistent failure UI remain unimplemented. Peer
+acceptance, the concrete security/task design and FEEDBACK-005/006 remain open.
+
+Latest implemented CHANGE-083 / ADR-026: one minute expiry/completion job, 15-minute outbox
+recovery and retained immediate dispatch; retired timer settings do not apply.
+Supplier valid:false handling repaired on Order side. Explicit repost expiry,
+durable retries and insufficient-credit-only card feedback remain incomplete.
+Read ADR-027, the diagram reconciliation gap table, Vincent active-work and
+FEEDBACK-005/006 before continuing; do not confuse user design approval with
+peer contract acceptance, implemented code or verified integration.
+
 This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
+
+## Current workstream - CHANGE-081/082 (2026-10-08)
+
+Vincent is working on `sprint-2-3`, scoped to Order-owned Sprint 2-3 behavior.
+Read CHANGE-082 / ADR-025, the current-sprint pointer and Vincent's current active-work
+section before using the historical Sprint 1 context below. The user selected
+`../../../Order Service Overall Doc.pdf` for this work alongside D1; the previously
+recorded Updated PDF is absent locally. Existing approved ADRs remain effective
+except where current explicit approvals supersede them; do not equate the PDFs.
+
+The user approved one current Order plus immutable courier-attempt history,
+an internal UUID separate from business orderId, ACCEPTED-only abortion,
+User penalty signaling for every abort and Credit refund signaling for expired
+outcomes. The missing courier-assignment API may be mocked locally, not silently
+in HTTP mode. Every abort synchronously calls the approved bodyless hold/reset
+route to clear Credit courierId, then resolves current state OPEN/EXPIRED and
+saves separate ABORTED history. Every abort queues User penalty; EXPIRED also
+queues Credit refund. Repost retains the old EXPIRED row and new row/new business
+ID; the implemented requester query hides linked expired originals before
+pagination/counting. Refund/history references retain the old ID. V3 adds an
+internal row UUID and immutable attempt IDs without changing business references.
+The local source/migration/UI test gates passed; live provider/subscriber retry
+safety and trusted auto-repost credentials remain pending in peer feedback.
+Editable effective diagrams/traceability: `sprints/sprint-2-3/README.md`.
+Do not interpret historical Sprint 1 flags as blocking this approved Sprint 2-3
+slice, or passing local tests as production completion of every overall capability.
 
 ## Repository state at workflow setup
 
@@ -13,8 +151,8 @@ No production code was created as part of the workflow setup.
 The following source paths are relative to the repository root.
 
 - Product backlog and platform NFRs: `../../../Project-D1.pdf`
-- Current overall Order Service FR/NTH design, diagrams, amendments, and logical contracts: `../../../Order Service Overall Doc - Updated.pdf`
-- Superseded overall design retained for comparison: `../../../Order Service Overall Doc.pdf`
+- User-selected current workstream overall design: `../../../Order Service Overall Doc.pdf` plus approved amendments (CHANGE-081/082).
+- Historical updated design (currently absent locally): `../../../Order Service Overall Doc - Updated.pdf`; do not assume equivalence.
 - Overall platform architecture: `../../../High Level Architecture Diagram - FOC.png`
 - Order Service architecture: `../../../High Level Architecture Diagram - Order Service.png`
 - Overall Order Service class diagram: `../../../Class Diagram - Order Service.png`
@@ -197,7 +335,12 @@ CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order ca
 
 ## Current time-selection and scheduler defaults (CHANGE-077 / ADR-022)
 
-USER Requester creation/repost clock minutes are 00/15/30/45; local defaults/minimum suggestions round up, with at least 30 minutes before expiry. API callers and existing rows retain arbitrary valid timestamps. Expiry runs every 15 minutes; pending outbox recovery hourly under ADR-023; delivered auto-completion every minute with the unrounded delivered checkpoint. Immediate after-commit publication stays active. Configuration is synchronized across application defaults, Compose, .env.example and both cloud environment files/template. Browser/Cloud Run idle scheduling remain unverified; scale-to-zero/request CPU limits are unchanged.
+USER Requester creation/repost clock minutes remain 00/15/30/45; suggestions
+round up and existing 30-minute creation expiry validation remains. API/legacy
+timestamps are not rounded. ADR-026 replaces ADR-022/023 cadence with one shared
+minute expiry/completion job and 15-minute all-event recovery; immediate dispatch
+retained. Application/Compose/env/deployment timer configuration is synchronized.
+Browser/idle Cloud Run scheduling is unverified; execution-model limits unchanged.
 
 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)

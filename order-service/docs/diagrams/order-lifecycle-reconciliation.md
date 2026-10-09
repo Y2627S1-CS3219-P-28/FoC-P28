@@ -1,0 +1,138 @@
+# Attached Order flow: approved amendments and implementation gaps
+
+CHANGE-088 adds only the [ADR-029 local transport sequence](../decisions/ADR-029-local-live-credit-push.md)
+and [test runbook](../local-live-testing.md). Lifecycle boxes/rules below remain
+unchanged: immediate after-commit plus 15-minute recovery, minute lifecycle.
+Actual financial delivery now has an opt-in connector, not verified cloud results.
+
+Authority: Vincent's PNG plus textual corrections, CHANGE-083 / ADR-026 and
+retained ADR-025 and CHANGE-084 / ADR-027 retry/polling decisions; CHANGE-086 /
+ADR-028 implements explicit expiry/latest outcomes. Source PDF/PNG artifacts are not overwritten. This is an
+**approved target**, not a claim of 100% implementation. CHANGE-086 implements
+explicit automatic expiry and latest safe manual/automatic failure persistence;
+V4 disables legacy plans without an explicit expiry by Vincent's decision.
+Durable retries remain unimplemented. CHANGE-085 implements visible-page polling.
+Latest user explicitly PAUSES ALL background retry implementation until peers agree.
+Trusted peer credentials are approved for discussion/documentation ONLY;
+implementation explicitly deferred pending peer agreement.
+
+| Requirement | Current implementation |
+| --- | --- |
+| Shared every-minute OPEN expiry / >=48h latest-DELIVERED completion | Implemented; same captured time, independent transactional passes/failure isolation. |
+| All-three-event outbox recovery every 15min, immediate dispatch retained | Implemented; publication acknowledgement is not refund completion. |
+| Creation-time automatic choice only | Implemented; post-creation configuration rejected. |
+| NEW automatic expiry >= due +30min; due >= original expiry; run late only before NEW expiry | CHANGE-091 / ADR-030; saved explicit-expiry plans grandfathered unchanged. Exact saved deadline used; prior V4 disable-without-expiry remains. |
+| Auto/manual new business IDs; abort reopen same business ID and separate immutable attempt UUID | Implemented. Old repost originals/outbox retained; linked originals hidden from requester queries. |
+| EXPIRED/CANCELLED refund and every-abort User penalty | Implemented Order-side; missing peer routes/subscribers in feedback. |
+| Validate Supplier response before reservation | Repaired: explicit valid:true required; valid:false/missing confirmation rejects. |
+| Confirm matching active Credit reservation | Request is synchronous but response body discarded; confirmation/recovery gap remains. |
+| Failed repost EXPIRED; short confirmed insufficient/permanent failure message; retry only temporary failures before new expiry with same candidate ID | Latest safe manual/automatic attempt failure persists on original EXPIRED row after rollback; overwritten/cleared safely. All background retry implementation PAUSED pending peer agreement. |
+| Authenticated polling for near-real-time lists/status/balance | Implemented: every 15 visible/auth-ready seconds; focus/mutation refresh, cleanup/no overlap/stale guards. |
+
+The Mermaid below preserves the supplied creation/progress/abort/refund/repost
+branches. TARGET labels mark approved but unimplemented nodes; credential
+delegation remains a documentation-only proposal. The dashed retry edge shows
+the approved principle, not an implemented worker. Topics/payloads/provider work:
+[peer feedback](../peer-service-api-feedback.md).
+
+```mermaid
+flowchart TD
+    CREATE["Requester POST /api/orders"] --> VERIFY["Verify User requester, Supplier valid:true,<br/>domain Order fields"]
+    VERIFY --> PLAN{"Automatic repost enabled at creation?"}
+    PLAN -->|Yes| TIMES["NEW plans: explicit repostExpiresAt<br/>repostExpiresAt >= repostDueAt + 30 minutes<br/>repostDueAt >= original.expiresAt<br/>Configure credits/duration; quarter-hour UI"]
+    PLAN -->|No| RESERVE
+    TIMES -->|Valid| RESERVE["Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount; synchronous 200/201"]
+    TIMES -->|Invalid| NOOPEN["No new OPEN; return validation error"]
+    RESERVE -->|Failure| NOOPEN
+    RESERVE -->|Confirmed matching RESERVED| OPEN["OPEN; persist Order/checkpoint/receipt"]
+
+    TICK["ONE lifecycle scheduler every 1 minute<br/>Independent expiry/completion checks"] --> EXPIRY{"Still OPEN, courier null,<br/>expiresAt reached?"}
+    OPEN --> EXPIRY
+    EXPIRY -->|Yes| EXPIRED["EXPIRED; keep original business ID"]
+    TICK --> COMPLETECHECK{"Still DELIVERED;<br/>latest delivery at least 48 hours ago?"}
+    COMPLETECHECK -->|Yes| COMPLETED
+    OPEN --> CANCEL["Requester POST /api/orders/ID/cancel"]
+    CANCEL --> CANCELLED["CANCELLED"]
+    CANCELLED --> REFUND
+    EXPIRED --> REFUND["Queue OpenOrderRefundTaskEvent<br/>open-order-refund-dev-v1 -> Credit<br/>Refund the OLD-ID reservation"]
+
+    OPEN --> ACCEPT["Courier POST /api/orders/ID/accept<br/>Eligibility/version/deadline; reject self-acceptance"]
+    ACCEPT --> ASSIGN["Credit PUT /api/credits/orders/ID/courier-assignment<br/>JSON courierId; provider missing"]
+    ASSIGN -->|Exactly 200; recheck expiry| ACCEPTED["ACCEPTED; same ID"]
+    ASSIGN -->|Failure| OPEN
+    ACCEPTED --> START["Assigned courier POST /api/orders/ID/start"]
+    START --> PROGRESS["IN_PROGRESS"]
+    PROGRESS --> PICKUP["Assigned courier POST /api/orders/ID/pickup"]
+    PICKUP --> PICKED["PICKED_UP"]
+    PICKED --> DELIVER["Assigned courier POST /api/orders/ID/deliver"]
+    DELIVER --> DELIVERED["DELIVERED"]
+    DELIVERED --> COMPLETECHECK
+    DELIVERED --> CONFIRM["Requester POST /api/orders/ID/complete"]
+    CONFIRM --> COMPLETED["COMPLETED; calculate overdue facts<br/>Save completion and event intent atomically"]
+    COMPLETED --> COMPLETION["Queue OrderCompletionTaskEvent<br/>order-completion-dev-v1 -> Credit and User<br/>Settlement and on-time/overdue consequences"]
+
+    ACCEPTED --> ABORT["Assigned courier POST /api/orders/ID/cancel-accepted<br/>Abort allowed only while ACCEPTED"]
+    ABORT --> RESET["Credit POST /api/credits/orders/ID/hold-for-reopen<br/>No body; clear courier/retain reservation; provider missing"]
+    RESET -->|Failure| STILLACCEPTED["Remain ACCEPTED; no new history/events"]
+    RESET -->|Exactly 200| HISTORY["Immutable ABORTED courier attempt<br/>Same business ID; separate attempt UUID"]
+    HISTORY --> PENALTY["Queue AcceptedOrderCancellationTaskEvent<br/>accepted-order-cancellation-dev-v1 -> User<br/>actorId identifies aborting courier"]
+    HISTORY --> ORIGINALTIME{"Original expiry still in future?<br/>Recheck after Credit response"}
+    ORIGINALTIME -->|Yes| REOPEN["Current OPEN, courier null<br/>Same business ID/reservation; no refund"]
+    REOPEN --> OPEN
+    ORIGINALTIME -->|No| EXPIRED
+
+    EXPIRED --> AUTOCALL["POST /api/orders/internal/lifecycle/repost<br/>Trusted peer credentials proposal ONLY; DO NOT implement yet"]
+    AUTOCALL --> AUTOELIGIBLE{"Auto enabled/unused, no linked repost;<br/>repostDueAt reached?"}
+    AUTOELIGIBLE -->|No| KEEP["Keep original EXPIRED"]
+    AUTOELIGIBLE -->|Yes| FUTURE{"Saved repostExpiresAt > current time?"}
+    FUTURE -->|No| KEEP
+    FUTURE -->|Yes| AUTOINFO["Use configured new expiry, credits, duration<br/>Never derive expiry from execution time"]
+    EXPIRED --> DRAFT["Requester GET /api/orders/ID/repost-draft<br/>Authenticated actorId"]
+    DRAFT --> MANUAL["Review description, credits, duration, explicit NEW expiry<br/>POST /api/orders/ID/repost"]
+    MANUAL --> MANUALCHECK["Verify requester/original ownership/version<br/>New expiry >= submission +30 minutes"]
+    AUTOINFO --> REPOSTRESERVE
+    MANUALCHECK --> REPOSTRESERVE["Validate Supplier pair; NEW business ID<br/>Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount"]
+    REPOSTRESERVE -->|200/201 confirmed matching RESERVED| SAVE["Save NEW OPEN and bidirectional linkage<br/>Keep old EXPIRED/refund; hide linked original<br/>Auto plan used only on success"]
+    SAVE --> OPEN
+    REPOSTRESERVE -->|Failure| FAILED["Roll back repost attempt; original EXPIRED/unlinked<br/>AFTER_ROLLBACK: separately save latest safe<br/>failure code/message/time on original ID"]
+    FAILED --> INSUFFICIENT{"Confirmed INSUFFICIENT_CREDITS?"}
+    INSUFFICIENT -->|Yes| MESSAGE["My Requests: small saved insufficient-credit message<br/>Survives reload; no refund inference"]
+    INSUFFICIENT -->|No| CLASSIFY{"TARGET: temporary failure<br/>and new expiry still future?"}
+    CLASSIFY -->|Yes| RETRY["PAUSED: durable same-candidate-ID background retry<br/>Current saved message: try again later<br/>Needs peer agreement; no worker implemented"]
+    CLASSIFY -->|No| STOP["Original stays EXPIRED<br/>Saved short appropriate permanent-failure message"]
+    RETRY -.-> REPOSTRESERVE
+
+    REFUND --> OUTBOX
+    PENALTY --> OUTBOX
+    COMPLETION --> OUTBOX
+    OUTBOX["Order state/checkpoints/history/receipt + intent<br/>One atomic database commit"] --> FAST["Immediate AFTER_COMMIT publication"]
+    RECOVERY["Outbox recovery every 15 minutes<br/>ALL three event types; pending/failed/expired leases"] --> FAST
+    FAST --> PUBSUB["PubSub acceptance returns messageId<br/>Not confirmation of business consequence"]
+    PUBSUB --> CONSUMERS["Credit/User: deduplicate eventId,<br/>commit business transaction, then ACK<br/>Retry/dead-letter/reconciliation; subscribers missing"]
+```
+
+Common JSON: {eventId,eventType,eventVersion:1,orderId,orderVersion,occurredAt,
+actorId,order}. The full current order snapshot excludes checkpoint/internal
+row/attempt IDs. Completion additionally includes overdue and overdueAt.
+Aborting actorId remains the courier even when current order.courierId is null.
+Expired abort queues BOTH User penalty and Credit refund with distinct stable
+event IDs; OPEN abort queues no Credit refund. Production topics use prod-v1.
+
+Approved refresh target: authenticated HTTP polling after auth readiness, paused
+while hidden, focus/mutation refetch and no overlapping requests. No WebSocket,
+frontend broker or change to existing server timer cadence. CHANGE-085 implements
+15-second visible/auth-ready polling; background retry work remains paused.
+
+Manual POST fields: commandId, actorId, expectedVersion, itemDescription,
+offeredCredits, deliveryTimeLimitMinutes, expiresAt. A transport retry is not a
+refund confirmation or a retry of synchronous reservation. Delayed old refund
+can make available credits temporarily insufficient. That rejection alone does
+not establish a known “refund pending” reason. Approved retries must reconcile
+unknown reservation outcomes using one fixed candidate ID.
+
+Creation automatic plan additionally sends repostExpiresAt. Order responses
+include repostExpiresAt and nullable repostFailureCode/repostFailureMessage/
+repostFailureAt. Successful linkage clears the latest failure; another authorized
+eligible failed attempt overwrites it. Local browser input/auth/state/version
+rejections before an eligible attempt cannot write a persisted peer outcome.
+No retry task is created by this recorder. Existing event JSON remains unchanged.

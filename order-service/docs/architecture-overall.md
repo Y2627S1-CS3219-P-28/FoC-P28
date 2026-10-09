@@ -1,5 +1,26 @@
 # Overall Architecture
 
+CHANGE-088 / ADR-029 refines only the local test deployment: temporary restricted
+HTTPS connects real isolated financial Pub/Sub subscriptions to local Docker Credit.
+Current contracts/OIDC/data ownership and production topology are unchanged.
+See [local runbook](local-live-testing.md); not a User consumer or retry implementation.
+
+CHANGE-086 (Vincent, 2026-10-09) adds explicit automatic deadlines and latest
+safe repost outcomes ONLY to Order's API/PostgreSQL and its shared frontend
+slice. No platform topology, peer data ownership, topic/event payload, credential
+or deployment changes. Trusted delegation/background retries remain paused.
+
+
+CHANGE-084 / ADR-027 records approved HTTP polling (not WebSocket/SSE) and
+Order-owned fixed-ID bounded repost retry rules. Trusted Order-to-peer delegated
+authorization is a documentation-only proposal awaiting peer agreement, not a
+new platform credential/API, deployment or implemented topology change.
+
+Current cadence override (CHANGE-083 / ADR-026): one minute-based Order job
+checks OPEN expiry and >=48-hour DELIVERED completion; all-three-event outbox
+recovery every 15 minutes, immediate dispatch retained. No peer/cloud resources
+changed. Repost target/gaps: docs/diagrams/order-lifecycle-reconciliation.md.
+
 Authoritative diagram: `../../../High Level Architecture Diagram - FOC.png`.
 
 ## Runtime topology

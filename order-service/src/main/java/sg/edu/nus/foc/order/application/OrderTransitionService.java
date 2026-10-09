@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.order.domain.CommandReceipt;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderCheckpoint;
+import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
@@ -133,42 +134,32 @@ public class OrderTransitionService {
 
         Order order = findForUpdate(id);
         order.validateAcceptedCancellation(authenticatedActor, version);
-        Instant cancellationRequestedAt = Instant.now();
-        if (cancellationRequestedAt.isBefore(order.getExpiresAt())) {
-            credits.holdForReopen(
-                    order.getId(),
-                    authorization);
-
-            Instant reopenedAt = Instant.now();
-            if (reopenedAt.isBefore(order.getExpiresAt())) {
-                order.reopenAfterAcceptedCancellation(authenticatedActor, version, reopenedAt);
-                checkpoints.save(new OrderCheckpoint(
-                        order.getId(),
-                        OrderStatus.OPEN,
-                        reopenedAt,
-                        authenticatedActor,
-                        null));
-                Order saved = orders.save(order);
-                receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), reopenedAt));
-                audit.action("CANCEL_ACCEPTED", saved.getId(), authenticatedActor, commandId, "reopened");
-                return saved;
-            }
-        }
-
+        credits.holdForReopen(order.getId(), authorization);
         Instant cancelledAt = Instant.now();
-        order.abortAfterAcceptedCancellation(authenticatedActor, version, cancelledAt);
+        orders.saveAbortedAttempt(new OrderCourierAttempt(order, authenticatedActor, version, cancelledAt));
         checkpoints.save(new OrderCheckpoint(
                 order.getId(),
                 OrderStatus.ABORTED,
                 cancelledAt,
                 authenticatedActor,
                 null));
+        if (cancelledAt.isBefore(order.getExpiresAt())) {
+            order.reopenAfterAcceptedCancellation(authenticatedActor, version, cancelledAt);
+        } else {
+            order.abortAfterAcceptedCancellation(authenticatedActor, version, cancelledAt);
+        }
+        checkpoints.save(new OrderCheckpoint(order.getId(), order.getStatus(), cancelledAt, authenticatedActor, null));
         Order saved = orders.save(order);
         receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), cancelledAt));
         AcceptedOrderCancellationTaskEvent event = eventFactory.acceptedCancellation(
                 commandId, saved, authenticatedActor, cancelledAt);
         outbox.enqueue(event);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
+        if (saved.getStatus() == OrderStatus.EXPIRED) {
+            OpenOrderRefundTaskEvent refund = eventFactory.openRefund(commandId, saved, authenticatedActor, cancelledAt);
+            outbox.enqueue(refund);
+            applicationEvents.publishEvent(new OrderOutboxDispatchRequested(refund.getEventId()));
+        }
         audit.action("CANCEL_ACCEPTED", saved.getId(), authenticatedActor, commandId, "accepted");
         return saved;
     }
@@ -219,7 +210,7 @@ public class OrderTransitionService {
         return history.stream()
                 .filter(checkpoint -> checkpoint.getStatus() == status)
                 .map(OrderCheckpoint::getOccurredAt)
-                .findFirst()
+                .max(Instant::compareTo)
                 .orElseThrow(() -> OrderProblem.conflict("Order checkpoint history is incomplete."));
     }
 

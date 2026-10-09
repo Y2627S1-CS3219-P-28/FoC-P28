@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApi } from "@/hooks/use-api"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
+import { ApiError } from "@/lib/api"
 import { isQuarterHourDateTime, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, type Order } from "@/lib/orders"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -19,6 +20,10 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
+  const [expiryError, setExpiryError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{ message: string; version: number } | null>(null)
+  const failureMessage = failure && order.version <= failure.version
+    ? failure.message : order.repostFailureMessage
   const [creditAmount, setCreditAmount] = useState(String(order.offeredCredits))
   const [duration, setDuration] = useState(String(order.deliveryTimeLimitMinutes))
   const [description, setDescription] = useState(order.itemDescription)
@@ -27,14 +32,18 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   async function manualRepost() {
     if (!user) return
     if (!isQuarterHourDateTime(expiresAt)) {
+      setExpiryError("Choose expiry minutes of 00, 15, 30, or 45.")
       toast.error("Choose expiry minutes of 00, 15, 30, or 45.")
       return
     }
     if (new Date(expiresAt).getTime() < Date.now() + 30 * 60_000) {
+      setExpiryError("Order expiry must be at least 30 minutes from now. Choose a later time.")
       toast.error("Order expiry must be at least 30 minutes from now. Choose a later time.")
       return
     }
     setBusy(true)
+    setExpiryError(null)
+    setFailure(null)
     try {
       const updated = await api<Order>(`/api/orders/${order.id}/repost`, {
         method: "POST",
@@ -52,7 +61,28 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
       invalidateCreditBalance()
       toast.success("Order reposted")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not repost this order.")
+      const code = error instanceof ApiError ? error.code : "UNKNOWN"
+      const message = code === "INSUFFICIENT_CREDITS"
+        ? "Repost failed: insufficient available credits."
+        : code === "FORBIDDEN" || code === "UNAUTHENTICATED"
+          ? "Repost could not be authorized. Please sign in again."
+          : code === "VALIDATION_ERROR"
+            ? error instanceof ApiError ? error.details?.map(detail => detail.message).join(" ") || error.message : "Repost failed: check the request details."
+            : code === "CONFLICT"
+              ? "This request could not be reposted. Refresh and check its status."
+              : "Could not repost right now. Please try again later."
+      setFailure({ message, version: order.version })
+      if (error instanceof ApiError) setExpiryError(error.details?.find(detail => detail.field === "expiresAt")?.message ?? null)
+      // Failure recording changes the original's version. Refresh it before
+      // another manual attempt; polling/reload can also read this durable result.
+      if (code !== "UNAUTHENTICATED" && code !== "FORBIDDEN") {
+        try {
+          const original = await api<Order>(`/api/orders/${order.id}`)
+          onUpdated(original)
+        } catch {
+          // Keep the short local message if this read also fails; polling recovers.
+        }
+      }
     } finally {
       setBusy(false)
     }
@@ -69,8 +99,9 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
           {order.automaticRepostEnabled ? (
             <>
               <p className="text-sm font-medium">Automatic repost was configured when this order was created.</p>
-              <div className="grid gap-4 text-sm sm:grid-cols-3">
+              <div className="grid gap-4 text-sm sm:grid-cols-2">
                 <p><span className="text-muted-foreground">Repost time</span><br />{order.repostDueAt ? new Date(order.repostDueAt).toLocaleString() : "Not available"}</p>
+                <p><span className="text-muted-foreground">Repost expiry</span><br />{order.repostExpiresAt ? new Date(order.repostExpiresAt).toLocaleString() : "Not available"}</p>
                 <p><span className="text-muted-foreground">Repost credits</span><br />{order.repostCreditAmount ?? 0}</p>
                 <p><span className="text-muted-foreground">Delivery minutes</span><br />{order.repostDeliveryDurationMinutes ?? 0}</p>
               </div>
@@ -93,11 +124,12 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         <CardDescription>This expired order has not been reposted. Review the details before creating one linked repost.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!busy && failureMessage && <p role="alert" className="text-xs text-destructive">{failureMessage}</p>}
         <label className="space-y-1 text-sm"><Label htmlFor={`description-${order.id}`}>Description</Label><Input id={`description-${order.id}`} className={inputClass} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-credits-${order.id}`}>Credits</Label><Input id={`manual-credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-duration-${order.id}`}>Delivery minutes</Label><Input id={`manual-duration-${order.id}`} type="number" min="15" className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-          <div className="sm:col-span-3"><QuarterHourDateTimePicker id={"manual-expires-" + order.id} label="New expiry" min={minOrderExpiryDateTimeLocal()} value={expiresAt} onChange={setExpiresAt} /></div>
+          <div className="space-y-1 sm:col-span-3"><QuarterHourDateTimePicker id={"manual-expires-" + order.id} label="New expiry" min={minOrderExpiryDateTimeLocal()} invalid={!!expiryError} describedBy={`manual-expiry-help-${order.id}`} value={expiresAt} onChange={(value) => { setExpiresAt(value); setExpiryError(null) }} /><p id={`manual-expiry-help-${order.id}`} className={expiryError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{expiryError || "New expiry must be at least 30 minutes from now. Choose minutes 00, 15, 30, or 45."}</p></div>
         </div>
         <Button size="sm" onClick={() => void manualRepost()} disabled={busy}>{busy ? "Reposting…" : "Create repost"}</Button>
       </CardContent>

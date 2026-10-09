@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import NewRequestPage from "@/app/requests/new/page"
+import { ApiError } from "@/lib/api"
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), push: vi.fn(), user: { uid: "requester-1" } }))
 
@@ -31,6 +32,48 @@ async function selectOption(name: string, option: string) {
 }
 
 describe("request creation quarter-hour time integration", () => {
+  it("shows only the actual same-supplier error inline and does not post", async () => {
+    render(<NewRequestPage />)
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    fireEvent.change(screen.getByLabelText("What do you need?"), { target: { value: "Parcel" } })
+    await selectOption("Pickup supplier", "Store — A")
+    await selectOption("Delivery supplier", "Store — A")
+    fireEvent.submit(screen.getByRole("form", { name: "Post request form" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Delivery supplier must differ from pickup supplier.")
+    expect(screen.getByRole("combobox", { name: "Delivery supplier" })).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Expiry")
+    expect(mocks.api).not.toHaveBeenCalledWith("/api/orders", expect.anything())
+  })
+
+  it("preserves server field details instead of listing unrelated validation rules", async () => {
+    mocks.api.mockImplementation(async (path: string) => {
+      if (path === "/api/orders") throw new ApiError(400, "VALIDATION_ERROR", "Invalid request.", [
+        { field: "expiresAt", message: "Order expiry must be at least 30 minutes from now." },
+      ])
+      return { items: [{ id: "store", name: "Store", building: "A" }, { id: "hall", name: "Hall", building: "B" }] }
+    })
+    render(<NewRequestPage />)
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    fireEvent.change(screen.getByLabelText("What do you need?"), { target: { value: "Parcel" } })
+    await selectOption("Pickup supplier", "Store — A")
+    await selectOption("Delivery supplier", "Hall — B")
+    fireEvent.submit(screen.getByRole("form", { name: "Post request form" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Order expiry must be at least 30 minutes from now.")
+    expect(screen.getByLabelText("Order expiry date")).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByRole("alert")).not.toHaveTextContent("suppliers must differ")
+  })
+
+  it("has a required automatic-repost expiry with quarter-hour minutes only", async () => {
+    render(<NewRequestPage />)
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).toBeDisabled()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable automatic repost if no courier accepts" }))
+    expect(screen.getByLabelText("Repost expiry date")).toBeRequired()
+    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).not.toBeDisabled()
+    fireEvent.click(screen.getByRole("combobox", { name: "Repost expiry minutes" }))
+    expect((await screen.findAllByRole("option")).map(option => option.textContent)).toEqual(["00", "15", "30", "45"])
+  })
+
   it("submits rounded local expiry and repost time using the existing ISO request body", async () => {
     render(<NewRequestPage />)
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
@@ -47,6 +90,7 @@ describe("request creation quarter-hour time integration", () => {
         requesterId: "requester-1", pickupSupplierId: "store", deliverySupplierId: "hall",
         expiresAt: new Date(2026, 9, 8, 11, 15).toISOString(),
         automaticRepost: true, repostDueAt: new Date(2026, 9, 8, 12, 30).toISOString(),
+        repostExpiresAt: new Date(2026, 9, 8, 13, 15).toISOString(),
       }),
     }))
     expect(mocks.push).toHaveBeenCalledWith("/my-requests")

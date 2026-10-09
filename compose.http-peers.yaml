@@ -2,9 +2,10 @@
 #
 # The default compose.yaml intentionally keeps ORDER_PEERS_MODE=mock for
 # deterministic local sequence testing. Use this file as an override when
-# testing the real User, Supplier, and Credit HTTP adapters for Sequences 1-3.
-# Credit settlement/release remains unavailable until the peer contract is
-# implemented, so do not use this profile to claim live Sequences 7-9.
+# testing the real User, Supplier, and Credit HTTP adapters. Integrated Credit
+# now has refund/completion push handlers; this override alone does NOT wire
+# Google Pub/Sub into local Credit. Add compose.local-live.yaml and follow
+# order-service/docs/local-live-testing.md for isolated authenticated delivery.
 services:
   order-service:
     environment:

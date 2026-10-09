@@ -1,4 +1,36 @@
-# Sprint 1 Work Allocation
+# Order Service Work Allocation
+
+## One-time approved Credit security exception (2026-10-09)
+
+Vincent explicitly authorizes CHANGE-090 on sprint-2-3-credit: isolate Credit's
+Pub/Sub push authentication converter and add its regression tests, plus an
+interference handoff. This supersedes the documentation-only restriction solely
+for those two Credit source/test paths. Annablee retains Credit ownership; no
+business logic, contract, schema, other peer, cloud/IAM or blanket edit approval.
+
+## Credit integration review branch (2026-10-09)
+
+Vincent explicitly requests the Order-side feedback review on `sprint-2-3-credit`
+(CHANGE-087), after integrating Credit in `09e04a0`. Scope: inspect peer source,
+update Order dependency/context records, no Credit/User/Supplier source or cloud
+changes. This does not approve a new architecture or reassign a peer's ownership.
+Prior `sprint-2-3` implementation allocation below remains historical context.
+
+## Current Sprint 2-3 workstream (2026-10-08)
+
+Vincent (Developer 2) is assigned the Order-owned Sprint 2-3 work on `sprint-2-3`,
+explicitly authorized by the user in CHANGE-081. Source: Project D1 and the local
+`Order Service Overall Doc.pdf`. Scope includes the requested lifecycle/history,
+repost and completion work; it does not authorize sibling-service implementation.
+The one-current-Order plus immutable courier-attempt design, synchronous reset,
+V3 migration and requester repost visibility are approved and implemented in
+CHANGE-082 / ADR-025. Local test/coverage gates pass, but real providers/consumers,
+browser and cloud gates remain; status is `[~]`, not Sprint completion.
+The approved shared frontend slice touches only My Errands/My Requests and Order
+helpers/tests; no auth/layout/peer feature edits. This allocation does not reassign Yao Xiang's historical work or
+grant blanket ownership of shared frontend/configuration files.
+
+## Historical Sprint 1 allocation
 
 | Developer | Developer number | Assigned scope | Branch |
 |---|---|---|---|

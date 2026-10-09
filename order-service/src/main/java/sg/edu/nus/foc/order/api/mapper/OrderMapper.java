@@ -17,6 +17,7 @@ public interface OrderMapper {
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
+    @Mapping(target = "attemptId", source = "attemptId")
     @Mapping(target = "requesterId", source = "requesterId")
     @Mapping(target = "courierId", source = "courierId")
     @Mapping(target = "itemDescription", source = "itemDescription")
@@ -35,6 +36,10 @@ public interface OrderMapper {
             source = "repostPlan.enabled",
             defaultValue = "false")
     @Mapping(target = "repostDueAt", source = "repostPlan.dueAt")
+    @Mapping(target = "repostExpiresAt", source = "repostPlan.expiresAt")
+    @Mapping(target = "repostFailureCode", source = "repostFailureCode")
+    @Mapping(target = "repostFailureMessage", source = "repostFailureMessage")
+    @Mapping(target = "repostFailureAt", source = "repostFailureAt")
     @Mapping(
             target = "repostCreditAmount",
             source = "repostPlan.creditAmount",

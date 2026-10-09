@@ -4,7 +4,12 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
-| [ADR-023](ADR-023-hourly-outbox-recovery.md) | Accepted by user direction; implemented | Hourly retry scan for failed/interrupted outbox publishing; preserves immediate after-commit dispatch |
+| [ADR-030](ADR-030-field-errors-and-new-repost-minimum.md) | Accepted, Vincent 2026-10-09 | Actual field errors; new auto due-to-expiry/manual submit-to-expiry min30; saved explicit plans grandfathered |
+| [ADR-029](ADR-029-local-live-credit-push.md) | Accepted; local connector tested, cloud integration pending | Isolated financial push through exact-path authenticated local ingress; existing peer source/security/ledger ownership retained |
+| [ADR-028](ADR-028-explicit-repost-expiry-and-latest-outcomes.md) | Accepted; locally verified, live gates open | Explicit automatic expiry, legacy no-expiry disable and latest safe failure persistence after rollback; background retries paused |
+| [ADR-027](ADR-027-repost-retry-polling-and-peer-auth-proposal.md) | Polling implemented; background retries paused | Fixed-ID bounded retry design retained; trusted peer credentials documentation only; explicit expiry/outcomes now ADR-028 |
+| [ADR-026](ADR-026-shared-lifecycle-and-quarter-hour-outbox.md) | Accepted; locally verified | Shared minute expiry/completion, 15-minute all-event recovery, immediate dispatch retained |
+| [ADR-023](ADR-023-hourly-outbox-recovery.md) | Cadence superseded by ADR-026 | Historical hourly recovery; immediate dispatch retained |
 | [ADR-022](ADR-022-quarter-hour-ui-and-scheduler-cadence.md) | Accepted by user direction; implemented; outbox interval superseded by ADR-023 | Quarter-hour Requester timestamp selection, 15-minute expiry, and preserved minute auto-completion/immediate dispatch |
 | [ADR-001](ADR-001-approved-project-amendments.md) | Accepted | OVERDUE, ABORTED reopening, service ownership, supplier authority, and reposting amendments supplied for persistent use |
 | [ADR-002](ADR-002-courier-outcome-contract-split.md) | Accepted | Replaces the generic courier outcome flag/facts contract with explicit completed, overdue, and aborted operations |

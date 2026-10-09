@@ -1,4 +1,97 @@
-# Order Service Sprint 1 Traceability
+# Order Service Requirements Traceability
+
+## CHANGE-091: Actual field errors and new repost minimum
+
+| Requirement / amendment | Classes / UI / contract | Tests / verification |
+| --- | --- | --- |
+| F1.1-F1.3, NFR2: explain only invalid creation fields | Order.open, CreateOrderRequest, existing OrderProblem.Detail/exception handler; Requester inline errors/summary | OrderFieldValidationTest, OrderCreationValidationTest; page RTL server/client details; no Supplier/Credit calls for invalid pair |
+| NTH4 / ADR-030: new automatic expiry >= due+30min, due>=old expiry | RepostPlan constructor; creation picker/helper; old explicit plans unchanged | Exact boundary/domain/frontend tests; isolated PostgreSQL saved-short-plan reload/execution |
+| NTH4 / ADR-030: manual expiry >= submission+30min | Order.createManualRepost, OrderRepostService; manual inline expiry error | Domain inclusive boundary, service rejection before reservation, RTL expiry feedback |
+| ADR-028 late execution / NFR3 | Automatic path uses saved future expiry, not manual minimum | Legacy and late execution regressions; full Maven/coverage and frontend evidence in CHANGE-091 |
+
+No new peer shape or schema, no retry/credential implementation; live/browser
+integration remains a completion gate. Historical tables below remain dated.
+
+
+## CHANGE-090: Credit push security exception
+
+| Existing requirement / approved invariant | Repair | Verification / remaining gate |
+| --- | --- | --- |
+| F4.1.7 cancellation, F4.1.8/F10 expiry; F4.1.5/F5.1 completion; ADR-029 | Existing Credit push chain explicitly isolates conversion from Firebase roles | Valid signed local push reaches consumer; no User lookup; real Google and financial ledger checks pending |
+| NFR3.1.1/3.1.3, existing Google push validation and user role/ownership guards | PubSubPushSecurityTest sends real bearer headers through production filter chains | 15 cases pass after observed red; fresh clean 80 Credit tests/no skips; 95.48% lines/85.56% branches |
+
+One-time Vincent approval, exact Credit interference and test limitations are in
+CHANGE-090. No Order lifecycle, financial contract, diagrams, database or frontend
+behavior changed. FEEDBACK-008 is READY_FOR_VERIFICATION, not live VERIFIED;
+Sprint remains [~].
+
+## Effective CHANGE-088 local delivery traceability
+
+CHANGE-089 verifies its Windows PS5.1 setup invariant under NFR3.1.3: harmless
+native stderr is not failure; actual nonzero exits still fail; private stdout and
+caller preference remain isolated. Test-LocalLiveNativeOutput has 11 positive/
+negative assertions (observed red -> green). Existing 60 config + 16 ingress
+regressions rerun successfully, not real Google/financial completion evidence.
+
+| D1 / approved refinement | Implementation | Evidence / remaining gate |
+| --- | --- | --- |
+| F4.1.7/F4.1.8/F4.1.5/F5.1/F10/F11; ADR-029 | Local-live override, restricted ingress, owned Setup/Check/Pause | 60 config/safety + 16 actual nginx/fixture assertions; real refund/transfer/reset/browser gates pending |
+| NFR3; ADR-013/021/026 | Google OIDC retained, isolated topics/scoped IAM, local DBs and cadence | Negative ingress, resource-ownership and unchanged baseline comparisons pass; actual GCP/IAM/consumer test unavailable |
+
+No application contract/schema changed, no sequence marked `[x]`, no inference of
+real financial success from fixture/metadata checks. See CHANGE-088/runbook.
+
+## Effective CHANGE-086 traceability
+
+| D1 / approved refinement | Implementation | Acceptance/negative evidence |
+| --- | --- | --- |
+| NTH4; F1 creation validation | RepostPlan/Order, CreateOrderRequest/OrderController, quarter-hour picker | RepostExpiryTest; controller plan propagation; RTL picker/payload and helper equality/invalid tests |
+| NTH4; F8/F9 requester outcome UX | Order latest failure; RepostFailureRecorder; RepostControls; OrderMapper | RepostOutcomeJpaIntegrationTest rollback/overwrite/automatic late exact expiry/success-clear/unauthorized guard; RTL remount/version refresh |
+| NFR2 / NFR3 | Existing auth/useApi/design system; domain/transaction separation | Full backend/RTL/lint/type/build and unchanged coverage gates; exact results CHANGE-086 |
+| Shared migration discipline | V4 nullable fields/plan constraint; disable legacy no-expiry plans | Isolated PostgreSQL clean upgrade and V3-to-V4 test; invalid/equal expiry rejected, no invented deadline |
+| ADR-027 pause | No background worker/task/credentials | Implementation scope inspection; peer 002-006 and live browser/cloud remain open |
+
+Explicit expiry and persistent latest outcomes are implemented, not a production
+completion claim. Background retries remain paused. Earlier descriptions of
+missing expiry/client-local messages below are historical as of CHANGE-085.
+
+
+## Current Sprint 2-3 effective slice
+
+CHANGE-085 verification chain (no completion marker upgrade):
+
+| D1 / approved refinement | Implementation | Test evidence / boundary |
+| --- | --- | --- |
+| F2/F8/F9; approved polling | useVisiblePolling/useOrderList; Browse/My Errands/My Requests | Fake timers: auth wait, 15 seconds, hidden/focus, no overlap, cleanup, account isolation, stale mutation guard |
+| NTH4; short manual failure UX | RepostControls; HttpPeerAdapters.reserve | Credit exact insufficient vs other 409/malformed/authorization/transport cases; RTL keeps EXPIRED/no successful mutation, short appropriate message |
+| NFR2 / NFR3; shared web/test discipline | Existing frontend primitives/useApi; no new UI transport | Frontend tests/lint/type/build; backend verify/coverage. Authenticated browser/responsive live evidence still pending |
+| ADR-027 user scope follow-up | NO background worker/task/schema/credentials | All background retry implementation explicitly PAUSED pending peer agreement; automatic persistent failures/next-expiry not completed |
+
+Current manual failure message is not retained across a full reload. Provider
+source was read-only inspected, not live-tested. Feedback rewritten by service
+with user approval; contracts 002-006 remain open. Generic workflow verifiers
+do not fit existing record columns; their failures are recorded in CHANGE-085
+rather than changing historical records merely to make a gate green.
+
+CHANGE-084 / ADR-027 records approved NTH4 retry/failure refinements and polling:
+one stable NEW candidate ID per saved request, temporary-only retries before its
+expiry, EXPIRED original until success, short insufficient/permanent rejection
+messages without guessing refund status. Trusted unattended credentials are a
+documentation-only peer proposal, explicitly not implemented. Planned acceptance
+cases are in ADR-027; no new tests executed or completion markers upgraded.
+
+CHANGE-083 maps F10/F11 expiry and F6.4/F7 completion to one minute job, and
+ADR-013 recovery to all-three-event 15-minute scans with immediate dispatch.
+Supplier validation consumes its valid flag. NTH4 explicit expiry/strict timing/
+durable failure UI/retries remains unimplemented, not verified by cadence tests.
+Current target/gaps are in docs/diagrams/order-lifecycle-reconciliation.md.
+No completion markers are upgraded.
+
+See `sprints/sprint-2-3/README.md` for the approved class/sequence chain, requirement-by-test evidence and remaining gates. CHANGE-082 / ADR-025 supersedes the historical abort rules below: EVERY abort resets Credit, preserves immutable ABORTED courier history and emits User penalty; current OPEN/EXPIRED remains requester-visible and EXPIRED also emits Credit refund. Successfully reposted expired originals are hidden before requester pagination/counting; old IDs/refund intents remain stored.
+
+Evidence as of 2026-10-08: 162 backend tests including real isolated PostgreSQL migration/upgrade/rollback/history/pagination, 34 frontend tests and lint/type/build passed; fresh line/branch coverage 94.01%/82.37%. Contract stubs are not live integration. NTH3 report/hold/resolution, missing assignment/reset/consumer implementations, trusted auto-repost credentials, browser and cloud verification are not complete. D1 PDFs are unchanged; approved overrides are recorded, not silently treated as original requirements.
+
+## Historical Sprint 1 traceability (results/statuses at the referenced changes)
 
 | Sequence | Requirement/design source | Planned behavior | Test evidence |
 |---|---|---|---|

@@ -17,7 +17,7 @@ class OrderDomainBehaviorTest {
 
     @Test
     void repostPlanExposesStateAndDueBehavior() {
-        RepostPlan disabled = new RepostPlan(false, null, 0, 0);
+        RepostPlan disabled = new RepostPlan(false, null, 0, 0, null);
         assertFalse(disabled.isEnabled());
         assertNull(disabled.getDueAt());
         assertEquals(0, disabled.getCreditAmount());
@@ -25,7 +25,7 @@ class OrderDomainBehaviorTest {
         assertFalse(disabled.isUsed());
         assertFalse(disabled.isDueAt(START));
 
-        RepostPlan enabled = new RepostPlan(true, START.plusSeconds(60), 4, 20);
+        RepostPlan enabled = new RepostPlan(true, START.plusSeconds(60), 4, 20, START.plusSeconds(60).plusSeconds(3600));
         assertTrue(enabled.isEnabled());
         assertFalse(enabled.isDueAt(START));
         assertTrue(enabled.isDueAt(START.plusSeconds(60)));
@@ -36,9 +36,9 @@ class OrderDomainBehaviorTest {
     @Test
     void invalidRepostPlansAreRejected() {
         assertAll(
-            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, null, 1, 15)),
-            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 0, 15)),
-            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 1, 14))
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, null, 1, 15, null)),
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 0, 15, START.plusSeconds(3600))),
+            () -> assertThrows(OrderProblem.class, () -> new RepostPlan(true, START, 1, 14, START.plusSeconds(3600)))
         );
     }
 
@@ -121,7 +121,7 @@ class OrderDomainBehaviorTest {
         assertEquals("courier", order.getCourierId());
 
         order.abortAfterAcceptedCancellation("courier", 0, expiresAt);
-        assertEquals(OrderStatus.ABORTED, order.getStatus());
+        assertEquals(OrderStatus.EXPIRED, order.getStatus());
         assertNull(order.getCourierId());
     }
 
@@ -161,7 +161,7 @@ class OrderDomainBehaviorTest {
 
     @Test
     void gettersAndValueObjectsExposePersistedFields() {
-        RepostPlan plan = new RepostPlan(true, START.plusSeconds(1800), 3, 20);
+        RepostPlan plan = new RepostPlan(true, START.plusSeconds(1800), 3, 20, START.plusSeconds(1800).plusSeconds(3600));
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800), plan);
         assertNotNull(order.getId());
         assertEquals("requester", order.getRequesterId());
@@ -203,7 +203,7 @@ class OrderDomainBehaviorTest {
     void dtoViewsAndPagesMapOrders() {
         OrderMapper mapper = Mappers.getMapper(OrderMapper.class);
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800),
-                new RepostPlan(true, START.plusSeconds(2400), 3, 20));
+                new RepostPlan(true, START.plusSeconds(2400), 3, 20, START.plusSeconds(2400).plusSeconds(3600)));
         OrderResponse view = mapper.toResponse(order);
         assertEquals(order.getId(), view.getId());
         assertTrue(view.isAutomaticRepostEnabled());
