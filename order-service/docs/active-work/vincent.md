@@ -1,5 +1,48 @@
 # Vincent - Active Work
 
+## Automatic repost runtime diagnosis - 2026-10-09
+
+- Vincent requests a read-only check on sprint-2-3-credit: automatic repost
+  should create a new OPEN order, hide its linked EXPIRED predecessor and become
+  visible through polling. Worktree clean at start; no fix, financial action,
+  database write, container restart or cloud mutation authorized/performed.
+- Scope/profile/current sprint and ADR-025/026/027/028/030 records inspected.
+  D1/selected Overall fingerprints match. Full historical mandatory context
+  rehydration remains incomplete due to truncated outputs; no design change or
+  complete workflow/Sprint gate is claimed. Frontend/peer application unchanged.
+- Confirmed source AND running compiled scheduler references only expireDue and
+  autoCompleteDue. No repostDue reference in that scheduler. Repository search
+  finds its caller only in POST /api/orders/internal/lifecycle/repost, and no
+  automatic caller configured in inspected Compose/infra/scripts. Minute expiry
+  does not itself trigger automatic repost. This is an existing implementation
+  gap, not a new decision to omit the approved NTH4 behavior.
+- Running modes: prod, ORDER_PEERS_MODE=http, User roles=http. Internal repost
+  forwards the lifecycle secret as a Bearer credential to Supplier/Credit; it is
+  not a Firebase requester token. FEEDBACK-005 trusted delegated authorization
+  is still proposal-only and all background retries remain explicitly paused.
+  Do not bypass authentication, store permanent user tokens or add a retry worker.
+- Read-only application SQL at 09:12 UTC: Test1.4 was EXPIRED at 08:45 UTC,
+  automatic due 09:00 UTC, saved new expiry 09:15 UTC. It already has a linked
+  OPEN successor titled Test1.4 (Manual Repost), created 08:52:13 UTC, with a
+  MANUAL_REPOST receipt and a different business ID. Its plan is marked used.
+  Therefore this particular order was manually reposted BEFORE its automatic
+  due time; it must not create another automatic successor. Singapore times:
+  old expiry 16:45, manual success 16:52, auto due 17:00, saved auto expiry 17:15.
+- Running compiled requester query contains the EXPIRED/repostedOrderId filter;
+  read-only SQL evaluates zero visible predecessor rows. Current My Requests
+  replaces page.items through authenticated visible-page 15-second polling,
+  rather than appending stale cards. No connected browser surface is available,
+  so actual signed-in DOM/network refresh remains unverified.
+- Fresh focused frontend run: 12 tests / 4 files pass (visible polling,
+  authenticated lists, history pages, repost visibility). No backend suite or
+  new live automatic/financial flow executed. Existing scheduler test explicitly
+  verifies only expiry/completion; passing tests do not cover a scheduled repost.
+- Next: user/peer agreement on FEEDBACK-005 and explicit resumption before an
+  authorized automatic trigger can be implemented/tested end-to-end. For the
+  current manual successor, inspect the user's authenticated My Requests network
+  response if a stale card remains. Retain original history/refund references.
+  Findings recorded here and in AI disclosure; learning stays ignored. Sprint [~].
+
 ## Field-specific creation errors and 30-minute repost expiry - 2026-10-09
 
 - Vincent requests an Order/shared-frontend validation slice on sprint-2-3-credit:
