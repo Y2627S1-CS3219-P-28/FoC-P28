@@ -31,6 +31,8 @@
   JSON examples parsed; change-log links resolved; changed paths are Order docs
   only. Drift script exit 2 is an existing manifest-format incompatibility, not
   a passing drift check. Peer test files inspected, not executed.
+- Documentation concern committed as 7e141e1; AI disclosure recorded separately.
+  No push, learning-file change, peer/source/test/config change or live write.
 
 ## Explicit repost expiry and persistent failures — 2026-10-09 (CHANGE-086)
 
