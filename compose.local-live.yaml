@@ -1,0 +1,64 @@
+# CHANGE-088 / ADR-029: opt-in local Order/Credit integration with REAL Pub/Sub.
+# Use after compose.yaml and compose.http-peers.yaml. Never deploy to Cloud Run.
+# Personal values go in ignored .env; run order-service/scripts/local-live.ps1.
+services:
+  order-service:
+    environment:
+      ORDER_PEERS_MODE: http
+      # Select existing JWT/method security, NOT a cloud datasource.
+      SPRING_PROFILES_ACTIVE: prod
+      ORDER_USER_SERVICE_MODE: http
+      USER_SERVICE_MODE: http
+      PUBSUB_PROJECT_ID: ${LOCAL_PUBSUB_PROJECT_ID:?Set LOCAL_PUBSUB_PROJECT_ID for isolated local tests}
+      ORDER_COMPLETION_TOPIC: order-completion-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
+      ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
+      ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
+      ORDER_LIFECYCLE_CRON: "0 * * * * *"
+      ORDER_OUTBOX_RECOVERY_CRON: "0 */15 * * * *"
+
+  credit-service:
+    environment:
+      USER_SERVICE_MODE: http
+      PUBSUB_PROJECT_ID: ${LOCAL_PUBSUB_PROJECT_ID:?Set LOCAL_PUBSUB_PROJECT_ID}
+      # A stable custom audience, not the temporary tunnel destination URL.
+      CREDIT_PUBSUB_PUSH_AUDIENCE: https://foc-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}.invalid/credit-push
+      CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-push@${LOCAL_PUBSUB_PROJECT_ID:?Set LOCAL_PUBSUB_PROJECT_ID}.iam.gserviceaccount.com
+      CREDIT_ORDER_COMPLETION_SUBSCRIPTION: credit-order-completion-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
+      CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: credit-open-order-refund-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
+      # Name configured for compatibility ONLY: no Credit subscription is created
+      # on this User-only penalty stream. Do not invoke the legacy refund handler.
+      CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION: credit-accepted-order-cancellation-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-unused
+
+  supplier-service:
+    environment:
+      USER_SERVICE_MODE: http
+
+  credit-push-ingress:
+    image: nginx:1.28-alpine
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:mode=1777
+    volumes:
+      - ./order-service/deploy/local-live/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  credit-push-tunnel:
+    image: cloudflare/cloudflared:2025.9.1
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://credit-push-ingress:8080"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      credit-push-ingress:
+        condition: service_healthy
+    # Restart/recreation changes the URL: rerun Setup then Check afterwards.
+    restart: "no"
