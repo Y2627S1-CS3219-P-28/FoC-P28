@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import MyRequestsPage from "@/app/my-requests/page"
 import MyErrandsPage from "@/app/my-errands/page"
@@ -34,10 +34,12 @@ afterEach(cleanup)
 
 describe("Order history page integration", () => {
   it("shows the new manual repost immediately and removes its expired original", async () => {
-    mocks.api.mockResolvedValue({ items: [order] })
+    mocks.api.mockResolvedValueOnce({ items: [order] })
+      .mockResolvedValue({ items: [{ ...order, id: "new", originalOrderId: order.id,
+        status: "OPEN", itemDescription: "New request" }] })
     render(<MyRequestsPage />)
     await screen.findByText(/Old request EXPIRED/)
-    fireEvent.click(screen.getByRole("button", { name: "Repost" }))
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Repost" })))
     expect(screen.getByText(/New request OPEN/)).toBeInTheDocument()
     expect(screen.queryByText(/Old request EXPIRED/)).not.toBeInTheDocument()
   })
