@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.json.JsonMapper;
 
 import sg.edu.nus.foc.order.adapter.dto.CreditCourierAssignmentRequest;
 import sg.edu.nus.foc.order.application.CreditServicePort;
@@ -116,12 +118,40 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
             String requester,
             long amount,
             String authorization) {
-        credit.put()
-                .uri("/api/credits/orders/{id}/reservation", orderId)
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
-                .body(new CreditReservationRequest(requester, amount))
-                .retrieve()
-                .toBodilessEntity();
+        try {
+            credit.put()
+                    .uri("/api/credits/orders/{id}/reservation", orderId)
+                    .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
+                    .body(new CreditReservationRequest(requester, amount))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            int status = exception.getStatusCode().value();
+            if (status == 409 && confirmsInsufficientCredits(exception)) {
+                throw new OrderProblem("INSUFFICIENT_CREDITS", "Insufficient available credits.");
+            }
+            String code = switch (status) {
+                case 400 -> "VALIDATION_ERROR";
+                case 401 -> "UNAUTHENTICATED";
+                case 403 -> "FORBIDDEN";
+                case 404 -> "NOT_FOUND";
+                case 409 -> "CONFLICT";
+                default -> "SERVICE_UNAVAILABLE";
+            };
+            throw new OrderProblem(code, "Credit Service could not confirm the reservation.");
+        } catch (RestClientException exception) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Credit Service reservation is unavailable.");
+        }
+    }
+
+    private static boolean confirmsInsufficientCredits(RestClientResponseException exception) {
+        try {
+            return "INSUFFICIENT_CREDITS".equals(JsonMapper.builder().build()
+                    .readTree(exception.getResponseBodyAsString()).path("error").asText());
+        } catch (tools.jackson.core.JacksonException exceptionBody) {
+            // A malformed peer response must never be presented as a confirmed balance error.
+            return false;
+        }
     }
 
     @Override

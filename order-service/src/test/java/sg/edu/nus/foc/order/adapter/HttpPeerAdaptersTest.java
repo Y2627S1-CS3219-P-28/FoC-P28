@@ -12,6 +12,84 @@ import org.springframework.web.client.RestClient;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 class HttpPeerAdaptersTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "400, VALIDATION_ERROR", "401, UNAUTHENTICATED", "404, NOT_FOUND",
+        "429, SERVICE_UNAVAILABLE", "503, SERVICE_UNAVAILABLE"
+    })
+    void mapsReservationRejectionWithoutLeakingPeerBody(int status, String expected) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(), RestClient.builder().build(), builder.build());
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatusCode.valueOf(status))
+                        .body("sensitive peer diagnostic"));
+        OrderProblem problem = assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, "Bearer token"));
+        assertEquals(expected, problem.getCode());
+        assertFalse(problem.getMessage().contains("sensitive"));
+        server.verify();
+    }
+
+    @Test
+    void rejectsUnconfirmedEmptyConflictAndTransportFailures() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(), RestClient.builder().build(), builder.build());
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT));
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withException(new java.io.IOException("offline")));
+        assertEquals("CONFLICT", assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, null)).getCode());
+        assertEquals("SERVICE_UNAVAILABLE", assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, null)).getCode());
+        server.verify();
+    }
+
+    @Test
+    void preservesConfirmedInsufficientCreditsButNotOtherConflicts() {
+        RestClient.Builder creditBuilder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(creditBuilder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(), RestClient.builder().build(), creditBuilder.build());
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"INSUFFICIENT_CREDITS\",\"message\":\"not enough\"}"));
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"RESERVATION_CONFLICT\"}"));
+
+        OrderProblem insufficient = assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, "Bearer token"));
+        assertEquals("INSUFFICIENT_CREDITS", insufficient.getCode());
+        OrderProblem conflict = assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, "Bearer token"));
+        assertEquals("CONFLICT", conflict.getCode());
+        server.verify();
+    }
+
+    @Test
+    void preservesCreditAuthorizationFailureAndTreatsMalformedConflictAsConflict() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(
+                RestClient.builder().build(), RestClient.builder().build(), builder.build());
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.FORBIDDEN));
+        server.expect(requestTo("/api/credits/orders/candidate/reservation"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT).body("not JSON"));
+        assertEquals("FORBIDDEN", assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, null)).getCode());
+        assertEquals("CONFLICT", assertThrows(OrderProblem.class,
+                () -> adapters.reserve("candidate", "requester", 2, null)).getCode());
+        server.verify();
+    }
+
     @Test
     void forwardsAuthenticatedUserAndCourierChecks() {
         RestClient.Builder userBuilder = RestClient.builder();
