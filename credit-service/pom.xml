@@ -83,7 +83,6 @@ Author review: Reviewed for correctness.
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud.sql</groupId>

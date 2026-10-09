@@ -77,5 +77,10 @@ class GlobalExceptionHandlerTest {
 
         assertThat(body.status()).isEqualTo(503);
         assertThat(body.error()).isEqualTo("SERVICE_UNAVAILABLE");
+
+        ApiError streamBody = handler.streamUnavailable(new CreditStreamUnavailableException(
+                new IllegalStateException("closed")), request).getBody();
+        assertThat(streamBody.status()).isEqualTo(503);
+        assertThat(streamBody.error()).isEqualTo("SERVICE_UNAVAILABLE");
     }
 }

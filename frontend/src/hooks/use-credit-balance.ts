@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
+import { useCreditBalanceEvents } from "@/hooks/use-credit-balance-events"
 import { CREDIT_BALANCE_INVALIDATED_EVENT } from "@/lib/credit-balance-events"
 
 export type CreditBalance = {
@@ -18,7 +19,6 @@ export type CreditBalance = {
   totalBalance: number
   reservedBalance: number
   usableBalance: number
-  version: number
   asOf: string
 }
 
@@ -36,60 +36,96 @@ const INITIAL_STATE: BalanceState = {
   loading: false,
 }
 
+function balancesMatch(left: CreditBalance | null, right: CreditBalance) {
+  return left !== null
+    && left.userId === right.userId
+    && left.totalBalance === right.totalBalance
+    && left.reservedBalance === right.reservedBalance
+    && left.usableBalance === right.usableBalance
+    && left.asOf === right.asOf
+}
+
 export function useCreditBalance() {
   const { user, loading: authLoading } = useAuth()
   const api = useApi()
-  const requestVersion = useRef(0)
+  const activeOwnerId = useRef<string | null>(null)
+  const inFlight = useRef<{ ownerId: string; request: Promise<CreditBalance> } | null>(null)
   const [state, setState] = useState<BalanceState>(INITIAL_STATE)
 
-  const refresh = useCallback(async () => {
-    const ownerId = user?.uid
-    if (!ownerId) return
+  useEffect(() => {
+    const ownerId = user?.uid ?? null
+    activeOwnerId.current = ownerId
+    return () => {
+      if (activeOwnerId.current === ownerId) activeOwnerId.current = null
+    }
+  }, [user?.uid])
 
-    const version = ++requestVersion.current
-    setState((current) => ({
-      ownerId,
-      balance: current.ownerId === ownerId ? current.balance : null,
-      error: false,
-      loading: true,
-    }))
+  const loadBalance = useCallback(async (background: boolean) => {
+    const ownerId = user?.uid
+    if (!ownerId) return null
+
+    if (!background) {
+      setState((current) => ({
+        ownerId,
+        balance: current.ownerId === ownerId ? current.balance : null,
+        error: false,
+        loading: true,
+      }))
+    }
+
+    let request = inFlight.current?.ownerId === ownerId ? inFlight.current.request : null
+    if (!request) {
+      request = api<CreditBalance>("/api/credits/me")
+      inFlight.current = { ownerId, request }
+    }
 
     try {
-      const balance = await api<CreditBalance>("/api/credits/me")
-      if (requestVersion.current === version) {
-        setState({ ownerId, balance, error: false, loading: false })
-      }
+      const balance = await request
+      if (activeOwnerId.current !== ownerId) return null
+
+      setState((current) => {
+        const unchanged = balancesMatch(current.balance, balance)
+          && current.ownerId === ownerId && !current.error && !current.loading
+        return unchanged ? current : { ownerId, balance, error: false, loading: false }
+      })
+      return balance
     } catch {
-      if (requestVersion.current === version) {
+      if (!background && activeOwnerId.current === ownerId) {
         setState({ ownerId, balance: null, error: true, loading: false })
       }
+      return null
+    } finally {
+      if (inFlight.current?.request === request) inFlight.current = null
     }
   }, [api, user?.uid])
+
+  const refresh = useCallback(() => loadBalance(false), [loadBalance])
+  const sync = useCallback(() => loadBalance(true), [loadBalance])
+
+  useCreditBalanceEvents(sync)
 
   useEffect(() => {
     if (authLoading || !user) return
 
     const timer = window.setTimeout(() => void refresh(), 0)
-    return () => {
-      window.clearTimeout(timer)
-      requestVersion.current += 1
-    }
+    return () => window.clearTimeout(timer)
   }, [authLoading, refresh, user])
 
   useEffect(() => {
     if (!user) return
 
-    const refreshOnFocus = () => {
-      if (document.visibilityState === "visible") void refresh()
+    const syncOnFocus = () => {
+      if (document.visibilityState === "visible") void sync()
     }
-    window.addEventListener("focus", refreshOnFocus)
-    return () => window.removeEventListener("focus", refreshOnFocus)
-  }, [refresh, user])
+    window.addEventListener("focus", syncOnFocus)
+    return () => window.removeEventListener("focus", syncOnFocus)
+  }, [sync, user])
 
   useEffect(() => {
     if (!user) return
 
     const refreshAfterMutation = () => void refresh()
+
     window.addEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
     return () => window.removeEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
   }, [refresh, user])

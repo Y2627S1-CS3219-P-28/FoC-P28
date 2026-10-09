@@ -61,6 +61,11 @@ server {
         include /etc/nginx/snippets/proxy.conf;
     }
 
+    location = /api/credits/events {
+        set $upstream ${CREDIT_SERVICE_URL};
+        include /etc/nginx/snippets/sse-proxy.conf;
+    }
+
     location /api/credits {
         set $upstream ${CREDIT_SERVICE_URL};
         include /etc/nginx/snippets/proxy.conf;
