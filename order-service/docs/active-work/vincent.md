@@ -19,6 +19,8 @@
   obtain approval or hand off FEEDBACK-008 to Annablee. Then test isolated chain,
   live refund/transfer and duplicate/retry/DLQ recovery without resetting data.
 - Order architecture/contracts/source/config unchanged; live gates remain [~].
+- Verified diagnosis/handoff commit: 23b9108; whitespace/scope checks pass.
+  Learning remains ignored; no push. This is not a Credit implementation fix.
 
 ## Verified script fix: Windows PowerShell native progress handling — 2026-10-09
 
