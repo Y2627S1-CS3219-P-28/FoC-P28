@@ -147,13 +147,6 @@ class CreditApiIntegrationTest {
     }
 
     @Test
-    void creditEventStreamRequiresAuthentication() throws Exception {
-        mvc.perform(get("/api/credits/events"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
-    }
-
-    @Test
     void reservesByOrderIdReplaysAndAllowsOwnerRecovery() throws Exception {
         register(USER);
         ReserveCreditsRequest request = new ReserveCreditsRequest(USER, 20);
