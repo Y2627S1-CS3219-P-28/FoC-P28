@@ -2,6 +2,7 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-092](../changes/CHANGE-092-postgresql-concurrency-verification.md) | 2026-10-09 | Order database race test unit verified; live recovery deferred | 8 real PostgreSQL races, both winner orderings; 215 tests/no skips; fresh 95.67% line/84.70% branch coverage; no production/peer/schema changes |
 | [CHANGE-091](../changes/CHANGE-091-field-errors-and-repost-window.md) | 2026-10-09 | Implemented; local tests recorded; live/browser gates open | Field-specific creation errors; new auto/manual min30, saved explicit plans grandfathered; no peer/schema/retry changes |
 | [CHANGE-090](../changes/CHANGE-090-credit-push-security-interference.md) | 2026-10-09 | Narrow Credit repair verified locally; owner/live gates open | Push converter isolated from Firebase roles; 15 new bearer regressions, 80 clean Credit tests, 95.48% line/85.56% branch coverage; exact interference handoff; source commit 198cd7c |
 | [CHANGE-089](../changes/CHANGE-089-powershell-compose-stderr.md) | 2026-10-09 | Script regression fix verified; live gates open | Windows PS5.1 harmless Compose stderr no longer aborts Setup; actual exit failures/private stdout/restoration retained; 11 native + 60 config + 16 ingress assertions pass |

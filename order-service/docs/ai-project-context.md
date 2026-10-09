@@ -1,5 +1,14 @@
 # Order Service Permanent Project Context
 
+Current verification branch: Vincent explicitly requests four real PostgreSQL
+race tests on sprint-2-3-credit-service-concurrency (CHANGE-092, 2026-10-09).
+Order test-only scope; no new lifecycle policy, peer or schema changes.
+Cross-service recovery remains deferred. Eight real PG race cases and full
+215-test verify pass with no failures/errors/skips; fresh JaCoCo 95.67% lines /
+84.70% branches. Peers/delivery mocked; no production/schema/frontend change or
+live financial verification. Historical branch references below are dated
+context, not current allocation. Full Sprint remains [~].
+
 ## Current validation amendment - CHANGE-091 / ADR-030
 
 Vincent explicitly approved field-specific creation errors and 30-minute new

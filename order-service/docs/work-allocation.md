@@ -1,5 +1,13 @@
 # Order Service Work Allocation
 
+## Current concurrency verification branch (2026-10-09)
+
+Vincent explicitly authorizes Order-only real PostgreSQL race tests on
+`sprint-2-3-credit-service-concurrency` (CHANGE-092): two acceptances,
+cancellation/expiry, acceptance/expiry and manual/automatic completion.
+Preserve existing lifecycle/deadline rules; peer calls are test doubles.
+Cross-service recovery is deferred. No peer/source/schema/UI design changes.
+
 ## One-time approved Credit security exception (2026-10-09)
 
 Vincent explicitly authorizes CHANGE-090 on sprint-2-3-credit: isolate Credit's

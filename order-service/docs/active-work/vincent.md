@@ -1,5 +1,44 @@
 # Vincent - Active Work
 
+## Real PostgreSQL concurrency verification - 2026-10-09 / CHANGE-092
+
+- VERIFIED test unit: user confirms branch sprint-2-3-credit-service-concurrency for
+  the four Order races. Clean worktree at start; profile/allocation reconciled.
+- Test-only design: actual Spring services, independent threads/transactions,
+  isolated PostgreSQL 15/Flyway. Gate winner after real lock; verify competitor
+  blocked via pg_stat_activity/pg_blocking_pids. Both winner orderings; assert
+  state, actor, version, checkpoint, receipt and outbox counts.
+- User/Credit and external dispatch mocked. No application DB/cloud changes.
+  Cross-service recovery explicitly deferred; Docker engine reachable.
+- Relevant D1: F3/F13, F4.1.5/F5.1, F4.1.7, F4.1.8/F10; NFR3.
+  ADR-018/020/025/026 retained. No requirements/design/migration change.
+- D1/selected Overall hashes match. Historical context output partly truncated;
+  no complete historical audit or Sprint completion claimed.
+- Initial focused execution: 8 tests, 1 fixture-precision failure (nanoseconds
+  versus PostgreSQL microseconds); persisted-deadline read-back correction.
+  Focused rerun: 8 passed, zero failures/errors/skips. No production edit.
+- Full Java 21 command: mvnw.cmd -o -B -ntp -Djacoco.append=false verify.
+  BUILD SUCCESS: 215 tests, zero failures/errors/skips; includes the eight races
+  again. Fresh coverage: 1392/1455 lines (95.67%), 465/549 branches (84.70%);
+  both configured 80% gates pass. All required race tests ran against real PG15.
+- Completion scheduler loser returns SQLSTATE 55P03 under existing NOWAIT policy;
+  its next pass returns zero. Seven other cases prove waiting via PostgreSQL
+  blocking PIDs, then correct state revalidation and single committed outcome.
+- No full-stack/browser/live Credit ledger or real Pub/Sub delivery claim. No
+  frontend, production source, migrations or peer files changed. Learning updated
+  in existing ignored directory, not staged. Full Sprint remains [~].
+- Follow-up races: manual/auto repost; abort/start; same-command duplicate replay;
+  duplicate lifecycle replicas; dispatch/recovery lease overlap. Recommendations
+  only, not implementation approval or verified coverage of those other races.
+- Cross-service partial-success recovery remains user-deferred to next branch.
+  Earlier UI abort-label request remains separate pending work.
+- Test-only atomic commit: 1906afb, reviewed staged patch/diff check; no push.
+- Supplied generic workflow scripts do NOT pass: drift exit 2 requires different
+  manifest column names; record-gate exit 1 reports 3 existing-format/history
+  issues (traceability columns/ID and historical active-work requirement ID).
+  Manual SHA256 matches approved D1/Overall. This is not business/test failure,
+  but full workflow completion remains blocked; no historical records rewritten.
+
 ## Simultaneous acceptance inspection - 2026-10-09
 
 - Vincent asks whether concurrent courier acceptance is protected and requests

@@ -1,5 +1,20 @@
 # Order Service Requirements Traceability
 
+## CHANGE-092: Real PostgreSQL concurrent transitions
+
+| D1 / approved invariant | Existing implementation | New simultaneous test |
+| --- | --- | --- |
+| F3/F13: one courier can accept; row lock before Credit | OrderAssignmentService.accept / getForUpdate | Two couriers, each winner ordering; loser conflict and no Credit assignment |
+| F4.1.7, F4.1.8/F10: cancellation or expiry, not both | OrderTransitionService.cancel / LifecycleProcessingService.expireDue | Each winner ordering; exactly one terminal checkpoint and refund intent |
+| F3, F4.1.8/F10: acceptance excludes expiry | Assignment / due-unassigned pessimistic query | Each winner ordering; no expired assigned row or duplicate outcome |
+| F4.1.5/F5.1, ADR-020: one completion at requester or 48-hour tick | Complete / autoCompleteDue | Each winner ordering; one completion receipt/checkpoint/event; safe next tick |
+| NFR3: genuine persistence verification | PostgreSQL 15, Flyway V1-V4, independent transactions | OrderConcurrencyPostgresIntegrationTest; pg blocking evidence / explicit NOWAIT 55P03 |
+
+Eight focused cases pass, zero skips; full verification reruns all eight and
+passes 215 tests/no failures/errors/skips. Fresh coverage: 95.67% lines/84.70%
+branches. Peers/delivery mocked, results in CHANGE-092; no live ledger/broker/
+Sprint completion claim. Production/contract/schema/frontend behavior unchanged.
+
 ## CHANGE-091: Actual field errors and new repost minimum
 
 | Requirement / amendment | Classes / UI / contract | Tests / verification |
