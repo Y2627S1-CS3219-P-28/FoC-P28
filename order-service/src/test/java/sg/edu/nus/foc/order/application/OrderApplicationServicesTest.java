@@ -176,8 +176,8 @@ class OrderApplicationServicesTest {
         CreditServicePort credits = mock(CreditServicePort.class);
         UserServicePort users = mock(UserServicePort.class);
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
-        OrderRepostService service = new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users, audit);
-        RepostPlan plan = new RepostPlan(true, START, 4, 20);
+        OrderRepostService service = new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users, audit, mock(RepostFailureRecorder.class));
+        RepostPlan plan = new RepostPlan(true, START, 4, 20, START.plusSeconds(3600));
         Order original = Order.open("requester", "item", "p", "d", 2, 15, START.minusSeconds(1800), START, plan);
         original.expire(0, START);
         when(receipts.findExisting("AUTO_REPOST", "auto")).thenReturn(Optional.empty());
@@ -192,7 +192,7 @@ class OrderApplicationServicesTest {
         when(receipts.findExisting("MANUAL_REPOST", "manual")).thenReturn(Optional.empty());
         when(orders.getForUpdate(manualOriginal.getId())).thenReturn(Optional.of(manualOriginal));
         when(users.verifyRequester("requester", AUTH)).thenReturn("requester");
-        Order manual = service.manual("manual", manualOriginal.getId(), "requester", 0, "new item", 3, 15, START.plusSeconds(1800), AUTH);
+        Order manual = service.manual("manual", manualOriginal.getId(), "requester", 0, "new item", 3, 15, Instant.now().plusSeconds(3600), AUTH);
         assertEquals(manualOriginal.getId(), manual.getOriginalOrderId());
         verify(credits).reserve(manual.getId(), "requester", 3, AUTH);
 
@@ -236,7 +236,7 @@ class OrderApplicationServicesTest {
         verify(orders).findDueForAutoCompletion(deliveredBefore);
         verify(transitions).autoComplete(delivered.getId(), autoCompletionNow);
 
-        RepostPlan plan = new RepostPlan(true, START, 1, 15);
+        RepostPlan plan = new RepostPlan(true, START, 1, 15, START.plusSeconds(3600));
         Order due = Order.open("requester", "item", "p", "d", 1, 15, START.minusSeconds(1800), START, plan);
         due.expire(0, START);
         when(orders.findDueUnassigned(OrderStatus.EXPIRED, START))
@@ -252,7 +252,7 @@ class OrderApplicationServicesTest {
         OrderTransitionService transitions = mock(OrderTransitionService.class);
         OrderRepostService reposts = mock(OrderRepostService.class);
         OrderCommandFacade facade = new OrderCommandFacade(creation, assignment, transitions, reposts);
-        RepostPlan plan = new RepostPlan(false, null, 0, 0);
+        RepostPlan plan = new RepostPlan(false, null, 0, 0, null);
         Order order = Order.open("requester", "item", "p", "d", 1, 15, START, START.plusSeconds(1800));
         when(creation.create("c", "requester", "item", "p", "d", 1, 15, START.plusSeconds(1800), plan, AUTH)).thenReturn(order);
         assertSame(order, facade.create("c", "requester", "item", "p", "d", 1, 15, START.plusSeconds(1800), plan, AUTH));

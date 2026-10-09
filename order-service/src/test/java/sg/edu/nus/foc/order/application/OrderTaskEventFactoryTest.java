@@ -34,7 +34,7 @@ class OrderTaskEventFactoryTest {
 
     @Test
     void mapsOrderFieldsWithoutSerializingCheckpointHistoryIntoTypedEvents() {
-        RepostPlan repostPlan = new RepostPlan(true, EXPIRES_AT, 5, 45);
+        RepostPlan repostPlan = new RepostPlan(true, EXPIRES_AT, 5, 45, EXPIRES_AT.plusSeconds(3600));
         Order order = Order.open(
                 "requester-1",
                 "item",

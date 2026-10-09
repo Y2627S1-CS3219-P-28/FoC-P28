@@ -3,8 +3,13 @@ package sg.edu.nus.foc.order.application;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import sg.edu.nus.foc.order.domain.CommandReceipt;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderCheckpoint;
@@ -17,6 +22,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderRepostService {
     private final OrderRepository orders;
     private final OrderCheckpointRepository checkpoints;
@@ -25,6 +31,7 @@ public class OrderRepostService {
     private final CreditServicePort credits;
     private final UserServicePort users;
     private final OrderAuditLogger audit;
+    private final RepostFailureRecorder failures;
 
     @Transactional
     public Order configure(
@@ -53,17 +60,12 @@ public class OrderRepostService {
         }
 
         RepostPlan plan = original.getRepostPlan();
-        suppliers.validatePair(
-                original.getPickupSupplierId(),
-                original.getDeliverySupplierId(),
-                authorization);
-
-        Order repost = original.createRepost(
+        Order repost = prepareRepost(original,
                 original.getItemDescription(),
                 plan.getCreditAmount(),
                 plan.getDeliveryDurationMinutes(),
                 now,
-                now.plusSeconds(plan.getDeliveryDurationMinutes() * 60L));
+                plan.getExpiresAt(), authorization);
 
         return saveRepost("AUTO_REPOST", commandId, original, repost, now, authorization);
     }
@@ -104,18 +106,13 @@ public class OrderRepostService {
             throw OrderProblem.conflict("Only an expired order may be reposted.");
         }
 
-        suppliers.validatePair(
-                original.getPickupSupplierId(),
-                original.getDeliverySupplierId(),
-                authorization);
-
         Instant createdAt = Instant.now();
-        Order repost = original.createRepost(
+        Order repost = prepareRepost(original,
                 description,
                 creditsAmount,
                 duration,
                 createdAt,
-                expiresAt);
+                expiresAt, authorization);
 
         return saveRepost(
                 "MANUAL_REPOST",
@@ -133,12 +130,6 @@ public class OrderRepostService {
             Order repost,
             Instant createdAt,
             String authorization) {
-        credits.reserve(
-                repost.getId(),
-                repost.getRequesterId(),
-                repost.getOfferedCredits(),
-                authorization);
-
         original.linkRepost(repost.getId());
         orders.save(original);
         Order saved = orders.save(repost);
@@ -153,6 +144,59 @@ public class OrderRepostService {
         audit.dependency("credit-service", "reserve", saved.getId(), "accepted");
         audit.action(operation, saved.getId(), saved.getRequesterId(), commandId, "accepted");
         return saved;
+    }
+
+    private Order prepareRepost(Order original, String description, long amount, int duration,
+            Instant createdAt, Instant expiresAt, String authorization) {
+        try {
+            Order repost = original.createRepost(description, amount, duration, createdAt, expiresAt);
+            suppliers.validatePair(original.getPickupSupplierId(), original.getDeliverySupplierId(), authorization);
+            credits.reserve(repost.getId(), repost.getRequesterId(), repost.getOfferedCredits(), authorization);
+            return repost;
+        } catch (OrderProblem problem) {
+            recordAfterRollback(original.getId(), problem.getCode());
+            throw problem;
+        } catch (RestClientException exception) {
+            String code = "SERVICE_UNAVAILABLE";
+            if (exception instanceof RestClientResponseException response) {
+                code = switch (response.getStatusCode().value()) {
+                    case 400, 422 -> "VALIDATION_ERROR";
+                    case 401 -> "UNAUTHENTICATED";
+                    case 403 -> "FORBIDDEN";
+                    case 404 -> "NOT_FOUND";
+                    case 409 -> "CONFLICT";
+                    default -> "SERVICE_UNAVAILABLE";
+                };
+            }
+            recordAfterRollback(original.getId(), code);
+            throw new OrderProblem(code, "A required service could not approve the repost.");
+        }
+    }
+
+    // A failed attempt must roll back; its latest outcome is a separate committed transaction.
+    private void recordAfterRollback(String id, String code) {
+        Instant occurredAt = Instant.now();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        persistFailure(id, code, occurredAt);
+                    }
+                }
+            });
+        } else {
+            persistFailure(id, code, occurredAt);
+        }
+    }
+
+    private void persistFailure(String id, String code, Instant occurredAt) {
+        try {
+            failures.record(id, code, occurredAt);
+        } catch (RuntimeException exception) {
+            // Preserve the original business error. Never log peer bodies or credentials.
+            log.warn("action=REPOST_FAILURE_RECORD orderId={} error={} outcome=not_saved", id, code);
+        }
     }
 
     private Order findForUpdate(String id) {

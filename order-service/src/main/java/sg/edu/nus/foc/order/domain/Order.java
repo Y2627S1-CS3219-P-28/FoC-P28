@@ -60,6 +60,11 @@ public class Order {
     private String repostedOrderId;
     @Embedded
     private RepostPlan repostPlan;
+    @Column(length = 40)
+    private String repostFailureCode;
+    @Column(length = 256)
+    private String repostFailureMessage;
+    private Instant repostFailureAt;
 
     private Order(String id, String requesterId, String description, String pickup, String delivery,
                    long credits, int duration, Instant createdAt, Instant expiresAt, String originalOrderId) {
@@ -92,6 +97,9 @@ public class Order {
         }
         Order order = new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
                 credits, duration, createdAt, expiresAt, null);
+        if (repostPlan != null) {
+            repostPlan.validateAgainst(expiresAt);
+        }
         order.repostPlan = repostPlan;
         return order;
     }
@@ -213,7 +221,8 @@ public class Order {
 
     public boolean eligibleForAutomaticRepost(Instant now) {
         return status == OrderStatus.EXPIRED && repostedOrderId == null && repostPlan != null
-                && repostPlan.isEnabled() && repostPlan.isDueAt(now) && !repostPlan.isUsed();
+                && repostPlan.isEnabled() && repostPlan.isDueAt(now) && !repostPlan.isUsed()
+                && repostPlan.hasFutureExpiry(now);
     }
 
     public void linkRepost(String repostId) {
@@ -221,6 +230,9 @@ public class Order {
             throw OrderProblem.conflict("Order already has a repost.");
         }
         repostedOrderId = repostId;
+        repostFailureCode = null;
+        repostFailureMessage = null;
+        repostFailureAt = null;
         if (repostPlan != null) {
             repostPlan.markUsed();
         }
@@ -230,8 +242,24 @@ public class Order {
         if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
             throw OrderProblem.conflict("Order is not eligible for repost.");
         }
+        if (description == null || description.isBlank() || description.length() > 100
+                || credits <= 0 || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)) {
+            throw new OrderProblem("VALIDATION_ERROR", "Invalid repost details or expired new expiry.");
+        }
         return new Order(UUID.randomUUID().toString(), requesterId, description, pickupSupplierId,
                 deliverySupplierId, credits, duration, createdAt, expiresAt, id);
+    }
+
+    public void recordRepostFailure(String code, String message, Instant occurredAt) {
+        requireStatus(OrderStatus.EXPIRED);
+        if (repostedOrderId != null) {
+            throw OrderProblem.conflict("Order already has a repost.");
+        }
+        if (repostFailureAt == null || !occurredAt.isBefore(repostFailureAt)) {
+            repostFailureCode = code;
+            repostFailureMessage = message;
+            repostFailureAt = occurredAt;
+        }
     }
 
     public void requireVersion(long expected) {

@@ -36,6 +36,10 @@ public interface OrderMapper {
             source = "repostPlan.enabled",
             defaultValue = "false")
     @Mapping(target = "repostDueAt", source = "repostPlan.dueAt")
+    @Mapping(target = "repostExpiresAt", source = "repostPlan.expiresAt")
+    @Mapping(target = "repostFailureCode", source = "repostFailureCode")
+    @Mapping(target = "repostFailureMessage", source = "repostFailureMessage")
+    @Mapping(target = "repostFailureAt", source = "repostFailureAt")
     @Mapping(
             target = "repostCreditAmount",
             source = "repostPlan.creditAmount",

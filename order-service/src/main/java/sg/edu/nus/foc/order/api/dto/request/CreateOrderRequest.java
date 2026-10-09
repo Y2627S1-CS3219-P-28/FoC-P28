@@ -42,4 +42,5 @@ public class CreateOrderRequest {
     private Instant repostDueAt;
     private long repostCreditAmount;
     private int repostDeliveryDurationMinutes;
+    private Instant repostExpiresAt;
 }

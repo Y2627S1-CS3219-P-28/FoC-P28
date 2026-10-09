@@ -72,7 +72,8 @@ public class OrderController {
                         true,
                         request.getRepostDueAt(),
                         request.getRepostCreditAmount(),
-                        request.getRepostDeliveryDurationMinutes())
+                        request.getRepostDeliveryDurationMinutes(),
+                        request.getRepostExpiresAt())
                 : null;
 
         Order order = creation.create(
@@ -242,11 +243,8 @@ public class OrderController {
             @PathVariable String id,
             @Valid @RequestBody RepostConfigurationRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        RepostPlan repostPlan = new RepostPlan(
-                request.isEnabled(),
-                request.getDueAt(),
-                request.getCreditAmount(),
-                request.getDeliveryDurationMinutes());
+        // Legacy configuration always conflicts; do not invent a new expiry.
+        RepostPlan repostPlan = null;
         return orderMapper.toResponse(reposts.configure(
                 request.getCommandId(),
                 id,

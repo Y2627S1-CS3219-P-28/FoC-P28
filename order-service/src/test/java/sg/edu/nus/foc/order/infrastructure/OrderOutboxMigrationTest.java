@@ -3,6 +3,7 @@ package sg.edu.nus.foc.order.infrastructure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,7 +34,7 @@ class OrderOutboxMigrationTest {
 
         flyway.migrate();
 
-        assertEquals("3", latestVersion("outbox_clean"));
+        assertEquals("4", latestVersion("outbox_clean"));
         assertTrue(tableExists("outbox_clean", "order_event_outbox"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_due"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_expired_lease"));
@@ -46,8 +47,41 @@ class OrderOutboxMigrationTest {
 
         flyway("outbox_upgrade").migrate();
 
-        assertEquals("3", latestVersion("outbox_upgrade"));
+        assertEquals("4", latestVersion("outbox_upgrade"));
         assertTrue(tableExists("outbox_upgrade", "order_event_outbox"));
+    }
+
+    @Test
+    void upgradesVersionThreeAndDisablesLegacyPlansWithoutInventingExpiry() throws Exception {
+        String schema = "repost_upgrade";
+        flyway(schema, MigrationVersion.fromVersion("3")).migrate();
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            statement.execute("insert into " + schema + ".orders "
+                    + "(row_id,id,requester_id,item_description,pickup_supplier_id,delivery_supplier_id,"
+                    + "offered_credits,status,created_at,expires_at,delivery_time_limit_minutes,enabled,"
+                    + "due_at,credit_amount,delivery_duration_minutes,used) values "
+                    + "('00000000-0000-0000-0000-000000000086','legacy','owner','item','p','d',1,'OPEN',"
+                    + "now(),now()+interval '1 hour',15,true,now()+interval '2 hours',2,15,false)");
+        }
+        flyway(schema).migrate();
+        assertEquals("4", latestVersion(schema));
+        try (Connection connection = connection(); Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery("select enabled,repost_expires_at,status,id from "
+                        + schema + ".orders where id='legacy'")) {
+            assertTrue(result.next());
+            assertFalse(result.getBoolean("enabled"));
+            assertEquals(null, result.getObject("repost_expires_at"));
+            assertEquals("OPEN", result.getString("status"));
+            assertEquals("legacy", result.getString("id"));
+        }
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            assertThrows(java.sql.SQLException.class,
+                    () -> statement.execute("update " + schema + ".orders set enabled=true where id='legacy'"));
+            statement.execute("update " + schema + ".orders set enabled=true,due_at=expires_at,"
+                    + "repost_expires_at=expires_at+interval '1 hour' where id='legacy'");
+            assertThrows(java.sql.SQLException.class,
+                    () -> statement.execute("update " + schema + ".orders set repost_expires_at=due_at where id='legacy'"));
+        }
     }
 
     @Test

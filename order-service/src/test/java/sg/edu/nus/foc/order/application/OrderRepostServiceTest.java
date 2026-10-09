@@ -36,7 +36,7 @@ class OrderRepostServiceTest {
         doThrow(OrderProblem.conflict("Insufficient credits")).when(credits)
                 .reserve(anyString(), anyString(), anyLong(), any());
         OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
-                receipts, mock(SupplierServicePort.class), credits, users, mock(OrderAuditLogger.class));
+                receipts, mock(SupplierServicePort.class), credits, users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
 
         assertThrows(OrderProblem.class, () -> service.manual("repost", original.getId(), "owner", original.getVersion(),
                 "updated", 2, 15, Instant.now().plusSeconds(3600), "Bearer owner"));
@@ -61,7 +61,7 @@ class OrderRepostServiceTest {
                 .thenReturn(Optional.of(new CommandReceipt("MANUAL_REPOST", "replay", repost.getId(), now)));
         when(orders.get(repost.getId())).thenReturn(Optional.of(repost));
         OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
-                receipts, mock(SupplierServicePort.class), credits, users, mock(OrderAuditLogger.class));
+                receipts, mock(SupplierServicePort.class), credits, users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
 
         assertEquals(repost, service.manual("replay", original.getId(), "owner", 0, "ignored", 2, 15,
                 now.plusSeconds(3600), "Bearer owner"));
@@ -86,7 +86,7 @@ class OrderRepostServiceTest {
         when(receipts.findExisting("MANUAL_REPOST", "replay"))
                 .thenReturn(Optional.of(new CommandReceipt("MANUAL_REPOST", "replay", "new-id", Instant.now())));
         OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
-                receipts, mock(SupplierServicePort.class), mock(CreditServicePort.class), users, mock(OrderAuditLogger.class));
+                receipts, mock(SupplierServicePort.class), mock(CreditServicePort.class), users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
         assertThrows(OrderProblem.class, () -> service.manual("replay", "old-id", "requester", 0,
                 "item", 1, 15, Instant.now().plusSeconds(3600), "Bearer invalid"));
         verifyNoInteractions(orders);
@@ -104,7 +104,7 @@ class OrderRepostServiceTest {
                 .thenReturn(Optional.of(new CommandReceipt("MANUAL_REPOST", "replay", repost.getId(), now)));
         when(orders.get(repost.getId())).thenReturn(Optional.of(repost));
         OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
-                receipts, mock(SupplierServicePort.class), mock(CreditServicePort.class), users, mock(OrderAuditLogger.class));
+                receipts, mock(SupplierServicePort.class), mock(CreditServicePort.class), users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
         OrderProblem problem = assertThrows(OrderProblem.class, () -> service.manual("replay", "old-id", "intruder", 0,
                 "item", 1, 15, now.plusSeconds(3600), "Bearer intruder"));
         assertEquals("FORBIDDEN", problem.getCode());
@@ -120,8 +120,8 @@ class OrderRepostServiceTest {
         UserServicePort users = mock(UserServicePort.class);
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
         Instant now = Instant.parse("2026-10-01T00:00:00Z");
-        assertThrows(OrderProblem.class, () -> new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users, audit)
+        assertThrows(OrderProblem.class, () -> new OrderRepostService(orders, checkpoints, receipts, suppliers, credits, users, audit, mock(RepostFailureRecorder.class))
             .configure("cmd", "order-id", "requester", 0,
-                new RepostPlan(true, now.plusSeconds(7200), 6, 30), "Bearer token"));
+                new RepostPlan(true, now.plusSeconds(7200), 6, 30, now.plusSeconds(7200).plusSeconds(3600)), "Bearer token"));
     }
 }

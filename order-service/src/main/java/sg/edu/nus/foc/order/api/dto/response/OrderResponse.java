@@ -30,4 +30,8 @@ public class OrderResponse {
     private Instant repostDueAt;
     private long repostCreditAmount;
     private int repostDeliveryDurationMinutes;
+    private Instant repostExpiresAt;
+    private String repostFailureCode;
+    private String repostFailureMessage;
+    private Instant repostFailureAt;
 }
