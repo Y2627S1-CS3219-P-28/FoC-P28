@@ -155,6 +155,14 @@ public class GlobalExceptionHandler {
                 "Credit persistence is temporarily unavailable.", request, List.of());
     }
 
+    @ExceptionHandler(CreditStreamUnavailableException.class)
+    ResponseEntity<ApiError> streamUnavailable(CreditStreamUnavailableException exception,
+                                                HttpServletRequest request) {
+        log.warn("Credit event stream could not be opened on {} {}",
+                request.getMethod(), request.getRequestURI(), exception);
+        return respond(ErrorCode.SERVICE_UNAVAILABLE, exception.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> unexpected(Exception exception, HttpServletRequest request) {
         log.error("Unhandled error on {} {}", request.getMethod(), request.getRequestURI(), exception);

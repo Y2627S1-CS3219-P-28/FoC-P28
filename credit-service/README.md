@@ -46,6 +46,7 @@ Order-to-Credit service calls is separate work.
 |---|---|---|
 | `POST` | `/api/credits/registration-facts` | Idempotently allocate 50 credits after registration. |
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
+| `GET` | `/api/credits/events` | Stream authenticated balance invalidations as server-sent events. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
 | `PUT` | `/api/credits/orders/{orderId}/courier-assignment` | Idempotently associate the authenticated courier before Order persists acceptance. |
@@ -53,6 +54,13 @@ Order-to-Credit service calls is separate work.
 
 Reservations use `RESERVED`, `REFUNDED` and `PAID`.
 There is no gift, withdrawal, top-up, direct balance update, or generic CRUD API.
+
+The event stream sends `connected` when a browser subscribes and `balance-changed` after a committed
+account update. Events contain no balance or user identifier; clients fetch `/api/credits/me` for the
+authoritative value. A PostgreSQL trigger publishes commit-aware `LISTEN/NOTIFY` messages to every
+Credit Service instance, and each instance forwards only the authenticated user's notifications to
+its local SSE connections. Heartbeat comments are sent every 20 seconds, and streams close after 55
+minutes so clients reconnect before the one-hour Cloud Run and gateway timeout.
 
 ## Order outcome events
 
