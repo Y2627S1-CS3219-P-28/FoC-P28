@@ -1,5 +1,23 @@
 # Vincent - Active Work
 
+## Credit feedback clarification — 2026-10-09
+
+- Advisory follow-up to CHANGE-087 on sprint-2-3-credit; worktree initially clean.
+  User reiterates the existing routing: accepted-cancellation is User penalty
+  signaling only; Credit refunds CANCELLED/EXPIRED via open-order-refund.
+- Explained 003 as authorized lost-response replay/stale-attempt protection,
+  not another reset endpoint; null-state success currently does not move funds.
+  Explained 006 as confirming an active hold and recovering partial success
+  across Order/Credit databases, not a missing normal reservation route.
+- Re-read JpaCreditRepository, CreditService, OrderTransitionService, provisioning
+  and feedback. Findings unchanged; no application, peer or infrastructure edits.
+  Existing FEEDBACK-007 already requests the correct subscription alignment.
+  Penalty amount remains User-owned; aborting courier is event actorId, not the
+  cleared snapshot courierId. Completion/assignment still need courier identity
+  in Credit; the User-only rule concerns abort penalty signaling.
+- Updated local refund/history learning with beginner examples (not staged).
+  No runtime tests for this explanation. Next actions and Sprint [~] unchanged.
+
 ## Integrated Credit source review — 2026-10-09 (CHANGE-087)
 
 - Vincent explicitly requests inspection/feedback rewrite on sprint-2-3-credit;
