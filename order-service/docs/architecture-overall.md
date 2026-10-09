@@ -1,5 +1,11 @@
 # Overall Architecture
 
+CHANGE-086 (Vincent, 2026-10-09) adds explicit automatic deadlines and latest
+safe repost outcomes ONLY to Order's API/PostgreSQL and its shared frontend
+slice. No platform topology, peer data ownership, topic/event payload, credential
+or deployment changes. Trusted delegation/background retries remain paused.
+
+
 CHANGE-084 / ADR-027 records approved HTTP polling (not WebSocket/SSE) and
 Order-owned fixed-ID bounded repost retry rules. Trusted Order-to-peer delegated
 authorization is a documentation-only proposal awaiting peer agreement, not a

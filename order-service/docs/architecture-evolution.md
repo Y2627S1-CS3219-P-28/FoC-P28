@@ -1,5 +1,24 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-031: Explicit automatic expiry and durable latest outcomes
+
+- Vincent, 2026-10-09, CHANGE-086 / ADR-027 follow-up: explicit implementation
+  request for the new expiry and latest manual/automatic failure persistence.
+  Vincent chose disabling legacy plans without expiry rather than backfilling.
+- Classification: user-approved Order-owned field/API/persistence refinement;
+  supersedes only prior missing-expiry/client-local-outcome limitations.
+- Domain RepostPlan owns strict timing; Order owns latest outcome and clearing.
+  OrderRepostService keeps rollback; RepostFailureRecorder writes safe outcomes
+  AFTER rollback in a separate locked REQUIRES_NEW transaction. Lifecycle
+  repost batch has no outer transaction so each attempt owns its rollback.
+- V4 adds nullable expiry/code/message/time plus a plan timing constraint;
+  disables legacy enabled plans without a deadline. No order/history/event
+  deletion, new peer API/topic, credentials or background retry worker.
+- UI reuses quarter-hour picker, reads durable result and refreshes row version.
+  Provider ownership and existing event payloads remain unchanged. Paused retry
+  design is not made implemented by outcome persistence; no Sprint [x] claim.
+
+
 ## ARCH-EVO-030: Polling/manual failure implementation; all background retries paused
 
 - Vincent, 2026-10-09, CHANGE-085: explicit implementation request for polling

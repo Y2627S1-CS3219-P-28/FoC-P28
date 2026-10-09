@@ -1,5 +1,28 @@
 # ADR-027: Repost retry limits, polling and deferred peer authorization
 
+## Effective follow-up — CHANGE-086, 2026-10-09
+
+Vincent explicitly requested implementing user-selected automatic new expiry
+and saving the latest manual/automatic repost failure under the expired original.
+He chose disabling legacy plans without expiry; do not backfill a deadline.
+Domain/API/UI enforce expiry > due >= original expiry. Late execution uses the
+saved future expiry, not execution+duration. V4 adds nullable expiry/outcome
+columns and a valid-enabled-plan constraint, preserving IDs/history/outbox.
+
+OrderRepostService retains normal rollback and uses an AFTER_ROLLBACK callback
+to the separate Spring-managed REQUIRES_NEW RepostFailureRecorder. A locked
+EXPIRED/unlinked guard plus occurrence time prevents stale outcomes overwriting
+newer/successful state. Save only safe code/message/time; never raw diagnostics.
+Successful repost clears these fields. UI reads them on reload/polling and
+refetches the updated original version after failed foreground commands.
+
+This is an approved Order-owned data/API refinement and internal transaction
+implementation detail; not a broker change or financial ledger replica.
+Background retries, durable candidate tasks and trusted service credentials
+remain explicitly PAUSED in all modes. Historical NOT IMPLEMENTED statements
+below are superseded only for explicit expiry/latest-outcome persistence.
+Exact verification and recovery: CHANGE-086. No peer acceptance implied.
+
 ## Effective follow-up — CHANGE-085, 2026-10-09
 
 Vincent subsequently requests application polling/messages and explicitly says

@@ -1,5 +1,12 @@
 # Order Service
 
+CHANGE-086 adds explicit automatic-repost expiry and saved latest failure messages.
+Rebuild Order and frontend together. Flyway applies V4 at startup, disabling
+legacy enabled plans without an explicit new expiry by Vincent's decision.
+Do not reset volumes. See [migration handoff](docs/database-migration-workflow.md)
+and [change/test evidence](changes/CHANGE-086-explicit-repost-expiry-and-persistent-failures.md).
+Background retries and trusted peer credentials remain paused.
+
 ## Local container development
 
 CHANGE-083 / ADR-026: ORDER_LIFECYCLE_CRON defaults to `0 * * * * *` for both

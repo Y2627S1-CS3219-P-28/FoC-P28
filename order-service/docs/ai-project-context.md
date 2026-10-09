@@ -1,5 +1,26 @@
 # Order Service Permanent Project Context
 
+## Effective follow-up — CHANGE-086 (2026-10-09)
+
+Vincent requested and approved explicit automatic `repostExpiresAt` and latest
+manual/automatic failure persistence. Both are now implemented in Order's source;
+the prior limitation paragraphs below are historical. UI uses 00/15/30/45 slots.
+Domain/API require `repostExpiresAt > repostDueAt >= original.expiresAt`;
+late execution uses the saved expiry and cannot run at/after it. V4 disables
+legacy enabled plans without an explicit expiry, per Vincent's chosen migration,
+rather than inventing deadlines. Existing orders/history/refund intents remain.
+
+Eligible authorized failures save only safe code/message/time on the original
+EXPIRED row after rollback, overwrite an older result, and clear on success.
+UI reads those fields after reload/polling and refetches the original version
+after a failed foreground POST. No new repost order is saved on peer rejection.
+Background retries and trusted credentials remain PAUSED/not implemented in
+every mode. Peer feedback 002-006 and live browser/cloud gates remain open.
+CHANGE-086 owns this task's actual tests/migration evidence; Sprint stays [~].
+
+## Historical implementation and approval context
+
+
 CHANGE-085 (2026-10-09): authenticated visible-page 15-second Order-list and Credit
 polling implemented with focus/mutation refresh, no overlap and stale/session
 response guards. Manual repost shows short semantic insufficient/permanent errors

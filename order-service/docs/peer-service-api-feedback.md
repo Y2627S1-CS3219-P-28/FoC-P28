@@ -1,6 +1,14 @@
 # Peer Service API Feedback
 
 Current handoff: **2026-10-09**, Vincent, sprint-2-3, CHANGE-085.
+
+CHANGE-086 follow-up: Order now stores explicit automatic new expiry and latest
+safe manual/automatic attempt failure code/message/time; UI reload reads them.
+These are Order API/storage fields, NOT new peer request/event fields. Existing
+reservation/assignment/reset/topic contracts below are unchanged. No new provider
+route is needed for latest-outcome persistence. Trusted background credentials,
+same-candidate durable tasks and all background retries remain paused; FEEDBACK
+005/006 still require peer agreement. This does not verify auto repost in HTTP mode.
 User explicitly requested replacing the whole document. Earlier proposals remain
 recoverable in Git (including c993591); stable FEEDBACK IDs are retained below.
 This is a peer-work request, NOT permission for Order to edit peer source, approve

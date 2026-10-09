@@ -184,14 +184,16 @@ immediate_after_commit_dispatch = true
 existing_deadlines_rounded = false
 
 [requested_repost_timing_and_retry]
-decision = "ADR-027 / CHANGE-084; approved by Vincent 2026-10-09"
+decision = "ADR-028 / CHANGE-086 expiry/outcomes; ADR-027 / CHANGE-084 paused retry design; Vincent 2026-10-09"
 requirement_approved = true
 timing = "repostExpiresAt > repostDueAt >= original.expiresAt"
 late_execution = "allowed only while repostExpiresAt > current time"
-explicit_repost_expiry_implemented = false
+explicit_repost_expiry_implemented = true
+explicit_repost_expiry_change = "CHANGE-086; V4; legacy no-expiry plans disabled by Vincent"
+latest_manual_and_automatic_failure_persisted = true
 durable_retry_implemented = false
 insufficient_credit_card_message_implemented = true
-failure_message_scope = "current manual repost component; not persistent across full reload; automatic outcome persistence deferred"
+failure_message_scope = "latest safe eligible manual/automatic attempt failure on original EXPIRED row; overwrite newer result; clear on success; survives reload"
 background_retry_implementation_paused = true
 background_retry_resume_condition = "user resumes after peer agreement; no mock-mode retry worker either"
 retry_design_approval = "approved: fixed new candidate ID, temporary failures only, stop at new expiry or permanent rejection; concrete task/schema/API design still needed"

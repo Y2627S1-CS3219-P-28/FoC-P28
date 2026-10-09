@@ -1,5 +1,20 @@
 # Order Service Requirements Traceability
 
+## Effective CHANGE-086 traceability
+
+| D1 / approved refinement | Implementation | Acceptance/negative evidence |
+| --- | --- | --- |
+| NTH4; F1 creation validation | RepostPlan/Order, CreateOrderRequest/OrderController, quarter-hour picker | RepostExpiryTest; controller plan propagation; RTL picker/payload and helper equality/invalid tests |
+| NTH4; F8/F9 requester outcome UX | Order latest failure; RepostFailureRecorder; RepostControls; OrderMapper | RepostOutcomeJpaIntegrationTest rollback/overwrite/automatic late exact expiry/success-clear/unauthorized guard; RTL remount/version refresh |
+| NFR2 / NFR3 | Existing auth/useApi/design system; domain/transaction separation | Full backend/RTL/lint/type/build and unchanged coverage gates; exact results CHANGE-086 |
+| Shared migration discipline | V4 nullable fields/plan constraint; disable legacy no-expiry plans | Isolated PostgreSQL clean upgrade and V3-to-V4 test; invalid/equal expiry rejected, no invented deadline |
+| ADR-027 pause | No background worker/task/credentials | Implementation scope inspection; peer 002-006 and live browser/cloud remain open |
+
+Explicit expiry and persistent latest outcomes are implemented, not a production
+completion claim. Background retries remain paused. Earlier descriptions of
+missing expiry/client-local messages below are historical as of CHANGE-085.
+
+
 ## Current Sprint 2-3 effective slice
 
 CHANGE-085 verification chain (no completion marker upgrade):

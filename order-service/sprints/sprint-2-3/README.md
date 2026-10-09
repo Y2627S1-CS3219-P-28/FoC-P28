@@ -1,5 +1,17 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Effective CHANGE-086 implementation
+
+Vincent's explicit automatic expiry and saved latest manual/automatic outcomes
+are implemented, using V4 and the existing Order frontend slice. Strict rule:
+expiry > due >= original expiry; late processing uses the exact saved future
+expiry. Legacy enabled plans without expiry are disabled, not backfilled.
+Failure retains EXPIRED/unlinked original and safe latest code/message/time;
+success clears it. Failure is written after rollback, not as partial business
+success. Background retry/security scope remains paused and Sprint remains [~].
+Older incomplete descriptions below are historical; see CHANGE-086 for results.
+
+
 Developer Vincent, branch `sprint-2-3`. Authority: Project D1, user-selected `Order Service Overall Doc.pdf`, retained prior approvals, CHANGE-081/082 and ADR-025. This is the requested lifecycle/history slice, NOT completion of all Admin/report/hold capabilities in the overall pack. Source PDF/PNG diagrams remain unchanged; these editable diagrams express the approved override.
 
 ## Class and data responsibilities

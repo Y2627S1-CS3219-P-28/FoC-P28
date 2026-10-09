@@ -1,5 +1,28 @@
 # Service Contracts
 
+## Effective additive Order contract — CHANGE-086
+
+`POST /api/orders` adds nullable `repostExpiresAt` (ISO UTC timestamp), REQUIRED
+when automaticRepost=true. Require expiry > repostDueAt >= original expiresAt;
+false ignores automatic-plan details. New expiry is never execution+duration.
+Quarter-hour selection is a frontend rule, not a change to UTC wire format.
+New automatic plans must provide the field; V4 disables legacy plans without it.
+
+OrderResponse adds nullable repostExpiresAt, repostFailureCode,
+repostFailureMessage and repostFailureAt to existing reads/commands/list items.
+Only a safe latest eligible authorized attempt failure is persisted on the
+original EXPIRED/unlinked order after rollback. A newer failure replaces it;
+successful linkage clears it. Ownership/state/version/auth failures before an
+eligible attempt cannot overwrite another user's message. Raw diagnostics and
+tokens are never stored as outcomes. Failure persistence may increment the
+original version: clients refetch it before another versioned manual attempt.
+
+Manual repost request shape, all peer routes/topics/event JSON are unchanged.
+No same-candidate durable job, retry worker, trusted credential or refund
+confirmation gate is implemented. All background retry scope remains paused.
+Earlier dated contract statements below remain historical evidence.
+
+
 CHANGE-085: existing endpoint/DTO/topic shapes unchanged. Reservation 409 is
 exposed as INSUFFICIENT_CREDITS ONLY when Credit confirms that semantic code;
 other conflicts stay CONFLICT, 400/401/403/404 retain their classes and transport/

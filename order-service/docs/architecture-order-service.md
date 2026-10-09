@@ -1,5 +1,21 @@
 # Order Service Architecture
 
+## Effective CHANGE-086 refinement
+
+Explicit automatic new expiry and latest safe repost failures are Order-owned
+fields, not a retry task or an additional aggregate. RepostPlan validates
+expiry > due >= original expiry; execution uses that saved future deadline.
+OrderRepostService invokes Supplier/Credit synchronously and rolls back failed
+business attempts. AFTER_ROLLBACK invokes RepostFailureRecorder through its
+Spring proxy: a new locked transaction saves only code/message/time on the
+still-EXPIRED unlinked original. Domain rules prevent older callbacks overwriting
+newer outcomes; success clears the outcome. No domain-to-peer calls introduced.
+V4 disables legacy plans with no explicit deadline, by Vincent's decision.
+HTTP auth remains unchanged; background retries and credentials remain paused.
+The earlier unimplemented descriptions below are historical; CHANGE-086 and
+the effective diagram own current expiry/outcome status.
+
+
 ## Effective current workstream
 
 CHANGE-084 / ADR-027: approved durable same-ID temporary retries until new expiry,

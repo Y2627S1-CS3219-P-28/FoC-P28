@@ -1,5 +1,28 @@
 # Vincent - Active Work
 
+## Explicit repost expiry and persistent failures — 2026-10-09 (CHANGE-086)
+
+- Vincent, sprint-2-3; clean worktree at start; approved Order/backend frontend slice.
+- User authorizes explicit automatic new expiry and latest failure persistence.
+  Reuse quarter-hour picker; expiry > due >= original expiry; skip elapsed new expiry.
+- Follow-up decision: disable legacy automatic plans lacking explicit expiry;
+  do not invent/backfill deadlines. Add V4, preserve all business/history/outbox IDs.
+- Save safe latest eligible attempt failure after rollback in independent locked
+  transaction; overwrite newer failure, clear on successful linkage; no peer writes.
+- Implemented/local verified: FINAL 196 backend tests, 0 failures/errors/skips;
+  16 isolated PostgreSQL tests. Fresh coverage 95.23% lines / 83.49% branches.
+  Frontend 49 tests; lint 0 errors/12 existing warnings; typecheck/build pass.
+- V4 clean/upgrade/legacy-disable constraints and rollback/overwrite/auto exact
+  expiry/success-clear verified. Refetch original version after failed manual POST.
+  No application DB reset. Source/workflow/disclosure commits separate; learning ignored.
+- Generic workflow gate retains 5 pre-existing format/history failures; drift
+  checker manifest unsupported; actual selected source hashes match.
+- Background retries/credentials remain paused. Stopping point: peer 002-006
+  agreement and user resumption; real ledger/consumers/browser/cloud/hosted CI
+  remain unverified. This does not upgrade overall Sprint [~] status.
+- Verified commits: 8818f1a backend/V4/tests; b3cbf7b shared Order UI/tests.
+  Workflow/disclosure separate. No push, no learning staged, no peer source edits.
+
 ## Current polling/failure-message implementation - 2026-10-09 (CHANGE-085)
 
 - Vincent, `sprint-2-3`, clean worktree at task start; Order backend and approved

@@ -1,5 +1,18 @@
 # Active Sprint
 
+## Effective CHANGE-086 follow-up (2026-10-09)
+
+Explicit automatic new expiry and persisted latest failure outcomes are
+implemented in the approved Order/frontend slice. V4 disables legacy plans
+without an expiry; it does not delete rows or invent deadlines. My Requests
+retains safe manual/automatic attempt messages after reload and clears them on
+successful repost linkage. Strict rule: expiry > due >= original expiry.
+Late execution only while saved expiry is future. Verification in CHANGE-086.
+All background retries/trusted credentials remain paused; peers/browser/cloud
+remain gates and Sprint status remains [~]. The dated paragraphs below are
+historical context, not the effective expiry/persistence status.
+
+
 Current sprint: Sprint 2 and Sprint 3 (Order-owned lifecycle slice; `[~]`)
 
 CHANGE-085 implements visible authenticated 15-second polling and current manual

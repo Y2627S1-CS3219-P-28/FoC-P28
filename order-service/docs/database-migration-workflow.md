@@ -1,5 +1,26 @@
 # Order Service Database Migration Workflow
 
+## Latest migration handoff — V4 / CHANGE-086
+
+- Purpose: NTH4 explicit automatic expiry and latest safe failure code/message/time.
+- File: `src/main/resources/db/migration/V4__explicit_repost_expiry_and_latest_failure.sql`.
+- Expected schema version: 4, applied by Flyway on matching Order startup after
+  rebuild. No manual schema command, volume reset or rewriting V1-V3.
+- Objects: four nullable orders columns and enabled-plan timing constraint.
+  Vincent explicitly chose disabling legacy enabled plans without expiry;
+  old due/credit/duration/used fields, order status/IDs/history/outbox survive.
+- Verification: isolated PostgreSQL clean/latest, V1-to-latest and V3-to-V4
+  tests; legacy disabled with null expiry, valid equality due=original expiry,
+  invalid absent/equal new expiry rejected. Persistence rollback/overwrite/
+  success-clear/automatic saved-expiry tests; exact run results CHANGE-086.
+- Consuming developer: pull migration+matching source, back up non-disposable
+  DB first, rebuild Order image and confirm Flyway version 4. Legacy plans
+  cannot be re-enabled halfway through creation-only settings.
+- Recovery: no destructive down migration. Restore reviewed pre-upgrade backup
+  or deploy a reviewed forward correction. Do not guess a deadline to undo the
+  user's legacy-disable decision. Real application volumes were not touched.
+
+
 ## Purpose
 
 This workflow keeps independent local Order Service databases at the same approved schema version. A developer's local database is disposable working state; the versioned migration history in Git is the shared source of truth.

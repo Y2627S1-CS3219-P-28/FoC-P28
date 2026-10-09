@@ -1,10 +1,12 @@
 # Attached Order flow: approved amendments and implementation gaps
 
 Authority: Vincent's PNG plus textual corrections, CHANGE-083 / ADR-026 and
-retained ADR-025 and CHANGE-084 / ADR-027 retry/polling decisions. Source PDF/PNG artifacts are not overwritten. This is an
-**approved target**, not a claim of 100% implementation. Explicit repost expiry,
-durable retries and persistent automatic terminal-failure state remain unimplemented.
-CHANGE-085 implements visible-page polling and current manual failure messages.
+retained ADR-025 and CHANGE-084 / ADR-027 retry/polling decisions; CHANGE-086 /
+ADR-028 implements explicit expiry/latest outcomes. Source PDF/PNG artifacts are not overwritten. This is an
+**approved target**, not a claim of 100% implementation. CHANGE-086 implements
+explicit automatic expiry and latest safe manual/automatic failure persistence;
+V4 disables legacy plans without an explicit expiry by Vincent's decision.
+Durable retries remain unimplemented. CHANGE-085 implements visible-page polling.
 Latest user explicitly PAUSES ALL background retry implementation until peers agree.
 Trusted peer credentials are approved for discussion/documentation ONLY;
 implementation explicitly deferred pending peer agreement.
@@ -14,12 +16,12 @@ implementation explicitly deferred pending peer agreement.
 | Shared every-minute OPEN expiry / >=48h latest-DELIVERED completion | Implemented; same captured time, independent transactional passes/failure isolation. |
 | All-three-event outbox recovery every 15min, immediate dispatch retained | Implemented; publication acknowledgement is not refund completion. |
 | Creation-time automatic choice only | Implemented; post-creation configuration rejected. |
-| Explicit expiry > due >= original expiry; run late only before NEW expiry | Approved, not implemented: current automatic expiry is execution time + duration. |
+| Explicit expiry > due >= original expiry; run late only before NEW expiry | Implemented in domain/API/UI; exact saved deadline used; V4 disables legacy plans without one. |
 | Auto/manual new business IDs; abort reopen same business ID and separate immutable attempt UUID | Implemented. Old repost originals/outbox retained; linked originals hidden from requester queries. |
 | EXPIRED/CANCELLED refund and every-abort User penalty | Implemented Order-side; missing peer routes/subscribers in feedback. |
 | Validate Supplier response before reservation | Repaired: explicit valid:true required; valid:false/missing confirmation rejects. |
 | Confirm matching active Credit reservation | Request is synchronous but response body discarded; confirmation/recovery gap remains. |
-| Failed repost EXPIRED; short confirmed insufficient/permanent failure message; retry only temporary failures before new expiry with same candidate ID | Manual component messages implemented, not durable/automatic. All background retry implementation PAUSED pending peer agreement. |
+| Failed repost EXPIRED; short confirmed insufficient/permanent failure message; retry only temporary failures before new expiry with same candidate ID | Latest safe manual/automatic attempt failure persists on original EXPIRED row after rollback; overwritten/cleared safely. All background retry implementation PAUSED pending peer agreement. |
 | Authenticated polling for near-real-time lists/status/balance | Implemented: every 15 visible/auth-ready seconds; focus/mutation refresh, cleanup/no overlap/stale guards. |
 
 The Mermaid below preserves the supplied creation/progress/abort/refund/repost
@@ -32,7 +34,7 @@ the approved principle, not an implemented worker. Topics/payloads/provider work
 flowchart TD
     CREATE["Requester POST /api/orders"] --> VERIFY["Verify User requester, Supplier valid:true,<br/>domain Order fields"]
     VERIFY --> PLAN{"Automatic repost enabled at creation?"}
-    PLAN -->|Yes| TIMES["TARGET: explicit repostExpiresAt<br/>repostExpiresAt > repostDueAt >= original.expiresAt<br/>Configure credits and duration"]
+    PLAN -->|Yes| TIMES["Require explicit repostExpiresAt<br/>repostExpiresAt > repostDueAt >= original.expiresAt<br/>Configure credits and duration; quarter-hour UI"]
     PLAN -->|No| RESERVE
     TIMES -->|Valid| RESERVE["Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount; synchronous 200/201"]
     TIMES -->|Invalid| NOOPEN["No new OPEN; return validation error"]
@@ -77,9 +79,9 @@ flowchart TD
     EXPIRED --> AUTOCALL["POST /api/orders/internal/lifecycle/repost<br/>Trusted peer credentials proposal ONLY; DO NOT implement yet"]
     AUTOCALL --> AUTOELIGIBLE{"Auto enabled/unused, no linked repost;<br/>repostDueAt reached?"}
     AUTOELIGIBLE -->|No| KEEP["Keep original EXPIRED"]
-    AUTOELIGIBLE -->|Yes| FUTURE{"TARGET: repostExpiresAt > current time?"}
+    AUTOELIGIBLE -->|Yes| FUTURE{"Saved repostExpiresAt > current time?"}
     FUTURE -->|No| KEEP
-    FUTURE -->|Yes| AUTOINFO["TARGET: use configured new expiry, credits, duration<br/>Never derive expiry from execution time"]
+    FUTURE -->|Yes| AUTOINFO["Use configured new expiry, credits, duration<br/>Never derive expiry from execution time"]
     EXPIRED --> DRAFT["Requester GET /api/orders/ID/repost-draft<br/>Authenticated actorId"]
     DRAFT --> MANUAL["Review description, credits, duration, explicit NEW expiry<br/>POST /api/orders/ID/repost"]
     MANUAL --> MANUALCHECK["Verify requester/original ownership/version<br/>Validate future new expiry"]
@@ -87,12 +89,12 @@ flowchart TD
     MANUALCHECK --> REPOSTRESERVE["Validate Supplier pair; NEW business ID<br/>Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount"]
     REPOSTRESERVE -->|200/201 confirmed matching RESERVED| SAVE["Save NEW OPEN and bidirectional linkage<br/>Keep old EXPIRED/refund; hide linked original<br/>Auto plan used only on success"]
     SAVE --> OPEN
-    REPOSTRESERVE -->|Failure| FAILED["Original stays EXPIRED/unlinked<br/>TARGET: durable attempt/outcome"]
+    REPOSTRESERVE -->|Failure| FAILED["Roll back repost attempt; original EXPIRED/unlinked<br/>AFTER_ROLLBACK: separately save latest safe<br/>failure code/message/time on original ID"]
     FAILED --> INSUFFICIENT{"Confirmed INSUFFICIENT_CREDITS?"}
-    INSUFFICIENT -->|Yes| MESSAGE["Manual UI: small insufficient-credit failure message<br/>Auto persistent outcome TARGET only; no refund inference"]
+    INSUFFICIENT -->|Yes| MESSAGE["My Requests: small saved insufficient-credit message<br/>Survives reload; no refund inference"]
     INSUFFICIENT -->|No| CLASSIFY{"TARGET: temporary failure<br/>and new expiry still future?"}
-    CLASSIFY -->|Yes| RETRY["PAUSED: durable same-candidate-ID background retry<br/>Needs peer agreement; no worker implemented"]
-    CLASSIFY -->|No| STOP["TARGET: original stays EXPIRED<br/>Short appropriate permanent/expiry message; no futile retry"]
+    CLASSIFY -->|Yes| RETRY["PAUSED: durable same-candidate-ID background retry<br/>Current saved message: try again later<br/>Needs peer agreement; no worker implemented"]
+    CLASSIFY -->|No| STOP["Original stays EXPIRED<br/>Saved short appropriate permanent-failure message"]
     RETRY -.-> REPOSTRESERVE
 
     REFUND --> OUTBOX
@@ -122,3 +124,10 @@ refund confirmation or a retry of synchronous reservation. Delayed old refund
 can make available credits temporarily insufficient. That rejection alone does
 not establish a known “refund pending” reason. Approved retries must reconcile
 unknown reservation outcomes using one fixed candidate ID.
+
+Creation automatic plan additionally sends repostExpiresAt. Order responses
+include repostExpiresAt and nullable repostFailureCode/repostFailureMessage/
+repostFailureAt. Successful linkage clears the latest failure; another authorized
+eligible failed attempt overwrites it. Local browser input/auth/state/version
+rejections before an eligible attempt cannot write a persisted peer outcome.
+No retry task is created by this recorder. Existing event JSON remains unchanged.
