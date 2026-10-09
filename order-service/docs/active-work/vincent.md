@@ -1,5 +1,45 @@
 # Vincent - Active Work
 
+## Approved local-live implementation — 2026-10-09 (CHANGE-088)
+
+- User approves the previously proposed isolated real-PubSub authenticated HTTPS
+  delivery to local Credit and requests build/up/down commands. Vincent on
+  sprint-2-3-credit; worktree clean at start. Local-only override/helper/scripts
+  in scope; sibling source, staging subscriptions, app databases untouched.
+- ADR-029 records the connector detail: Docker cloudflared Quick Tunnel behind
+  exact-path POST-only nginx; existing Google OIDC validation retained. Isolated
+  names and managed-resource labels; no Credit subscription to User penalty topic.
+  Existing Order prod security enabled locally with Firebase emulator/HTTP roles;
+  NOT a switch to Cloud SQL or production Firebase.
+- Tests first: namespace/URL/resource-ownership safety, composed real modes and
+  scope preservation, nginx positive/negative/header/body routing. Cloud setup
+  runs only with the user's authenticated gcloud, personal ADC and needed rights.
+  Scripts never print tokens or embed keys. No mocked push success.
+- Implemented: local-live override, non-root/read-only nginx, pinned cloudflared,
+  scoped Setup/Check/Pause, ADR/runbook/traceability. Red first: missing setup script.
+  60 configuration/safety assertions and 16 actual nginx/fixture checks pass.
+  Read-only nginx temp-path startup issue caught and fixed; fixture cleanup scoped.
+  Baseline preservation check initially used historical user-mongodb name; actual
+  branch service is mongodb, corrected before rerun. This was a test fixture error.
+- gcloud unavailable and standard ADC absent; no GCP writes, actual push auth,
+  application stack start or ledger/browser verification claimed. Source hashes
+  match; generic drift checker still rejects existing manifest columns (exit 2).
+  Generic completion checker fails with five historical/fixed-format findings;
+  no gate passed claim. Actual Setup safely stops before side effects without
+  gcloud (exit 1); local config/routing checks remain separate evidence.
+  No Java/frontend source/migration changes. Retries/delegation paused, User
+  consumers and prior Credit semantic gaps remain separate. Sprint [~].
+- Next action: user completes personal gcloud/ADC/IAM prerequisites, runs runbook
+  Setup/build/up/Check, verifies each financial workflow with two local accounts
+  and matching outbox/event/ledger/balance evidence. Pause before down (no -v).
+- Metadata note: local developer-profile.md is actually tracked on this branch,
+  despite workflow describing it as ignored. Its identity/branch still match;
+  current explicit task approval is recorded here/ADR-029. No tracking change or
+  personal-profile update committed as part of the connector concern.
+- Atomic verified implementation: 9e77fa0 Order connector/scripts/tests;
+  e78f887 shared Compose/env. Docs/workflow and AI disclosure committed separately.
+  No push; ignored learning retained locally and never staged.
+
 ## Local live Docker/PubSub readiness review — 2026-10-09
 
 - Follow-up clarification: proposed tunnel testing keeps Order, Credit and their

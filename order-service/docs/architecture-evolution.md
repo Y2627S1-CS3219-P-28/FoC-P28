@@ -1,5 +1,20 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-032: Approved isolated local cloud push connector
+
+- Vincent, 2026-10-09, CHANGE-088 / ADR-029: explicit implementation approval.
+- Classification: local-only deployment/security-topology refinement; changes
+  neither business lifecycle nor peer contracts/data ownership.
+- Real HTTP peers + real isolated Pub/Sub topics; financial push reaches local
+  Credit through temporary HTTPS and exact-path POST-only nginx. Credit retains
+  Google OIDC; Order uses its existing authenticated profile with local DB/Auth.
+- Scoped IAM and resource ownership checks, stable custom audience, two financial
+  subscriptions, DLQ and Pause before down. No Credit User-penalty subscription.
+- 60 configuration/safety + 16 actual nginx/fixture assertions pass. Cloud setup,
+  Google identity and local financial/browser effects await personal gcloud/ADC.
+  No staging/peer source/database changes. User consumers and background retry/
+  delegated credential gates remain separate; Sprint `[~]`.
+
 ## ARCH-EVO-031: Explicit automatic expiry and durable latest outcomes
 
 - Vincent, 2026-10-09, CHANGE-086 / ADR-027 follow-up: explicit implementation

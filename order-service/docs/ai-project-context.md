@@ -1,5 +1,17 @@
 # Order Service Permanent Project Context
 
+## Local real broker connector — CHANGE-088 (2026-10-09)
+
+Vincent approved isolated local-live testing, implemented by ADR-029. Use base +
+HTTP + `compose.local-live.yaml`, personal ADC, unique test namespace and
+`scripts/local-live.ps1` Setup/Check/Pause. Financial push goes through restricted
+HTTPS into local Credit; current Google OIDC retained. Existing Order authenticated
+profile selects HTTP roles, not cloud DB. Staging/base Compose/peer source unchanged.
+60 config/safety and 16 actual nginx/fixture assertions pass; actual cloud/ledger/
+browser tests await user's gcloud/ADC/permissions. [Runbook](local-live-testing.md).
+No User penalty consumer added, no accepted-cancellation Credit subscription.
+Background credentials/retries paused; previous feedback gaps/Sprint `[~]` retained.
+
 ## Integrated Credit inspection — CHANGE-087 (2026-10-09)
 
 Current review branch: Vincent, `sprint-2-3-credit`, user explicitly requested

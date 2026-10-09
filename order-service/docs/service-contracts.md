@@ -1,5 +1,15 @@
 # Service Contracts
 
+## Local delivery configuration — CHANGE-088 / ADR-029
+
+No endpoint/payload contract changes. Existing wrapped Google push POST to
+`/api/credits/internal/order-events` retains Google OIDC and subscription checks,
+204 after processing. Isolated local financial subscriptions/topic names and a
+stable custom audience now match Compose and Setup; HTTPS proxy preserves body
+and bearer. See [runbook](local-live-testing.md). User penalty topic has no Credit
+subscription here; User consumers/delegated authorization still require peers.
+Synthetic routing tests do NOT verify actual push identities or ledger processing.
+
 ## Current provider evidence — CHANGE-087 (2026-10-09)
 
 On sprint-2-3-credit, Credit's integrated 09e04a0 source implements the existing

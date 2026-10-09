@@ -1,5 +1,10 @@
 # Order Service Architecture
 
+CHANGE-088 / ADR-029 adds an opt-in [local live test topology](local-live-testing.md)
+only: real HTTP peers, existing authenticated Order profile, isolated real Pub/Sub,
+restricted HTTPS push into local Credit. No class/domain/state/migration changes.
+Actual cloud/ledger verification remains pending; paused retry/delegation retained.
+
 ## Effective CHANGE-086 refinement
 
 Explicit automatic new expiry and latest safe repost failures are Order-owned

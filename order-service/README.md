@@ -1,5 +1,10 @@
 # Order Service
 
+For **local real HTTP peers + real Google Pub/Sub into local Credit**, use the
+approved [local-live runbook](docs/local-live-testing.md) (CHANGE-088 / ADR-029).
+It includes credentials/IAM prerequisites, Setup/build/up/Check/Pause/down and
+per-workflow financial assertions. Do not run staging provisioning for local tests.
+
 CHANGE-086 adds explicit automatic-repost expiry and saved latest failure messages.
 Rebuild Order and frontend together. Flyway applies V4 at startup, disabling
 legacy enabled plans without an explicit new expiry by Vincent's decision.

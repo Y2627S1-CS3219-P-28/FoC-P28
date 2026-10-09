@@ -242,3 +242,25 @@ subscription_provisioning_script_present = true
 subscription_provisioning_verified = false
 remaining_credit_feedback = ["FEEDBACK-003 replay authorization", "FEEDBACK-006 reservation/recovery", "FEEDBACK-007 accepted-cancellation semantics", "FEEDBACK-005 delegated authorization"]
 background_retries_remain_paused = true
+
+[local_live_connector]
+change = "CHANGE-088"
+decision = "ADR-029"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+compose_files = ["compose.yaml", "compose.http-peers.yaml", "compose.local-live.yaml"]
+runbook = "docs/local-live-testing.md"
+setup_script = "scripts/local-live.ps1"
+broker = "Real Google Pub/Sub; developer-isolated topics/subscriptions"
+ingress = "Temporary cloudflared HTTPS -> exact-path POST-only nginx -> local Credit"
+authentication = "Existing Google OIDC push; Order existing prod JWT/method profile with local emulator and HTTP User roles"
+configuration_safety_assertions = 60
+actual_nginx_fixture_assertions = 16
+live_cloud_financial_verified = false
+live_blocker = "gcloud unavailable and standard personal ADC absent in runner"
+peer_source_changed = false
+staging_resources_changed = false
+schema_changed = false
+background_retries_paused = true
+user_consumers_provided = false

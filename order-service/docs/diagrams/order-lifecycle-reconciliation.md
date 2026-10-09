@@ -1,5 +1,10 @@
 # Attached Order flow: approved amendments and implementation gaps
 
+CHANGE-088 adds only the [ADR-029 local transport sequence](../decisions/ADR-029-local-live-credit-push.md)
+and [test runbook](../local-live-testing.md). Lifecycle boxes/rules below remain
+unchanged: immediate after-commit plus 15-minute recovery, minute lifecycle.
+Actual financial delivery now has an opt-in connector, not verified cloud results.
+
 Authority: Vincent's PNG plus textual corrections, CHANGE-083 / ADR-026 and
 retained ADR-025 and CHANGE-084 / ADR-027 retry/polling decisions; CHANGE-086 /
 ADR-028 implements explicit expiry/latest outcomes. Source PDF/PNG artifacts are not overwritten. This is an

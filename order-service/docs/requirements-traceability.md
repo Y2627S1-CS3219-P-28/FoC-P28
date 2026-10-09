@@ -1,5 +1,15 @@
 # Order Service Requirements Traceability
 
+## Effective CHANGE-088 local delivery traceability
+
+| D1 / approved refinement | Implementation | Evidence / remaining gate |
+| --- | --- | --- |
+| F4.1.7/F4.1.8/F4.1.5/F5.1/F10/F11; ADR-029 | Local-live override, restricted ingress, owned Setup/Check/Pause | 60 config/safety + 16 actual nginx/fixture assertions; real refund/transfer/reset/browser gates pending |
+| NFR3; ADR-013/021/026 | Google OIDC retained, isolated topics/scoped IAM, local DBs and cadence | Negative ingress, resource-ownership and unchanged baseline comparisons pass; actual GCP/IAM/consumer test unavailable |
+
+No application contract/schema changed, no sequence marked `[x]`, no inference of
+real financial success from fixture/metadata checks. See CHANGE-088/runbook.
+
 ## Effective CHANGE-086 traceability
 
 | D1 / approved refinement | Implementation | Acceptance/negative evidence |

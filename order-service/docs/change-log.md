@@ -2,6 +2,7 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-088](../changes/CHANGE-088-local-live-credit-push.md) | 2026-10-09 | Local connector implemented/tested; live gates open | Isolated real Pub/Sub authenticated HTTPS push to local Docker Credit, scoped setup/check/pause and runbook; peer source/staging/data untouched |
 | [CHANGE-087](../changes/CHANGE-087-integrated-credit-feedback-review.md) | 2026-10-09 | Documentation review completed; live integration not verified | Rules out implemented Credit routes/refund/completion handlers; retains reset/retry/auth gaps and records incompatible legacy accepted-cancellation subscription; no peer/app/cloud edits |
 | [CHANGE-086](../changes/CHANGE-086-explicit-repost-expiry-and-persistent-failures.md) | 2026-10-09 | Implemented; local verification recorded; live gates open | Explicit automatic next expiry, strict timing and saved latest safe manual/automatic failure; V4 disables legacy no-expiry plans by Vincent's decision; background retries remain paused |
 | [CHANGE-085](../changes/CHANGE-085-polling-and-repost-failure-ui.md) | 2026-10-09 | Polling/manual messages implemented; background retries paused | Auth-ready 15-second visible polling and semantic Credit failure text; user-authorized service-grouped peer handoff; no trusted credentials or retry worker |

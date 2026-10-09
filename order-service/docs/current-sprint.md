@@ -1,5 +1,15 @@
 # Active Sprint
 
+## Effective local-live connector — CHANGE-088 (2026-10-09)
+
+Vincent's approved local-only deployment refinement is implemented/tested in
+ADR-029; [runbook](local-live-testing.md) supplies safe Setup/build/up/Check/Pause/down.
+Real HTTP peers and real cloud financial push target local Credit/database.
+60 config/safety and 16 restricted-ingress fixture assertions pass, not actual
+cloud/financial verification. No real stack/cloud changes performed by this run.
+User consumers, Credit semantic gaps and paused background retries stay open.
+No sequence/Sprint `[x]` upgrade.
+
 ## Effective Credit review — CHANGE-087 (2026-10-09)
 
 Vincent's documentation-only review runs on sprint-2-3-credit (09e04a0).

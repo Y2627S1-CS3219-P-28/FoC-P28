@@ -1,5 +1,13 @@
 # Peer Service API Feedback
 
+CHANGE-088 / ADR-029 now implements an opt-in [local real broker connector](local-live-testing.md)
+with isolated refund/completion push subscriptions and existing Google auth.
+This resolves the absent local ingress configuration, NOT peer semantic gaps or
+live financial verification. 60 config/safety and 16 nginx/fixture assertions pass;
+gcloud/ADC/live tests outstanding. No missing endpoint request or feedback status
+removed/upgraded on this basis. No Credit subscription to User penalty topic;
+003/005/006/007 and User consumers remain as documented below.
+
 Current handoff: **2026-10-09**, Vincent, `sprint-2-3-credit`, CHANGE-087.
 Inspected integrated revision: `09e04a0` (`pull: credit service`).
 

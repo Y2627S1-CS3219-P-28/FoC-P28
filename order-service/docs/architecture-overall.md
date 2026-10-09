@@ -1,5 +1,10 @@
 # Overall Architecture
 
+CHANGE-088 / ADR-029 refines only the local test deployment: temporary restricted
+HTTPS connects real isolated financial Pub/Sub subscriptions to local Docker Credit.
+Current contracts/OIDC/data ownership and production topology are unchanged.
+See [local runbook](local-live-testing.md); not a User consumer or retry implementation.
+
 CHANGE-086 (Vincent, 2026-10-09) adds explicit automatic deadlines and latest
 safe repost outcomes ONLY to Order's API/PostgreSQL and its shared frontend
 slice. No platform topology, peer data ownership, topic/event payload, credential
