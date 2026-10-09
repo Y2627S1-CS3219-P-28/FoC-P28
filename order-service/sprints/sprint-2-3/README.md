@@ -4,6 +4,12 @@ Developer Vincent, branch `sprint-2-3`. Authority: Project D1, user-selected `Or
 
 ## Class and data responsibilities
 
+CHANGE-084 / ADR-027 records approved polling and durable fixed-candidate-ID
+temporary retry limits/terminal EXPIRED messages. These are NOT implemented.
+Trusted unattended peer credentials are documented for discussion ONLY; do not
+implement until the user resumes that scope and provider contracts are agreed.
+The diagram below describes existing classes, not a new retry worker/table.
+
 CHANGE-083 / ADR-026 uses one OrderLifecycleScheduler every minute for expiry
 and >=48h completion, with 15-minute recovery and immediate dispatch retained.
 See [the updated target diagram and gap table](../../docs/diagrams/order-lifecycle-reconciliation.md).

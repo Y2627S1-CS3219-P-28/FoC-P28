@@ -4,6 +4,13 @@ This document is the Order Service integration handoff for User, Supplier, and C
 
 ## Current integration status
 
+**2026-10-09 decision update:** CHANGE-084 / ADR-027 approves documenting a
+trusted background-caller proposal for peer discussion; its implementation is
+explicitly deferred. User approval is NOT provider agreement. FEEDBACK-005/006
+remain OPEN. Same-candidate-ID bounded temporary retries and short terminal
+EXPIRED-card messages are approved Order-side designs, not implemented code.
+See the detailed follow-up at the end of this file to hand to peer owners.
+
 | Peer service     | Integration                                                                       | Current status                                                 | Peer action                                                                                                              |
 | ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Supplier Service | Validate pickup/delivery supplier pair | Existing provider inspected; Order handling repaired in CHANGE-083 | Order rejects valid:false and missing confirmation; stub tests are not live verification. |
@@ -308,14 +315,95 @@ All bodies: eventId, eventType, eventVersion:1, orderId, orderVersion, occurredA
 - **Provider gap:** current FirestoreCreditRepository.reserve replays an existing same-ID/requester/amount reservation without rejecting terminal status. Please agree terminal replay behavior (recommended 409 RESERVATION_CONFLICT), transactional idempotency and unknown-outcome reconciliation. Never overwrite refunded/paid reservations or allocate a different ID just to retry an unknown outcome.
 - **Insufficient funds:** existing 409 envelope has `error:"INSUFFICIENT_CREDITS"`, status/message/path/timestamp/details. Only this semantic code should produce the small insufficient-credit card message, never every 409 or message-substring matching. It does not tell Order whether an old refund is pending.
 - **Other errors:** 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 ACCOUNT_NOT_FOUND/RESERVATION_NOT_FOUND; 409 RESERVATION_CONFLICT; 503 SERVICE_UNAVAILABLE; 500 INTERNAL_ERROR. Agree transient timeout/connection-loss/429/5xx recovery versus permanent failures, and safe compensation for a reservation committed after expiry/local failure.
-- **Proposed, NOT approved:** durable retry request with one fixed candidate UUID saved before external reservation; commandId bound to requester/original/payload; retry temporary failures until success or configured expiry, not malformed/revoked requests forever. Isolate attempts and reconcile SAME candidate ID; preserve independent old-ID refund/outbox. Trusted credentials need FEEDBACK-005 agreement.
+- **User-approved design, NOT implemented (CHANGE-084 / ADR-027):** durable retry request with one fixed candidate UUID saved before external reservation; commandId bound to requester/original/payload; retry temporary failures until success or configured new expiry, stopping invalid details, authorization rejection and other permanent failures. Isolate attempts and reconcile SAME candidate ID; preserve independent old-ID refund/outbox. Trusted credentials are documentation-only and need FEEDBACK-005 agreement; detailed task/schema/API design is still required.
 - **Current limitation:** original remains EXPIRED/unlinked on reservation failure, but Order does not yet persist failures/retries, validate reservation bodies, classify Credit semantic errors or display persistent repost failure messages. This inspection is not live verification.
 
 ### FEEDBACK-005 follow-up: queued/automatic retry authentication
 
 The internal repost endpoint passes a lifecycle secret as a bearer; it is not a Firebase user token. User-bound Supplier/Credit APIs cannot safely be retried indefinitely after logout/restart with that credential.
 
-Proposed for owner discussion (not implemented/peer-approved): trusted Order service identity with restricted audience/delegated requester authorization on existing validation/reservation/status routes. Keep documented body fields; agree issuer/audience, permitted actions, requester delegation, audit, refresh/rotation/storage, timeouts and denial semantics. Do not add an anonymous/secret bypass, retain user bearers indefinitely, or mock-fallback in HTTP mode. Pending user choice: this proposal versus retries requiring a freshly authenticated user request. No refund-confirmation event is silently introduced.
+Approved by Vincent for owner discussion/documentation ONLY on 2026-10-09
+(CHANGE-084 / ADR-027), NOT implemented or peer-approved: trusted Order service
+identity with restricted audience/delegated requester authorization. Keep
+documented business body fields; agree issuer/audience, permitted actions,
+requester delegation, audit, refresh/rotation/storage, timeouts and denial
+semantics. Do not add an anonymous/secret bypass, retain user bearers indefinitely,
+or mock-fallback in HTTP mode. User explicitly says do not implement credentials
+yet. No refund-confirmation event is introduced.
+
+### FEEDBACK-005: Peer discussion handoff - 2026-10-09
+
+- **Responsible owners:** User Service owner, Supplier Service owner, Annablee
+  (Credit Service). Order owns saved user instructions, job identity and lifecycle.
+- **Approval boundary:** user approves the proposal, not a chosen authentication
+  protocol/endpoint/IAM change. Status remains OPEN. Do not implement in Order or
+  peers until owners agree the detailed security/authorization contract and the
+  user resumes implementation. Nothing below is a deployed endpoint.
+- **Why:** automatic repost runs without a browser. Manual repost may start with
+  a valid Firebase bearer, but later saved retries run after logout/token expiry.
+  Neither a candidate UUID nor requesterId proves the caller's identity/rights.
+- **Classification:** existing user-bound APIs are INCOMPLETE_OR_INCOMPATIBLE for
+  unattended requester delegation; the required trusted delegation is MISSING.
+  It may be an extension or dedicated internal route; exact route is undecided.
+
+| Provider / existing operation | Existing business request and response | Required peer discussion/change |
+| --- | --- | --- |
+| User `GET /api/users/role-context` | No body; Firebase bearer determines UID. 200 JSON `{"userId":"requester-uid","roles":["requester"]}` (example role list). | A trusted Order caller needs role/eligibility verification for a specified delegated requester, NOT its service-account UID. Agree a restricted route/input for requesterId; return matching userId/current roles, deny disallowed requester/action. Existing foreground semantics must remain. |
+| Supplier `POST /api/suppliers/validate` | JSON `{"pickupSupplierId":"pickup-id","deliverySupplierId":"delivery-id"}`; 200 `{"valid":true,"problems":[]}` or valid:false/problems with field/supplierId/reason. | Permit the agreed trusted Order identity for pair validation only; validate active/distinct IDs. No catalogue mutation permission. valid:false is a permanent details failure; preserve existing user-authenticated routes. |
+| Credit `PUT /api/credits/orders/{candidateId}/reservation` | JSON `{"requesterId":"requester-uid","amount":12}`; 201 new or 200 same reservation, response fields in FEEDBACK-006. Current Firebase caller must equal requesterId. | Explicitly authorize restricted Order-service reservation on behalf of the saved requester; keep current requester-only foreground rule. Same candidate/requester/amount must not reserve twice; active RESERVED confirmation required. |
+| Credit `GET /api/credits/orders/{candidateId}/reservation` | No body; 200 reservation/status or 404 RESERVATION_NOT_FOUND. Current access is requester-only. | Allow trusted Order reconciliation of its delegated candidate/requester, not unrestricted reading of everyone's ledger; identify how delegated requester is supplied/bound. |
+
+The User example shows fields, not permission to hard-code a requester role.
+User Service checks current Mongo profile/roles; a service credential must never
+be passed to Firebase as though its UID were the human requester. Order's existing
+automatic path does not currently perform this fresh User verification.
+
+**Security contract owners need to settle before implementation:**
+
+1. Service identity proof/verification, issuer/audience/signature and renewal;
+   which identity may call which routes; local-vs-cloud trust setup and revocation.
+   Cloud Run service identity is an option, not an approved deployment mechanism
+   here. IAM ingress validation alone does not implement delegated application
+   authorization in today's Firebase-only controllers.
+2. How requester delegation is supplied and limited to authorized saved repost
+   instructions, current requester rights, allowed amount/candidate and actions.
+   Do not trust an unsigned verified=true/role flag. User consent is saved in
+   Order; peers must agree how their authorization trusts that responsibility.
+3. Positive 200/201 response bodies and deterministic errors: invalid credential
+   -> 401; disallowed service/delegated requester/action -> 403; invalid fields
+   -> 400; insufficient funds -> existing semantic 409 INSUFFICIENT_CREDITS;
+   transaction conflict -> distinct code; transient unavailability -> 503.
+   Proposed new error behavior requires owner agreement, not fabricated support.
+4. Timeouts/rate limits/retry guidance, immutable payload binding/idempotency,
+   terminal reservation replay and late-success/rollback compensation (006).
+   Credentials can be renewed normally, but permanent authorization rejection
+   must not be retried forever; agree authentication-vs-denial classification.
+5. Audit correlation for task/command/candidate/original/requester/service caller;
+   never log bearer tokens. Least privilege, no stored user refresh tokens or
+   shared service-account key files; verify positive and negative contract tests.
+
+**Order stopping point:** no credential provider, delegation bypass or background
+worker implemented in this turn. HTTP does not fall back to mocks. Peer owners
+should report the agreed route/header/input/response/error/security details, then
+Order will inspect implementation/tests and verify actual integration before
+changing OPEN to VERIFIED. Missing assignment/reset/subscribers (002-004) remain.
+
+### FEEDBACK-006: Approved retry and EXPIRED-message follow-up - 2026-10-09
+
+Vincent approved reuse of one saved NEW candidate ID for temporary retries until
+the NEW expiry, stopping permanent details/authorization failures. Every attempt
+uses the same PUT/GET reservation identity and unchanged requester/amount. A new
+ID per timeout is prohibited; old-order refunds remain independent and intact.
+Credit must agree terminal replay/reconciliation/late-success safety above;
+approval of Order's retry principle does not verify Credit's idempotency contract.
+
+Confirmed semantic INSUFFICIENT_CREDITS stops the task with original EXPIRED and
+a small message. Do not claim old refund is pending: delayed refund and genuine
+insufficiency are indistinguishable from the existing error. Other permanent
+errors also get short appropriate messages. Temporary errors are retryable only
+when classified as such; a 409 conflict/404 missing account/unknown response is
+not automatically a temporary shortage or safe success. Future resubmission and
+late remote reservation compensation still need explicit detailed design.
 
 ## Feedback status meanings
 

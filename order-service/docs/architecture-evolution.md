@@ -1,5 +1,20 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-029: Repost retry/polling approval; credential proposal deferred
+
+- Vincent, 2026-10-09, CHANGE-084 / ADR-027: approved same-candidate-ID temporary
+  retries bounded by explicit new expiry, short insufficient/permanent-failure
+  messages with original EXPIRED, and authenticated polling for UI refresh.
+- Classification: approved design refinement and failure-UX amendment; supersedes
+  ARCH-EVO-028's pending user choices/insufficient-credit-only message proposal.
+- Trusted background service authorization approved ONLY for documentation and
+  peer discussion; user explicitly prohibits implementing it yet. FEEDBACK-005
+  stays OPEN; FEEDBACK-006 provider semantics/recovery also requires agreement.
+- No task worker/schema/API/security/polling/UI implementation or new tests in
+  this decision turn. Existing source/timer/outbox rules and original sources
+  unchanged; no feature [x] or live integration claim. Target diagram, contexts,
+  contracts, feedback, sprint, acceptance obligations and disclosure synchronized.
+
 ## ARCH-EVO-028: Updated diagram cadence and repost reconciliation
 
 - Approved by Vincent, 2026-10-08, CHANGE-083 / ADR-026: one shared minute

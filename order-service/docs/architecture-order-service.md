@@ -2,6 +2,12 @@
 
 ## Effective current workstream
 
+CHANGE-084 / ADR-027: approved durable same-ID temporary retries until new expiry,
+terminal failure EXPIRED-card messages and authenticated HTTP polling. These are
+target responsibilities, not implemented worker/schema/API/UI. Trusted peer
+authorization is proposal/documentation ONLY; implementation explicitly deferred.
+No new source classes, persistence schema, endpoint or security mechanism added.
+
 CHANGE-083 / ADR-026 supersedes historical timer cadence/settings: one shared
 minute lifecycle job and 15-minute recovery with immediate dispatch retained.
 Approved target and current gaps: docs/diagrams/order-lifecycle-reconciliation.md.

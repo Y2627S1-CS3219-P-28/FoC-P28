@@ -6,8 +6,11 @@ Latest CHANGE-083 / ADR-026: one minute-based expiry/completion job and
 15-minute outbox recovery; immediate AFTER_COMMIT publication retained.
 Approved target: `repostExpiresAt > repostDueAt >= original.expiresAt`.
 Explicit repost expiry, durable retries and insufficient-credit-only persistent
-UI feedback are NOT implemented yet. Two retry/authentication design decisions
-are pending; FEEDBACK-005/006 and the diagram reconciliation record the gaps.
+UI feedback are NOT implemented yet. CHANGE-084 / ADR-027 records Vincent's
+approval of bounded same-ID temporary retries, short permanent-failure messages
+and polling. Trusted credentials are approved for documentation/peer discussion
+only: DO NOT IMPLEMENT them yet. Concrete retry/security design and peer agreement
+remain open; FEEDBACK-005/006 and the diagram reconciliation record the gaps.
 Do not claim 100% diagram compliance.
 
 Current developer/workstream: Vincent, `sprint-2-3`, approved on 2026-10-08 in

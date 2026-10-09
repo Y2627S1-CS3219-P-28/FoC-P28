@@ -1,5 +1,10 @@
 # Overall Architecture
 
+CHANGE-084 / ADR-027 records approved HTTP polling (not WebSocket/SSE) and
+Order-owned fixed-ID bounded repost retry rules. Trusted Order-to-peer delegated
+authorization is a documentation-only proposal awaiting peer agreement, not a
+new platform credential/API, deployment or implemented topology change.
+
 Current cadence override (CHANGE-083 / ADR-026): one minute-based Order job
 checks OPEN expiry and >=48-hour DELIVERED completion; all-three-event outbox
 recovery every 15 minutes, immediate dispatch retained. No peer/cloud resources

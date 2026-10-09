@@ -1,11 +1,21 @@
 # Order Service Permanent Project Context
 
-Latest CHANGE-083 / ADR-026: one minute expiry/completion job, 15-minute outbox
+Latest decision CHANGE-084 / ADR-027 (2026-10-09): Vincent approved polling and
+same-candidate-ID temporary repost retries bounded by new expiry, stopping
+confirmed insufficient credits, invalid details and authorization/permanent
+rejection with short appropriate messages while the original stays EXPIRED.
+The balance error cannot distinguish a delayed refund. Trusted peer credentials
+are approved for documentation/discussion ONLY; DO NOT IMPLEMENT them yet.
+Polling, durable retries and persistent failure UI remain unimplemented. Peer
+acceptance, the concrete security/task design and FEEDBACK-005/006 remain open.
+
+Latest implemented CHANGE-083 / ADR-026: one minute expiry/completion job, 15-minute outbox
 recovery and retained immediate dispatch; retired timer settings do not apply.
 Supplier valid:false handling repaired on Order side. Explicit repost expiry,
 durable retries and insufficient-credit-only card feedback remain incomplete.
-Retry persistence/security approval is pending; read the diagram reconciliation
-gap table, Vincent active-work and FEEDBACK-005/006 before continuing.
+Read ADR-027, the diagram reconciliation gap table, Vincent active-work and
+FEEDBACK-005/006 before continuing; do not confuse user design approval with
+peer contract acceptance, implemented code or verified integration.
 
 This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
 

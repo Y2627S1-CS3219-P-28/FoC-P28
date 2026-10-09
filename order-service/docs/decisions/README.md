@@ -4,6 +4,7 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
+| [ADR-027](ADR-027-repost-retry-polling-and-peer-auth-proposal.md) | User-approved design; not implemented | Polling, fixed-ID bounded retries and short terminal messages; trusted peer credentials documentation only, explicitly deferred |
 | [ADR-026](ADR-026-shared-lifecycle-and-quarter-hour-outbox.md) | Accepted; locally verified | Shared minute expiry/completion, 15-minute all-event recovery, immediate dispatch retained |
 | [ADR-023](ADR-023-hourly-outbox-recovery.md) | Cadence superseded by ADR-026 | Historical hourly recovery; immediate dispatch retained |
 | [ADR-022](ADR-022-quarter-hour-ui-and-scheduler-cadence.md) | Accepted by user direction; implemented; outbox interval superseded by ADR-023 | Quarter-hour Requester timestamp selection, 15-minute expiry, and preserved minute auto-completion/immediate dispatch |

@@ -1,5 +1,12 @@
 # Service Contracts
 
+CHANGE-084 / ADR-027 approves Order-side bounded same-ID retry and polling
+principles, not new implemented endpoints/DTOs. Trusted service authorization
+is a documentation-only proposal, explicitly deferred pending User/Supplier/
+Credit owner agreement (FEEDBACK-005). Existing Firebase-user routes remain
+unchanged. FEEDBACK-006 records reservation confirmation/reconciliation needs;
+no new broker/refund-confirmation event is approved by this decision.
+
 CHANGE-083 / ADR-026 replaces Order's two timer settings with ORDER_LIFECYCLE_CRON
 (every minute) and sets outbox recovery to 15 minutes. Business endpoint/event
 shapes remain unchanged in this repair. Explicit repost expiry/retry/status API

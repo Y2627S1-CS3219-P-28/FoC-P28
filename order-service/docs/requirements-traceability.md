@@ -2,6 +2,13 @@
 
 ## Current Sprint 2-3 effective slice
 
+CHANGE-084 / ADR-027 records approved NTH4 retry/failure refinements and polling:
+one stable NEW candidate ID per saved request, temporary-only retries before its
+expiry, EXPIRED original until success, short insufficient/permanent rejection
+messages without guessing refund status. Trusted unattended credentials are a
+documentation-only peer proposal, explicitly not implemented. Planned acceptance
+cases are in ADR-027; no new tests executed or completion markers upgraded.
+
 CHANGE-083 maps F10/F11 expiry and F6.4/F7 completion to one minute job, and
 ADR-013 recovery to all-three-event 15-minute scans with immediate dispatch.
 Supplier validation consumes its valid flag. NTH4 explicit expiry/strict timing/

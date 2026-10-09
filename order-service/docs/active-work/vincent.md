@@ -1,6 +1,28 @@
 # Vincent - Active Work
 
-## Current diagram reconciliation - 2026-10-08 (CHANGE-083)
+## Current approval-documentation task - 2026-10-09 (CHANGE-084)
+
+- Developer/branch: Vincent, `sprint-2-3`; clean worktree at task start.
+- Record approved polling, bounded same-candidate-ID retries and short terminal
+  failure messages. Document trusted peer authorization for discussion only;
+  the user explicitly says NOT to implement that credential mechanism yet.
+- This task is documentation-only. Application source, tests, migrations,
+  frontend, peer services and cloud configuration must remain unchanged.
+- Peer acceptance/security mechanism remains open in FEEDBACK-005; reservation
+  confirmation/reconciliation remains open in FEEDBACK-006. User approval does
+  not approve either contract on the provider owner's behalf.
+- Status: approval records synchronized in ADR-027 / CHANGE-084 and the target
+  diagram/feedback/context/sprint/traceability; no feature completion upgrade.
+- Read-only provider inspection reconfirmed User role-context Firebase UID,
+  Credit requester-bound PUT/GET reservation and Supplier pair response fields.
+  D1/selected overall hashes match; historical source path lookup required
+  `../../` from repo root, recorded without rewriting the source manifest.
+- Next: Vincent discusses FEEDBACK-005 with User/Supplier/Credit owners; Annablee
+  confirms FEEDBACK-006 semantics. Concrete retry persistence/API/security and
+  polling implementation design remain follow-up; no source/tests/cloud writes.
+- Documentation checks/atomic commit evidence recorded in CHANGE-084 at task end.
+
+## Previous diagram reconciliation - 2026-10-08 (CHANGE-083)
 
 - Same developer/branch/boundaries as below; PDFs and learning unchanged.
 - Approved cadence implemented: one minute lifecycle job for OPEN expiry and
