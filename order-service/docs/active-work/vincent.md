@@ -1,5 +1,35 @@
 # Vincent - Active Work
 
+## Staging ACCOUNT_NOT_FOUND diagnosis - 2026-10-09
+
+- Follow-up clarification: missing migration/provisioning is a suspicion, not
+  a proven live root cause. Firebase login and Credit account lookup are separate.
+  User's pasted chat confirms previous discussion only, not database evidence.
+  No new cloud/database tests or repair; existing documentation remains pending
+  review and uncommitted. Next: Credit owner checks deployed database/UID/history.
+
+- Read-only diagnostic task, Vincent on sprint-2-3-credit-service-concurrency;
+  profile/allocation match, clean worktree at start. User asks why an existing
+  login has no Credit account. No approval to provision cloud funds, reset data,
+  change signup/login behavior or edit peer source.
+- Source inspection completed: AuthProvider.signIn calls Firebase and email
+  verification only, not Credit provisioning. signUp calls User creation then
+  POST /api/credits/registration-facts with self bearer token and eventId/userId/
+  occurredAt. Credit GET /me selects caller UID; getAccount throws the supplied
+  ACCOUNT_NOT_FOUND when JpaCreditRepository cannot find credit_accounts.user_id.
+- Local staging configuration selects credit_staging via Cloud SQL. Credit
+  history includes 53db4ec replacing Firestore with PostgreSQL; current V1 creates
+  schema, not old-user backfill. Old signup without provisioning, missing data
+  migration or a wrong deployed datasource are plausible, not proven causes.
+- Existing initialization endpoint inserts a missing account with 50 credits
+  and an initial-allocation ledger entry; it does not restore previous balance/
+  reservations/ledger. Credit owner must check existing historical funds and
+  correct staging datasource before choosing migration or authorized provisioning.
+- No cloud/SQL/API calls, tests, production/peer/frontend changes or financial
+  writes. Local source diagnosis only; live cause remains unverified. Learning
+  updated in ignored existing directory. Next: owner inspects deployed datasource
+  and UID row/history; no delete/re-signup/reset recommendation. Sprint unchanged.
+
 ## Real PostgreSQL concurrency verification - 2026-10-09 / CHANGE-092
 
 - VERIFIED test unit: user confirms branch sprint-2-3-credit-service-concurrency for
