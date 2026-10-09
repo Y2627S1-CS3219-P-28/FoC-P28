@@ -140,6 +140,7 @@ public class UserService {
         String email = request.getEmail();
         String username = request.getUsername();
 
+        // Updates Firebase email
         if (email != null && !email.equals(user.getEmail())) {
             user.setEmail(email);
             firebaseAuthService.updateUserEmail(userId, email);
@@ -155,7 +156,7 @@ public class UserService {
     public void deleteUser(String userId) {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
+ 
         // Deletes user from Firebase
         firebaseAuthService.deleteUser(user.getUserId());
 

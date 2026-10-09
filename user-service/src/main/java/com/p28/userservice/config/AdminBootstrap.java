@@ -30,7 +30,8 @@ public class AdminBootstrap implements CommandLineRunner {
 
     // Executes on user service startup
     // Have to create Firebase account first through console
-    // Then a MongoDB user is created
+    // Then enable bootstrap and put in email in env
+    // A MongoDB user is created for that email
     @Override
     public void run(String... args) {
 

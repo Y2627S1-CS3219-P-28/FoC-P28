@@ -27,6 +27,31 @@ PORT=8081 ./mvnw spring-boot:run
 - OpenAPI JSON: `/api/users/v3/api-docs`
 - Health: `/actuator/health`
 
+## Admin Bootstrap Creation
+
+### Local
+When running locally, follow the steps below to create the first admin account:
+1. Start up the app with `docker compose up --build`
+2. Access the Firebase Auth Emulator at `localhost:4000`
+3. Go to the `Authentication` tab and click `Add user`
+4. Enter the email of your desired bootstrap admin user (e.g. admin@u.nus.edu), set email to verified and enter a password that is at least 8 characters long, with a number and special character
+5. Save the user
+6. Duplicate the .env.example file and rename it to .env
+7. Edit the `ADMIN_BOOTSTRAP_EMAIL=admin@u.nus.edu`and change the email after the `=` character to the email you set in the Firebase Emulator
+8. Restart the user service with `docker compose restart user-service`
+9. The admin account is created and you can log in with it on `localhost:8080`
+
+### Cloud
+When running locally, follow the steps below to create the first admin account:
+1. Access the online Firebase Console for the project
+2. Go to the `Authentication` tab and click `Add user`
+3. Enter the email of your desired bootstrap admin user (e.g. admin@u.nus.edu) and enter a password that is at least 8 characters long, with a number and special character
+5. Save the user
+6. Duplicate the .env.example file and rename it to .env
+7. Edit the `ADMIN_BOOTSTRAP_EMAIL=admin@u.nus.edu`and change the email after the `=` character to the email you set in the Firebase Emulator
+8. Restart the user service
+9. The admin account is created and you can log in with it
+
 ## Sprint 1 API
 
 Authenticated endpoints use:
