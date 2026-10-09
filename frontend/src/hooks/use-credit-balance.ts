@@ -18,7 +18,6 @@ export type CreditBalance = {
   totalBalance: number
   reservedBalance: number
   usableBalance: number
-  version: number
   asOf: string
 }
 
@@ -36,62 +35,142 @@ const INITIAL_STATE: BalanceState = {
   loading: false,
 }
 
+// Order outcomes reach Credit Service asynchronously. Retry an invalidated balance until
+// its returned snapshot changes so a fast, stale first read does not leave the UI outdated.
+const INVALIDATION_RETRY_DELAYS_MS = [0, 500, 1_000, 2_000, 4_000, 8_000, 15_000] as const
+const BALANCE_SYNC_INTERVAL_MS = 5_000
+
+function balancesMatch(left: CreditBalance | null, right: CreditBalance) {
+  return left !== null
+    && left.userId === right.userId
+    && left.totalBalance === right.totalBalance
+    && left.reservedBalance === right.reservedBalance
+    && left.usableBalance === right.usableBalance
+    && left.asOf === right.asOf
+}
+
 export function useCreditBalance() {
   const { user, loading: authLoading } = useAuth()
   const api = useApi()
-  const requestVersion = useRef(0)
+  const activeOwnerId = useRef<string | null>(null)
+  const inFlight = useRef<{ ownerId: string; request: Promise<CreditBalance> } | null>(null)
+  const latestBalance = useRef<{ ownerId: string; balance: CreditBalance } | null>(null)
   const [state, setState] = useState<BalanceState>(INITIAL_STATE)
 
-  const refresh = useCallback(async () => {
-    const ownerId = user?.uid
-    if (!ownerId) return
+  useEffect(() => {
+    const ownerId = user?.uid ?? null
+    activeOwnerId.current = ownerId
+    return () => {
+      if (activeOwnerId.current === ownerId) activeOwnerId.current = null
+    }
+  }, [user?.uid])
 
-    const version = ++requestVersion.current
-    setState((current) => ({
-      ownerId,
-      balance: current.ownerId === ownerId ? current.balance : null,
-      error: false,
-      loading: true,
-    }))
+  const loadBalance = useCallback(async (background: boolean) => {
+    const ownerId = user?.uid
+    if (!ownerId) return null
+
+    if (!background) {
+      setState((current) => ({
+        ownerId,
+        balance: current.ownerId === ownerId ? current.balance : null,
+        error: false,
+        loading: true,
+      }))
+    }
+
+    let request = inFlight.current?.ownerId === ownerId ? inFlight.current.request : null
+    if (!request) {
+      request = api<CreditBalance>("/api/credits/me")
+      inFlight.current = { ownerId, request }
+    }
 
     try {
-      const balance = await api<CreditBalance>("/api/credits/me")
-      if (requestVersion.current === version) {
-        setState({ ownerId, balance, error: false, loading: false })
-      }
+      const balance = await request
+      if (activeOwnerId.current !== ownerId) return null
+
+      latestBalance.current = { ownerId, balance }
+      setState((current) => {
+        const unchanged = balancesMatch(current.balance, balance)
+          && current.ownerId === ownerId && !current.error && !current.loading
+        return unchanged ? current : { ownerId, balance, error: false, loading: false }
+      })
+      return balance
     } catch {
-      if (requestVersion.current === version) {
+      if (!background && activeOwnerId.current === ownerId) {
         setState({ ownerId, balance: null, error: true, loading: false })
       }
+      return null
+    } finally {
+      if (inFlight.current?.request === request) inFlight.current = null
     }
   }, [api, user?.uid])
+
+  const refresh = useCallback(() => loadBalance(false), [loadBalance])
+  const sync = useCallback(() => loadBalance(true), [loadBalance])
 
   useEffect(() => {
     if (authLoading || !user) return
 
     const timer = window.setTimeout(() => void refresh(), 0)
-    return () => {
-      window.clearTimeout(timer)
-      requestVersion.current += 1
-    }
+    return () => window.clearTimeout(timer)
   }, [authLoading, refresh, user])
 
   useEffect(() => {
     if (!user) return
 
-    const refreshOnFocus = () => {
-      if (document.visibilityState === "visible") void refresh()
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") void sync()
     }
-    window.addEventListener("focus", refreshOnFocus)
-    return () => window.removeEventListener("focus", refreshOnFocus)
-  }, [refresh, user])
+    const timer = window.setInterval(syncWhenVisible, BALANCE_SYNC_INTERVAL_MS)
+    window.addEventListener("focus", syncWhenVisible)
+    document.addEventListener("visibilitychange", syncWhenVisible)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("focus", syncWhenVisible)
+      document.removeEventListener("visibilitychange", syncWhenVisible)
+    }
+  }, [sync, user])
 
   useEffect(() => {
     if (!user) return
 
-    const refreshAfterMutation = () => void refresh()
+    let invalidationVersion = 0
+    const retryTimers = new Set<number>()
+
+    const refreshAfterMutation = () => {
+      retryTimers.forEach((timer) => window.clearTimeout(timer))
+      retryTimers.clear()
+      const currentInvalidation = ++invalidationVersion
+      const cached = latestBalance.current
+      const baseline = cached?.ownerId === user.uid ? cached.balance : null
+
+      const refreshUntilChanged = async (attempt: number) => {
+        if (currentInvalidation !== invalidationVersion) return
+
+        const balance = await refresh()
+        if (currentInvalidation !== invalidationVersion) return
+        if (balance && (baseline === null || !balancesMatch(baseline, balance))) return
+
+        const nextAttempt = attempt + 1
+        if (nextAttempt >= INVALIDATION_RETRY_DELAYS_MS.length) return
+
+        const timer = window.setTimeout(() => {
+          retryTimers.delete(timer)
+          void refreshUntilChanged(nextAttempt)
+        }, INVALIDATION_RETRY_DELAYS_MS[nextAttempt])
+        retryTimers.add(timer)
+      }
+
+      void refreshUntilChanged(0)
+    }
+
     window.addEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
-    return () => window.removeEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
+    return () => {
+      invalidationVersion += 1
+      retryTimers.forEach((timer) => window.clearTimeout(timer))
+      retryTimers.clear()
+      window.removeEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
+    }
   }, [refresh, user])
 
   const ownerId = user?.uid ?? null
