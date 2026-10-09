@@ -117,6 +117,8 @@ services:
     environment:
       <<: *backend-env
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
+      ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-false}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
       CREDIT_SERVICE_URL: ${CREDIT_SERVICE_URL:-http://credit-service:8080}
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
