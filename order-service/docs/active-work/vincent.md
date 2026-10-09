@@ -14,7 +14,7 @@
   be accepted. Same committed command replay avoids another Credit call, stale
   Order versions fail validation. No background reset/repost retry worker exists.
   Credit-only null replay authorization/delayed direct calls remain distinct.
-- Running existing CreditOrderEventConsumerTest, CreditOrderEventControllerTest,
+- Ran existing CreditOrderEventConsumerTest, CreditOrderEventControllerTest,
   CreditServiceTest, JpaCreditRepositoryIntegrationTest in Java 21 Docker on a
   read-only source copy; Testcontainers creates isolated credit_test PostgreSQL.
   Build output is container-local; dependency cache only reused. No app DB touched.
@@ -28,6 +28,8 @@
   JSON examples, whitespace and exact path scope. Learning remains ignored.
   Confirmed the two isolated PostgreSQL/Ryuk test containers were removed;
   no application-container/database removal or restart. Sprint remains [~].
+- Verification documentation committed as 2a912e0; disclosure recorded separately.
+  No push. Local learning remains excluded from commits.
 
 ## Credit feedback clarification — 2026-10-09
 
