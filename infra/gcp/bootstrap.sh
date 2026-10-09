@@ -10,8 +10,10 @@
 #   - Artifact Registry docker repo                     ${AR_REPO}
 #   - one runtime service account per service           foc-<service>@
 #   - one Firestore database per service per env         <name>-<env>, only readable by foc-<service>@
-#   - one shared Order Service Cloud SQL PostgreSQL instance with staging/production databases
-#     and separate runtime users/secrets (approved by order-service ADR-008)
+#   - one shared Cloud SQL PostgreSQL instance with isolated Order/Credit databases,
+#     runtime users, and secrets per environment (approved by order-service ADR-008)
+#   - Pub/Sub API prerequisites; Credit push subscriptions are provisioned separately by
+#     infra/gcp/configure-credit-pubsub.sh after the target Cloud Run service exists
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
 #   - deployer service account used by GitHub Actions    foc-deployer@
 #   - read-only custom role focInfraReader (deployer), used by the CI infrastructure check
@@ -58,6 +60,9 @@ config_bucket() { echo "${PROJECT_ID}-foc-config-$1"; }
 sql_database() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_DATABASE" || echo "$CLOUD_SQL_PRODUCTION_DATABASE"; }
 sql_user() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_USER" || echo "$CLOUD_SQL_PRODUCTION_USER"; }
 sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "$CLOUD_SQL_PRODUCTION_SECRET"; }
+credit_sql_database() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_DATABASE" || echo "$CREDIT_SQL_PRODUCTION_DATABASE"; }
+credit_sql_user() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_USER" || echo "$CREDIT_SQL_PRODUCTION_USER"; }
+credit_sql_secret() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_SECRET" || echo "$CREDIT_SQL_PRODUCTION_SECRET"; }
 secret_has_version() {
   local secret=$1 version
   version=$(gc secrets versions list "$secret" --filter='state=ENABLED' --format='value(name)' | head -n1)
@@ -88,7 +93,7 @@ gc services enable \
   run.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
   secretmanager.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com \
-  sqladmin.googleapis.com
+  sqladmin.googleapis.com pubsub.googleapis.com
 
 log "Artifact Registry repository: $AR_REPO ($REGION)"
 exists gc artifacts repositories describe "$AR_REPO" --location "$REGION" ||
@@ -130,6 +135,19 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 # The Order Service runtime identity may connect to Cloud SQL; database credentials remain in Secret Manager.
 project_binding --member "serviceAccount:$(runtime_sa order-service)" --role roles/cloudsql.client --condition None
+
+log "Credit Service databases on the shared Cloud SQL PostgreSQL instance"
+for env in "${ENVIRONMENTS[@]}"; do
+  db=$(credit_sql_database "$env")
+  exists gc sql databases describe "$db" --instance "$CLOUD_SQL_INSTANCE" ||
+    gc sql databases create "$db" --instance "$CLOUD_SQL_INSTANCE"
+  secret=$(credit_sql_secret "$env")
+  ensure_sql_user_secret "$(credit_sql_user "$env")" "$secret"
+  gc secrets add-iam-policy-binding "$secret" \
+    --member "serviceAccount:$(runtime_sa credit-service)" --role roles/secretmanager.secretAccessor >/dev/null
+done
+# The Credit Service runtime identity may connect to Cloud SQL; database credentials remain in Secret Manager.
+project_binding --member "serviceAccount:$(runtime_sa credit-service)" --role roles/cloudsql.client --condition None
 
 log "Firestore databases (database-per-service)"
 for svc in ${FIRESTORE_SERVICES[@]+"${FIRESTORE_SERVICES[@]}"}; do
@@ -177,7 +195,7 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 
 log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
-reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,resourcemanager.projects.getIamPolicy,storage.buckets.get"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy"
 if exists gc iam roles describe focInfraReader; then
   gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
 else

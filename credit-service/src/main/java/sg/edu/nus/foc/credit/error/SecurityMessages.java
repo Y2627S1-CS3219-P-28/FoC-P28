@@ -11,7 +11,8 @@ public final class SecurityMessages {
 
     public static final String UNAUTHENTICATED =
             "Sign in to continue: a valid Firebase ID token is required in the Authorization header.";
-    public static final String FORBIDDEN = "You may only access your own credit records.";
+    public static final String FORBIDDEN = "You do not have permission to perform this credit operation.";
+    public static final String ROLE_LOOKUP_UNAVAILABLE = "User Service role lookup is unavailable.";
 
     private SecurityMessages() {
     }

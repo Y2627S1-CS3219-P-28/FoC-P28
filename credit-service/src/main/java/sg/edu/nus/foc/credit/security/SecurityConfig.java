@@ -14,24 +14,38 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import sg.edu.nus.foc.credit.config.CreditProperties;
+import sg.edu.nus.foc.credit.config.CreditPushProperties;
+import sg.edu.nus.foc.credit.api.CreditOrderEventController;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
+@EnableMethodSecurity
 class SecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+    private static final String GOOGLE_OIDC_JWK_SET_URI = "https://www.googleapis.com/oauth2/v3/certs";
 
     static final String[] PUBLIC_PATHS = {
             "/actuator/health", "/actuator/health/**", "/actuator/info",
@@ -41,7 +55,33 @@ class SecurityConfig {
     };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonSecurityHandlers handlers) throws Exception {
+    @Order(1)
+    SecurityFilterChain pubSubPushSecurityFilterChain(HttpSecurity http,
+                                                       JsonSecurityHandlers handlers,
+                                                       CreditPushProperties properties) throws Exception {
+        http
+                .securityMatcher(CreditOrderEventController.PUSH_PATH)
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.decoder(pubSubPushJwtDecoder(properties)))
+                        .authenticationEntryPoint(handlers)
+                        .accessDeniedHandler(handlers))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(handlers)
+                        .accessDeniedHandler(handlers));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            JwtAuthenticationConverter jwtAuthenticationConverter,
+                                            JsonSecurityHandlers handlers) throws Exception {
+        AuthenticationEntryPointFailureHandler failureHandler = new AuthenticationEntryPointFailureHandler(handlers);
+        failureHandler.setRethrowAuthenticationServiceException(false);
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -50,14 +90,61 @@ class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth -> oauth
-                        .jwt(Customizer.withDefaults())
-                        .authenticationEntryPoint(handlers)
-                        .accessDeniedHandler(handlers))
+                .oauth2ResourceServer(oauth -> {
+                    oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                            .authenticationEntryPoint(handlers)
+                            .accessDeniedHandler(handlers);
+                    oauth.addObjectPostProcessor(new ObjectPostProcessor<BearerTokenAuthenticationFilter>() {
+                        @Override
+                        public <O extends BearerTokenAuthenticationFilter> O postProcess(O filter) {
+                            filter.setAuthenticationFailureHandler(failureHandler);
+                            return filter;
+                        }
+                    });
+                })
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers));
         return http.build();
+    }
+
+    @Bean
+    RoleProvider roleProvider(CreditProperties properties) {
+        CreditProperties.UserServiceSettings userService = properties.userService();
+        if (userService.mode() == CreditProperties.Mode.MOCK) {
+            log.info("Resolving Credit Service roles with the mock User Service ({} admin email(s))",
+                    userService.mockAdminEmails().size());
+            return new MockUserServiceRoleProvider(userService.mockAdminEmails());
+        }
+        if (userService.baseUrl().isEmpty()) {
+            throw new IllegalStateException("USER_SERVICE_URL is required when USER_SERVICE_MODE=http");
+        }
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(userService.timeout());
+        requestFactory.setReadTimeout(userService.timeout());
+        return new HttpUserServiceRoleProvider(RestClient.builder()
+                .baseUrl(userService.baseUrl())
+                .requestFactory(requestFactory)
+                .build());
+    }
+
+    @Bean
+    FirebaseRoleAuthoritiesConverter firebaseRoleAuthoritiesConverter(RoleProvider roleProvider) {
+        return new FirebaseRoleAuthoritiesConverter(roleProvider);
+    }
+
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter(FirebaseRoleAuthoritiesConverter authorities) {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
+    }
+
+    JwtDecoder pubSubPushJwtDecoder(CreditPushProperties properties) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(GOOGLE_OIDC_JWK_SET_URI).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefault(), new PubSubPushTokenValidator(properties)));
+        return decoder;
     }
 
     @Bean

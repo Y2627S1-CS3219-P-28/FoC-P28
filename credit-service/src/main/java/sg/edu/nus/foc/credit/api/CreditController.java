@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -96,6 +97,45 @@ public class CreditController {
             JwtAuthenticationToken caller) {
         CreditReservation reservation = service.getReservation(orderId, caller.getName());
         return ReservationResponse.from(reservation);
+    }
+
+    @PutMapping("/orders/{orderId}/courier-assignment")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "Assign the authenticated courier to an active order reservation")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Courier assignment recorded or replayed"),
+            @ApiResponse(responseCode = "403",
+                    description = "Caller lacks the courier role or identity does not match"),
+            @ApiResponse(responseCode = "404", description = "Reservation or courier credit account not found"),
+            @ApiResponse(responseCode = "409", description = "Reservation is inactive or assigned elsewhere"),
+            @ApiResponse(responseCode = "503", description = "User Service role lookup is unavailable")
+    })
+    public ResponseEntity<Void> assignCourier(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            @Valid @RequestBody CourierAssignmentRequest request,
+            JwtAuthenticationToken caller) {
+        requireSelf(request.courierId(), caller);
+        service.assignCourier(orderId, request.courierId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/orders/{orderId}/hold-for-reopen")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "Clear the assigned courier while retaining reserved credits for reopening")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reservation held for reopen or already held"),
+            @ApiResponse(responseCode = "403", description = "Caller is not the assigned courier"),
+            @ApiResponse(responseCode = "404", description = "Reservation not found"),
+            @ApiResponse(responseCode = "409", description = "Reservation is no longer active"),
+            @ApiResponse(responseCode = "503", description = "User Service role lookup is unavailable")
+    })
+    public ResponseEntity<Void> holdForReopen(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            JwtAuthenticationToken caller) {
+        service.holdForReopen(orderId, caller.getName());
+        return ResponseEntity.ok().build();
     }
 
     private static void requireSelf(String userId, JwtAuthenticationToken caller) {

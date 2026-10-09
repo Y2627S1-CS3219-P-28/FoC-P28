@@ -9,6 +9,6 @@ package sg.edu.nus.foc.credit.error;
 
 public class EventConflictException extends RuntimeException {
     public EventConflictException(String eventId) {
-        super("Event " + eventId + " was already used for different registration data.");
+        super("Event " + eventId + " was already processed with different data.");
     }
 }

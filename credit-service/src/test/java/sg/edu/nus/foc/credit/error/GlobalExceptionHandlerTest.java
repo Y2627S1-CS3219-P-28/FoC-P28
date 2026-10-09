@@ -14,9 +14,14 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler(
@@ -33,22 +38,28 @@ class GlobalExceptionHandlerTest {
                 .isEqualTo("INSUFFICIENT_CREDITS");
         assertThat(handler.reservationConflict(new ReservationConflictException("o"), request).getBody().error())
                 .isEqualTo("RESERVATION_CONFLICT");
+        assertThat(handler.reservationStateConflict(
+                new ReservationStateConflictException("o", "is inactive."), request).getBody().error())
+                .isEqualTo("RESERVATION_CONFLICT");
         assertThat(handler.eventConflict(new EventConflictException("e"), request).getBody().error())
                 .isEqualTo("EVENT_CONFLICT");
     }
 
     @Test
-    void mapsValidationAuthenticationAndAuthorizationErrors() {
+    void mapsValidationAuthenticationAndAuthorizationErrors(CapturedOutput output) {
         assertThat(handler.invalidAmount(new InvalidCreditAmountException(0), request).getBody().details())
                 .extracting(ApiError.FieldProblem::field).containsExactly("amount");
         assertThat(handler.invalidIdentifier(new InvalidCreditIdException("orderId"), request).getBody().details())
                 .extracting(ApiError.FieldProblem::field).containsExactly("orderId");
+        assertThat(handler.invalidOrderEvent(new InvalidOrderEventException("bad event"), request)
+                .getStatusCode().value()).isEqualTo(400);
         assertThat(handler.unauthenticated(new BadCredentialsException("bad"), request).getStatusCode().value())
                 .isEqualTo(401);
         assertThat(handler.forbidden(new ForbiddenException("specific"), request).getBody().message())
                 .isEqualTo("specific");
         assertThat(handler.forbidden(new org.springframework.security.access.AccessDeniedException("generic"), request)
                 .getBody().message()).isEqualTo(SecurityMessages.FORBIDDEN);
+        assertThat(output).contains("credit_request_rejected");
     }
 
     @Test
@@ -57,5 +68,14 @@ class GlobalExceptionHandlerTest {
         assertThat(body.status()).isEqualTo(500);
         assertThat(body.message()).doesNotContain("secret");
         assertThat(body.timestamp()).isEqualTo(Instant.parse("2026-09-25T00:00:00Z"));
+    }
+
+    @Test
+    void mapsDatabaseFailuresToServiceUnavailableForPubSubRetry() {
+        ApiError body = handler.persistenceUnavailable(
+                new DataAccessResourceFailureException("offline"), request).getBody();
+
+        assertThat(body.status()).isEqualTo(503);
+        assertThat(body.error()).isEqualTo("SERVICE_UNAVAILABLE");
     }
 }

@@ -20,4 +20,12 @@ public interface CreditRepository {
     ReservationResult reserve(String orderId, String requesterId, long amount);
 
     Optional<CreditReservation> findReservation(String orderId);
+
+    void assignCourier(String orderId, String courierId);
+
+    void holdForReopen(String orderId, String callerId);
+
+    void refund(CreditOutcomeEvent event);
+
+    void settle(CreditOutcomeEvent event);
 }
