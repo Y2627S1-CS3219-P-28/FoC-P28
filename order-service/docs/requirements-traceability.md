@@ -1,5 +1,18 @@
 # Order Service Requirements Traceability
 
+## CHANGE-091: Actual field errors and new repost minimum
+
+| Requirement / amendment | Classes / UI / contract | Tests / verification |
+| --- | --- | --- |
+| F1.1-F1.3, NFR2: explain only invalid creation fields | Order.open, CreateOrderRequest, existing OrderProblem.Detail/exception handler; Requester inline errors/summary | OrderFieldValidationTest, OrderCreationValidationTest; page RTL server/client details; no Supplier/Credit calls for invalid pair |
+| NTH4 / ADR-030: new automatic expiry >= due+30min, due>=old expiry | RepostPlan constructor; creation picker/helper; old explicit plans unchanged | Exact boundary/domain/frontend tests; isolated PostgreSQL saved-short-plan reload/execution |
+| NTH4 / ADR-030: manual expiry >= submission+30min | Order.createManualRepost, OrderRepostService; manual inline expiry error | Domain inclusive boundary, service rejection before reservation, RTL expiry feedback |
+| ADR-028 late execution / NFR3 | Automatic path uses saved future expiry, not manual minimum | Legacy and late execution regressions; full Maven/coverage and frontend evidence in CHANGE-091 |
+
+No new peer shape or schema, no retry/credential implementation; live/browser
+integration remains a completion gate. Historical tables below remain dated.
+
+
 ## CHANGE-090: Credit push security exception
 
 | Existing requirement / approved invariant | Repair | Verification / remaining gate |

@@ -4,6 +4,7 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
+| [ADR-030](ADR-030-field-errors-and-new-repost-minimum.md) | Accepted, Vincent 2026-10-09 | Actual field errors; new auto due-to-expiry/manual submit-to-expiry min30; saved explicit plans grandfathered |
 | [ADR-029](ADR-029-local-live-credit-push.md) | Accepted; local connector tested, cloud integration pending | Isolated financial push through exact-path authenticated local ingress; existing peer source/security/ledger ownership retained |
 | [ADR-028](ADR-028-explicit-repost-expiry-and-latest-outcomes.md) | Accepted; locally verified, live gates open | Explicit automatic expiry, legacy no-expiry disable and latest safe failure persistence after rollback; background retries paused |
 | [ADR-027](ADR-027-repost-retry-polling-and-peer-auth-proposal.md) | Polling implemented; background retries paused | Fixed-ID bounded retry design retained; trusted peer credentials documentation only; explicit expiry/outcomes now ADR-028 |

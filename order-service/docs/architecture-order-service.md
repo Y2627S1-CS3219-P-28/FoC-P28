@@ -1,5 +1,17 @@
 # Order Service Architecture
 
+## Effective validation refinement - CHANGE-091 / ADR-030
+
+Order.open/createManualRepost own local field/minimum validation. New RepostPlan
+constructor requires expiry >= scheduled due+30min; due>=original expiry remains.
+JPA hydration and late automatic execution preserve saved explicit plans. Manual
+submission requires expiry>=submission+30min, without applying that minimum to
+automatic execution. Existing ErrorResponse details identify actual fields; UI
+maps them inline, backend remains authoritative. Creation verifies requester,
+validates local fields, then Supplier/Credit, before persistence. No responsibility,
+peer/topology/event/schema/credential/retry change; dated timing below is history.
+
+
 CHANGE-088 / ADR-029 adds an opt-in [local live test topology](local-live-testing.md)
 only: real HTTP peers, existing authenticated Order profile, isolated real Pub/Sub,
 restricted HTTPS push into local Credit. No class/domain/state/migration changes.

@@ -1,5 +1,14 @@
 # Active Sprint
 
+## Current validation slice - CHANGE-091 / ADR-030 (2026-10-09)
+
+Vincent approves Order/frontend field-specific creation errors and a 30-minute
+minimum for new automatic plans (scheduled due to expiry) and manual submissions
+(submission to expiry). Existing saved explicit-expiry plans are grandfathered;
+no migration, peer, retry or scheduler change. Source/test verification in
+CHANGE-091; live browser/peer gates remain and Sprint stays [~].
+
+
 ## One-time Credit push security repair - CHANGE-090 (2026-10-09)
 
 Vincent approved the narrow Credit converter/test exception. Signed push no longer

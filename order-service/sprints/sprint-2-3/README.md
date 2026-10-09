@@ -1,5 +1,16 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Effective CHANGE-091 validation
+
+New plans: repostExpiresAt >= repostDueAt + 30 minutes, due >= original expiry.
+New manual submissions: expiry >= submission + 30 minutes. Saved explicit-expiry
+automatic plans keep their original settings, and late execution needs only a
+still-future saved expiry. No V4 edit, schema or scheduler change. Creation and
+manual validation return actual field details before reservation. Responsive
+Requester forms show inline reasons; no generic list of unrelated possibilities.
+Order remains authority; User/Supplier/Credit contracts and paused retries remain.
+
+
 ## Effective CHANGE-086 implementation
 
 Vincent's explicit automatic expiry and saved latest manual/automatic outcomes

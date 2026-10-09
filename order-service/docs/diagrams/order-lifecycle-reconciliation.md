@@ -21,7 +21,7 @@ implementation explicitly deferred pending peer agreement.
 | Shared every-minute OPEN expiry / >=48h latest-DELIVERED completion | Implemented; same captured time, independent transactional passes/failure isolation. |
 | All-three-event outbox recovery every 15min, immediate dispatch retained | Implemented; publication acknowledgement is not refund completion. |
 | Creation-time automatic choice only | Implemented; post-creation configuration rejected. |
-| Explicit expiry > due >= original expiry; run late only before NEW expiry | Implemented in domain/API/UI; exact saved deadline used; V4 disables legacy plans without one. |
+| NEW automatic expiry >= due +30min; due >= original expiry; run late only before NEW expiry | CHANGE-091 / ADR-030; saved explicit-expiry plans grandfathered unchanged. Exact saved deadline used; prior V4 disable-without-expiry remains. |
 | Auto/manual new business IDs; abort reopen same business ID and separate immutable attempt UUID | Implemented. Old repost originals/outbox retained; linked originals hidden from requester queries. |
 | EXPIRED/CANCELLED refund and every-abort User penalty | Implemented Order-side; missing peer routes/subscribers in feedback. |
 | Validate Supplier response before reservation | Repaired: explicit valid:true required; valid:false/missing confirmation rejects. |
@@ -39,7 +39,7 @@ the approved principle, not an implemented worker. Topics/payloads/provider work
 flowchart TD
     CREATE["Requester POST /api/orders"] --> VERIFY["Verify User requester, Supplier valid:true,<br/>domain Order fields"]
     VERIFY --> PLAN{"Automatic repost enabled at creation?"}
-    PLAN -->|Yes| TIMES["Require explicit repostExpiresAt<br/>repostExpiresAt > repostDueAt >= original.expiresAt<br/>Configure credits and duration; quarter-hour UI"]
+    PLAN -->|Yes| TIMES["NEW plans: explicit repostExpiresAt<br/>repostExpiresAt >= repostDueAt + 30 minutes<br/>repostDueAt >= original.expiresAt<br/>Configure credits/duration; quarter-hour UI"]
     PLAN -->|No| RESERVE
     TIMES -->|Valid| RESERVE["Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount; synchronous 200/201"]
     TIMES -->|Invalid| NOOPEN["No new OPEN; return validation error"]
@@ -89,7 +89,7 @@ flowchart TD
     FUTURE -->|Yes| AUTOINFO["Use configured new expiry, credits, duration<br/>Never derive expiry from execution time"]
     EXPIRED --> DRAFT["Requester GET /api/orders/ID/repost-draft<br/>Authenticated actorId"]
     DRAFT --> MANUAL["Review description, credits, duration, explicit NEW expiry<br/>POST /api/orders/ID/repost"]
-    MANUAL --> MANUALCHECK["Verify requester/original ownership/version<br/>Validate future new expiry"]
+    MANUAL --> MANUALCHECK["Verify requester/original ownership/version<br/>New expiry >= submission +30 minutes"]
     AUTOINFO --> REPOSTRESERVE
     MANUALCHECK --> REPOSTRESERVE["Validate Supplier pair; NEW business ID<br/>Credit PUT /api/credits/orders/NEW-ID/reservation<br/>JSON requesterId, amount"]
     REPOSTRESERVE -->|200/201 confirmed matching RESERVED| SAVE["Save NEW OPEN and bidirectional linkage<br/>Keep old EXPIRED/refund; hide linked original<br/>Auto plan used only on success"]

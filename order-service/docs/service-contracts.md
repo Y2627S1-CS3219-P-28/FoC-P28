@@ -1,5 +1,17 @@
 # Service Contracts
 
+## Effective validation amendment - CHANGE-091 / ADR-030
+
+New automatic plans require repostDueAt >= original.expiresAt and
+repostExpiresAt >= repostDueAt + 30 minutes. Manual submissions require expiresAt
+>= submission + 30 minutes. Existing saved explicit-expiry automatic plans retain
+their instructions, including shorter windows. Late automatic execution uses the
+saved future expiry without demanding another 30 minutes from execution.
+Creation/manual local validation failures use the existing details[field,message]
+error envelope and identify only actual invalid fields. No peer API/event/schema
+change. Latest user approval supersedes only the historical new-plan timing below.
+
+
 ## Local delivery configuration — CHANGE-088 / ADR-029
 
 No endpoint/payload contract changes. Existing wrapped Google push POST to

@@ -1,5 +1,27 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-033: New repost minimum and actual-field errors (CHANGE-091)
+
+- Classification: user-approved specification refinement; Vincent, 2026-10-09,
+  ADR-030. Supersedes ADR-028 only for newly configured plan timing.
+- Original: explicit automatic expiry merely > due; manual backend merely future;
+  creation HTTP 400 replaced with all-rule UI message.
+- Approved: new automatic expiry >= due+30min, due>=original expiry; new manual
+  expiry >= submission+30min. Saved explicit plans keep original instructions,
+  without migration/disable/extension. Late automatic execution needs future
+  saved expiry only. Actual-field-only details reuse the approved API envelope.
+- Class refinement: Order owns creation/manual checks; RepostPlan constructor
+  validates NEW plan input, not JPA hydration. Creation validates local data after
+  requester verification but before Supplier/Credit. Repost service retains the
+  separate automatic path and eligible-failure rollback/outcome behavior.
+- Alternatives: silently normalize/disable legacy plans rejected by Vincent;
+  browser-only timing permits invalid direct API posts; applying manual min30 to
+  automatic execution wrongly rejects late runs. No new integration or schema.
+- Chain: CHANGE-091, ADR-030, contexts/sprint/contracts/traceability and editable
+  lifecycle diagram; tests/evidence in CHANGE-091. Peers/events/auth, paused
+  background retries and deployment remain unchanged. Sprint [~].
+
+
 ## ARCH-EVO-032: Approved isolated local cloud push connector
 
 - Vincent, 2026-10-09, CHANGE-088 / ADR-029: explicit implementation approval.

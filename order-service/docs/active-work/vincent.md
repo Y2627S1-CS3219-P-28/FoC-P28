@@ -1,5 +1,50 @@
 # Vincent - Active Work
 
+## Field-specific creation errors and 30-minute repost expiry - 2026-10-09
+
+- Vincent requests an Order/shared-frontend validation slice on sprint-2-3-credit:
+  show only actual invalid fields and reasons; automatic expiry at least 30
+  minutes after scheduled repost time, manual expiry at least 30 minutes after
+  submission. No peer implementation, auth, broker or retry changes requested.
+- Inspection: NewRequestPage replaces every HTTP 400 with an unrelated all-rule
+  message. ApiError/OrderExceptionHandler already support details[field,message].
+  Order.open bundles domain failures into one message; creation calls Supplier
+  before local pair validation. Identical IDs, not similar display names, define
+  the existing same-supplier rejection. Preserve that approved distinction.
+- ADR-028/RepostPlan/V4 currently permit any expiry strictly after due time.
+  createRepost accepts any future expiry; the manual UI alone checks 30 minutes.
+  Existing automatic plans with a 15-minute window were valid under the old rule.
+  Do not silently disable, extend or rewrite those saved instructions.
+- Proposed slice: inline accessible field messages plus a summary of actual
+  errors; populate the existing backend detail envelope without changing its
+  shape; validate before Credit reservation; enforce new automatic plans at
+  due+30 minutes and manual requests at submission+30 minutes. Retain quarter-hour
+  UI slots, UTC APIs, identity/ownership/idempotency and approved late-auto behavior.
+- APPROVED: Vincent explicitly chooses grandfathering already-saved automatic
+  plans; implement the constraint for upcoming plans only. CHANGE-091 / ADR-030
+  records the approved Order/frontend scope. No schema migration is needed.
+- Local implementation verification: fresh Java 21 wrapper verify passes 207
+  tests, zero failures/errors/skips; isolated PostgreSQL proves grandfathered plan
+  hydration/execution. JaCoCo 95.33% line / 84.52% branch, unchanged >=80% gates.
+  Tests-first failures and fixture corrections are recorded in CHANGE-091.
+- Frontend: 51 tests /15 files pass, lint zero errors/12 pre-existing warnings,
+  typecheck and production build pass. Creation shows actual inline field errors,
+  including server details; manual expiry feedback is inline too. Saved plans,
+  auth/peers/events/schedulers/schema/retries remain unchanged.
+- D1/selected Overall hashes match. Large context outputs were truncated and not
+  all historical mandatory records were rehydrated. This is a workflow gate
+  limitation, not a claim of complete context compliance or full Sprint completion.
+  Existing generic checker format/history failures remain separate, not passed.
+- Next: human review, remaining context/gate audit and authenticated desktop/mobile
+  browser verification after Order/frontend rebuild in the existing Compose
+  profile. Live peers/cloud not retested. No application database/tunnel/container
+  restart or reset; background credentials/retries remain paused; Sprint [~].
+- CHANGE-091 / ADR-030 / ARCH-EVO-033, contexts/sprint/contracts/traceability,
+  editable diagram and ignored learning synchronized; disclosure updated.
+  Verified backend commit d8d090e and frontend commit 583729f; documentation and
+  disclosure committed separately. No push. Generated evidence is ignored under
+  target/change091-verification/.
+
 ## Approved one-time Credit security interference - 2026-10-09
 
 - Vincent explicitly approved the narrowly scoped Credit push-security fix and

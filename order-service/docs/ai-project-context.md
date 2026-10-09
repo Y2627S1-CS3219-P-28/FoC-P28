@@ -1,5 +1,19 @@
 # Order Service Permanent Project Context
 
+## Current validation amendment - CHANGE-091 / ADR-030
+
+Vincent explicitly approved field-specific creation errors and 30-minute new
+repost windows on sprint-2-3-credit, 2026-10-09. New automatic expiry >= scheduled
+due + 30 minutes; due >= original expiry. Manual expiry >= submission + 30 minutes.
+Existing saved explicit-expiry plans are grandfathered; no silent disable/update.
+Late automatic execution still uses its saved future expiry, not execution +30.
+Reuse existing field-error envelope; local creation checks precede Supplier and
+Credit calls after requester verification. Backend remains authoritative. Existing
+responsive Order controls only; no shared auth/client, peer, schema, retry or event
+changes. Prior V4 disable-without-expiry decision remains. Verification tracked in
+CHANGE-091; Sprint remains [~] pending live/browser/cloud and existing peer gates.
+
+
 ## One-time Credit push security exception - CHANGE-090 (2026-10-09)
 
 Vincent explicitly approved isolating the existing Google push converter from
