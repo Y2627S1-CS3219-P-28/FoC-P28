@@ -26,7 +26,8 @@ import com.google.firebase.auth.FirebaseToken;
 import com.p28.userservice.authentication.AuthenticationService;
 import com.p28.userservice.authentication.FirebaseAuthService;
 import com.p28.userservice.logic.AddUserRequest;
-import com.p28.userservice.logic.CourierElgibility;
+import com.p28.userservice.logic.ApplyPenaltyRequest;
+import com.p28.userservice.logic.CourierEligibility;
 import com.p28.userservice.logic.UpdateUserRequest;
 import com.p28.userservice.logic.UserRoleContext;
 import com.p28.userservice.logic.UserService;
@@ -69,10 +70,12 @@ public class UserController {
     }
 
     // GET /api/users/:userId
+    // Only admins can get full info of a specific user
     @Operation(summary = "Get specific user based on userId")
     @GetMapping("/{userId}")
     public ResponseEntity<User> getUser(
-            @PathVariable String userId) {
+            @PathVariable String userId,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
         User user = userService.getUserByUserId(userId);
 
@@ -98,7 +101,7 @@ public class UserController {
     // GET /api/users/courier-eligibility/
     @Operation(summary = "Get requesting user's courier eligibility from auth token")
     @GetMapping("/courier-eligibility")
-    public ResponseEntity<CourierElgibility> getCourierEligibility(
+    public ResponseEntity<CourierEligibility> getCourierEligibility(
             @RequestHeader("Authorization") String authorizationHeader) {
 
         FirebaseToken token = authenticationService.authenticate(authorizationHeader);
@@ -141,19 +144,17 @@ public class UserController {
     @Operation(summary = "Add user into database")
     @PostMapping
     public ResponseEntity<User> addUser(
-            @RequestBody AddUserRequest request,
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+            @RequestHeader("Authorization") String authorizationHeader) {
         
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Missing or invalid Authorization header"
-            );
-        }
-        
-        String token = authorization.substring(7);
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
 
-        User user = userService.addUser(request, token);
+        // after authentication, we know this token is correct to pass to credit service
+        String tokenToPass = authorizationHeader.substring(7);
+
+        String userId = token.getUid();
+        String email = token.getEmail();
+
+        User user = userService.addUser(tokenToPass, userId, email);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
@@ -187,8 +188,7 @@ public class UserController {
         FirebaseToken token = authenticationService.authenticate(authorizationHeader);
         String requesterId = token.getUid();
         User requester = userService.getUserByUserId(requesterId);
-        if (requester.getRoles() == null ||
-                !requester.getRoles().contains("admin")) {
+        if (!userService.verifyAdmin(requester)) {
             throw new ResponseStatusException(
                 HttpStatus.FORBIDDEN,
                 "USER_NOT_ADMIN"
@@ -200,44 +200,78 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // PUT routes for order outcomes
-    // @Operation(summary = "Update user penalty from normal completion")
-    // @PutMapping("/{courierId}/outcome-completed")
-    // public ResponseEntity<User> acceptCourierOutcomeCompleted(
-            // @PathVariable String courierId) {
+    // PUT /api/users/:userId/admin
+    // Only admin can update other users' info
+    @PutMapping("/{userId}/admin")
+    public ResponseEntity<User> promoteToAdmin(
+            @PathVariable String userId,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
-        // return ResponseEntity.ok(
-            // userService.acceptCourierOutcomeCompleted(courierId)
-        // );
-    // }
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
 
-    // @Operation(summary = "Update user penalty from normal completion")
-    // @PutMapping("/{courierId}/outcome-aborted")
-    // public ResponseEntity<User> acceptCourierOutcomeAborted(
-            // @PathVariable String courierId) {
+        User requester = userService.getUserByUserId(token.getUid());
 
-        // return ResponseEntity.ok(
-            // userService.acceptCourierOutcomeAborted(courierId)
-        // );
-    // }
+        if (!userService.verifyAdmin(requester)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "USER_NOT_ADMIN"
+            );
+        }
 
-    // @Operation(summary = "Update user penalty from normal completion")
-    // @PutMapping("/{courierId}/outcome-overdue")
-    // public ResponseEntity<User> acceptCourierOutcomeOverdue(
-            // @PathVariable String courierId) {
+        User promotedUser = userService.promoteToAdmin(userId);
 
-        // return ResponseEntity.ok(
-            // userService.acceptCourierOutcomeOverdue(courierId)
-        // );
-    // }
+        return ResponseEntity.ok(promotedUser);
+    }
+
+    // PUT /api/users/{userId}/penalty
+    // Only used by other services
+    @Operation(summary = "Update any user's penalty")
+    @PutMapping("/{userId}/penalty")
+    public ResponseEntity<User> updateUser(
+            @PathVariable String userId,
+            @RequestBody ApplyPenaltyRequest request) {
+            
+        User user = userService.adjustPenalty(userId, request.getPenalty());
+
+        return ResponseEntity.ok(user);
+    }
+
+    // DELETE /api/users/me
+    // User can delete their own account
+    @Operation(summary = "Delete user themselves from database")
+    @DeleteMapping("/me")
+    public ResponseEntity<String> deleteUser(
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+
+        String userId = token.getUid();
+
+        userService.deleteUser(userId);
+
+        return ResponseEntity.ok("User deleted");
+    }
 
     // DELETE /api/users/:id
+    // Only admins can delete other users
     @Operation(summary = "Delete specified user from database")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteUser(
-            @PathVariable String id) {
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<String> deleteUserAsAdmin(
+            @PathVariable String userId,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
-        userService.deleteUser(id);
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+
+        User requester = userService.getUserByUserId(token.getUid());
+
+        if (!userService.verifyAdmin(requester)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "USER_NOT_ADMIN"
+            );
+        }
+        
+        userService.deleteUser(userId);
 
         return ResponseEntity.ok("User removed");
     }

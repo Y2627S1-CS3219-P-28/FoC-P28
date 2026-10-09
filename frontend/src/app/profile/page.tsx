@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { DeleteAccountButton } from "@/components/profile/DeleteAccountButton"
 
 
 type UserProfile = {
@@ -107,6 +108,19 @@ export default function ProfilePage() {
             {profile.isCourierSuspended ? "Suspended" : "Active"}
           </p>
         </CardContent>
+        <CardFooter className="flex flex-col items-stretch gap-3">
+          <div className="w-full border-t pt-4">
+            <h3 className="font-semibold text-destructive">
+              Danger Zone
+            </h3>
+            <p className="mt-1 mb-3 text-sm text-muted-foreground">
+              Permanently delete your account and its associated profile.
+              This action cannot be undone.
+            </p>
+
+            <DeleteAccountButton />
+          </div>
+        </CardFooter>
       </Card>
     </div>
   )

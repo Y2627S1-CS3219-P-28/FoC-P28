@@ -1,5 +1,6 @@
 package com.p28.userservice.logic;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
@@ -17,6 +18,9 @@ import com.p28.userservice.authentication.FirebaseAuthService;
 
 @Service
 public class UserService {
+    @Value("${admin.bootstrap-email:}")
+    private String bootstrapAdminEmail;
+
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
     private final CreditServiceClient creditServiceClient;
@@ -58,7 +62,7 @@ public class UserService {
         return new UserRoleContext(user.getUserId(), user.getRoles());
     }
 
-    public CourierElgibility getCourierEligibility(String userId) {
+    public CourierEligibility getCourierEligibility(String userId) {
         User user = userRepository
                 .findByUserId(userId)
                 .orElseThrow(() -> 
@@ -66,11 +70,20 @@ public class UserService {
 
         Instant now = Instant.now();
 
-        return new CourierElgibility(
+        return new CourierEligibility(
                 !(user.getPenalty() >= 10
                 && user.getSuspensionEndDate() != null
                 && user.getSuspensionEndDate().isAfter(now))
             );
+    }
+
+    public AdminEligibility getAdminEligibility(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> 
+                        new RuntimeException("User not found"));
+
+        return new AdminEligibility(verifyAdmin(user));
     }
 
     public UserSummary getUserSummary(String userId) {
@@ -86,10 +99,8 @@ public class UserService {
             user.getSuspensionEndDate());
     }
 
-    public User addUser(AddUserRequest request, String token) {
-        if (request.getUserId() == null ||
-            request.getEmail() == null) {
-
+    public User addUser(String token, String userId, String email) {
+        if (userId == null || email == null) {
             throw new IllegalArgumentException("Please enter all fields.");
         }
 
@@ -99,8 +110,8 @@ public class UserService {
         roles.add("courier");
         roles.add("requester");
 
-        user.setUserId(request.getUserId());
-        user.setEmail(request.getEmail());
+        user.setUserId(userId);
+        user.setEmail(email);
         user.setUsername("");
         user.setRoles(roles);
 
@@ -145,27 +156,43 @@ public class UserService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Deletes user from Firebase
+        firebaseAuthService.deleteUser(user.getUserId());
+
+        // Deletes user from MongoDB
         userRepository.delete(user);
     }
 
-    // public User acceptCourierOutcomeCompleted(String courierId) {
-       // User courier = getUserByUserId(courierId);
+    public boolean verifyAdmin(User user) {
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("admin");
+    }
 
-       // adjustPenalty(courier, -1);
+    public boolean verifyAdmin(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> 
+                        new RuntimeException("User not found"));
 
-       // return userRepository.save(courier);
-    // }
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("admin");
+    }
 
-    // public User acceptCourierOutcomeAborted(String courierId) {
-       // User courier = getUserByUserId(courierId);
+    // Adds admin role to user
+    // Doesn't change role list if already admin
+    public User promoteToAdmin(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> 
+                        new RuntimeException("User not found"));
 
-        // adjustPenalty(courier, 2);
+        List<String> roles = user.getRoles();
+        if (!roles.contains("admin")) {
+            roles.add("admin");
+            user.setRoles(roles);
+        }
 
-        // return userRepository.save(courier);
-    // }
-
-    public void verifyIdentity(Object accessContext) {
-        // TODO: implement
+        return userRepository.save(user);
     }
 
     // Single method to update a user's penalty
@@ -179,10 +206,11 @@ public class UserService {
             newPenalty = 0;
         }
 
+        // Applies suspension
         if (newPenalty >= 10) {
             newPenalty = 10;
 
-            // Applies suspension
+            // for debugging
             System.out.println(String.format("Applying suspension to user %s", user.getEmail()));
 
             List<String> roles = user.getRoles();

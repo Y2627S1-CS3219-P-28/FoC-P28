@@ -38,4 +38,12 @@ public class FirebaseAuthService {
             throw new RuntimeException("Failed to update Firebase email", e);
         }
     }
+
+    public void deleteUser(String firebaseUid) {
+        try {
+            FirebaseAuth.getInstance().deleteUser(firebaseUid);
+        } catch (FirebaseAuthException e) {
+            throw new RuntimeException("Failed to delete Firebase user", e);
+        }
+    }
 }

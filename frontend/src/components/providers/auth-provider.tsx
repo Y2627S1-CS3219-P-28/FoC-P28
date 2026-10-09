@@ -78,17 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user = userCredential.user;
             const token = await user.getIdToken();
                     
-            // User Firebase provided uid as our user ID
+            // Use Firebase provided uid as our user ID
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    userId: user.uid,
-                    email: user.email
-                })
+                }
             });
 
             // Checks if API succeeded
