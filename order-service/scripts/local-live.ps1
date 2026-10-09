@@ -69,8 +69,16 @@ function Invoke-Cloud([string[]] $Arguments, [switch] $AllowMissing) {
 
 function Invoke-Compose([string[]] $Arguments) {
     # Capture JSON privately: it may include database passwords. Never log it.
-    $output = @(& docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.yaml @Arguments 2>$null)
-    if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed (exit $LASTEXITCODE); check .env and Docker Desktop." }
+    $oldPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 converts even normal native stderr progress into
+        # error records. Do not let Stop abort before inspecting the exit code.
+        # Keep stderr separate from private stdout/config JSON.
+        $ErrorActionPreference = 'Continue'
+        $output = @(& docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.yaml @Arguments 2>$null)
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $oldPreference }
+    if ($code -ne 0) { throw "Docker Compose failed (exit $code); check .env and Docker Desktop." }
     return ($output -join "`n")
 }
 
