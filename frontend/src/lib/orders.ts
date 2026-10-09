@@ -97,26 +97,40 @@ export function minOrderExpiryDateTimeLocal(now = new Date()): string {
   return quarterHourDateTimeLocal(new Date(now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000))
 }
 
-export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
-  const expiry = new Date(form.expiresAt)
-  if (Number.isNaN(expiry.getTime())) return "Choose an order expiry time."
-  if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) {
-    return "Order expiry must be at least 30 minutes from now. Choose a later time."
+export type OrderFieldErrors = Partial<Record<keyof CreateOrderForm, string>>
+
+export function validateCreateOrderFields(form: CreateOrderForm, now = new Date()): OrderFieldErrors {
+  const errors: OrderFieldErrors = {}
+  if (!form.itemDescription.trim()) errors.itemDescription = "Describe what you need."
+  else if (form.itemDescription.trim().length > 100) errors.itemDescription = "Description must be 100 characters or fewer."
+  if (!form.pickupSupplierId.trim()) errors.pickupSupplierId = "Select a pickup supplier."
+  if (!form.deliverySupplierId.trim()) errors.deliverySupplierId = "Select a delivery supplier."
+  else if (form.pickupSupplierId.trim() === form.deliverySupplierId.trim()) {
+    errors.deliverySupplierId = "Delivery supplier must differ from pickup supplier."
   }
-  if (!isQuarterHourDateTime(form.expiresAt)) return "Choose expiry minutes of 00, 15, 30, or 45."
+  if (!Number.isSafeInteger(form.offeredCredits) || form.offeredCredits < 1) errors.offeredCredits = "Offered credits must be a whole number of at least 1."
+  if (!Number.isInteger(form.deliveryTimeLimitMinutes) || form.deliveryTimeLimitMinutes < 15) errors.deliveryTimeLimitMinutes = "Delivery time must be a whole number of at least 15 minutes."
+  const expiry = new Date(form.expiresAt)
+  if (Number.isNaN(expiry.getTime())) errors.expiresAt = "Choose an order expiry time."
+  else if (expiry.getTime() < now.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) errors.expiresAt = "Order expiry must be at least 30 minutes from now. Choose a later time."
+  else if (!isQuarterHourDateTime(form.expiresAt)) errors.expiresAt = "Choose expiry minutes of 00, 15, 30, or 45."
   if (form.automaticRepost) {
     const repostDueAt = new Date(form.repostDueAt)
-    if (Number.isNaN(repostDueAt.getTime())) return "Choose a repost time when automatic repost is enabled."
-    if (!isQuarterHourDateTime(form.repostDueAt)) return "Choose repost minutes of 00, 15, 30, or 45."
-    if (repostDueAt.getTime() < expiry.getTime()) return "Repost time must be at or after the original order expiry."
+    if (Number.isNaN(repostDueAt.getTime())) errors.repostDueAt = "Choose a repost time when automatic repost is enabled."
+    else if (!isQuarterHourDateTime(form.repostDueAt)) errors.repostDueAt = "Choose repost minutes of 00, 15, 30, or 45."
+    else if (repostDueAt.getTime() < expiry.getTime()) errors.repostDueAt = "Repost time must be at or after the original order expiry."
     const repostExpiry = new Date(form.repostExpiresAt)
-    if (Number.isNaN(repostExpiry.getTime())) return "Choose a repost expiry when automatic repost is enabled."
-    if (!isQuarterHourDateTime(form.repostExpiresAt)) return "Choose repost expiry minutes of 00, 15, 30, or 45."
-    if (repostExpiry.getTime() <= repostDueAt.getTime()) return "Repost expiry must be later than the repost time."
-    if (form.repostCreditAmount < 1) return "Repost credits must be at least 1."
-    if (form.repostDeliveryDurationMinutes < 15) return "Repost delivery time must be at least 15 minutes."
+    if (Number.isNaN(repostExpiry.getTime())) errors.repostExpiresAt = "Choose a repost expiry when automatic repost is enabled."
+    else if (!isQuarterHourDateTime(form.repostExpiresAt)) errors.repostExpiresAt = "Choose repost expiry minutes of 00, 15, 30, or 45."
+    else if (repostExpiry.getTime() < repostDueAt.getTime() + MIN_ORDER_EXPIRY_MINUTES * 60_000) errors.repostExpiresAt = "Repost expiry must be at least 30 minutes after the repost time."
+    if (!Number.isSafeInteger(form.repostCreditAmount) || form.repostCreditAmount < 1) errors.repostCreditAmount = "Repost credits must be at least 1."
+    if (!Number.isInteger(form.repostDeliveryDurationMinutes) || form.repostDeliveryDurationMinutes < 15) errors.repostDeliveryDurationMinutes = "Repost delivery time must be at least 15 minutes."
   }
-  return null
+  return errors
+}
+
+export function validateCreateOrderForm(form: CreateOrderForm, now = new Date()): string | null {
+  return Object.values(validateCreateOrderFields(form, now))[0] ?? null
 }
 
 const commandId = () => crypto.randomUUID()

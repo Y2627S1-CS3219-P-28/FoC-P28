@@ -20,6 +20,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
+  const [expiryError, setExpiryError] = useState<string | null>(null)
   const [failure, setFailure] = useState<{ message: string; version: number } | null>(null)
   const failureMessage = failure && order.version <= failure.version
     ? failure.message : order.repostFailureMessage
@@ -31,14 +32,17 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   async function manualRepost() {
     if (!user) return
     if (!isQuarterHourDateTime(expiresAt)) {
+      setExpiryError("Choose expiry minutes of 00, 15, 30, or 45.")
       toast.error("Choose expiry minutes of 00, 15, 30, or 45.")
       return
     }
     if (new Date(expiresAt).getTime() < Date.now() + 30 * 60_000) {
+      setExpiryError("Order expiry must be at least 30 minutes from now. Choose a later time.")
       toast.error("Order expiry must be at least 30 minutes from now. Choose a later time.")
       return
     }
     setBusy(true)
+    setExpiryError(null)
     setFailure(null)
     try {
       const updated = await api<Order>(`/api/orders/${order.id}/repost`, {
@@ -63,11 +67,12 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         : code === "FORBIDDEN" || code === "UNAUTHENTICATED"
           ? "Repost could not be authorized. Please sign in again."
           : code === "VALIDATION_ERROR"
-            ? "Repost failed: check the request details."
+            ? error instanceof ApiError ? error.details?.map(detail => detail.message).join(" ") || error.message : "Repost failed: check the request details."
             : code === "CONFLICT"
               ? "This request could not be reposted. Refresh and check its status."
               : "Could not repost right now. Please try again later."
       setFailure({ message, version: order.version })
+      if (error instanceof ApiError) setExpiryError(error.details?.find(detail => detail.field === "expiresAt")?.message ?? null)
       // Failure recording changes the original's version. Refresh it before
       // another manual attempt; polling/reload can also read this durable result.
       if (code !== "UNAUTHENTICATED" && code !== "FORBIDDEN") {
@@ -124,7 +129,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-credits-${order.id}`}>Credits</Label><Input id={`manual-credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-duration-${order.id}`}>Delivery minutes</Label><Input id={`manual-duration-${order.id}`} type="number" min="15" className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-          <div className="sm:col-span-3"><QuarterHourDateTimePicker id={"manual-expires-" + order.id} label="New expiry" min={minOrderExpiryDateTimeLocal()} value={expiresAt} onChange={setExpiresAt} /></div>
+          <div className="space-y-1 sm:col-span-3"><QuarterHourDateTimePicker id={"manual-expires-" + order.id} label="New expiry" min={minOrderExpiryDateTimeLocal()} invalid={!!expiryError} describedBy={`manual-expiry-help-${order.id}`} value={expiresAt} onChange={(value) => { setExpiresAt(value); setExpiryError(null) }} /><p id={`manual-expiry-help-${order.id}`} className={expiryError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{expiryError || "New expiry must be at least 30 minutes from now. Choose minutes 00, 15, 30, or 45."}</p></div>
         </div>
         <Button size="sm" onClick={() => void manualRepost()} disabled={busy}>{busy ? "Reposting…" : "Create repost"}</Button>
       </CardContent>

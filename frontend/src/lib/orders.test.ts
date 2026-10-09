@@ -132,15 +132,15 @@ describe("quarter-hour errand times", () => {
     const form: CreateOrderForm = {
       itemDescription: "item", pickupSupplierId: "store", deliverySupplierId: "hall",
       offeredCredits: 1, deliveryTimeLimitMinutes: 15, expiresAt: "2026-10-08T11:00",
-      automaticRepost: true, repostDueAt: "2026-10-08T11:00", repostExpiresAt: "2026-10-08T11:15",
+      automaticRepost: true, repostDueAt: "2026-10-08T11:00", repostExpiresAt: "2026-10-08T11:30",
       repostCreditAmount: 1, repostDeliveryDurationMinutes: 15,
     }
     expect(validateCreateOrderForm(form, now)).toBeNull()
     expect(validateCreateOrderForm({ ...form, repostDueAt: "2026-10-08T10:45" }, now))
       .toBe("Repost time must be at or after the original order expiry.")
-    for (const repostExpiresAt of ["2026-10-08T11:00", "2026-10-08T10:45"]) {
+    for (const repostExpiresAt of ["2026-10-08T11:00", "2026-10-08T10:45", "2026-10-08T11:15"]) {
       expect(validateCreateOrderForm({ ...form, repostExpiresAt }, now))
-        .toBe("Repost expiry must be later than the repost time.")
+        .toBe("Repost expiry must be at least 30 minutes after the repost time.")
     }
     expect(validateCreateOrderForm({ ...form, repostExpiresAt: "" }, now))
       .toBe("Choose a repost expiry when automatic repost is enabled.")

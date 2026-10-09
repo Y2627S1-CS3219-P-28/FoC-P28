@@ -96,6 +96,7 @@ describe("manual repost quarter-hour expiry", () => {
     fireEvent.change(screen.getByLabelText("New expiry date"), { target: { value: "" } })
     fireEvent.click(screen.getByRole("button", { name: "Create repost" }))
     expect(mocks.api).not.toHaveBeenCalled()
+    expect(screen.getByLabelText("New expiry date")).toHaveAttribute("aria-invalid", "true")
     expect(mocks.error).toHaveBeenCalledWith("Choose expiry minutes of 00, 15, 30, or 45.")
   })
 })
