@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useApi } from "@/hooks/use-api"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
+import { ApiError } from "@/lib/api"
 import { isQuarterHourDateTime, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, type Order } from "@/lib/orders"
 
 const inputClass = "h-9 rounded-lg border bg-transparent px-3 text-sm"
@@ -19,6 +20,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
   const [creditAmount, setCreditAmount] = useState(String(order.offeredCredits))
   const [duration, setDuration] = useState(String(order.deliveryTimeLimitMinutes))
   const [description, setDescription] = useState(order.itemDescription)
@@ -35,6 +37,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
       return
     }
     setBusy(true)
+    setFailure(null)
     try {
       const updated = await api<Order>(`/api/orders/${order.id}/repost`, {
         method: "POST",
@@ -52,7 +55,17 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
       invalidateCreditBalance()
       toast.success("Order reposted")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not repost this order.")
+      const code = error instanceof ApiError ? error.code : "UNKNOWN"
+      const message = code === "INSUFFICIENT_CREDITS"
+        ? "Repost failed: insufficient available credits."
+        : code === "FORBIDDEN" || code === "UNAUTHENTICATED"
+          ? "Repost could not be authorized. Please sign in again."
+          : code === "VALIDATION_ERROR"
+            ? "Repost failed: check the request details."
+            : code === "CONFLICT"
+              ? "This request could not be reposted. Refresh and check its status."
+              : "Could not repost right now. Please try again later."
+      setFailure(message)
     } finally {
       setBusy(false)
     }
@@ -93,6 +106,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         <CardDescription>This expired order has not been reposted. Review the details before creating one linked repost.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {failure && <p role="alert" className="text-xs text-destructive">{failure}</p>}
         <label className="space-y-1 text-sm"><Label htmlFor={`description-${order.id}`}>Description</Label><Input id={`description-${order.id}`} className={inputClass} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-credits-${order.id}`}>Credits</Label><Input id={`manual-credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>

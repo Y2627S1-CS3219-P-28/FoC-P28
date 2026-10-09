@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { RepostControls } from "@/components/orders/repost-controls"
 import type { Order } from "@/lib/orders"
+import { ApiError } from "@/lib/api"
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), error: vi.fn(), user: { uid: "requester-1" } }))
 vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
@@ -24,6 +25,26 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe("manual repost quarter-hour expiry", () => {
+  it("keeps the expired card and shows only the semantic insufficient-credit message", async () => {
+    const updated = vi.fn()
+    mocks.api.mockRejectedValue(new ApiError(409, "INSUFFICIENT_CREDITS", "raw peer details"))
+    render(<RepostControls order={expiredOrder} onUpdated={updated} />)
+    fireEvent.click(screen.getByRole("button", { name: "Create repost" }))
+    expect(await screen.findByText("Repost failed: insufficient available credits.")).toBeInTheDocument()
+    expect(screen.queryByText(/refund pending/i)).not.toBeInTheDocument()
+    expect(updated).not.toHaveBeenCalled()
+    expect(mocks.api).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not mislabel other conflicts as insufficient credits or retry authorization rejection", async () => {
+    mocks.api.mockRejectedValue(new ApiError(403, "FORBIDDEN", "raw permission details"))
+    render(<RepostControls order={expiredOrder} onUpdated={vi.fn()} />)
+    fireEvent.click(screen.getByRole("button", { name: "Create repost" }))
+    expect(await screen.findByText("Repost could not be authorized. Please sign in again.")).toBeInTheDocument()
+    expect(screen.queryByText(/insufficient available credits/i)).not.toBeInTheDocument()
+    expect(mocks.api).toHaveBeenCalledTimes(1)
+  })
+
   it("starts at a future quarter-hour even for an old errand and posts the selected expiry", async () => {
     const updated = { ...expiredOrder, id: "repost", status: "OPEN" }
     const onUpdated = vi.fn()
