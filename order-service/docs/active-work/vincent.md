@@ -20,7 +20,10 @@
 - Next: Vincent discusses FEEDBACK-005 with User/Supplier/Credit owners; Annablee
   confirms FEEDBACK-006 semantics. Concrete retry persistence/API/security and
   polling implementation design remain follow-up; no source/tests/cloud writes.
-- Documentation checks/atomic commit evidence recorded in CHANGE-084 at task end.
+- Verification: whitespace/TOML/approval flags/new record links/scope checks pass;
+  learning ignored; Mermaid text-reviewed, not rendered. Runtime tests not run
+  for this documentation-only task. Approval documentation commit: `c993591`.
+  Authorized AI disclosure and this handoff follow as a separate atomic concern.
 
 ## Previous diagram reconciliation - 2026-10-08 (CHANGE-083)
 

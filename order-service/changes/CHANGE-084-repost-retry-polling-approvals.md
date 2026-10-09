@@ -41,6 +41,9 @@ Learning update is local and excluded from commits.
 
 ## Verification and remaining work
 
+Atomic approval-documentation commit: `c993591`; disclosure/handoff follows
+separately. No push, learning staging or application/peer commit performed.
+
 Read-only inspection reconfirmed User `/role-context` obtains requester UID from
 Firebase authentication; Credit PUT/GET reservation is requester-bound and
 Supplier pair validation is synchronous. Order automatic code has no durable
