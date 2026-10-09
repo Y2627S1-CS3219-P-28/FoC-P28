@@ -1,5 +1,22 @@
 # Vincent - Active Work
 
+## Local CLI installation follow-up — 2026-10-09
+
+- Read-only setup diagnosis, Vincent / sprint-2-3-credit; worktree clean at start.
+  User's existing CMD cannot resolve gcloud. Checked standard installation paths;
+  found LocalAppData/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd.
+- Full-path `gcloud.cmd --version` succeeds (exit 0): SDK 588.0.0. The fresh
+  diagnostic process and user-level PATH contain that bin; the user's displayed
+  terminal still cannot resolve it. Existing parent/terminal environment is the
+  likely stale part; installation is verified, login/ADC/IAM are NOT verified.
+- Advise a temporary CMD `set PATH` prefix using the verified bin, then `where
+  gcloud`, version, personal CLI/ADC login and Setup from FoC-P28. Alternatively
+  fully restart VS Code or use a fresh SDK shell. No persistent PATH change,
+  credentials access, app/source edit, cloud call or connector startup performed.
+- Prior CHANGE-088 missing-CLI observations remain historical, not current
+  installed-file state. Live financial/browser gates and paused retries remain.
+  Next action: user refreshes terminal environment and retries setup. Sprint [~].
+
 ## Approved local-live implementation — 2026-10-09 (CHANGE-088)
 
 - User approves the previously proposed isolated real-PubSub authenticated HTTPS
