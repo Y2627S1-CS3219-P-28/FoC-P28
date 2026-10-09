@@ -2,6 +2,7 @@
 
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-093](../changes/CHANGE-093-accept-cancel-concurrency-verification.md) | 2026-10-09 | Test slice locally verified; workflow/live gates remain | New pair 2/2; all five PG races 10/10 plus 49 related regressions, zero failures/errors/skips; test commit 827844b; no production/schema/peer changes |
 | [CHANGE-092](../changes/CHANGE-092-postgresql-concurrency-verification.md) | 2026-10-09 | Order database race test unit verified; live recovery deferred | 8 real PostgreSQL races, both winner orderings; 215 tests/no skips; fresh 95.67% line/84.70% branch coverage; no production/peer/schema changes |
 | [CHANGE-091](../changes/CHANGE-091-field-errors-and-repost-window.md) | 2026-10-09 | Implemented; local tests recorded; live/browser gates open | Field-specific creation errors; new auto/manual min30, saved explicit plans grandfathered; no peer/schema/retry changes |
 | [CHANGE-090](../changes/CHANGE-090-credit-push-security-interference.md) | 2026-10-09 | Narrow Credit repair verified locally; owner/live gates open | Push converter isolated from Firebase roles; 15 new bearer regressions, 80 clean Credit tests, 95.48% line/85.56% branch coverage; exact interference handoff; source commit 198cd7c |

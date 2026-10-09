@@ -1,5 +1,20 @@
 # Order Service Requirements Traceability
 
+## CHANGE-093: Courier acceptance versus requester OPEN cancellation
+
+| D1 / approved invariant | Existing implementation | Simultaneous verification |
+| --- | --- | --- |
+| F3/F13 + F4.1.7: one valid OPEN transition | OrderAssignmentService.accept / OrderTransitionService.cancel / same getForUpdate row lock | acceptanceAndRequesterCancellationCommitOnlyOneOutcome, both winner orderings |
+| NFR3: genuine contention and no duplicate consequences | Actual Spring services, PostgreSQL 15/Flyway; peers/dispatcher mocked | Blocking PID required; loser CONFLICT; one version/checkpoint/winning receipt; Credit assigned only for ACCEPTED; refund/dispatch only for CANCELLED |
+
+Focused new pair: 2 passed; full five-race class: 10 passed; acceptance/service
+regression selection: 13 passed (combined run 23, zero failures/errors/skips).
+Separate actual domain/transition regression: 36 passed, zero failures/errors/
+skips. Total regression evidence is 10 race cases plus 49 related tests, not a
+fresh full-suite/coverage claim. CHANGE-093/test commit 827844b; no production/
+peer/schema/frontend change. Generic workflow-format and live integration gates
+remain open; overall Sprint [~].
+
 ## CHANGE-092: Real PostgreSQL concurrent transitions
 
 | D1 / approved invariant | Existing implementation | New simultaneous test |

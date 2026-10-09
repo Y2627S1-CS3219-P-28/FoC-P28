@@ -1,5 +1,13 @@
 # Order Service Permanent Project Context
 
+CHANGE-093 extends the approved Order database concurrency verification with
+courier acceptance versus requester OPEN cancellation, both winner orderings.
+New pair 2/2 and full five-race class 10/10 pass; combined acceptance/service
+run 23/23 passes; actual domain/transition follow-up 36/36 passes, no failures/
+errors/skips. Test commit 827844b; results and workflow limitations in CHANGE-093.
+Existing locking/source/contracts unchanged; peers/dispatch mocked, no fresh
+full-suite coverage or live financial verification claim. Sprint remains [~].
+
 Current verification branch: Vincent explicitly requests four real PostgreSQL
 race tests on sprint-2-3-credit-service-concurrency (CHANGE-092, 2026-10-09).
 Order test-only scope; no new lifecycle policy, peer or schema changes.

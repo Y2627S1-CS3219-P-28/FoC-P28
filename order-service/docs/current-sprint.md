@@ -1,5 +1,14 @@
 # Active Sprint
 
+## CHANGE-093 concurrency verification extension
+
+Vincent approves the fifth real PostgreSQL race: courier acceptance versus
+requester OPEN cancellation, both winner orderings, using existing unchanged
+transactional locking. New pair 2/2 and all five races 10/10 pass, no skips;
+49 related service/domain/transition regressions also pass, zero failures/errors/
+skips (test commit 827844b). No new lifecycle/peer/schema/UI
+design or overall Sprint completion; peer calls/dispatch remain mocked.
+
 ## Current validation slice - CHANGE-091 / ADR-030 (2026-10-09)
 
 Vincent approves Order/frontend field-specific creation errors and a 30-minute

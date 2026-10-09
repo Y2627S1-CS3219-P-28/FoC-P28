@@ -7,7 +7,11 @@
 - Assigned scope: Order-owned Sprint 2-3 behavior from D1 and Order Service Overall Doc.pdf, with user-directed lifecycle/history amendments; sibling services remain read-only
 - Approval: Explicit user confirmation on 2026-10-08; CHANGE-081
 
-Current task authorization: Vincent explicitly approves real PostgreSQL four-race
+Current task authorization: Vincent explicitly approves the fifth PostgreSQL race,
+courier acceptance versus requester OPEN cancellation (2026-10-09, CHANGE-093).
+Same test-only scope and harness; both winner orderings, no production/peer edits.
+
+Previous task authorization: Vincent explicitly approves real PostgreSQL four-race
 tests on the current concurrency branch (2026-10-09, CHANGE-092). Order test-only
 scope; cross-service recovery deferred. No peer/schema/production behavior edits.
 

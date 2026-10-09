@@ -2,6 +2,10 @@
 
 ## Current concurrency verification branch (2026-10-09)
 
+Vincent additionally approves the fifth pair, courier acceptance versus requester
+OPEN cancellation, in CHANGE-093: same isolated PostgreSQL harness and both
+winner orderings. Order test-only scope and all peer/recovery boundaries retained.
+
 Vincent explicitly authorizes Order-only real PostgreSQL race tests on
 `sprint-2-3-credit-service-concurrency` (CHANGE-092): two acceptances,
 cancellation/expiry, acceptance/expiry and manual/automatic completion.
