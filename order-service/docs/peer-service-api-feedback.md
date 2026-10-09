@@ -542,3 +542,46 @@ callback/event or refund-confirmation gate is requested by this review.
 6. Order stub/publisher/RTL tests and this source review do not prove live money
    movement, penalties, deployed subscriptions or Sprint completion. Peer source,
    infrastructure, application code and databases were NOT changed in this review.
+
+## FEEDBACK-008: Pub/Sub push incorrectly inherits Firebase user-role conversion
+
+Date: 2026-10-09. Owner: Credit (Annablee). Status: OPEN.
+Classification: INCOMPLETE_OR_INCOMPATIBLE. Existing endpoint, not a missing API.
+CHANGE-088 / ADR-029 live verification blocker; no new contract proposed.
+
+- Expected: POST /api/credits/internal/order-events receives the wrapped envelope
+  in section 6 and Authorization: Bearer <Google push service-account OIDC token>.
+  Validate Google signature, expiry, issuer, configured audience, verified email
+  and approved service account. This identity is NOT a Firebase user and must
+  not be sent to /api/users/role-context. Process the financial event and return
+  204 with no body only after durable effects commit; invalid identity stays 401.
+- Observed: real local ingress POSTs return 500. Matching Credit errors at
+  06:48:12Z, 06:48:26Z, 06:48:43Z and 06:49:01Z show
+  FirebaseRoleAuthoritiesConverter -> HttpUserServiceRoleProvider -> User's
+  /api/users/role-context -> 401 Invalid authentication token, before the
+  Credit event controller can process the refund. User's rejection is correct.
+- Source: credit-service/security/SecurityConfig.java (under its Java package),
+  push chain line 68 supplies a dedicated decoder but no dedicated authentication
+  converter. The global JwtAuthenticationConverter bean at lines 137-140 uses
+  FirebaseRoleAuthoritiesConverter. Spring Security 7.1.1 automatically selects
+  that bean when a chain does not explicitly provide a converter:
+  https://github.com/spring-projects/spring-security/blob/7.1.1/config/src/main/java/org/springframework/security/config/annotation/web/configurers/oauth2/server/resource/OAuth2ResourceServerConfigurer.java
+- Required provider correction: explicitly isolate push authentication conversion
+  from Firebase user-role conversion, retaining the existing Google push decoder
+  and all token/identity checks. Preserve Firebase role lookup for ordinary Credit
+  user APIs. Do not enable mock roles, strip bearer tokens or permit anonymous push.
+- Required regression: signed valid push identity reaches the handler with ZERO
+  RoleProvider calls even when User role lookup is unavailable; wrong signature,
+  issuer, expiry, audience, email or email_verified fails; user APIs still use
+  Firebase roles/ownership guards. Then test live CANCELLED/EXPIRED refunds and
+  COMPLETED transfers, plus duplicate delivery, with ledger/balance evidence.
+- Current evidence: logs and source inspection, not a fixed/tested implementation.
+  Earlier 27 Credit outcome tests did not verify this live security-chain path.
+  Initial Check's unauthenticated 401 and ingress 404/405 are expected negative
+  probes; they cannot establish authenticated financial delivery. CANCELLED Order
+  state and broker publication are not confirmation of refund completion.
+- Stopping point: peer source remains unchanged. Vincent requested a fix, but
+  explicit separate Credit-edit authorization is still pending clarification.
+  Preserve queued/DLQ events for recovery; do not reset databases or republish with
+  new event IDs. After a fix, rebuild only Credit, retain the tunnel URL, and verify
+  retry/DLQ recovery and exactly-once financial effects before marking VERIFIED.

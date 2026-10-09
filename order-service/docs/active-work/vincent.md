@@ -1,5 +1,25 @@
 # Vincent - Active Work
 
+## Local push HTTP 500 diagnosis - 2026-10-09
+
+- Read-only runtime diagnosis requested by Vincent on sprint-2-3-credit; Git
+  clean at start. No peer/application changes, cloud writes or database resets.
+- Diagnosis complete, fix blocked on explicit Credit-edit authorization:
+  FEEDBACK-008 records a push chain inheriting the global Firebase-role converter.
+  Correlated 06:48:12Z/26Z/43Z and 06:49:01Z errors: service OIDC token sent to
+  User role-context, rejected 401, Credit throws AuthenticationServiceException
+  and returns 500 before refund processing. All FoC services are now running;
+  the earlier Mongo host-port startup conflict is no longer present.
+- Read Credit security/controller/validator source and attachment; verified Spring
+  Security 7.1.1 converter bean auto-selection against official source. Negative
+  Setup/Check probes explain initial 401/404/405, not later authenticated success.
+  No tests executed, financial success or specific ledger changes claimed.
+- Requested narrow separate Credit security/test permission; Vincent asks why,
+  which is NOT approval. Next: explain user-token versus service-token identity,
+  obtain approval or hand off FEEDBACK-008 to Annablee. Then test isolated chain,
+  live refund/transfer and duplicate/retry/DLQ recovery without resetting data.
+- Order architecture/contracts/source/config unchanged; live gates remain [~].
+
 ## Verified script fix: Windows PowerShell native progress handling — 2026-10-09
 
 - Vincent / sprint-2-3-credit, clean worktree at start. User's Setup now resolves
