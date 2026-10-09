@@ -2,6 +2,12 @@
 
 ## Effective CHANGE-088 local delivery traceability
 
+CHANGE-089 verifies its Windows PS5.1 setup invariant under NFR3.1.3: harmless
+native stderr is not failure; actual nonzero exits still fail; private stdout and
+caller preference remain isolated. Test-LocalLiveNativeOutput has 11 positive/
+negative assertions (observed red -> green). Existing 60 config + 16 ingress
+regressions rerun successfully, not real Google/financial completion evidence.
+
 | D1 / approved refinement | Implementation | Evidence / remaining gate |
 | --- | --- | --- |
 | F4.1.7/F4.1.8/F4.1.5/F5.1/F10/F11; ADR-029 | Local-live override, restricted ingress, owned Setup/Check/Pause | 60 config/safety + 16 actual nginx/fixture assertions; real refund/transfer/reset/browser gates pending |

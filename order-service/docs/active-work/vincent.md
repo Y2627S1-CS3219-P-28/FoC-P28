@@ -1,5 +1,27 @@
 # Vincent - Active Work
 
+## Verified script fix: Windows PowerShell native progress handling — 2026-10-09
+
+- Vincent / sprint-2-3-credit, clean worktree at start. User's Setup now resolves
+  gcloud but crashes in Invoke-Compose on Docker's normal stderr network progress.
+- Narrow implementation-detail correction within CHANGE-088 / ADR-029: preserve
+  private stdout/config capture, judge native success by exit code and restore
+  caller preference. No peer/FE/app behavior, cloud/IAM/schema/topology change.
+- Test first with a real native Windows fixture emitting stderr at exit 0,
+  nonzero exits, stdout JSON isolation and error-preference restoration. Run
+  existing local configuration/proxy regressions. No application DB resets or
+  cloud Setup rerun as part of this diagnostic slice. Live gates remain [~].
+- CHANGE-089: observed NativeCommandError red before fix. Green: 11 native
+  output/exit/privacy/restoration assertions, 60 config/safety and 16 actual
+  nginx/fixture assertions. Invoke-Compose now scopes Continue to native execution,
+  restores preference in finally and still rejects nonzero exits. No rebuild.
+- Verified fix/regression commit: 003fd25. Workflow/docs/disclosure separate;
+  learning ignored, no push. Generic gate retains five historical findings.
+- D1/Overall hashes match; generic checker format/history failures remain separate.
+  No app/peer/FE/shared Compose/schema edits, no cloud Setup or application DB
+  changes performed. Next: user reruns same Setup; then build/up/Check and local
+  two-account ledger/UI verification. No sequence completion claimed.
+
 ## Local CLI installation follow-up — 2026-10-09
 
 - Read-only setup diagnosis, Vincent / sprint-2-3-credit; worktree clean at start.

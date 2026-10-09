@@ -75,6 +75,11 @@ to your namespace. A permissions failure can leave partial owned resources;
 fix permissions and rerun. Existing unlabeled/foreign resources are refused,
 not silently repurposed. Setup prints the public endpoint but never tokens.
 
+Windows PS5.1 compatibility: CHANGE-089 fixes Docker's ordinary stderr progress
+being mistaken for a terminating error. Host-script updates need no image rebuild.
+After updating the checkout, rerun Setup; do not reset volumes or delete the
+partially created network/helpers. Genuine nonzero Compose exits still fail.
+
 Open **http://localhost:3000** and use local emulator test accounts. These commands
 reuse the project's service names/volumes: they replace a previously running mock
 or HTTP-only stack rather than starting a second independent stack alongside it.
