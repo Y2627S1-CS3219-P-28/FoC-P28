@@ -22,6 +22,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.web.cors.CorsConfiguration;
@@ -73,6 +74,18 @@ class SecurityComponentsTest {
         assertThat(validator.validate(pushToken(Map.of("aud", List.of("wrong")))).hasErrors()).isTrue();
         assertThat(validator.validate(pushToken(Map.of("email", "other@example.com"))).hasErrors()).isTrue();
         assertThat(validator.validate(pushToken(Map.of("email_verified", false))).hasErrors()).isTrue();
+    }
+
+    @Test
+    void convertsPubSubPushTokensWithoutLookingUpEndUserRoles() {
+        JwtAuthenticationToken authentication = (JwtAuthenticationToken) config
+                .pubSubPushAuthenticationConverter()
+                .convert(pushToken(Map.of()));
+
+        assertThat(authentication).isNotNull();
+        assertThat(authentication.getName()).isEqualTo("123");
+        assertThat(authentication.getAuthorities())
+                .noneMatch(authority -> authority.getAuthority().startsWith("ROLE_"));
     }
 
     @Test
