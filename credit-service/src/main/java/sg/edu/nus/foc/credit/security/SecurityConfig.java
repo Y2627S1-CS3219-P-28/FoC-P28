@@ -65,13 +65,19 @@ class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
-                        .jwt(jwt -> jwt.decoder(pubSubPushJwtDecoder(properties)))
+                        .jwt(jwt -> jwt
+                                .decoder(pubSubPushJwtDecoder(properties))
+                                .jwtAuthenticationConverter(pubSubPushAuthenticationConverter()))
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers));
         return http.build();
+    }
+
+    JwtAuthenticationConverter pubSubPushAuthenticationConverter() {
+        return new JwtAuthenticationConverter();
     }
 
     @Bean
