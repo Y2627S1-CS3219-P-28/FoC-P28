@@ -1,5 +1,15 @@
 # Active Sprint
 
+## Effective Credit review — CHANGE-087 (2026-10-09)
+
+Vincent's documentation-only review runs on sprint-2-3-credit (09e04a0).
+Credit assignment/core reset and refund/completion handlers now exist in source;
+do not ask peers to recreate them. Current gaps are replay authorization (003),
+terminal reservation/recovery (006), legacy accepted-cancellation refund routing
+(007) and delegated background auth (005). Separate push provisioning exists but
+live subscriptions/IAM/ledger are not verified. Read peer feedback section 6.
+User consumers remain missing; retries paused. No source/cloud changes or [x].
+
 ## Effective CHANGE-086 follow-up (2026-10-09)
 
 Explicit automatic new expiry and persisted latest failure outcomes are

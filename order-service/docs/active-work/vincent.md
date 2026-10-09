@@ -1,5 +1,37 @@
 # Vincent - Active Work
 
+## Integrated Credit source review — 2026-10-09 (CHANGE-087)
+
+- Vincent explicitly requests inspection/feedback rewrite on sprint-2-3-credit;
+  HEAD 09e04a0, clean worktree initially. Local profile/allocation updated for
+  this documentation-only review; no peer/app/frontend/schema/cloud edits.
+- Assignment and core hold routes plus refund/completion push handlers EXIST.
+  Compatible route/handler source is READY_FOR_VERIFICATION, not live VERIFIED.
+  Removed obsolete missing-build requests; evidence kept in feedback section 6.
+- Remaining 003: hold returns 200 for any courier when assignment is null before
+  caller check; authorized replay/stale same-courier attempt protection unresolved.
+- Remaining 006: reservation replay returns matching terminal REFUNDED/PAID;
+  Order ignores success body; cross-database compensation/reconciliation pending.
+- New 007: Credit expects ABORTED/refund on accepted-cancellation; current Order
+  sends OPEN/EXPIRED User penalty facts. Script subscribes Credit to this stream.
+  Need peer/platform-approved cutover; never refund OPEN or mutate Order to ABORTED.
+- Refund/completion provisioning script exists separately from bootstrap; no
+  live subscription verification. Production explicitly disabled; local Compose
+  hostname/identity do not create a public cloud push path. gcloud unavailable.
+- 005 trusted delegated auth remains proposal-only. Push OIDC is not outbound
+  requester delegation. ALL background retry implementation stays paused.
+- Source/tests/config inspection only; no Maven/browser/live financial tests run.
+  Existing drift checker rejects manifest column format; actual selected D1 and
+  Overall SHA-256 match. Documentation JSON/link/scope/whitespace checks below.
+- Next: Annablee/platform resolve 003/006/007; User builds 002 subscribers;
+  owners agree 005; run authenticated Order-to-Credit/push/ledger tests before
+  VERIFIED or Sprint completion. Keep Sprint [~]. Feedback rewrite completed;
+  validation evidence: git diff --check passed; context TOML parsed with the
+  reviewed branch and paused-retry/live-unverified assertions; all 8 feedback
+  JSON examples parsed; change-log links resolved; changed paths are Order docs
+  only. Drift script exit 2 is an existing manifest-format incompatibility, not
+  a passing drift check. Peer test files inspected, not executed.
+
 ## Explicit repost expiry and persistent failures — 2026-10-09 (CHANGE-086)
 
 - Vincent, sprint-2-3; clean worktree at start; approved Order/backend frontend slice.

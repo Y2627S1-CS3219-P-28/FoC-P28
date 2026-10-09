@@ -1,5 +1,23 @@
 # Order Service Permanent Project Context
 
+## Integrated Credit inspection — CHANGE-087 (2026-10-09)
+
+Current review branch: Vincent, `sprint-2-3-credit`, user explicitly requested
+documentation-only review of integrated revision 09e04a0. Source now has Credit
+courier assignment/core hold and refund/completion push consumers. Earlier
+missing-route/consumer statements are historical, not the current source state.
+Feedback section 6 records implemented capabilities without claiming live
+verification. Remaining Credit gaps: 003 reset replay authorization; 006 terminal
+reservation replay/cross-database recovery; 007 superseded ABORTED refund consumer
+on the now User-only accepted-cancellation topic. Separate provisioning script
+exists but deployed delivery/IAM/ledger effects remain unverified. Production
+provisioning is disabled; local Compose is not a public cloud push subscriber.
+005 delegated background auth is still missing/proposal-only; inbound Pub/Sub
+OIDC does not provide outbound requester delegation. ALL retries remain paused.
+No approved architecture, peer source, app code, schema or cloud setting changed.
+Sprint remains [~]. Read peer feedback for remaining provider work, not old
+dated missing-route paragraphs. D1/selected Overall hashes remain unchanged.
+
 ## Effective follow-up — CHANGE-086 (2026-10-09)
 
 Vincent requested and approved explicit automatic `repostExpiresAt` and latest

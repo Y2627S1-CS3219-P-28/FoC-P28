@@ -1,6 +1,15 @@
 # Peer Service API Feedback
 
-Current handoff: **2026-10-09**, Vincent, sprint-2-3, CHANGE-085.
+Current handoff: **2026-10-09**, Vincent, `sprint-2-3-credit`, CHANGE-087.
+Inspected integrated revision: `09e04a0` (`pull: credit service`).
+
+This user-requested rewrite removes already-implemented Credit routes and
+refund/completion handlers from the **missing implementation** list. Section 6
+retains a small evidence register, not requests to build those capabilities again.
+Remaining gaps include incompatible behavior, not just absent route names.
+Source inspection and existing test source are NOT executed tests or confirmation
+that GCP subscriptions/IAM/deployed consumers are working. No entry is upgraded
+to VERIFIED solely because its implementation exists.
 
 CHANGE-086 follow-up: Order now stores explicit automatic new expiry and latest
 safe manual/automatic attempt failure code/message/time; UI reload reads them.
@@ -16,17 +25,19 @@ contracts for peer owners, or claim live integration from stub tests.
 
 ## Status and boundaries
 
-Inspection evidence: Credit api/CreditController and reservation/balance DTOs;
-User role-context, courier-eligibility and Firebase authentication; Supplier pair
-validation/lookup; Order adapters, event DTO/mapper, transitions, lifecycle/outbox.
-Assignment/reset routes and outcome subscribers were not found in the inspected
-peer src trees. Source inspection is NOT a deployed-service verification.
+Inspection evidence: CreditController/DTOs, CreditService, JpaCreditRepository,
+CreditOrderEventController, CreditOrderEventConsumer/OrderEventMessage,
+CreditPushProperties, both security chains/role provider/push-token validator,
+relevant API/persistence/consumer/security test source, application/deployment
+configuration and infra/gcp/configure-credit-pubsub.sh; compared with Order's
+HttpPeerAdapters, event DTOs/mapper and OrderTransitionService under ADR-025/028.
+User event-consumer source search found no matching handlers. Supplier contracts
+below retain the earlier inspection; no Supplier implementation change is claimed.
 
 | Owner | Needed capability | Classification / stopping point |
 | --- | --- | --- |
-| Credit (Annablee) | Assign courier before ACCEPTED | MISSING, FEEDBACK-004; Order stub exists |
-| Credit (Annablee) | Clear courier on EVERY abort, retain reservation | MISSING, FEEDBACK-003; Order stub exists |
-| Credit (Annablee) | Refund and completion consumers | MISSING, FEEDBACK-002; Order publisher/outbox exist |
+| Credit (Annablee) | Restrict cleared-reservation reset replay to the authorized attempt/caller | INCOMPLETE_OR_INCOMPATIBLE, FEEDBACK-003; route EXISTS |
+| Credit (Annablee), platform owner | Align accepted-cancellation subscription with current User-only penalty flow | INCOMPLETE_OR_INCOMPATIBLE, FEEDBACK-007; legacy Credit refund handler EXISTS but is unsuitable |
 | User | Abort penalty and completion consumers | MISSING, FEEDBACK-002; Order publisher exists |
 | Credit (Annablee) | Active reservation confirmation/reconciliation | INCOMPLETE_OR_INCOMPATIBLE for durable retries, FEEDBACK-006 |
 | User, Supplier, Credit | Trusted delegated background calls | MISSING, FEEDBACK-005; documentation ONLY |
@@ -40,42 +51,12 @@ falls back to mocks. Mock mode is a separate test configuration.
 Visible-page polling reads lists/balance every 15 seconds and on focus/mutation;
 it does not trigger reposts, perform refunds or replace a peer consumer.
 
-## 1. Credit Service — Annablee
+## 1. Credit Service — Annablee: remaining work only
 
-### FEEDBACK-004: synchronous courier assignment
+### FEEDBACK-003: reset replay authorization and stale-attempt protection
 
-Order-side approved requirement; provider agreement/implementation pending.
-
-~~~http
-PUT /api/credits/orders/{orderId}/courier-assignment
-Authorization: Bearer <accepting courier Firebase ID token>
-Content-Type: application/json
-~~~
-
-~~~json
-{ "courierId": "courier-firebase-uid" }
-~~~
-
-- orderId is the existing business ID with a requester reservation. No Order
-  optimistic-lock version is sent in this request.
-- Authenticate the accepting courier and bind token UID to courierId. Verify
-  their Credit account exists and reservation is active/assignable. Do NOT apply
-  the reservation PUT's requester-only rule to this accepting courier.
-- Atomically persist courier assignment with Credit's state checks.
-- Expected response: **exactly 200 OK, EMPTY body**, after confirmation. Order
-  then rechecks local deadline/version before persisting ACCEPTED.
-- Same assignment replay must be idempotent. Reject incompatible assignments and
-  terminal reservations; replacement after an agreed reset must be supported.
-- Agree errors: 400 invalid input, 401 invalid token, 403 wrong caller, 404 missing
-  account/reservation, 409 state/assignment conflict, 503 temporary failure.
-  Section 4 gives the proposed envelope; no failure may masquerade as success.
-- Timeout/local rollback after Credit success can leave assignment while Order
-  remains OPEN. Agree reconciliation for this separate-database boundary before
-  production; synchronous calling alone does not make the writes atomic.
-
-### FEEDBACK-003: synchronous clear-courier / hold-for-reopen
-
-Order-side agreed bodyless contract; provider implementation pending.
+Status: OPEN. Classification: INCOMPLETE_OR_INCOMPATIBLE for replay security.
+The endpoint and core reset/hold behavior are implemented; do NOT recreate them.
 
 ~~~http
 POST /api/credits/orders/{orderId}/hold-for-reopen
@@ -84,78 +65,69 @@ Authorization: Bearer <assigned courier Firebase ID token>
 
 Request: **NO body**. Expected response: **exactly 200 OK, NO body**.
 
-- Called for EVERY accepted-order abort BEFORE committing Order history/outcome.
-  Authorize the caller against the reservation's assigned courier.
-- Atomically set courierId=null and retain the SAME active reservation/amount.
-  Replay must be safe/idempotent. Agree replay authorization after courierId is
-  null; do not grant arbitrary callers permission to clear assignments.
-- No synchronous refund here. If original acceptance expiry is future, current
-  Order becomes OPEN with the SAME business ID/reservation. If passed, it becomes
-  EXPIRED and separately queues the old-ID refund event.
-- Failure leaves Order ACCEPTED with no new ABORTED attempt/outcome event.
-- Every successful abort creates immutable courier history and a User penalty
-  event, whether the current outcome is OPEN or EXPIRED.
-- Agree 400/401/403/404/409/503 errors, lost-response recovery and concurrent
-  assignment/start/reset semantics. Do not fall back to mocks in HTTP mode.
+- Evidence: CreditController requires ROLE_COURIER; JpaCreditRepository locks the
+  reservation and requires RESERVED. An assigned caller mismatch is rejected.
+  BUT it returns success immediately when courierId is null, before checking
+  callerId. Thus any caller with the courier role can obtain a successful reset
+  response for an unassigned reservation, not only the courier replaying a reset.
+- Required: retain enough Credit-owned authorization/replay evidence to authorize
+  the legitimate cleared-assignment replay; deny an unrelated courier. Agree
+  protection against stale resets after reassignment, including the same courier
+  accepting again. Current path/token alone cannot distinguish same-courier
+  attempts; any new command/attempt/generation field requires owner/user approval.
+  This review does NOT add a field or select that design.
+- Preserve the existing no-body request and bodyless 200 unless a coordinated
+  contract amendment is approved. No refund in this call; retain reserved amount.
+  Unauthorized replay should return 403; incompatible state/generation 409;
+  invalid token 401; missing reservation 404; persistence failure 503, using the
+  existing envelope in section 4. No tokens may be saved as replay proof.
+- Provider tests must cover unrelated caller after null reset, legitimate lost-
+  response replay, reassignment, repeated same-courier attempts and concurrency.
+  Existing tests cover wrong caller while assigned, not the cleared-state gap.
+- Order still calls this BEFORE every abort. On failure it remains ACCEPTED with
+  no new history/outcome event. On success current state resolves OPEN/EXPIRED;
+  every abort emits User penalty facts, and EXPIRED additionally emits refund.
 
-### FEEDBACK-002 (Credit): refund subscriber
+### FEEDBACK-007: Credit's accepted-cancellation consumer uses superseded semantics
 
-| Item | Required value |
-| --- | --- |
-| Development topic | open-order-refund-dev-v1 |
-| Project | protean-vigil-509704-q4 |
-| Production topic | Configured ORDER_OPEN_REFUND_TOPIC; coordinate actual environment |
-| Event type/version | OpenOrderRefundTaskEvent / 1 |
-| Intended consumer | Credit Service |
+Status: OPEN. Classification: INCOMPLETE_OR_INCOMPATIBLE.
+Owners: Annablee plus subscription/platform owner; coordinate User owner.
 
-Exact full envelope/snapshot is in section 4. Distinguishing-field excerpt:
+Approved current contract (ADR-025):
 
-~~~json
-{
-  "eventId": "stable-event-uuid",
-  "eventType": "OpenOrderRefundTaskEvent",
-  "eventVersion": 1,
-  "orderId": "old-business-order-id",
-  "orderVersion": 4,
-  "occurredAt": "2026-10-09T04:00:00Z",
-  "actorId": "lifecycle",
-  "order": { "id": "old-business-order-id", "status": "EXPIRED" }
-}
-~~~
+- Topic `accepted-order-cancellation-dev-v1` / production
+  `accepted-order-cancellation-prod-v1` (ORDER_ACCEPTED_CANCELLATION_TOPIC).
+- Event `AcceptedOrderCancellationTaskEvent`, version 1. Section 4 full envelope;
+  actorId is aborting courier; order.courierId=null; order.status is OPEN or
+  EXPIRED. This is **User penalty signaling, NOT a Credit refund instruction**.
+- OPEN keeps its same reservation. EXPIRED receives a separate
+  `OpenOrderRefundTaskEvent` on `open-order-refund-dev-v1` / prod-v1 for Credit.
 
-Other snapshot fields are omitted ONLY in this explanatory excerpt; section 4
-defines the full message. Publish conditions: requester cancels OPEN (CANCELLED),
-minute scheduler expires unassigned OPEN (EXPIRED), or courier abort resolves
-EXPIRED. Refund the reservation identified by **this old ID** exactly once;
-restore requester availability and atomically persist Credit ledger/reservation.
-Abort returning OPEN is NOT refunded. A repost reserves a DIFFERENT new ID.
+Actual implementation: CreditOrderEventConsumer routes accepted cancellation
+to CreditService, whose validateOutcome requires ABORTED and whose processOutcome
+calls repository.refund. Its tests use ABORTED snapshots. The provisioning script
+also creates `credit-accepted-order-cancellation-dev-v1` / prod-v1 subscriptions.
+Consequently current Order OPEN/EXPIRED penalty events are rejected (400), rather
+than implementing the approved flow. Simply allowing those statuses while still
+refunding is UNSAFE: an OPEN reopened order must retain its reservation.
 
-Expected return: **Pub/Sub ACK after Credit transaction commits**, not JSON to
-Order. Duplicate delivery must ACK without another refund. Temporary failures
-must retry; malformed/conflicting permanent events need observable dead-letter/
-reconciliation handling, not silently successful ACK.
+Required peer action: align Credit subscription provisioning/routing with the
+current financial topics (refund and completion only); keep accepted-cancellation
+penalties in User Service. Coordinate any legacy ABORTED messages/subscription
+cutover and dead-letter recovery explicitly; do not silently delete queued work
+or rewrite Order snapshots to ABORTED. No extra Credit endpoint or response is
+required by this current penalty flow. How to handle legacy deliveries is an
+owner-agreed rollout decision, not an implemented assumption in this review.
 
-### FEEDBACK-002 (Credit): completion subscriber
-
-Development topic **order-completion-dev-v1**, production from
-ORDER_COMPLETION_TOPIC. Event OrderCompletionTaskEvent, version 1, full
-COMPLETED snapshot, assigned courierId and top-level overdue/overdueAt.
-
-Settle/transfer the reserved credits to that courier exactly once in an atomic
-balance/ledger/reservation transaction. Validate recipient, amount and reservation
-state against Credit-owned records. Credit owns financial policy; Order sends
-facts, not deduction calculations. ACK AFTER durable effects commit; no
-synchronous settlement HTTP response is required in this effective flow.
-
-**FEEDBACK-001 is SUPERSEDED:** old synchronous release/settlement proposals are
-not the current required outcome APIs. A legacy settle adapter method does not
-make it part of the effective workflow. Implement consumers, not two mechanisms
-for the same financial outcome. Do NOT consume new accepted-cancellation events
-as refunds: they are User penalty facts. Coordinate earlier ABORTED-event refund
-consumers/queued legacy messages so rollout does not double-refund. Do not delete
-history/outbox to avoid reconciliation.
+Required tests: abort before expiry -> reservation remains RESERVED; abort at/
+after expiry -> separate refund event releases once; delivery order/duplicates do
+not double-release; User separately receives every abort. Do NOT ACK incompatible
+legacy financial messages without a reviewed reconciliation plan.
 
 ### FEEDBACK-006: reservation confirmation and future retry safety
+
+Status: OPEN. Classification: INCOMPLETE_OR_INCOMPATIBLE for future retry safety;
+the existing PUT/GET routes are implemented, not missing.
 
 These provider endpoints already exist:
 
@@ -183,7 +155,6 @@ Current response: 201 for new, 200 for identical replay:
     "totalBalance": 50,
     "reservedBalance": 5,
     "usableBalance": 45,
-    "version": 2,
     "asOf": "2026-10-09T04:00:00Z"
   },
   "createdAt": "2026-10-09T04:00:00Z",
@@ -201,12 +172,16 @@ Before implementing durable retries, agree and verify:
 
 - Matching ID/requester/amount and ACTIVE RESERVED must be confirmed before OPEN.
   An identical replay of REFUNDED/PAID must not be treated as a fresh active hold.
-  Inspected provider currently returns existing matching reservations; agree
-  terminal-state behavior and add negative tests.
+  JpaCreditRepository.replayReservation currently checks requester/amount but
+  not status, returning an existing REFUNDED/PAID reservation with 200 as well.
+  Agree terminal-state behavior and test it; do not silently reactivate/pay twice.
 - One candidate NEW business UUID per saved attempt, reused across uncertain
   writes via GET/idempotent PUT. Candidate IDs are NOT identity credentials.
 - Compensation/reconciliation for remote success + local rollback, late success
   after expiry, missing/invalid/mismatched confirmations and concurrent attempts.
+  This includes courier assignment succeeding remotely before Order acceptance
+  fails, and reset succeeding before Order abort commits. FEEDBACK-004's route
+  is implemented, but a multi-database recovery protocol is not established by it.
 - Current Order reserve adapter ignores success body; CHANGE-085 fixes semantic
   errors only. Confirmation/recovery remains NOT implemented; no new unapproved
   recovery route is invented here.
@@ -344,8 +319,9 @@ Refund and abort use the SAME envelope/snapshot keys, but **omit overdue and
 overdueAt entirely**. Change eventType, resulting status/courier/actor according
 to the sections above. repostPlan may be null; links/IDs may be null as applicable.
 There is NO checkpoint list, row UUID, attemptId, generic facts or outcomeType.
-Current snapshot has NO repostExpiresAt; explicit next-expiry remains an
-unimplemented approved timing target, not a new wire field in this handoff.
+Current event snapshot has NO repostExpiresAt. CHANGE-086 implements that field
+in Order storage/API/UI, but intentionally does NOT add it to the peer event
+snapshot. Credit's RepostPlanSnapshot therefore still matches these five fields.
 
 Order commits status and event intent atomically, attempts immediate after-commit
 publication, then recovers pending/failed rows every 15 minutes for ALL three
@@ -357,12 +333,12 @@ handler is for owners to agree/provision; no callback endpoint is invented here.
 Push wraps JSON as base64 message.data; decode before validating type/version,
 envelope/snapshot IDs. Duplicate delivery is expected.
 
-Proposed standard error for the missing HTTP routes:
+Existing Credit HTTP error envelope (example assignment state conflict):
 
 ~~~json
 {
   "status": 409,
-  "error": "CONFLICT",
+  "error": "RESERVATION_CONFLICT",
   "message": "Reservation state does not permit this operation.",
   "path": "/api/credits/orders/business-order-id/courier-assignment",
   "timestamp": "2026-10-09T04:00:00Z",
@@ -371,8 +347,10 @@ Proposed standard error for the missing HTTP routes:
 ~~~
 
 Reservation INSUFFICIENT_CREDITS/RESERVATION_CONFLICT are already provider-defined;
-do not infer from error text. Missing-route errors/replay semantics require peer
-agreement. Events return ACK, NOT a JSON result to Order.
+do not infer from error text. Credit also distinguishes ACCOUNT_NOT_FOUND and
+RESERVATION_NOT_FOUND (404), EVENT_CONFLICT (409), VALIDATION_ERROR (400),
+UNAUTHENTICATED (401), FORBIDDEN (403), SERVICE_UNAVAILABLE (503). Replay/recovery
+gaps require peer agreement. Events return ACK, NOT a JSON result to Order.
 
 ## 5. FEEDBACK-005: trusted background authorization — documentation ONLY
 
@@ -385,6 +363,11 @@ verified=true flag is not authenticated delegated authority. Foreground Firebase
 token forwarding remains unchanged.
 
 Proposal to discuss, NOT a selected credential protocol:
+
+Credit now authenticates **Pub/Sub incoming push** with Google OIDC, but that
+is a different trust boundary from Order making delegated outbound reservation
+calls. Its business routes still use Firebase caller UID, and reservation still
+requires UID=requesterId. Push authentication does NOT close FEEDBACK-005.
 
 | Service | Required work after agreement |
 | --- | --- |
@@ -412,14 +395,113 @@ indefinite cached Firebase token, bypass, or HTTP fallback to mocks.
 Same-candidate persistence/backoff/reconciliation remains an approved design on
 hold. Current manual errors and authenticated read polling work independently.
 
+## 6. Implemented Credit capabilities — evidence, NOT outstanding build requests
+
+These have been ruled out as absent endpoints/handlers on `09e04a0`.
+Status: READY_FOR_VERIFICATION where compatible; NOT live VERIFIED. Their source
+tests were inspected, not executed in this documentation-only review.
+
+| Feedback / capability | Actual implemented contract | Source comparison |
+| --- | --- | --- |
+| FEEDBACK-004: courier assignment | PUT /api/credits/orders/{orderId}/courier-assignment; Firebase courier bearer; JSON {"courierId":"courier-uid"}; exactly 200, empty body | MATCHES_APPROVED_CONTRACT for the synchronous route and basic guards; recovery remains FEEDBACK-006 |
+| FEEDBACK-003: core reset | POST /api/credits/orders/{orderId}/hold-for-reopen; Firebase courier bearer; no body; exactly 200, empty body | Route/reset exists; replay security remains INCOMPLETE_OR_INCOMPATIBLE in section 1 |
+| FEEDBACK-002 Credit: refund | OpenOrderRefundTaskEvent v1; CANCELLED/EXPIRED and null courier; old order ID/requester/amount checked; release once | MATCHES_APPROVED_CONTRACT for current refund handling in source; separate legacy topic mismatch is FEEDBACK-007 |
+| FEEDBACK-002 Credit: completion | OrderCompletionTaskEvent v1; COMPLETED, matching courier and overdue facts; debit requester reserved/total and credit courier once | MATCHES_APPROVED_CONTRACT for current completion handling in source |
+| Existing reservation/read/balance/signup | PUT/GET reservation; GET /me; POST /registration-facts | Present; no duplicate route requested; terminal replay safety remains FEEDBACK-006 |
+
+### Concrete implementation/test evidence
+
+Paths below are relative to repository root; peer files remain read-only.
+
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/api/CreditController.java`:
+  route method, role/self checks and bodyless 200; `CourierAssignmentRequest`
+  validates a nonblank maximum-128-character courierId.
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/persistence/JpaCreditRepository.java`:
+  row-locked RESERVED assignment, courier account existence, same-assignment
+  replay/different-assignment conflict; reset retains reservation; transactional
+  refund/settlement, event ID+payload hash deduplication, ledger/account updates.
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/messaging/CreditOrderEventConsumer.java`
+  and `OrderEventMessage.java`: matching current refund/completion envelope and
+  snapshot fields, subscription/type matching and completion-only overdue fact.
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/api/CreditOrderEventController.java`:
+  POST /api/credits/internal/order-events decodes wrapped Base64 data and returns
+  **204 NO BODY after processing/transaction commit**. This is the push ACK,
+  not a refund/completion JSON response or callback to Order.
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/security/SecurityConfig.java`
+  and `PubSubPushTokenValidator.java`: separate push chain checks Google-signed
+  issuer/audience/configured service-account email/email_verified; business
+  chain remains Firebase. `HttpUserServiceRoleProvider` forwards the user token
+  and validates response userId. Local mock role configuration is not proof of
+  live User role integration.
+- Existing test source: `credit-service/src/test/java/sg/edu/nus/foc/credit/api/CreditApiIntegrationTest.java`,
+  `persistence/JpaCreditRepositoryIntegrationTest.java`,
+  `messaging/CreditOrderEventConsumerTest.java`,
+  `api/CreditOrderEventControllerTest.java`, `security/SecurityComponentsTest.java`.
+  Positive, negative and duplicate cases exist; legacy ABORTED consumer cases do
+  NOT establish ADR-025 compliance. Missing replay cases are listed in section 1.
+- Order comparison: `order-service/src/main/java/sg/edu/nus/foc/order/adapter/HttpPeerAdapters.java`,
+  `order-service/src/main/java/sg/edu/nus/foc/order/application/OrderTransitionService.java`
+  and Order's `messagingpublisher/dto/` and `messagingpublisher/mapper/` files.
+  No Order HTTP adapter change
+  is needed just to discover these implemented routes.
+
+### Topic/subscription provisioning exists; deployed delivery remains unverified
+
+| Current required financial stream | Dev topic -> Credit subscription | Production topic -> Credit subscription |
+| --- | --- | --- |
+| Refund | open-order-refund-dev-v1 -> credit-open-order-refund-dev-v1 | open-order-refund-prod-v1 -> credit-open-order-refund-prod-v1 |
+| Completion | order-completion-dev-v1 -> credit-order-completion-dev-v1 | order-completion-prod-v1 -> credit-order-completion-prod-v1 |
+
+Project: `protean-vigil-509704-q4`. Settings are in CreditPushProperties,
+application.yaml, deploy/env.yaml and infra/environments/{staging,production}.env.
+Push envelope received by the existing Credit endpoint:
+
+~~~json
+{
+  "message": {
+    "data": "BASE64_OF_FULL_ORDER_EVENT_JSON_FROM_SECTION_4",
+    "messageId": "pubsub-message-id"
+  },
+  "subscription": "projects/protean-vigil-509704-q4/subscriptions/credit-open-order-refund-dev-v1"
+}
+~~~
+
+The separate `infra/gcp/configure-credit-pubsub.sh staging` script creates/updates
+authenticated push subscriptions to the deployed Credit URL plus
+`/api/credits/internal/order-events`, matching OIDC audience/service identity,
+retry settings, DLQ/recovery subscription and IAM. Bootstrap documents this
+separate step; merely running bootstrap/Compose does not prove it was run.
+The current script ALSO provisions the incompatible accepted-cancellation stream
+listed in FEEDBACK-007; resolve that before using it for the current workflow.
+Production is intentionally disabled by CREDIT_PUBSUB_PRODUCTION_ENABLED=false;
+enabling/provisioning requires the platform owner's approval and staging checks.
+
+Local Compose settings use an internal Docker hostname/local push identity;
+they do not create a publicly reachable authenticated Cloud Pub/Sub push path
+to a developer's machine. A configured subscription name is not a live subscriber.
+No gcloud executable was found in this runner, and no live GCP/ledger/browser
+test was performed; cloud subscription existence, IAM, actual ACK and balances
+remain runtime gates, not missing Java consumer implementations.
+
+**FEEDBACK-001 remains SUPERSEDED:** synchronous release/settlement endpoints
+are not required by the effective event flow. Order's unused legacy settle
+adapter method does not create a new provider requirement. No CreditsRefunded
+callback/event or refund-confirmation gate is requested by this review.
+
 ## Owner handoff / closing criteria
 
-1. Annablee agrees/implements FEEDBACK-003/004 and both Credit subscriptions;
-   coordinate FEEDBACK-006 before durable retry work.
+1. Annablee addresses remaining reset replay protection (003), terminal replay/
+   cross-service reconciliation (006) and legacy accepted-cancellation routing
+   (007). Do NOT ask her to recreate the implemented assignment/reset routes or
+   refund/completion handlers. Runtime test the compatible implemented contracts.
 2. User owner agrees/implements abort and completion subscriptions separately.
 3. User/Supplier/Credit/platform agree FEEDBACK-005 before background work resumes.
 4. Peer completion reports are READY_FOR_VERIFICATION, not VERIFIED. Reinspect
    source/DTO/security/tests, run authenticated positive/negative/idempotency/
    concurrency/timeout/consumer tests against isolated data before closing.
-5. Order stub/publisher/RTL tests do not prove peer money movement, penalties,
-   IAM/subscriptions or Sprint completion. Peer source/infrastructure unchanged.
+5. Platform owner verifies compatible subscriptions/IAM/push identity/DLQ and
+   authenticated refund/settlement balances after the 007 cutover. Production
+   promotion remains a separate approved action.
+6. Order stub/publisher/RTL tests and this source review do not prove live money
+   movement, penalties, deployed subscriptions or Sprint completion. Peer source,
+   infrastructure, application code and databases were NOT changed in this review.

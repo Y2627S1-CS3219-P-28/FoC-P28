@@ -1,5 +1,19 @@
 # Service Contracts
 
+## Current provider evidence — CHANGE-087 (2026-10-09)
+
+On sprint-2-3-credit, Credit's integrated 09e04a0 source implements the existing
+PUT courier-assignment (courierId JSON, bodyless 200), POST hold-for-reopen
+(no body, bodyless 200), and wrapped authenticated push refund/completion
+(204 after durable processing) contracts. This is source evidence, not live
+contract verification. No wire/schema change is approved by this review.
+Remaining gaps: reset replay authorization (003), terminal replay/recovery (006),
+delegated credentials (005), and incompatible ABORTED/refund handling of the
+accepted-cancellation topic (007). ADR-025 remains authoritative: accepted
+cancellation signals User penalties on OPEN/EXPIRED; only a separate refund event
+releases an EXPIRED reservation. See peer feedback for requests/formats/evidence.
+Prior dated missing-provider statements below are historical.
+
 ## Effective additive Order contract — CHANGE-086
 
 `POST /api/orders` adds nullable `repostExpiresAt` (ISO UTC timestamp), REQUIRED

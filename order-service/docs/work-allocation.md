@@ -1,5 +1,13 @@
 # Order Service Work Allocation
 
+## Credit integration review branch (2026-10-09)
+
+Vincent explicitly requests the Order-side feedback review on `sprint-2-3-credit`
+(CHANGE-087), after integrating Credit in `09e04a0`. Scope: inspect peer source,
+update Order dependency/context records, no Credit/User/Supplier source or cloud
+changes. This does not approve a new architecture or reassign a peer's ownership.
+Prior `sprint-2-3` implementation allocation below remains historical context.
+
 ## Current Sprint 2-3 workstream (2026-10-08)
 
 Vincent (Developer 2) is assigned the Order-owned Sprint 2-3 work on `sprint-2-3`,
