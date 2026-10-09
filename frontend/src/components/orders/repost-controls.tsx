@@ -20,7 +20,9 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{ message: string; version: number } | null>(null)
+  const failureMessage = failure && order.version <= failure.version
+    ? failure.message : order.repostFailureMessage
   const [creditAmount, setCreditAmount] = useState(String(order.offeredCredits))
   const [duration, setDuration] = useState(String(order.deliveryTimeLimitMinutes))
   const [description, setDescription] = useState(order.itemDescription)
@@ -65,7 +67,17 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
             : code === "CONFLICT"
               ? "This request could not be reposted. Refresh and check its status."
               : "Could not repost right now. Please try again later."
-      setFailure(message)
+      setFailure({ message, version: order.version })
+      // Failure recording changes the original's version. Refresh it before
+      // another manual attempt; polling/reload can also read this durable result.
+      if (code !== "UNAUTHENTICATED" && code !== "FORBIDDEN") {
+        try {
+          const original = await api<Order>(`/api/orders/${order.id}`)
+          onUpdated(original)
+        } catch {
+          // Keep the short local message if this read also fails; polling recovers.
+        }
+      }
     } finally {
       setBusy(false)
     }
@@ -82,8 +94,9 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
           {order.automaticRepostEnabled ? (
             <>
               <p className="text-sm font-medium">Automatic repost was configured when this order was created.</p>
-              <div className="grid gap-4 text-sm sm:grid-cols-3">
+              <div className="grid gap-4 text-sm sm:grid-cols-2">
                 <p><span className="text-muted-foreground">Repost time</span><br />{order.repostDueAt ? new Date(order.repostDueAt).toLocaleString() : "Not available"}</p>
+                <p><span className="text-muted-foreground">Repost expiry</span><br />{order.repostExpiresAt ? new Date(order.repostExpiresAt).toLocaleString() : "Not available"}</p>
                 <p><span className="text-muted-foreground">Repost credits</span><br />{order.repostCreditAmount ?? 0}</p>
                 <p><span className="text-muted-foreground">Delivery minutes</span><br />{order.repostDeliveryDurationMinutes ?? 0}</p>
               </div>
@@ -106,7 +119,7 @@ export function RepostControls({ order, onUpdated }: { order: Order; onUpdated: 
         <CardDescription>This expired order has not been reposted. Review the details before creating one linked repost.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {failure && <p role="alert" className="text-xs text-destructive">{failure}</p>}
+        {!busy && failureMessage && <p role="alert" className="text-xs text-destructive">{failureMessage}</p>}
         <label className="space-y-1 text-sm"><Label htmlFor={`description-${order.id}`}>Description</Label><Input id={`description-${order.id}`} className={inputClass} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="space-y-1 text-sm"><Label htmlFor={`manual-credits-${order.id}`}>Credits</Label><Input id={`manual-credits-${order.id}`} type="number" min="1" className={inputClass} value={creditAmount} onChange={(event) => setCreditAmount(event.target.value)} /></label>

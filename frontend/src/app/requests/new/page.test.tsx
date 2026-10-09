@@ -31,6 +31,17 @@ async function selectOption(name: string, option: string) {
 }
 
 describe("request creation quarter-hour time integration", () => {
+  it("has a required automatic-repost expiry with quarter-hour minutes only", async () => {
+    render(<NewRequestPage />)
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).toBeDisabled()
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable automatic repost if no courier accepts" }))
+    expect(screen.getByLabelText("Repost expiry date")).toBeRequired()
+    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).not.toBeDisabled()
+    fireEvent.click(screen.getByRole("combobox", { name: "Repost expiry minutes" }))
+    expect((await screen.findAllByRole("option")).map(option => option.textContent)).toEqual(["00", "15", "30", "45"])
+  })
+
   it("submits rounded local expiry and repost time using the existing ISO request body", async () => {
     render(<NewRequestPage />)
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
@@ -47,6 +58,7 @@ describe("request creation quarter-hour time integration", () => {
         requesterId: "requester-1", pickupSupplierId: "store", deliverySupplierId: "hall",
         expiresAt: new Date(2026, 9, 8, 11, 15).toISOString(),
         automaticRepost: true, repostDueAt: new Date(2026, 9, 8, 12, 30).toISOString(),
+        repostExpiresAt: new Date(2026, 9, 8, 13, 15).toISOString(),
       }),
     }))
     expect(mocks.push).toHaveBeenCalledWith("/my-requests")

@@ -29,6 +29,10 @@ export type Order = {
   repostedOrderId: string | null
   automaticRepostEnabled?: boolean
   repostDueAt?: string | null
+  repostExpiresAt?: string | null
+  repostFailureCode?: string | null
+  repostFailureMessage?: string | null
+  repostFailureAt?: string | null
   repostCreditAmount?: number
   repostDeliveryDurationMinutes?: number
 }
@@ -50,6 +54,7 @@ export type CreateOrderForm = {
   expiresAt: string
   automaticRepost: boolean
   repostDueAt: string
+  repostExpiresAt: string
   repostCreditAmount: number
   repostDeliveryDurationMinutes: number
 }
@@ -65,6 +70,7 @@ export type CreateOrderPayload = {
   expiresAt: string
   automaticRepost: boolean
   repostDueAt: string | null
+  repostExpiresAt: string | null
   repostCreditAmount: number
   repostDeliveryDurationMinutes: number
 }
@@ -102,6 +108,11 @@ export function validateCreateOrderForm(form: CreateOrderForm, now = new Date())
     const repostDueAt = new Date(form.repostDueAt)
     if (Number.isNaN(repostDueAt.getTime())) return "Choose a repost time when automatic repost is enabled."
     if (!isQuarterHourDateTime(form.repostDueAt)) return "Choose repost minutes of 00, 15, 30, or 45."
+    if (repostDueAt.getTime() < expiry.getTime()) return "Repost time must be at or after the original order expiry."
+    const repostExpiry = new Date(form.repostExpiresAt)
+    if (Number.isNaN(repostExpiry.getTime())) return "Choose a repost expiry when automatic repost is enabled."
+    if (!isQuarterHourDateTime(form.repostExpiresAt)) return "Choose repost expiry minutes of 00, 15, 30, or 45."
+    if (repostExpiry.getTime() <= repostDueAt.getTime()) return "Repost expiry must be later than the repost time."
     if (form.repostCreditAmount < 1) return "Repost credits must be at least 1."
     if (form.repostDeliveryDurationMinutes < 15) return "Repost delivery time must be at least 15 minutes."
   }
@@ -133,6 +144,7 @@ export function buildCreateOrderPayload(form: CreateOrderForm, requesterId: stri
     expiresAt: new Date(form.expiresAt).toISOString(),
     automaticRepost: form.automaticRepost,
     repostDueAt: form.automaticRepost ? new Date(form.repostDueAt).toISOString() : null,
+    repostExpiresAt: form.automaticRepost ? new Date(form.repostExpiresAt).toISOString() : null,
     repostCreditAmount: form.automaticRepost ? form.repostCreditAmount : 0,
     repostDeliveryDurationMinutes: form.automaticRepost ? form.repostDeliveryDurationMinutes : 0,
   }

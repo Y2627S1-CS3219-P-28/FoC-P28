@@ -32,6 +32,7 @@ const initialForm = (): CreateOrderForm => ({
   expiresAt: localDate(1),
   automaticRepost: false,
   repostDueAt: localDate(2),
+  repostExpiresAt: localDate(3),
   repostCreditAmount: 1,
   repostDeliveryDurationMinutes: 15,
 })
@@ -113,6 +114,7 @@ export default function NewRequestPage() {
             <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.automaticRepost} onChange={(event) => update("automaticRepost", event.target.checked)} />Enable automatic repost if no courier accepts</label>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2"><QuarterHourDateTimePicker id="repost-due" label="Repost time" disabled={!form.automaticRepost} required={form.automaticRepost} value={form.repostDueAt} onChange={(value) => update("repostDueAt", value)} /></div>
+              <div className="space-y-1 sm:col-span-2"><QuarterHourDateTimePicker id="repost-expiry" label="Repost expiry" disabled={!form.automaticRepost} required={form.automaticRepost} min={form.repostDueAt} describedBy="repost-expiry-help" value={form.repostExpiresAt} onChange={(value) => update("repostExpiresAt", value)} /><p id="repost-expiry-help" className="text-xs text-muted-foreground">Repost time must be at or after the original expiry. Repost expiry must be later than repost time; choose minutes 00, 15, 30, or 45.</p></div>
               <label className="space-y-1 text-sm"><Label htmlFor="repost-credits">Repost credits</Label><Input id="repost-credits" type="number" min="1" disabled={!form.automaticRepost} className={inputClass} value={form.repostCreditAmount} onChange={(event) => update("repostCreditAmount", Number(event.target.value))} /></label>
               <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" type="number" min="15" disabled={!form.automaticRepost} className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} /></label>
             </div>
