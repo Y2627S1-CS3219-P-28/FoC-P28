@@ -1,5 +1,50 @@
 # Vincent - Active Work
 
+## Order-to-Credit payload audit - 2026-10-09
+
+- Vincent requests checking every Credit endpoint/event for sufficient, minimal
+  information on sprint-2-3-credit. This replaces the interrupted automatic
+  scheduler implementation preflight; no scheduler/source edits were made there.
+  Clean worktree at start. Scope is read-only application/peer inspection plus
+  mandatory Order feedback/handoff/learning/disclosure records, not schema changes.
+- Inspected Order ports/adapters/call sites, event DTOs/factory/mapper/publishers,
+  Credit controllers/DTOs/consumer/service/JPA ledger/idempotency, existing tests,
+  browser Credit signup/balance calls and local/cloud routing configuration.
+  ADR-011/018/025 retain the approved full snapshot and financial/User boundaries.
+  D1/selected Overall hashes match. Full historical context rehydration remains
+  incomplete due to truncated output; no full workflow/completion claim.
+- Active backend HTTP payloads match Credit: PUT reservation has requesterId and
+  amount; PUT assignment has courierId only; POST hold-for-reopen has no body.
+  Business order ID is in each path and current Firebase bearer in the header.
+  Creation/manual/auto repost share reservation; abort reset retains funds.
+  Browser signup sends eventId/userId/occurredAt; /me is a bodyless authenticated
+  read. Neither requires order descriptions, location details, balances or roles.
+- Refund/completion events contain all fields used for validation, matching the
+  reservation, ledger attribution and duplicate-payload hashing. Credit reads
+  six of fifteen Order snapshot fields: id/version/requesterId/courierId/
+  offeredCredits/status. It does not access the other nine listed in feedback
+  section 7. Overdue facts remain consumed/hash-bound and shared with User; they
+  do not change the transferred amount. Full snapshots are approved but are not
+  minimal for Credit. Any reduction needs explicit approval and consumer/version/
+  queued-message compatibility review, not silent field deletion.
+- Runtime read-only outbox field-name queries confirm all three serialized event
+  types have the full snapshot. At inspection: 11 refund published/1 pending,
+  3 completion published and 5 penalty published. PUBLISHED means broker accepted
+  publication, not Credit committed a refund/transfer. No ledger success claimed.
+- Local-live setup intentionally creates only Credit refund/completion
+  subscriptions; accepted-cancellation is User penalty only. Credit's legacy
+  ABORTED refund consumer/provisioning remains incompatible (FEEDBACK-007).
+  Dormant settle adapter points to a missing HTTP /settlement route, but no
+  production caller uses it; completion uses Pub/Sub. Do not request that route
+  as a new requirement or reactivate the obsolete path without approval.
+- Verification: source/call-site/test-source inspection, static field-access
+  comparison and runtime SELECTs only. No Java/FE suite, live financial mutation,
+  Pub/Sub message, cloud change or browser action performed. No peer files edited.
+- Next: user decides whether to retain the approved snapshot or coordinate a
+  minimal event contract with Credit/User owners. FEEDBACK-003/005/006/007 remain
+  open; background retry/delegated authorization remains paused. Section 7 of
+  peer feedback owns the detailed audit; learning remains ignored; Sprint [~].
+
 ## Automatic repost runtime diagnosis - 2026-10-09
 
 - Vincent requests a read-only check on sprint-2-3-credit: automatic repost

@@ -607,3 +607,116 @@ CANCELLED/EXPIRED refund and COMPLETED transfer balance/ledger evidence, duplica
 delivery and queued/DLQ recovery. Local tests do not close this live gate or prove
 the user's existing cancelled reservation has been refunded. Status is deliberately
 not VERIFIED. Background repost credentials/retries remain paused.
+
+## 7. Current Order-to-Credit payload audit (2026-10-09)
+
+Read-only audit requested by Vincent on sprint-2-3-credit. No application, event
+schema, peer, database or infrastructure changes are approved by this audit.
+Expected contracts: ADR-011 full completion/refund snapshots, ADR-018 minimal
+assignment/reset requests, ADR-025 User-only accepted-cancellation penalties.
+Evidence: Order HttpPeerAdapters/CreditServicePort and all production call sites;
+event DTOs/factory/mapper/publishers; CreditController/request DTOs,
+CreditOrderEventController/OrderEventMessage/CreditOrderEventConsumer,
+CreditService/JpaCreditRepository; existing test source and local-live/cloud
+provisioning configuration. Field-name-only runtime outbox SELECTs confirm the
+persisted envelope/snapshot shapes for all three types, without exposing raw
+descriptions, user IDs or credentials. This does not prove financial delivery.
+
+### HTTP requests: active shapes match and are already small
+
+All backend paths below start with `/api/credits`. Real foreground requests
+forward the current Firebase bearer header; caller identity is not established
+by an ID in JSON. Credit owns balances and existing reservation details.
+
+| Operation/caller | Method/path | Exact request body | Provider result / assessment |
+| --- | --- | --- | --- |
+| Create and both repost paths | PUT `/orders/{orderId}/reservation` | `{"requesterId":"requester-uid","amount":5}` | 201 new/200 replay with ReservationResponse; both fields are used; MATCHES_APPROVED_CONTRACT for payload shape |
+| Accept | PUT `/orders/{orderId}/courier-assignment` | `{"courierId":"courier-uid"}` | Exactly 200, no body; Credit checks authenticated self, active reservation and courier account; MATCHES_APPROVED_CONTRACT for payload shape |
+| Every assigned courier abort | POST `/orders/{orderId}/hold-for-reopen` | NO body | Exactly 200, no body; Credit gets caller from JWT and stored reservation; retains funds, clears courier; MATCHES_APPROVED_CONTRACT for shape, existing FEEDBACK-003 security/replay gap retained |
+| Frontend signup, not an Order backend call | POST `/registration-facts` | `{"eventId":"uuid","userId":"user-uid","occurredAt":"ISO-UTC"}` | 201 new/200 replay, AccountResponse; fields are used for self-check, provisioning and deduplication |
+| Frontend balance polling | GET `/me` | NO body | 200 BalanceResponse, authenticated UID selects account; 404 for missing account |
+
+Order ID is already in the path. No need to add description, pickup/delivery,
+penalty points, balances, expected Order version or the full Order to these
+requests. The adapter currently ignores reservation response content; active-
+state replay/reconciliation remains FEEDBACK-006, not a reason to add outbound
+fields or claim verified recovery. Assignment/reset enforce bodyless 200.
+
+Dormant code: `CreditServicePort.settle`/HttpPeerAdapters.settle constructs
+`POST /orders/{orderId}/settlement` with commandId/requesterId/courierId/amount.
+Credit has no corresponding controller route and no Order production call site
+invokes this method. Current completion uses its event instead. This is obsolete
+adapter surface, NOT an active missing-provider requirement. An old adapter unit
+test mocks the missing route; it does not verify that Credit implements it.
+Removing that surface is a separate approved cleanup, not performed here.
+
+### Financial event fields: sufficient, but the snapshot is not minimal
+
+Current envelope fields consumed for decoding/validation, ledger attribution or
+duplicate-payload hashing: `eventId`, `eventType`, `eventVersion`, `orderId`,
+`orderVersion`, `occurredAt`, `actorId`, and `order`. Current consumer explicitly
+requires `order.id == orderId` and `order.version == orderVersion`; these repeated
+fields are intentional consistency checks, not safe deletion candidates under v1.
+
+Inside `order`, Credit reads exactly:
+
+- `id` and `version`: envelope/snapshot consistency.
+- `requesterId` and `offeredCredits`: must match Credit's stored reservation.
+- `courierId`: must be null for refund, assigned/matching for completion.
+- `status`: refund permits CANCELLED/EXPIRED; transfer requires COMPLETED.
+
+Completion additionally carries `overdue` (required by the consumer) and
+`overdueAt`. Credit includes them in its duplicate-payload hash, but settlement
+transfers the reserved amount regardless of these facts. User Service owns
+penalty policy and also needs completion facts; do not add penalty calculations
+or a deduction amount to Order's Credit request on this basis.
+
+The nine additional snapshot fields are NOT accessed by Credit's consumer or
+passed to its CreditOutcomeEvent/financial repository:
+
+`itemDescription`, `pickupSupplierId`, `deliverySupplierId`, `createdAt`,
+`expiresAt`, `deliveryTimeLimitMinutes`, `originalOrderId`, `repostedOrderId`,
+and `repostPlan` (including its nested scheduling/amount/duration/used data).
+
+These fields satisfy the approved broader snapshot contract and Credit's incoming
+DTO mirrors them, but they are unnecessary for its current refund/transfer work.
+In particular, free-form request descriptions increase data exposure without
+helping financial processing. Thus the events MATCH the approved v1 shape and
+contain enough data, yet do NOT meet a strict Credit-only minimal-payload goal.
+No new missing field was found for the current refund/completion consumer.
+
+If Vincent chooses minimization, coordinate with Credit and User owners first:
+decide shared minimal facts versus a separate financial contract, preserve
+authentication/identity/version/idempotency, test serialization/deserialization
+and both consumers, and agree old-v1 outbox/backlog/DLQ compatibility before
+rollout. Do not mutate queued payloads or generate new event IDs for old refunds.
+No new schema/version/topic or provider implementation is selected by this audit.
+
+### Routing and return behavior
+
+| Result | Published event / configured topic family | Intended consumer / required meaning |
+| --- | --- | --- |
+| Requester OPEN cancellation or unassigned OPEN expiry; expired abort after reset | OpenOrderRefundTaskEvent / `open-order-refund-*` | Credit releases the OLD order reservation exactly once; current snapshot CANCELLED/EXPIRED, courier null |
+| Requester or >=48-hour scheduled completion | OrderCompletionTaskEvent / `order-completion-*` | Credit transfers reserved funds to the recorded courier; User separately processes completion facts |
+| Every assigned courier abort | AcceptedOrderCancellationTaskEvent / `accepted-order-cancellation-*` | User penalties ONLY; current OPEN/EXPIRED, actorId is aborting courier; not a Credit refund command |
+
+Google Pub/Sub supplies the authenticated wrapped push to
+`POST /api/credits/internal/order-events`: message.data is Base64 event JSON,
+plus subscription and optional messageId. Credit returns bodyless 204 after
+processing, including an idempotent replay. Order's publisher instead receives a
+Pub/Sub message ID; that is publication confirmation, not Credit completion.
+Event data/attributes contain no Firebase token, password, roles or account
+balances; HTTP/transport authentication remains separate from business payload.
+
+Local-live helper correctly creates only Credit refund/completion subscriptions
+and sets the accepted-cancellation subscription name to an unused placeholder.
+Credit's older accepted-cancellation consumer/cloud provisioning still expects
+ABORTED and refunds, so FEEDBACK-007 remains INCOMPLETE_OR_INCOMPATIBLE. Keep User
+penalty routing separate; never adapt OPEN penalty events into Credit refunds.
+Actual cloud subscription inventory and ledger effects were not verified here.
+
+Verification limits: runtime field-name/publication-state SELECTs and static
+producer/consumer/DTO/test-source comparisons performed; no tests rerun, financial
+mutation, cloud write, message replay or source edit. Publication states observed
+included a pending refund; PUBLISHED is not proof of a refund/transfer. Existing
+003/005/006/007 entries and paused background-auth/retry scope remain unchanged.
