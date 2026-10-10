@@ -182,7 +182,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
    `<NAME>_SERVICE_URL` default to `gateway/Dockerfile` / `gateway/deploy/env.yaml`.
 4. Add any new env vars to `.env.example`.
 5. Document every endpoint in OpenAPI and add `OpenApiDocumentationTest` (section 6).
-6. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
+6. In the cloud the new service gets internal ingress (only the gateway is public). If it calls other
+   services, set `VPC_EGRESS=all-traffic` in its `deploy/service.conf` (see docs/ci-cd.md).
+7. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
    owner runs `infra/gcp/bootstrap.sh`, which provisions the new service's identity (and
    databases, if it uses Firestore). Then re-run the check (section 8).
 

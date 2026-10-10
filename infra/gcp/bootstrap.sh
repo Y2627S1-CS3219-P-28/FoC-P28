@@ -15,6 +15,8 @@
 #   - Pub/Sub API prerequisites; Credit push subscriptions are provisioned separately by
 #     infra/gcp/configure-credit-pubsub.sh after the target Cloud Run service exists
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
+#   - VPC for Cloud Run Direct VPC egress: subnet with Private Google Access, Cloud NAT
+#     (only the gateway is public; the other services have internal ingress)
 #   - deployer service account used by GitHub Actions    foc-deployer@
 #   - read-only custom role focInfraReader (deployer), used by the CI infrastructure check
 #   - Workload Identity Federation for the GitHub repo  (keyless: no JSON keys in GitHub)
@@ -94,7 +96,7 @@ gc services enable \
   run.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
   secretmanager.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com \
-  sqladmin.googleapis.com pubsub.googleapis.com
+  sqladmin.googleapis.com pubsub.googleapis.com compute.googleapis.com
 
 log "Artifact Registry repository: $AR_REPO ($REGION)"
 exists gc artifacts repositories describe "$AR_REPO" --location "$REGION" ||
@@ -188,6 +190,22 @@ for env in "${ENVIRONMENTS[@]}"; do
   done
 done
 
+log "VPC for Cloud Run Direct VPC egress: $VPC_NETWORK / $VPC_SUBNET ($VPC_SUBNET_RANGE)"
+exists gc compute networks describe "$VPC_NETWORK" ||
+  gc compute networks create "$VPC_NETWORK" --subnet-mode custom \
+    --description "FoC: Cloud Run services reach each other's internal endpoints through this network"
+exists gc compute networks subnets describe "$VPC_SUBNET" --region "$REGION" ||
+  gc compute networks subnets create "$VPC_SUBNET" --network "$VPC_NETWORK" --region "$REGION" \
+    --range "$VPC_SUBNET_RANGE" --enable-private-ip-google-access
+# Requests to *.run.app (and Google APIs) from the subnet stay on Google's network and count as internal.
+gc compute networks subnets update "$VPC_SUBNET" --region "$REGION" --enable-private-ip-google-access >/dev/null
+exists gc compute routers describe "$VPC_ROUTER" --region "$REGION" ||
+  gc compute routers create "$VPC_ROUTER" --network "$VPC_NETWORK" --region "$REGION"
+# Internet egress (e.g. Cloud SQL's public IP for the Java connector) for services that send all traffic via the VPC.
+exists gc compute routers nats describe "$VPC_NAT" --router "$VPC_ROUTER" --region "$REGION" ||
+  gc compute routers nats create "$VPC_NAT" --router "$VPC_ROUTER" --region "$REGION" \
+    --auto-allocate-nat-external-ips --nat-all-subnet-ip-ranges
+
 log "Deployer service account: $DEPLOYER_SA"
 exists gc iam service-accounts describe "$DEPLOYER_SA" ||
   create_sa "$DEPLOYER_ID" --display-name "FoC GitHub Actions deployer"
@@ -204,9 +222,12 @@ for env in "${ENVIRONMENTS[@]}"; do
   gcloud storage buckets add-iam-policy-binding "gs://$(config_bucket "$env")" \
     --member "serviceAccount:$DEPLOYER_SA" --role roles/storage.objectAdmin >/dev/null
 done
+# Deploying with --network/--subnet (Direct VPC egress) uses the subnet.
+gc compute networks subnets add-iam-policy-binding "$VPC_SUBNET" --region "$REGION" \
+  --member "serviceAccount:$DEPLOYER_SA" --role roles/compute.networkUser >/dev/null
 
 log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
-reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy,compute.networks.get,compute.subnetworks.get,compute.subnetworks.getIamPolicy,compute.routers.get"
 if exists gc iam roles describe focInfraReader; then
   gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
 else

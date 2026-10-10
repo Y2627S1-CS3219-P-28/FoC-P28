@@ -196,8 +196,9 @@ A service joins CI/CD automatically once its `Dockerfile` has content.
 | Staging | https://gateway-staging-374055363871.asia-southeast1.run.app |
 | Production | `https://gateway-production-374055363871.asia-southeast1.run.app` (after the first promotion) |
 
-- **Always use the gateway URL above.** Each service also has its own `*.run.app` URL, but
-  only the gateway routes `/api/*` to the backend services. Opening the frontend's own URL
+- **Always use the gateway URL above.** It is the only public service. The others are
+  internal-only (their own `*.run.app` URLs return 404), and the gateway routes `/api/*` to them.
+  API docs: `<gateway>/api/<name>s/docs`. Opening the frontend's own URL
   redirects you to the gateway.
 - **Sign in** with an account in the team's Firebase project (`cs3219-p28-auth`), or create one
   on the sign-in page. The project enforces a password policy: at least 8 characters, with an
