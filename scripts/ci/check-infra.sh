@@ -214,17 +214,14 @@ for env in "${environments[@]}"; do
 
   topics=(
     "$(environment_value "$env" ORDER_OPEN_REFUND_TOPIC)"
-    "$(environment_value "$env" ORDER_ACCEPTED_CANCELLATION_TOPIC)"
     "$(environment_value "$env" ORDER_COMPLETION_TOPIC)"
   )
   subscriptions=(
     "$(environment_value "$env" CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION)"
-    "$(environment_value "$env" CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
   )
   push_paths=(
     "/api/credits/internal/order-events/open-refund"
-    "/api/credits/internal/order-events/accepted-cancellation"
     "/api/credits/internal/order-events/completion"
   )
   for index in "${!subscriptions[@]}"; do

@@ -47,17 +47,14 @@ pubsub_service_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccoun
 
 topics=(
   "$ORDER_OPEN_REFUND_TOPIC"
-  "$ORDER_ACCEPTED_CANCELLATION_TOPIC"
   "$ORDER_COMPLETION_TOPIC"
 )
 subscriptions=(
   "$CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION"
-  "$CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION"
   "$CREDIT_ORDER_COMPLETION_SUBSCRIPTION"
 )
 push_paths=(
   "/api/credits/internal/order-events/open-refund"
-  "/api/credits/internal/order-events/accepted-cancellation"
   "/api/credits/internal/order-events/completion"
 )
 

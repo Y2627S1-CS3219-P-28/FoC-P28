@@ -62,7 +62,6 @@ class SecurityConfig {
         http
                 .securityMatcher(
                         CreditOrderEventController.OPEN_REFUND_PATH,
-                        CreditOrderEventController.ACCEPTED_CANCELLATION_PATH,
                         CreditOrderEventController.COMPLETION_PATH)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

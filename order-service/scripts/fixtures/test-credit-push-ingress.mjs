@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 const base = 'http://ingress-test:8080';
 const paths = [
   '/api/credits/internal/order-events/open-refund',
-  '/api/credits/internal/order-events/accepted-cancellation',
   '/api/credits/internal/order-events/completion',
 ];
 const path = paths[0];

@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.error.InvalidOrderEventException;
-import sg.edu.nus.foc.credit.messaging.AcceptedOrderCancellationEventHandler;
 import sg.edu.nus.foc.credit.messaging.OpenOrderRefundEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderEventMessage;
@@ -36,28 +35,23 @@ public class CreditOrderEventController {
 
     public static final String PUSH_PATH = "/api/credits/internal/order-events";
     public static final String OPEN_REFUND_PATH = PUSH_PATH + "/open-refund";
-    public static final String ACCEPTED_CANCELLATION_PATH = PUSH_PATH + "/accepted-cancellation";
     public static final String COMPLETION_PATH = PUSH_PATH + "/completion";
 
     private static final String OPEN_REFUND_TYPE = "OpenOrderRefundTaskEvent";
-    private static final String ACCEPTED_CANCELLATION_TYPE = "AcceptedOrderCancellationTaskEvent";
     private static final String COMPLETION_TYPE = "OrderCompletionTaskEvent";
 
     private final OrderEventPayloadDecoder decoder;
     private final CreditPushProperties properties;
     private final OpenOrderRefundEventHandler openRefundHandler;
-    private final AcceptedOrderCancellationEventHandler acceptedCancellationHandler;
     private final OrderCompletionEventHandler completionHandler;
 
     public CreditOrderEventController(OrderEventPayloadDecoder decoder,
                                       CreditPushProperties properties,
                                       OpenOrderRefundEventHandler openRefundHandler,
-                                      AcceptedOrderCancellationEventHandler acceptedCancellationHandler,
                                       OrderCompletionEventHandler completionHandler) {
         this.decoder = decoder;
         this.properties = properties;
         this.openRefundHandler = openRefundHandler;
-        this.acceptedCancellationHandler = acceptedCancellationHandler;
         this.completionHandler = completionHandler;
     }
 
@@ -73,21 +67,6 @@ public class CreditOrderEventController {
     public ResponseEntity<Void> receiveOpenRefund(@Valid @RequestBody PubSubPushEnvelope envelope) {
         return receive(envelope, properties.openRefundSubscriptionPath(),
                 OPEN_REFUND_TYPE, openRefundHandler::handle);
-    }
-
-    @PostMapping(ACCEPTED_CANCELLATION_PATH)
-    @Operation(summary = "Process an authenticated accepted-order cancellation event")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Event committed or replayed idempotently"),
-            @ApiResponse(responseCode = "400", description = "Push envelope or Order event is invalid"),
-            @ApiResponse(responseCode = "401", description = "Pub/Sub push identity is invalid"),
-            @ApiResponse(responseCode = "409", description = "Event conflicts with persisted credit state"),
-            @ApiResponse(responseCode = "503", description = "Credit persistence is unavailable")
-    })
-    public ResponseEntity<Void> receiveAcceptedCancellation(
-            @Valid @RequestBody PubSubPushEnvelope envelope) {
-        return receive(envelope, properties.acceptedCancellationSubscriptionPath(),
-                ACCEPTED_CANCELLATION_TYPE, acceptedCancellationHandler::handle);
     }
 
     @PostMapping(COMPLETION_PATH)
@@ -111,6 +90,7 @@ public class CreditOrderEventController {
         OrderEventMessage message = null;
         try {
             message = decoder.decode(envelope.subscription(), decode(envelope.message().data()),
+                    envelope.message().attributes(),
                     expectedSubscription, expectedEventType);
             logEvent("order_event_received", envelope.subscription(), message, "received");
             handler.accept(message);
@@ -124,7 +104,6 @@ public class CreditOrderEventController {
                     .addKeyValue("eventId", message == null ? null : message.eventId())
                     .addKeyValue("eventType", message == null ? expectedEventType : message.eventType())
                     .addKeyValue("orderId", message == null ? null : message.orderId())
-                    .addKeyValue("orderVersion", message == null ? null : message.orderVersion())
                     .addKeyValue("outcome", "failed")
                     .addKeyValue("errorType", exception.getClass().getSimpleName())
                     .addKeyValue("errorMessage", exception.getMessage())
@@ -149,7 +128,6 @@ public class CreditOrderEventController {
                 .addKeyValue("eventId", message.eventId())
                 .addKeyValue("eventType", message.eventType())
                 .addKeyValue("orderId", message.orderId())
-                .addKeyValue("orderVersion", message.orderVersion())
                 .addKeyValue("outcome", outcome)
                 .log(logMessage);
     }

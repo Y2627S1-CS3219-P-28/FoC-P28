@@ -8,7 +8,10 @@
 package sg.edu.nus.foc.credit.persistence;
 
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 interface CreditLedgerJpaRepository extends JpaRepository<CreditLedgerEntity, UUID> {
+    Page<CreditLedgerEntity> findByUserId(String userId, Pageable pageable);
 }

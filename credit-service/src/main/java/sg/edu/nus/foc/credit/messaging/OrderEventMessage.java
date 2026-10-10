@@ -13,38 +13,9 @@ import java.time.Instant;
 public record OrderEventMessage(
         String eventId,
         String eventType,
-        int eventVersion,
         String orderId,
-        long orderVersion,
+        String orderStatus,
+        long creditAmount,
         Instant occurredAt,
-        String actorId,
-        OrderSnapshot order,
-        Boolean overdue,
-        Instant overdueAt) {
-
-    public record OrderSnapshot(
-            String id,
-            String requesterId,
-            String courierId,
-            String itemDescription,
-            String pickupSupplierId,
-            String deliverySupplierId,
-            long offeredCredits,
-            String status,
-            Instant createdAt,
-            Instant expiresAt,
-            int deliveryTimeLimitMinutes,
-            long version,
-            String originalOrderId,
-            String repostedOrderId,
-            RepostPlanSnapshot repostPlan) {
-    }
-
-    public record RepostPlanSnapshot(
-            boolean enabled,
-            Instant dueAt,
-            long creditAmount,
-            int deliveryDurationMinutes,
-            boolean used) {
-    }
+        String courierId) {
 }

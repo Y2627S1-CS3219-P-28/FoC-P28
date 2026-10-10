@@ -16,8 +16,7 @@ public record CreditPushProperties(
         String audience,
         String serviceAccount,
         String completionSubscription,
-        String openRefundSubscription,
-        String acceptedCancellationSubscription) {
+        String openRefundSubscription) {
 
     public CreditPushProperties {
         projectId = defaultValue(projectId, "demo-foc");
@@ -25,8 +24,6 @@ public record CreditPushProperties(
         serviceAccount = defaultValue(serviceAccount, "foc-credit-push-local@demo-foc.iam.gserviceaccount.com");
         completionSubscription = defaultValue(completionSubscription, "credit-order-completion-dev-v1");
         openRefundSubscription = defaultValue(openRefundSubscription, "credit-open-order-refund-dev-v1");
-        acceptedCancellationSubscription = defaultValue(
-                acceptedCancellationSubscription, "credit-accepted-order-cancellation-dev-v1");
     }
 
     public String completionSubscriptionPath() {
@@ -35,10 +32,6 @@ public record CreditPushProperties(
 
     public String openRefundSubscriptionPath() {
         return subscriptionPath(openRefundSubscription);
-    }
-
-    public String acceptedCancellationSubscriptionPath() {
-        return subscriptionPath(acceptedCancellationSubscription);
     }
 
     private String subscriptionPath(String subscriptionId) {

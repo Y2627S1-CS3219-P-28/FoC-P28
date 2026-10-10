@@ -113,7 +113,7 @@ class SecurityComponentsTest {
 
     private CreditPushProperties pushProperties() {
         return new CreditPushProperties("project", "https://credit.example.com", "push@example.com",
-                "completion", "refund", "cancellation");
+                "completion", "refund");
     }
 
     private Jwt pushToken(Map<String, Object> overrides) {
