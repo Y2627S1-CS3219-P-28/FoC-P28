@@ -22,16 +22,11 @@ export async function loadUserProfile(
         Authorization: `Bearer ${token}`,
     }
 
-    console.log("[Profile] Fetching profile")
-
     // Load the profile currently stored in MongoDB.
     const profileResponse = await fetch(
         `${apiBaseUrl}/api/users/me`,
         { headers }
     )
-
-    console.log("[Profile] Profile response:", profileResponse.status)
-
 
     if (!profileResponse.ok) {
         throw new Error("Failed to load profile.")
@@ -39,16 +34,8 @@ export async function loadUserProfile(
 
     let profile: UserProfile = await profileResponse.json()
 
-    console.log("[Profile] Profile parsed:", profile)
-
     const firebaseEmail = user.email?.trim() ?? ""
     const storedEmail = profile.email?.trim() ?? ""
-
-    console.log("[Profile] Email comparison:", {
-        firebaseEmail,
-        storedEmail,
-        emailVerified: user.emailVerified,
-    })
 
     // Synchronize only if Firebase and MongoDB disagree.
     if (user.emailVerified && firebaseEmail &&
@@ -62,8 +49,6 @@ export async function loadUserProfile(
                 headers,
             }
         )
-
-        console.log("[Profile] Email sync response:", syncResponse.status)
 
         if (syncResponse.ok) {
             // Use the profile returned by the backend.
