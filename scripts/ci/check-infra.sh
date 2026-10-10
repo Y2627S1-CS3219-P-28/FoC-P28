@@ -18,9 +18,16 @@
 # Credit Service Cloud SQL:
 #   - per-environment databases and users exist on the shared instance
 #   - credit-service runtime identity can connect and read its password secrets
+# Order Service Pub/Sub, per environment:
+#   - its three topics exist and order-service's runtime identity may publish to them
+# User Service MongoDB, per environment:
+#   - its connection-string secret exists and user-service's identity can read it
+#   - the secret has a value once user-service-<environment> is deployed
 # Credit Service Pub/Sub push (when enabled in project.env):
 #   - three Order-topic subscriptions target the authenticated Credit push endpoint
 #   - shared dead-letter topic/recovery subscription and required IAM bindings exist
+# Network (Cloud Run Direct VPC egress; only the gateway is public):
+#   - VPC subnet with Private Google Access, which the deployer may use, and Cloud NAT
 #
 # Anything missing is fixed by the CI/CD owner re-running infra/gcp/bootstrap.sh, which
 # derives the same service lists from the repository.
@@ -48,6 +55,7 @@ sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "
 credit_sql_database() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_DATABASE" || echo "$CREDIT_SQL_PRODUCTION_DATABASE"; }
 credit_sql_user() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_USER" || echo "$CREDIT_SQL_PRODUCTION_USER"; }
 credit_sql_secret() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_SECRET" || echo "$CREDIT_SQL_PRODUCTION_SECRET"; }
+user_mongodb_secret() { [[ $1 == staging ]] && echo "$USER_MONGODB_STAGING_SECRET" || echo "$USER_MONGODB_PRODUCTION_SECRET"; }
 credit_pubsub_enabled() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_ENABLED" || echo "$CREDIT_PUBSUB_PRODUCTION_ENABLED"; }
 credit_dlq_topic() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_TOPIC" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_TOPIC"; }
 credit_dlq_subscription() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_SUBSCRIPTION" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_SUBSCRIPTION"; }
@@ -178,6 +186,45 @@ else
   done
 fi
 
+echo "Order Service Pub/Sub topics"
+for env in "${environments[@]}"; do
+  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_ACCEPTED_CANCELLATION_TOPIC; do
+    topic=$(environment_value "$env" "$key")
+    if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      problem "order-service: Pub/Sub topic '$topic' ($env) does not exist"
+    elif gcloud pubsub topics get-iam-policy "$topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+        jq -e --arg member "serviceAccount:$(runtime_sa order-service)" \
+          '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+      ok "order-service: may publish to '$topic' ($env)"
+    else
+      problem "order-service: $(runtime_sa order-service) cannot publish to '$topic' ($env)"
+    fi
+  done
+done
+
+echo "User Service MongoDB connection string"
+for env in "${environments[@]}"; do
+  secret=$(user_mongodb_secret "$env")
+  if ! gcloud secrets describe "$secret" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "user-service: Secret Manager secret '$secret' does not exist"
+    continue
+  fi
+  if gcloud secrets get-iam-policy "$secret" --project "$PROJECT_ID" --format json |
+      jq -e --arg m "serviceAccount:$(runtime_sa user-service)" \
+        '.bindings // [] | any(.role == "roles/secretmanager.secretAccessor" and (.members | index($m)))' >/dev/null; then
+    ok "user-service: $(runtime_sa user-service) can access secret '$secret'"
+  else
+    problem "user-service: $(runtime_sa user-service) cannot access secret '$secret'"
+  fi
+  if gcloud secrets versions list "$secret" --project "$PROJECT_ID" --filter='state=ENABLED' --format='value(name)' | grep -q .; then
+    ok "user-service: secret '$secret' has a value"
+  elif gcloud run services describe "user-service-$env" --project "$PROJECT_ID" --region "$REGION" >/dev/null 2>&1; then
+    problem "user-service: secret '$secret' has no enabled version, but user-service-$env is deployed"
+  else
+    ok "user-service: secret '$secret' has no value yet (add it before the first $env deploy)"
+  fi
+done
+
 echo "Credit Service Pub/Sub push"
 for env in "${environments[@]}"; do
   if [[ $(credit_pubsub_enabled "$env") != true ]]; then
@@ -284,6 +331,29 @@ for env in "${environments[@]}"; do
   fi
 done
 
+echo "Network (Cloud Run Direct VPC egress; only the gateway is public)"
+if ! gcloud compute networks describe "$VPC_NETWORK" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  problem "VPC network '$VPC_NETWORK' does not exist"
+elif [[ $(gcloud compute networks subnets describe "$VPC_SUBNET" --project "$PROJECT_ID" --region "$REGION" \
+    --format 'value(privateIpGoogleAccess)' 2>/dev/null) != True ]]; then
+  problem "subnet '$VPC_SUBNET' is missing or has Private Google Access off"
+else
+  ok "network '$VPC_NETWORK', subnet '$VPC_SUBNET' (Private Google Access on)"
+  if gcloud compute networks subnets get-iam-policy "$VPC_SUBNET" --project "$PROJECT_ID" --region "$REGION" \
+      --format json | jq -e --arg m "serviceAccount:$DEPLOYER_SA" \
+        '.bindings // [] | any(.role == "roles/compute.networkUser" and (.members | index($m)))' >/dev/null; then
+    ok "the deployer may deploy into '$VPC_SUBNET'"
+  else
+    problem "the deployer has no roles/compute.networkUser on subnet '$VPC_SUBNET'"
+  fi
+fi
+if gcloud compute routers describe "$VPC_ROUTER" --project "$PROJECT_ID" --region "$REGION" --format json 2>/dev/null |
+    jq -e --arg nat "$VPC_NAT" '.nats // [] | any(.name == $nat)' >/dev/null; then
+  ok "Cloud NAT '$VPC_NAT' on router '$VPC_ROUTER'"
+else
+  problem "Cloud NAT '$VPC_NAT' on router '$VPC_ROUTER' does not exist"
+fi
+
 echo "Config buckets"
 for env in "${environments[@]}"; do
   bucket="${PROJECT_ID}-foc-config-$env"
@@ -296,7 +366,7 @@ done
 
 if [[ ${#problems[@]} -gt 0 ]]; then
   echo
-  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
+  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, infra/gcp/configure-order-pubsub.sh <environment> and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
   if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     {
       echo "### Cloud infrastructure incomplete"

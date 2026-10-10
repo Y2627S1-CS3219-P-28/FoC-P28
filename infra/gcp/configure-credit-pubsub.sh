@@ -63,7 +63,7 @@ gc services enable pubsub.googleapis.com
 
 for topic in "${topics[@]}"; do
   exists gc pubsub topics describe "$topic" || {
-    echo "Required Order Service topic '$topic' does not exist." >&2
+    echo "Required Order Service topic '$topic' does not exist. Run infra/gcp/configure-order-pubsub.sh $environment first." >&2
     exit 1
   }
 done
