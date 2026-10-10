@@ -16,6 +16,7 @@ import { PasswordRequirements } from "./password-requirements"
 type Mode = "sign-in" | "sign-up"
 
 const FIREBASE_MESSAGES: Record<string, string> = {
+  "auth/wrong-password": "Incorrect password.",
   "auth/invalid-credential": "Incorrect email or password.",
   "auth/invalid-email": "Enter a valid email address.",
   "auth/email-already-in-use": "An account with this email already exists.",
@@ -164,6 +165,8 @@ export function LoginForm() {
               <div className="w-full space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Please verify your email before signing in.
+                </p>
+                <p className="text-sm text-muted-foreground">
                   Check your inbox and spam folder, then enter your password and use the button below to resend
                   the verification email if necessary.
                 </p>

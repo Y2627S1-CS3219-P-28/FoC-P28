@@ -1,19 +1,24 @@
 "use client"
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useConfig } from "@/components/providers/config-provider"
 import { Button } from "@/components/ui/button"
 
-export default function DeleteAccountButton() {
+interface DeleteAccountButtonProps {
+    onError: (message: string) => void;
+}
+
+export default function DeleteAccountButton({
+      onError,
+    }: DeleteAccountButtonProps) {
   const { user, getIdToken, signOut } = useAuth();
   const config = useConfig();
   const router = useRouter();
 
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState('');
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -23,7 +28,6 @@ export default function DeleteAccountButton() {
     if (!confirmed) return;
 
     setDeleting(true);
-    setError('');
 
     try {
       if (!user) {
@@ -43,16 +47,32 @@ export default function DeleteAccountButton() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to delete account. Please try again.');
+        let message = 'Failed to delete account. Please try again.';
+
+        try {
+          const body = await response.json();
+
+          message = body.detail ?? body.message ?? message;         
+        } catch {
+          // Keep the generic fallback if the error body cannot be parsed.
+        }
+
+        console.log("Setting error to:", message);
+        onError(message);
+        return
       }
 
       // Sign out locally after deletion is done
       await signOut();
       router.replace('/login');
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Unexpected error occurred.'
-      );
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unexpected error occurred.";
+      
+      console.log("Catch block setting error:", message);
+      onError(message);
     } finally {
       setDeleting(false);
     }
@@ -69,8 +89,6 @@ export default function DeleteAccountButton() {
       >
         {deleting ? 'Deleting account...' : 'Delete account'}
       </Button>
-
-      {error && <p role="alert">{error}</p>}
     </div>
   );
 }

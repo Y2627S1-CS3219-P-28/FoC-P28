@@ -38,7 +38,7 @@ When running locally, follow the steps below to create the first admin account:
 5. Save the user
 6. Duplicate the .env.example file and rename it to .env
 7. Edit the `ADMIN_BOOTSTRAP_EMAIL=admin@u.nus.edu`and change the email after the `=` character to the email you set in the Firebase Emulator
-8. Restart the user service with `docker compose restart user-service`
+8. Restart the user service with `docker compose up -d --force-recreate user-service`
 9. The admin account is created and you can log in with it on `localhost:8080`
 
 ### Cloud
