@@ -35,9 +35,17 @@ curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/suppliers?q=co
 curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/suppliers?lat=1.2942&lng=103.774&radius=300'
 ```
 
-Accounts listed in `MOCK_ADMIN_EMAILS` are admins; everyone else is a requester and a courier.
-Locally that's `admin@u.nus.edu` and `e1398851@u.nus.edu` (see `compose.yaml`). In the cloud it's
-set per environment in `infra/environments/<env>.env`.
+Roles come from the User Service (`USER_SERVICE_MODE=http`, the compose default for this service).
+Signing up in the UI creates the User Service profile with the `requester` and `courier` roles. The
+User Service has no API to grant `admin` yet, so grant it in the local MongoDB once:
+
+```bash
+docker compose exec mongodb mongosh UserServiceDB --quiet   --eval 'db.users.updateOne({email: "admin@u.nus.edu"}, {$addToSet: {roles: "admin"}})'
+```
+
+Roles are cached for up to 30 s (`USER_SERVICE_ROLE_CACHE_TTL`), so the new role applies within that time. To fall back to
+mock roles (everyone is a requester and a courier; `MOCK_ADMIN_EMAILS` are admins), set
+`SUPPLIER_USER_SERVICE_MODE=mock` in the root `.env`.
 
 ## Test
 
@@ -58,7 +66,7 @@ envelope (`status`, `error`, `message`, `path`, `timestamp`, `details`).
 | GET | `/api/suppliers` | any role | Search, filter, sort, paginate (F3.1, F4) |
 | GET | `/api/suppliers/{id}` | any role | One supplier, including inactive ones (F3.2, F6.3.3) |
 | GET | `/api/suppliers/types` | any role | Types in use, for filters |
-| GET | `/api/suppliers/permissions` | any role | Caller's roles, so the UI can hide admin actions |
+| GET | `/api/suppliers/permissions` | any role | Caller's roles from the User Service, so the UI can hide admin actions |
 | GET | `/api/suppliers/{id}/status` | any role / services | Does the supplier exist, and is it active? (F5.3) |
 | POST | `/api/suppliers/validate` | any role / services | Validate an errand's pickup + delivery pair (F5.1) |
 | POST | `/api/suppliers/lookup` | any role / services | Resolve many IDs at once, e.g. for order history (F5.2) |
@@ -93,6 +101,8 @@ An empty result is `200` with `items: []` and a `message` (F4.4).
 | `openingTime`, `closingTime` | `"HH:mm"` | Singapore time; a closing time before the opening time means it closes after midnight |
 | `active` | boolean | only active suppliers can be used for new errands |
 | `source` | `SEED` / `ADMIN` | who created it |
+| `seedKey` | string / null | natural key of the seed row that created it; the row still finds the record after a rename |
+| `adminModified` | boolean | an administrator edited or deactivated it, so the seed loader leaves it alone |
 | `createdAt`, `updatedAt` | timestamp | |
 
 `supplierKeys/{sha256(name + building)}` → `{ supplierId }` is a uniqueness index. Firestore
@@ -115,16 +125,28 @@ and curly quotes.
   - A missing or malformed file stops startup.
   - The provided CSV contains Windows-1252 apostrophes, and GitHub page links for images. The
     loader handles both: it decodes the apostrophes and rewrites the links to direct image URLs.
-- **Deactivating seed records:** seed records missing from the file are deactivated, never deleted.
-  Admin-created records are left alone, so a restart can't undo an administrator's changes.
+- **Administrators' changes win:** the loader only changes records it created and no administrator has
+  changed since. Cloud Run restarts the service often, and each start reloads the file, so without this
+  rule a restart would undo edits. Rows are matched by `seedKey`, so a record an administrator renamed is not
+  recreated. Records seeded before `seedKey` existed are adopted by name + building on the next load.
+- **Deactivating seed records:** seed records missing from the file are deactivated, never deleted (unless an
+  administrator has changed them).
+- **Concurrent edits:** a PATCH is applied to the current record inside the write transaction (Firestore
+  retries on contention), so two administrators editing different fields don't overwrite each other.
 - **Access control:**
   - Spring Security validates the Firebase ID token (issuer, audience, expiry, Google signing keys).
-  - Roles come from the User Service and become `ROLE_*` authorities.
-  - Management endpoints use `@PreAuthorize("hasRole('ADMIN')")`.
-  - `USER_SERVICE_MODE=mock` gives everyone requester + courier and grants admin to
-    `MOCK_ADMIN_EMAILS`.
-  - Set `USER_SERVICE_MODE=http` to call `GET {USER_SERVICE_URL}/api/users/role-context` instead,
-    forwarding the caller's bearer token. A caller with no User Service profile (404) gets no roles.
+    Every endpoint needs a valid token.
+  - Roles are looked up only where they matter (`CallerRoles`): management endpoints
+    (`@PreAuthorize("@callerRoles.isAdmin(authentication)")`), `status=inactive|all` listings and
+    `/permissions`. Browsing and the Order Service's `/validate`, `/lookup` and `/status` calls need no roles, so
+    they keep working while the User Service is slow or down.
+  - `USER_SERVICE_MODE=http` calls `GET {USER_SERVICE_URL}/api/users/role-context`, forwarding the caller's
+    bearer token and the request ID. A caller with no User Service profile (404) gets no roles. Any other
+    failure or a timeout (`USER_SERVICE_TIMEOUT`) answers 503 on the role-dependent endpoints only.
+  - Roles are cached per user for `USER_SERVICE_ROLE_CACHE_TTL` (30 s; `0s` disables it). Failures are never cached.
+  - `USER_SERVICE_MODE=mock` gives everyone requester + courier and grants admin to `MOCK_ADMIN_EMAILS`.
+- **Request IDs:** the gateway's `X-Request-Id` is put in the logging context (`requestId`, a field in the
+  cloud's JSON logs) and forwarded to the User Service, so one request can be traced across both services.
 - **Deployment:** Cloud Run as `supplier-service-<environment>`, running as its own service
   account, which can only access its own Firestore databases. The seed CSV is uploaded to the
   environment's config bucket and mounted read-only (F2.1.1). See [docs/ci-cd.md](../docs/ci-cd.md).
@@ -138,7 +160,9 @@ and curly quotes.
 | `FIRESTORE_EMULATOR_HOST` | – | Use the Firestore emulator |
 | `FIREBASE_AUTH_PROJECT_ID` | `demo-foc` | Firebase project that issues ID tokens |
 | `FIREBASE_AUTH_EMULATOR_HOST` | – | Accept Auth emulator tokens (local only) |
-| `USER_SERVICE_MODE` / `USER_SERVICE_URL` | `mock` / – | Role lookup |
+| `USER_SERVICE_MODE` / `USER_SERVICE_URL` | `mock` / – | Role lookup (`http` in compose; the cloud sets it in `deploy/env.yaml`) |
+| `USER_SERVICE_TIMEOUT` | `3s` | Connect/read timeout for role lookups; in the cloud it must cover a User Service cold start (about 20 s) |
+| `USER_SERVICE_ROLE_CACHE_TTL` | `30s` | How long a user's roles are reused; `0s` disables the cache |
 | `MOCK_ADMIN_EMAILS` | – | Admins while in mock mode |
 | `SUPPLIER_SEED_FILE` | – | CSV loaded at startup |
 | `SUPPLIER_CACHE_TTL` | `60s` | Catalogue cache TTL (capped at 60 s) |

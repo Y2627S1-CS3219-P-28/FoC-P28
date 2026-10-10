@@ -21,7 +21,7 @@ public record SupplierProperties(
     public SupplierProperties {
         firestore = firestore != null ? firestore : new FirestoreSettings(null, null, null);
         auth = auth != null ? auth : new AuthSettings(null, null);
-        userService = userService != null ? userService : new UserServiceSettings(null, null, null, null);
+        userService = userService != null ? userService : new UserServiceSettings(null, null, null, null, null);
         seedFile = seedFile != null ? seedFile.trim() : "";
         if (cacheTtl == null || cacheTtl.isNegative() || cacheTtl.compareTo(MAX_CACHE_TTL) > 0) {
             cacheTtl = MAX_CACHE_TTL;
@@ -48,12 +48,18 @@ public record SupplierProperties(
         }
     }
 
-    public record UserServiceSettings(Mode mode, String baseUrl, List<String> mockAdminEmails, Duration timeout) {
+    /**
+     * @param timeout      connect and read timeout for User Service calls; in the cloud it must cover a cold start
+     * @param roleCacheTtl how long a user's roles are reused before asking the User Service again; 0 disables
+     */
+    public record UserServiceSettings(Mode mode, String baseUrl, List<String> mockAdminEmails, Duration timeout,
+                                      Duration roleCacheTtl) {
         public UserServiceSettings {
             mode = mode != null ? mode : Mode.MOCK;
             baseUrl = baseUrl != null ? baseUrl.trim() : "";
             mockAdminEmails = mockAdminEmails != null ? List.copyOf(mockAdminEmails) : List.of();
-            timeout = timeout != null ? timeout : Duration.ofSeconds(3);
+            timeout = timeout != null && timeout.isPositive() ? timeout : Duration.ofSeconds(3);
+            roleCacheTtl = roleCacheTtl != null && !roleCacheTtl.isNegative() ? roleCacheTtl : Duration.ofSeconds(30);
         }
     }
 
