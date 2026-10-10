@@ -1,5 +1,16 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-10: CHANGE-102 / ADR-034 merges command recovery into the
+minute lifecycle scheduler, sequential recovery -> OPEN expiry -> DELIVERED
+>=48-hour completion. Capture lifecycle time after recovery; isolate phase
+errors and retain item locks/guards/leases. No independent command timer;
+`order.lifecycle.cron` controls the merged job. Outbox remains immediate plus
+15-minute recovery. Vincent confirms branch
+`sprint-2-3-credit-service-concurrency-update-event-payload`. HTTP command
+recovery remains disabled; no repost/peer/frontend/schema scope extension.
+CHANGE-101 documents JWT signing locally in excluded learning, not a security
+implementation change. Older timer descriptions are superseded by ADR-034.
+
 Effective 2026-10-10: Vincent approves CHANGE-100 / ADR-033 foreground
 CREATE/ACCEPT/CANCEL_ACCEPTED durable command recovery against a documented
 contract stub. Live HTTP recovery remains disabled pending Credit historical

@@ -19,9 +19,12 @@ Background retries and trusted peer credentials remain paused.
 
 ## Local container development
 
-CHANGE-083 / ADR-026: ORDER_LIFECYCLE_CRON defaults to `0 * * * * *` for both
-OPEN expiry and >=48-hour DELIVERED completion. It replaces ORDER_EXPIRY_CRON /
-ORDER_AUTO_COMPLETION_CRON. Outbox recovery defaults to `0 */15 * * * *`;
+CHANGE-102 / ADR-034: ORDER_LIFECYCLE_CRON defaults to `0 * * * * *` for one
+sequential job: eligible command recovery, OPEN expiry, then >=48-hour DELIVERED
+completion. Command recovery remains mock-only; live HTTP recovery is disabled.
+`order.commands.cron` no longer controls a separate job. The lifecycle cron
+replaces ORDER_EXPIRY_CRON / ORDER_AUTO_COMPLETION_CRON.
+Outbox recovery defaults to `0 */15 * * * *`;
 immediate after-commit dispatch stays enabled. Remove old timer overrides and
 update ORDER_OUTBOX_RECOVERY_CRON in ignored local .env if it still overrides
 the hourly default. Rebuild Order after code changes; DB volumes are not reset.
@@ -116,7 +119,7 @@ Requester creation and repost date/time controls use local clock minutes 00, 15,
 
 | Setting | Default Spring cron | Purpose |
 |---|---|---|
-| ORDER_LIFECYCLE_CRON | 0 * * * * * | One job checks due unassigned OPEN expiry and latest-delivery >=48h completion |
+| ORDER_LIFECYCLE_CRON | 0 * * * * * | Sequential eligible command recovery (mock-only), unassigned OPEN expiry, latest-delivery >=48h completion |
 | ORDER_OUTBOX_RECOVERY_CRON | 0 */15 * * * * | Recover all three event types every 15 minutes |
 
 Publication is attempted immediately after commit; the quarter-hour outbox scan

@@ -1,5 +1,20 @@
 # Order Service Requirements Traceability
 
+## CHANGE-102 / ADR-034: merged minute orchestration
+
+| ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SCH-REC | F3/F4.1.1/F13; approved orchestration amendment | Recover eligible pending commands before expiry; never bypass acceptance deadline or unresolved guard | ADR-033/034; effective minute sequence | OrderLifecycleScheduler -> OrderCommandService -> existing lifecycle workers | OrderCommandSchedulerTest; OrderCommandRecoveryIntegrationTest (valid, compensated, unresolved acceptance) | IN_PROGRESS |
+| SCH-EXP | F4.1.8/F10; OPEN expiry | Still OPEN, unassigned, deadline reached: expiry follows recovery and queues one refund | ADR-026/034 | processDueOrders -> expireDue; unchanged locks/outbox | Recovery integration; existing expiry/concurrency regressions | IN_PROGRESS |
+| SCH-COMP | F4.1.5/F5.1; automatic completion | Still DELIVERED, latest delivery >=48h: completion follows expiry | ADR-020/026/034 | processDueOrders -> autoCompleteDue; unchanged item transactions | OrderLifecycleSchedulerTest; existing completion/concurrency regressions | IN_PROGRESS |
+| SCH-ISO | NFR3/NFR4; scheduling isolation | Single minute owner, lifecycle timestamp after recovery, error logging/isolation; outbox remains 15min | ADR-034 | OrderLifecycleScheduler; independent OrderOutboxScheduler | Scheduler ownership/order/time/failure tests; OrderSchedulerCadenceTest | IN_PROGRESS |
+
+Local evidence: 28 focused and 301 full backend tests pass with no failures,
+errors or skips; 95.60% line / 81.95% branch coverage. PostgreSQL is real; Credit
+is stubbed. Status remains IN_PROGRESS until broader workflow/live gates pass.
+The scheduler amendment changes orchestration only. No new financial/auth/API,
+frontend, migration, topic or infrastructure contract; Sprint remains `[~]`.
+
 ## CHANGE-100 / ADR-033: foreground command recovery stub
 
 | ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |
@@ -8,7 +23,7 @@
 | REC-ACCEPT | F3/F4.1.1/F13 + ADR-033 | Same/different-key competitors cannot produce multiple assignments; preserve deadline and reverse invalid remote success | ADR-033; existing Order acceptance rules | Command claims/guard; OrderAssignmentService.acceptConfirmed; LocalCreditCommandStub | Recovery integration: concurrent claim, expiry compensation, competing cancel/expiry | TESTED_STUB; live blocked |
 | REC-ABORT | F11.2 + ADR-025/033 | Accepted-only reset confirmed before one immutable attempt + same-ID OPEN/EXPIRED + approved outbox | ADR-025; ADR-033 | OrderTransitionService.abortConfirmed; existing history/outbox | Recovery integration: successful three-action flow, unknown abort blocks start; CreditCommandStubTest old reset replay | TESTED_STUB; live blocked |
 | REC-AUTH | ADR-010/033 | Owner/immutable input binding; unknown then 401 stays pending; no stored token; owned past read does not require new-task eligibility | ADR-033 / handoff authorization | OrderCommandService; OrderCommandController; existing JWT security | OrderCommandGateTest; OrderCommandSecurityTest; recovery authorization test | TESTED_STUB; real peer auth blocked |
-| REC-LEASE | NFR3 + ADR-033 | Only due, unclaimed/expired-lease work is recovered; stale generation cannot finalize/compensate | ADR-033; V5 constraints | OrderCommandStore; minute recovery scheduler; protocol stub | Recovery PG claims/generation tests; stub fencing test; OrderCommandSchedulerTest | TESTED_STUB; provider fence blocked |
+| REC-LEASE | NFR3 + ADR-033/034 | Only due, unclaimed/expired-lease work is recovered; stale generation cannot finalize/compensate | ADR-033/034; V5 constraints | OrderCommandStore; first shared minute phase; protocol stub | Recovery PG claims/generation tests; stub fencing test; OrderCommandSchedulerTest | TESTED_STUB; provider fence blocked |
 | REC-UI | ADR-033 + NFR3 | Persist frozen key before POST, retain on timeout/reload, disable pending action, Continue only for authorization, account isolation | ADR-033; frontend integration/style guide | useOrderCommand; IndexedDB storage; PendingOrderCommands; existing routes/actions | Hook 7 cases; pending panel 3 cases; full frontend regression | RTL/build tested; browser gate open |
 | REC-DB | ADR-008/016/033 + NFR3 | Versioned V5 migration, clean/upgrade, preserved previous orders/history/outbox | Database migration workflow; V5 handoff | V5__durable_foreground_commands.sql | OrderOutboxMigrationTest; real PostgreSQL recovery suite | PostgreSQL tested; consuming DB handoff pending |
 

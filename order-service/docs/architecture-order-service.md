@@ -8,8 +8,10 @@ use a durable unresolved target guard plus existing row locks; atomically commit
 Order/history/receipt/outbox and terminal command result. Owner-only status reads
 are not new-task eligibility checks; mutation/resume still revalidates eligibility.
 Five-second UI polling, frozen account-scoped IndexedDB intent and auth-only
-Continue controls accompany this slice. A separate minute command scan is
-mock-only; lifecycle/outbox schedules and repost behavior do not change.
+Continue controls accompany this slice. ADR-034 / CHANGE-102 merges the mock-only
+command scan into the minute lifecycle job: recovery -> expiry -> completion.
+The HTTP gate, item transactions/guards, outbox schedule and repost behavior
+remain unchanged; lifecycle time is captured after recovery.
 
 The [class responsibilities, service sequence, minimal peer contracts and V5
 data model](../concurrency/concurrency-order-credit.md) are the effective feature

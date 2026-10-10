@@ -1,4 +1,7 @@
 schema_version = 1
+merged_minute_scheduler_decision = "docs/decisions/ADR-034-merged-minute-command-and-lifecycle-job.md"
+merged_minute_scheduler_order = ["eligible command recovery (mock-only)", "OPEN expiry", "DELIVERED >=48h completion"]
+merged_minute_scheduler_cron = "order.lifecycle.cron; default 0 * * * * *; order.commands.cron obsolete"
 foreground_command_recovery_decision = "docs/decisions/ADR-033-durable-credit-command-stub.md"
 foreground_command_recovery_scope = "contract-stub-only; live HTTP disabled; no repost recovery"
 recovery_context_loading = "latest effective and relevant sections approved by Vincent 2026-10-10"
@@ -66,7 +69,7 @@ validation_amendment = "CHANGE-091 / ADR-030: field-only errors; new auto expiry
 saved_explicit_expiry_plans = "grandfather unchanged; no migration; late execution allowed while expiry future"
 decision_record = "changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md"
 developer = "Vincent"
-branch = "sprint-2-3-credit-service-concurrency"
+branch = "sprint-2-3-credit-service-concurrency-update-event-payload"
 sprints = [2, 3]
 scope = "Order-owned parts only; sibling backend services read-only"
 stage = "approved Order lifecycle/history slice implemented and locally verified; live peer/browser/cloud gates pending"

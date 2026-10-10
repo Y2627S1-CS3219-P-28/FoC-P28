@@ -1,5 +1,9 @@
 # ADR-033: Durable foreground Credit command recovery (contract-stub milestone)
 
+Timer-only follow-up: ADR-034 / CHANGE-102 merges the separate minute recovery
+job into OrderLifecycleScheduler, before expiry and completion. All command,
+authorization, deadline, lease and provider-contract rules below remain in force.
+
 - Date / approver: 2026-10-10 / Vincent, branch `sprint-2-3-credit-service-concurrency`.
 - Status: APPROVED for Order/frontend implementation and contract-stub tests only.
 - Change: CHANGE-100; evolution ARCH-EVO-038. Live HTTP recovery remains BLOCKED.

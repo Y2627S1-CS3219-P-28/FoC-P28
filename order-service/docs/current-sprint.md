@@ -1,5 +1,13 @@
 # Active Sprint
 
+## CHANGE-102 / ADR-034: recovery-first minute scheduler
+
+Vincent confirms `sprint-2-3-credit-service-concurrency-update-event-payload`.
+One minute job runs eligible command recovery, OPEN expiry, then >=48-hour
+DELIVERED completion, sequentially with independent phase failures. HTTP command
+recovery remains disabled; no new repost retry or peer integration. Outbox
+retains immediate publication and a separate 15-minute scan. Sprint `[~]`.
+
 ## CHANGE-100 / ADR-033: foreground command recovery stub milestone
 
 Vincent's approved Sprint 2–3 slice on sprint-2-3-credit-service-concurrency

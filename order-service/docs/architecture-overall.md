@@ -1,5 +1,13 @@
 # Overall Architecture
 
+## ADR-034 effective minute orchestration
+
+Order owns one sequential minute job: eligible command recovery (existing
+mock-only gate), OPEN expiry, then DELIVERED >=48-hour completion. Each phase
+isolates errors; per-item transactions/locks/pending guards still arbitrate
+requests and replicas. Outbox remains separate every 15 minutes with immediate
+after-commit publication. No peer/API/data/deployment ownership change.
+
 ## ADR-033 effective foreground recovery refinement
 
 The approved Order/frontend contract-stub slice adds durable CREATE/ACCEPT/ABORT

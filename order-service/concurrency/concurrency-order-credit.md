@@ -215,7 +215,8 @@ classDiagram
     OrderAssignmentService --> Order : validate/accept
     OrderTransitionService --> Order : validate/reopen or expire
     OrderCommandStore --> PostgreSQL : atomic claims/guard/results
-    OrderCommandRecoveryScheduler --> OrderCommandService : minute recovery
+    OrderLifecycleScheduler --> OrderCommandService : first minute phase - eligible recovery
+    OrderLifecycleScheduler --> LifecycleProcessingService : then expiry and completion
     OrderPersistenceAdapter --> OrderCommandStore : unresolved target guard
 ```
 
@@ -225,7 +226,10 @@ classDiagram
 - `OrderCommandStore`: immutable JSON/hash, claims/fences/guard/results via JDBC.
 - Existing creation/assignment/transition services: same domain rules, explicit
   confirmed variants avoid a second Credit effect; existing domain is invoked.
-- `OrderCommandRecoveryScheduler`: every minute, mock-only hard gate.
+- `OrderLifecycleScheduler`: one minute tick, recovery first (mock-only hard
+  gate), then OPEN expiry, then >=48-hour completion (ADR-034 / CHANGE-102).
+  Per-phase catches continue after errors; item transactions/guards remain.
+  The separate command timer is removed.
 - `CreditCommandGateway` / `LocalCreditCommandStub`: approved protocol seam,
   historical key replay and generation-aware reversal **only in memory**.
 - Frontend `useOrderCommand`: browser persistence and disabled pending action;
@@ -239,9 +243,11 @@ normal Order startup applies Flyway; an upgrade must preserve prior orders,
 attempt history and outbox events. Do not use `ddl-auto=update` or delete volumes.
 
 Configuration: `order.commands.enabled` (default true but hard mock-only gate),
-`order.commands.cron` (`0 * * * * *`), lease-seconds (120), retry-seconds (15),
-batch-size (20). The minute scan means a 15-second due retry can run on the next
-minute tick. `-` disables the scan for isolated tests. Cloud Run scale-to-zero
+lease-seconds (120), retry-seconds (15), batch-size (20). Shared
+`order.lifecycle.cron` (`0 * * * * *`) controls all three phases;
+`order.commands.cron` is obsolete. The minute scan means a 15-second due retry
+can run on the next minute tick. `-` disables the merged tick for isolated tests.
+Cloud Run scale-to-zero
 does not guarantee a minute tick; deployment scheduling is not changed here.
 No lease heartbeat exists in this stub slice; before production, bound remote
 timeouts or approve renewal and verify stale-worker fencing across restarts.

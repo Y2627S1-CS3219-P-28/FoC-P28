@@ -1,5 +1,14 @@
 # Order Service Work Allocation
 
+## Vincent scheduler orchestration extension - 2026-10-10
+
+Vincent confirms `sprint-2-3-credit-service-concurrency-update-event-payload`
+and approves CHANGE-102: one every-minute scheduler executes command recovery,
+OPEN expiry, then 48-hour DELIVERED completion. Preserve transactions, row locks,
+pending guards and the live HTTP recovery gate. Narrow Order-only extension;
+no reassignment of peer/frontend implementation. CHANGE-101 documents JWT signing
+locally in the existing excluded learning folder.
+
 ## Current Vincent implementation extension — 2026-10-10
 
 Vincent explicitly approves CREATE/ACCEPT/CANCEL_ACCEPTED recovery across Order

@@ -1,5 +1,15 @@
 # Approved Change Log
 
+- CHANGE-102 / ADR-034 / ARCH-EVO-039 (2026-10-10, Vincent): approved shared
+  minute recovery -> expiry -> completion orchestration; independent failures,
+  existing guards and live recovery gate retained; implemented in `10fd76d`.
+  28 focused / 301 full backend pass; 95.60% line / 81.95% branch coverage.
+  Workflow-format and live peer gates remain; Sprint `[~]`.
+  [Record](../changes/CHANGE-102-merged-minute-scheduler.md).
+
+- CHANGE-101 (2026-10-10, Vincent): local excluded JWT signing learning note;
+  [record](../changes/CHANGE-101-jwt-signature-learning.md). No security/source change.
+
 - CHANGE-100 / ADR-033 / ARCH-EVO-038 (2026-10-10, Vincent): approved durable
   foreground Credit-command contract-stub slice; live HTTP recovery disabled;
   Order/frontend tests and V5 migration in progress.

@@ -1,5 +1,17 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-039: Recovery-first merged minute orchestration
+
+Vincent approves ADR-034 / CHANGE-102 on 2026-10-10 on the confirmed
+`sprint-2-3-credit-service-concurrency-update-event-payload` branch. Approved
+design refinement: replace ADR-033's independent recovery timer with the shared
+minute job, sequential recovery -> expiry -> 48-hour completion. Preserve
+independent phase/item failures, transactions, locks, pending guards, leases and
+HTTP hard gate. Outbox/automatic repost/peer/data/UI/deployment unchanged.
+Original ADR-026/033 history retained. Implemented in `10fd76d`; 28 focused and
+301 full backend tests pass, no skips; 95.60% line / 81.95% branch coverage.
+Real PostgreSQL / stub Credit only; workflow-format/live gates remain open.
+
 ## ARCH-EVO-038: Approved durable foreground Credit-command stub slice
 
 Vincent approves ADR-033 / CHANGE-100 on 2026-10-10: durable two-state command/

@@ -1,5 +1,14 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Recovery-first shared minute job — CHANGE-102 / ADR-034
+
+The independent command timer is removed. `order.lifecycle.cron` controls one
+minute tick: eligible recovery -> OPEN expiry -> >=48-hour completion. Lifecycle
+time is captured after recovery; failures do not suppress subsequent phases.
+Existing HTTP recovery hard gate, locks/leases/unresolved guards and all item
+transactions remain. Outbox remains immediate plus every 15 minutes. This
+supersedes only timer ownership in ADR-026/033; Sprint stays `[~]`.
+
 ## Foreground recovery stub slice — CHANGE-100 / ADR-033
 
 Vincent approves durable CREATE/ACCEPT/CANCEL_ACCEPTED recovery with same-key
@@ -77,7 +86,8 @@ flowchart LR
   Controller --> Assignment[OrderAssignmentService]
   Controller --> Repost[OrderRepostService]
   Controller --> Query[OrderQueryService]
-  Tick[OrderLifecycleScheduler: every minute] --> Lifecycle[LifecycleProcessingService]
+  Tick[OrderLifecycleScheduler: every minute] --> Recovery[OrderCommandService: eligible recovery first / mock-only]
+  Recovery --> Lifecycle[LifecycleProcessingService: expiry then completion]
   Lifecycle --> Transition
   Lifecycle --> Outbox
   Transition --> Domain[Order: one current state / ownership / version]

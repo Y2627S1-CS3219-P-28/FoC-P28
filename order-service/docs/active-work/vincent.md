@@ -1,5 +1,37 @@
 # Vincent - Active Work
 
+## CHANGE-101/102: JWT learning and merged minute orchestration - locally verified
+
+- Started: 2026-10-10. Vincent confirms current branch
+  `sprint-2-3-credit-service-concurrency-update-event-payload` and the merge.
+- Approved: JWT learning; one minute job runs eligible recovery -> OPEN expiry
+  -> >=48-hour DELIVERED completion, with independent catches and existing guards.
+- Scope: Order scheduler/tests/context/diagram/disclosure; no peer/frontend/
+  schema/config/deployment changes or live HTTP recovery activation.
+- Context: scoped effective loading under ADR-033; initially clean worktree.
+  D1/Overall/Sprint-1 fingerprints match. Generic drift helper fails on existing
+  manifest columns; not source drift. No nested Order instructions.
+- Implemented source/tests commit `10fd76d`: removed independent command timer;
+  recovery -> expiry -> completion, lifecycle time captured after recovery;
+  per-phase catches, existing command HTTP gate and item locks/guards retained.
+- TDD: ownership RED observed; intermediate focused failure was a test-fixture
+  verification before its second tick, corrected. Final focused 28 pass (16
+  real PostgreSQL recovery cases). Fresh-source Java 21 Maven offline verify
+  passes 301 tests, zero failures/errors/skips; 95.60% lines / 81.95% branches.
+  Source-copy hashes identical. New acceptance recovery/compensation/expiry
+  guard tests use Credit stub; no live Credit crash/HTTP recovery claim.
+- Logs: target/change102-red.log, change102-focused.log, change102-verify.log;
+  reports in target/change102-verification/target. Cron disabled in test contexts
+  only; timer ownership/cadences directly asserted. Existing workflow helper
+  manifest/table/status/history format failures remain separately recorded.
+- Learning: excluded JWT note and appended shared-minute lesson in existing
+  cross-service recovery note. ADR-034/class/sequence/context/sprint/traceability
+  and AI disclosure synchronized. No peer/frontend/schema/config/cloud changes.
+- Next: human review/rebuild Order when ready; Annablee's real replay/result/
+  fencing/compensation contract still required before enabling HTTP recovery.
+  Sprint `[~]`; live recovery `[!]`. Personal local profile remains unstaged;
+  learning remains excluded. Documentation/disclosure commit recorded below.
+
 ## Durable command recovery contract-stub slice — locally verified 2026-10-10
 
 - Vincent explicitly confirms `sprint-2-3-credit-service-concurrency` and approves
