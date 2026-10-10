@@ -59,6 +59,14 @@ public class CreditService implements CreditOutcomeProcessor {
                 .orElseThrow(() -> new AccountNotFoundException(userId));
     }
 
+    public CreditTransactionPage getTransactions(String userId, int page, int size) {
+        requireOpaqueId(userId, "userId");
+        if (repository.findAccount(userId).isEmpty()) {
+            throw new AccountNotFoundException(userId);
+        }
+        return repository.findTransactions(userId, page, size);
+    }
+
     public ReservationResult reserve(String orderId, String requesterId, long amount) {
         try {
             requireOpaqueId(orderId, "orderId");
@@ -138,7 +146,7 @@ public class CreditService implements CreditOutcomeProcessor {
         try {
             validateOutcome(event);
             switch (event.type()) {
-                case OPEN_ORDER_REFUND, ACCEPTED_ORDER_CANCELLATION -> repository.refund(event);
+                case OPEN_ORDER_REFUND -> repository.refund(event);
                 case ORDER_COMPLETION -> repository.settle(event);
             }
             LoggingEventBuilder eventLog = log.atInfo()
@@ -147,30 +155,26 @@ public class CreditService implements CreditOutcomeProcessor {
                     .addKeyValue("eventId", event.eventId())
                     .addKeyValue("eventType", event.type())
                     .addKeyValue("orderId", event.orderId())
-                    .addKeyValue("orderVersion", event.orderVersion())
-                    .addKeyValue("requesterId", event.requesterId())
                     .addKeyValue("courierId", event.courierId())
-                    .addKeyValue("amount", event.offeredCredits())
+                    .addKeyValue("amount", event.creditAmount())
                     .addKeyValue("orderStatus", event.orderStatus())
                     .addKeyValue("outcome", "completed_or_replayed");
             switch (event.type()) {
-                case OPEN_ORDER_REFUND, ACCEPTED_ORDER_CANCELLATION -> eventLog.log(
-                        "credits_refunded requesterId={} orderId={} amount={} reason={}",
-                        event.requesterId(),
+                case OPEN_ORDER_REFUND -> eventLog.log(
+                        "credits_refunded orderId={} amount={} reason={}",
                         event.orderId(),
-                        event.offeredCredits(),
-                        event.type());
+                        event.creditAmount(),
+                        event.orderStatus());
                 case ORDER_COMPLETION -> eventLog.log(
-                        "credits_transferred requesterId={} courierId={} orderId={} amount={}",
-                        event.requesterId(),
+                        "credits_transferred courierId={} orderId={} amount={}",
                         event.courierId(),
                         event.orderId(),
-                        event.offeredCredits());
+                        event.creditAmount());
             }
         } catch (RuntimeException exception) {
             logFailure("process_order_outcome",
                     event == null ? null : event.orderId(),
-                    event == null ? null : event.requesterId(),
+                    null,
                     event == null ? null : event.eventId(),
                     exception);
             throw exception;
@@ -197,23 +201,13 @@ public class CreditService implements CreditOutcomeProcessor {
         }
         requireEventId(event.eventId(), "eventId");
         requireEventId(event.orderId(), "orderId");
-        requireEventId(event.actorId(), "actorId");
-        requireEventId(event.requesterId(), "requesterId");
-        if (event.type() == null || event.occurredAt() == null || event.eventVersion() != 1
-                || event.orderVersion() < 0 || event.offeredCredits() <= 0) {
+        if (event.type() == null || event.occurredAt() == null || event.creditAmount() <= 0) {
             throw new InvalidOrderEventException("Order event metadata is invalid or unsupported.");
         }
         switch (event.type()) {
             case OPEN_ORDER_REFUND -> {
-                if (!("CANCELLED".equals(event.orderStatus()) || "EXPIRED".equals(event.orderStatus()))
-                        || event.courierId() != null) {
+                if (!("CANCELLED".equals(event.orderStatus()) || "EXPIRED".equals(event.orderStatus()))) {
                     throw new InvalidOrderEventException("Open-order refund event has an invalid resulting order.");
-                }
-            }
-            case ACCEPTED_ORDER_CANCELLATION -> {
-                if (!"ABORTED".equals(event.orderStatus()) || event.courierId() != null) {
-                    throw new InvalidOrderEventException(
-                            "Accepted-order cancellation event has an invalid resulting order.");
                 }
             }
             case ORDER_COMPLETION -> {

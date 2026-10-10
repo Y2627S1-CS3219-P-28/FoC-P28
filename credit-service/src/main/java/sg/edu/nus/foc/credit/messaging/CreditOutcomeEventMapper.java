@@ -10,10 +10,7 @@ final class CreditOutcomeEventMapper {
 
     static CreditOutcomeEvent map(OrderEventMessage message, CreditOutcomeType type) {
         return new CreditOutcomeEvent(
-                message.eventId(), type, message.eventVersion(), message.orderId(),
-                message.orderVersion(), message.occurredAt(), message.actorId(),
-                message.order().requesterId(), message.order().courierId(),
-                message.order().offeredCredits(), message.order().status(),
-                Boolean.TRUE.equals(message.overdue()), message.overdueAt());
+                message.eventId(), type, message.orderId(), message.orderStatus(),
+                message.creditAmount(), message.occurredAt(), message.courierId());
     }
 }

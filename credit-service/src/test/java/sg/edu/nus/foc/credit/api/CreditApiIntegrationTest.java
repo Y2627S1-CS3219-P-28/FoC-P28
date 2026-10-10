@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -145,6 +146,52 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void transactionHistoryIsUserScopedNewestFirstAndPaginated() throws Exception {
+        register(USER);
+        reserve("order-1", USER, 20);
+        register("other-user");
+
+        mvc.perform(get("/api/credits/me/transactions?page=1&size=1")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.items[0].type").value("RESERVATION"))
+                .andExpect(jsonPath("$.items[0].direction").value("DEBIT"))
+                .andExpect(jsonPath("$.items[0].amount").value(20))
+                .andExpect(jsonPath("$.items[0].orderId").value("order-1"))
+                .andExpect(jsonPath("$.items[0].occurredAt").exists());
+
+        mvc.perform(get("/api/credits/me/transactions?page=2&size=1")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].type").value("INITIAL_ALLOCATION"))
+                .andExpect(jsonPath("$.items[0].direction").value("CREDIT"))
+                .andExpect(jsonPath("$.items[0].orderId").doesNotExist());
+
+        mvc.perform(get("/api/credits/me/transactions")
+                        .with(jwt().jwt(token -> token.subject("other-user"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(1));
+    }
+
+    @Test
+    void transactionHistoryRequiresValidPaginationAuthenticationAndAccount() throws Exception {
+        mvc.perform(get("/api/credits/me/transactions?page=0&size=101")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+        mvc.perform(get("/api/credits/me/transactions"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/credits/me/transactions")
+                        .with(jwt().jwt(token -> token.subject("missing-user"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_NOT_FOUND"));
+    }
+
+    @Test
     void reservesByOrderIdReplaysAndAllowsOwnerRecovery() throws Exception {
         register(USER);
         ReserveCreditsRequest request = new ReserveCreditsRequest(USER, 20);
@@ -228,7 +275,7 @@ class CreditApiIntegrationTest {
     @Test
     void pushEndpointRequiresAuthenticationAndNacksInvalidPayloads() throws Exception {
         PubSubPushEnvelope envelope = new PubSubPushEnvelope(
-                new PubSubPushEnvelope.Message("%%%", "message-1"),
+                new PubSubPushEnvelope.Message("%%%", "message-1", Map.of()),
                 "projects/demo-foc/subscriptions/credit-order-completion-dev-v1");
         byte[] body = mapper.writeValueAsBytes(envelope);
 
@@ -248,6 +295,11 @@ class CreditApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isNotFound());
+        mvc.perform(post(CreditOrderEventController.PUSH_PATH + "/accepted-cancellation")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -258,35 +310,21 @@ class CreditApiIntegrationTest {
                 {
                   "eventId":"refund-event-1",
                   "eventType":"OpenOrderRefundTaskEvent",
-                  "eventVersion":1,
                   "orderId":"order-1",
-                  "orderVersion":1,
+                  "orderStatus":"CANCELLED",
+                  "creditAmount":13,
                   "occurredAt":"2026-10-08T15:09:44.158371715Z",
-                  "actorId":"%s",
-                  "order":{
-                    "id":"order-1",
-                    "requesterId":"%s",
-                    "courierId":null,
-                    "itemDescription":"test cancel",
-                    "pickupSupplierId":"pickup-1",
-                    "deliverySupplierId":"delivery-1",
-                    "offeredCredits":13,
-                    "status":"CANCELLED",
-                    "createdAt":"2026-10-08T15:09:13.449727Z",
-                    "expiresAt":"2026-10-08T16:15:00Z",
-                    "deliveryTimeLimitMinutes":15,
-                    "version":1,
-                    "originalOrderId":null,
-                    "repostedOrderId":null,
-                    "repostPlan":null
-                  }
+                  "courierId":null
                 }
-                """.formatted(USER, USER);
+                """;
 
         String encoded = Base64.getEncoder().encodeToString(
                 cancellation.getBytes(StandardCharsets.UTF_8));
         PubSubPushEnvelope envelope = new PubSubPushEnvelope(
-                new PubSubPushEnvelope.Message(encoded, "message-1"),
+                new PubSubPushEnvelope.Message(encoded, "message-1", Map.of(
+                        "eventId", "refund-event-1",
+                        "eventType", "OpenOrderRefundTaskEvent",
+                        "eventVersion", "2")),
                 pushProperties.openRefundSubscriptionPath());
         byte[] pushBody = mapper.writeValueAsBytes(envelope);
 

@@ -15,6 +15,10 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.credit.credit.CreditAccount;
@@ -23,6 +27,8 @@ import sg.edu.nus.foc.credit.credit.CreditOutcomeEvent;
 import sg.edu.nus.foc.credit.credit.CreditOutcomeType;
 import sg.edu.nus.foc.credit.credit.CreditRepository;
 import sg.edu.nus.foc.credit.credit.CreditReservation;
+import sg.edu.nus.foc.credit.credit.CreditTransactionPage;
+import sg.edu.nus.foc.credit.credit.RefundReason;
 import sg.edu.nus.foc.credit.credit.RegistrationResult;
 import sg.edu.nus.foc.credit.credit.ReservationResult;
 import sg.edu.nus.foc.credit.credit.ReservationStatus;
@@ -91,6 +97,22 @@ public class JpaCreditRepository implements CreditRepository {
     @Transactional(readOnly = true)
     public Optional<CreditAccount> findAccount(String userId) {
         return accounts.findById(userId).map(CreditAccountEntity::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CreditTransactionPage findTransactions(String userId, int page, int size) {
+        Page<CreditLedgerEntity> result = ledger.findByUserId(userId, PageRequest.of(
+                page - 1,
+                size,
+                Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("createdAt"),
+                        Sort.Order.desc("entryId"))));
+        return new CreditTransactionPage(
+                result.getContent().stream().map(CreditLedgerEntity::toTransaction).toList(),
+                page,
+                size,
+                result.getTotalElements(),
+                result.getTotalPages());
     }
 
     @Override
@@ -183,15 +205,9 @@ public class JpaCreditRepository implements CreditRepository {
 
         CreditReservationEntity reservation = lockedReservation(event.orderId());
         validateEventReservation(reservation, event);
-        if (event.type() == CreditOutcomeType.OPEN_ORDER_REFUND && reservation.courierId() != null) {
+        if (!Objects.equals(event.courierId(), reservation.courierId())) {
             throw new ReservationStateConflictException(event.orderId(),
-                    "still has a courier for an open-order refund event.");
-        }
-        if (event.type() == CreditOutcomeType.ACCEPTED_ORDER_CANCELLATION
-                && reservation.courierId() != null
-                && !event.actorId().equals(reservation.courierId())) {
-            throw new ReservationStateConflictException(event.orderId(),
-                    "does not match the courier in the accepted-cancellation event.");
+                    "does not match the courier in the Order event.");
         }
         if (reservation.status() == ReservationStatus.REFUNDED) {
             return;
@@ -204,7 +220,7 @@ public class JpaCreditRepository implements CreditRepository {
         reservation.refund(now);
         ledger.save(CreditLedgerEntity.refund(
                 reservation.requesterId(), event.orderId(), event.type().name(), event.eventId(),
-                reservation.amount(), event.occurredAt(), now));
+                refundReason(event.orderStatus()), reservation.amount(), event.occurredAt(), now));
     }
 
     @Override
@@ -283,18 +299,24 @@ public class JpaCreditRepository implements CreditRepository {
 
     private static void validateEventReservation(CreditReservationEntity reservation,
                                                    CreditOutcomeEvent event) {
-        if (!reservation.requesterId().equals(event.requesterId())
-                || reservation.amount() != event.offeredCredits()) {
+        if (reservation.amount() != event.creditAmount()) {
             throw new ReservationStateConflictException(event.orderId(),
-                    "does not match the requester or amount in the Order event.");
+                    "does not match the amount in the Order event.");
         }
     }
 
     private static IdempotencyOperation operation(CreditOutcomeType type) {
         return switch (type) {
             case OPEN_ORDER_REFUND -> IdempotencyOperation.OPEN_ORDER_REFUND;
-            case ACCEPTED_ORDER_CANCELLATION -> IdempotencyOperation.ACCEPTED_ORDER_CANCELLATION;
             case ORDER_COMPLETION -> IdempotencyOperation.ORDER_COMPLETION;
+        };
+    }
+
+    private static RefundReason refundReason(String orderStatus) {
+        return switch (orderStatus) {
+            case "CANCELLED" -> RefundReason.CANCELLATION;
+            case "EXPIRED" -> RefundReason.EXPIRY;
+            default -> throw new IllegalArgumentException("Unsupported refund status: " + orderStatus);
         };
     }
 
@@ -314,11 +336,9 @@ public class JpaCreditRepository implements CreditRepository {
 
     static String outcomePayloadHash(CreditOutcomeEvent event) {
         String canonical = String.join("\n",
-                event.type().name(), event.eventId(), Integer.toString(event.eventVersion()),
-                event.orderId(), Long.toString(event.orderVersion()), event.occurredAt().toString(),
-                event.actorId(), event.requesterId(), nullToEmpty(event.courierId()),
-                Long.toString(event.offeredCredits()), event.orderStatus(),
-                Boolean.toString(event.overdue()), String.valueOf(event.overdueAt()));
+                event.type().name(), event.eventId(), event.orderId(), event.orderStatus(),
+                Long.toString(event.creditAmount()), event.occurredAt().toString(),
+                nullToEmpty(event.courierId()));
         return sha256(canonical);
     }
 

@@ -1925,3 +1925,44 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Resolved/staged only the feedback conflict, retaining approved seven-key Order contract and current main typed Credit decoder/handlers. Main introduces matching three-path infrastructure checks/provisioning; preserved these and every other staged entry. The earlier shared-route cloud repair used stale branch evidence and was undone; three event-specific staging URLs restored. Standard Maven verify without-U passes258 tests and coverage, ShellCheck/actionlint and index/source/contract checks pass. Full cloud first-run hit IAM DNS failures; the staging/production rerun passed, including all three typed subscriptions. Consumer compatibility and hosted CI remain unverified.
 - **Affected locations:** Order peer feedback/current-developer active work/context/change log; this disclosure. Existing main peer/scripts/config edits preserved, not regenerated; no new application, event, schema or workflow edit. Prior three staging URLs restored to newer deployed/main routes.
 - **Author verification:** Yao Xiang requested the conflict resolution and CI checks after reverting prior fixes/pulling main. AI ran recorded checks; developer review, merge commit and hosted CI confirmation pending. No credentials printed or committed.
+
+# Order event credit handlers migration to separate handlers
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Code generation
+- **Affected locations:** Credit service event handlers
+- **Prompt:** update the event handler of credit service to 3 separate endpoints for the 3 different event subscriptions. Instead of current implementation of 1 endpoint for 3 subscriptions then relying on event type from order service to handle them, split it to 3 different endpoints to reduce coupling. Remain the implementation of cross checking event type, amount, and supplier service but shouldn't rely on event type to determine how to handle. 
+- **Key response:** Migrated credit service event handler endpoint from one endpoint to 3 separate ones, one for each event subscriber.
+- **Author verification:** I have verified that the code fits the implementation requirements provided
+
+# Order event payload update and credit history implementation
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Code generation
+- **Affected locations:** Credit service event handlers, frontend
+- **Prompt:** - Credit will expose two internal Pub/Sub push endpoints with two subscriptions:
+  - `OrderCompletionTaskEvent` for settlement.
+  - `OpenOrderRefundTaskEvent` for cancellation and expiry refunds.
+- Credit will no longer consume `AcceptedOrderCancellationTaskEvent`. Remove its Credit endpoint, handler, subscription configuration, infrastructure provisioning, and documentation while preserving legacy database records and enum values.
+- Replace the legacy DTO with the compact v2 body:
+  - `eventId`
+  - `eventType`
+  - `orderId`
+  - `orderStatus`
+  - `creditAmount`
+  - `occurredAt`
+  - nullable `courierId
+-  Add `GET /api/credits/me/transactions?page=1&size=20
+- Add credit transaction history to the user profile page
+- Show desktop table and narrow-screen stacked rows with:
+  - locally formatted date and time from `occurredAt`
+  - colour-coded type badge
+  - order ID or an em dash
+  - signed amount such as `+50 credits` or `−10 credits`
+- Use green for additions, red for paid deductions, and amber for reservations; retain text and signs so meaning never relies on colour alone.
+- Add loading skeletons, empty state, independent error/retry state, a Refresh button, and 20-item pagination.
+- **Key response:** Removed the redundant event handler, updated order event DTO, added credit history in frontend
+- **Author verification:** I have verified that the code fits the implementation requirements provided
+

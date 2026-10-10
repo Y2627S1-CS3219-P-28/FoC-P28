@@ -25,9 +25,6 @@ services:
       CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-push@${LOCAL_PUBSUB_PROJECT_ID:?Set LOCAL_PUBSUB_PROJECT_ID}.iam.gserviceaccount.com
       CREDIT_ORDER_COMPLETION_SUBSCRIPTION: credit-order-completion-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
       CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: credit-open-order-refund-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-v1
-      # Name configured for compatibility ONLY: no Credit subscription is created
-      # on this User-only penalty stream. Do not invoke the legacy refund handler.
-      CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION: credit-accepted-order-cancellation-local-${LOCAL_TEST_ID:?Set LOCAL_TEST_ID}-unused
 
   supplier-service:
     environment:

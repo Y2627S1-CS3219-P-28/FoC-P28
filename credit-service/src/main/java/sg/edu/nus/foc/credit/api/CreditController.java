@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sg.edu.nus.foc.credit.credit.CreditReservation;
 import sg.edu.nus.foc.credit.credit.CreditService;
@@ -68,6 +71,23 @@ public class CreditController {
     })
     public BalanceResponse balance(JwtAuthenticationToken caller) {
         return BalanceResponse.from(service.getAccount(caller.getName()));
+    }
+
+    @GetMapping("/me/transactions")
+    @Operation(summary = "List the authenticated user's credit transactions, newest first")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated credit transaction history"),
+            @ApiResponse(responseCode = "400", description = "Pagination parameters are invalid"),
+            @ApiResponse(responseCode = "401", description = "Firebase ID token is missing or invalid"),
+            @ApiResponse(responseCode = "404", description = "Credit account has not been provisioned")
+    })
+    public TransactionPageResponse transactions(
+            @Parameter(description = "One-based page number")
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @Parameter(description = "Transactions per page, from 1 to 100")
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            JwtAuthenticationToken caller) {
+        return TransactionPageResponse.from(service.getTransactions(caller.getName(), page, size));
     }
 
     @PutMapping("/orders/{orderId}/reservation")
