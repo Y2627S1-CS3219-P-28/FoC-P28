@@ -4,7 +4,7 @@
 
 - Name: Vincent
 - Developer number: Developer 2
-- Branch: `sprint-2-3-credit-service-concurrency`
+- Branch: `sprint-2-3-credit-service-concurrency-update-event-payload`
 - Sprint: Sprint 2 and Sprint 3, approved durable command recovery contract-stub slice.
 - Assigned scope: Order Service and its shared frontend for CREATE, ACCEPT and
   ACCEPTED-only abort recovery; Order-owned migration, tests and cooperation
@@ -15,6 +15,11 @@
   live HTTP recovery disabled until Credit implements and verifies the contract.
 - UI: pending/disabled until terminal outcome; an explicit recovery control only
   when user authorization is needed. No persisted bearer/refresh tokens.
+
+Current authorization (2026-10-10): Vincent confirms this branch and approves
+CHANGE-101 JWT learning and CHANGE-102 merging command recovery into the
+minute lifecycle job, recovery -> expiry -> completion. Order-only scheduler,
+tests and records; no peer, frontend, schema or live-recovery activation.
 
 ## Historical Yao Xiang profile from the integrated checkout
 
