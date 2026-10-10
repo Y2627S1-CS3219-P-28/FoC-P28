@@ -1,5 +1,18 @@
 # Order Service Database Migration Workflow
 
+## Latest migration handoff — V5 / CHANGE-100
+
+V5__durable_foreground_commands.sql adds only Order-owned `order_commands`,
+immutable input/result JSON, owner/lease/generation/retry metadata and the
+unique unresolved-target/due/owner indexes. Expected Flyway version: **5**.
+Pull matching source+migration and rebuild/start Order normally; Flyway applies
+it. Clean and V1/V3-to-latest PostgreSQL upgrade tests verify prior data and
+V4 legacy-plan rules survive. Never edit applied V1–V4 or use ORM auto-update.
+Recovery is disable workers, preserve unresolved records and reconcile; no
+destructive rollback or deletion of pending financial evidence. Full handoff:
+[concurrency-order-credit.md](../concurrency/concurrency-order-credit.md).
+Historical V4 commands below are superseded only as the latest version pointer.
+
 ## Latest migration handoff — V4 / CHANGE-086
 
 - Purpose: NTH4 explicit automatic expiry and latest safe failure code/message/time.

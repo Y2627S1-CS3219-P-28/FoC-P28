@@ -1,5 +1,9 @@
 # Approved Change Log
 
+- CHANGE-100 / ADR-033 / ARCH-EVO-038 (2026-10-10, Vincent): approved durable
+  foreground Credit-command contract-stub slice; live HTTP recovery disabled;
+  Order/frontend tests and V5 migration in progress.
+
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
 | [CHANGE-093](../changes/CHANGE-093-accept-cancel-concurrency-verification.md) | 2026-10-09 | Test slice locally verified; workflow/live gates remain | New pair 2/2; all five PG races 10/10 plus 49 related regressions, zero failures/errors/skips; test commit 827844b; no production/schema/peer changes |

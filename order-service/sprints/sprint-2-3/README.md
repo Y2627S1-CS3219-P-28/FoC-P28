@@ -1,5 +1,15 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Foreground recovery stub slice — CHANGE-100 / ADR-033
+
+Vincent approves durable CREATE/ACCEPT/CANCEL_ACCEPTED recovery with same-key
+browser persistence, Order-owned V5 intent/lease/result records and companion
+pending UI. The effective feature class/sequence/data contracts and Credit
+handoff are [concurrency-order-credit.md](../../concurrency/concurrency-order-credit.md).
+Only the contract stub is implemented/verified here; HTTP recovery is hard
+disabled and real peer/browser/crash gates remain open. Repost recovery and
+delegated credentials remain deferred. Sprint `[~]`; FEEDBACK-010/003/006 `[!]`.
+
 ## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
 
 Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.

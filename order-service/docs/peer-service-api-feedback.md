@@ -874,3 +874,38 @@ Compact body (both event types, exactly seven keys):
 ```
 
 Completion uses eventType OrderCompletionTaskEvent, orderStatus COMPLETED and its assigned courierId. Refund uses CANCELLED or EXPIRED; courierId is the saved resulting Order value, including null. creditAmount is the integer offeredCredits. No requester, snapshot, actor, history, versions or overdue fields appear in either body. AcceptedOrderCancellationTaskEvent contract is unchanged.
+
+## FEEDBACK-010: Credit historical command recovery protocol (2026-10-10)
+
+- Owner: Annablee / Credit Service; requester: Vincent, branch
+  `sprint-2-3-credit-service-concurrency`.
+- Classification: **INCOMPLETE_OR_INCOMPATIBLE**. Existing reservation,
+  courier-assignment and hold-for-reopen routes exist. Historical per-command
+  replay/result retrieval, generation fencing and conditional reversal do not.
+  This extends 003/006; it does not mark those entries verified or request that
+  existing business routes be implemented again.
+- Approval: ADR-033 / CHANGE-100 authorizes Order/frontend contract-stub tests
+  only. **Live HTTP recovery remains disabled** until provider agreement and
+  executed contract/integration tests. No Credit implementation was changed.
+- Exact request bodies stay `{"requesterId":"uid","amount":5}`,
+  `{"courierId":"uid"}`, and no body for reset. Proposed key/generation
+  headers, authorized historical GET result, conditional POST compensation,
+  expected result JSON/statuses and provider transactional algorithm are fully
+  specified in [concurrency-order-credit.md](../concurrency/concurrency-order-credit.md).
+- Required behavior: bind one key to immutable actor/operation/order/input;
+  commit the financial effect and terminal record together; replay historical
+  results without touching a newer assignment; fence stale workers and reversal;
+  retain uncertainty after an earlier timeout followed by 401/403; allow owned
+  past-result reads without requiring eligibility for a new courier task.
+- Order stopping point: new coordinator/store/V5/UI run against the explicit
+  process-local Credit stub only. Existing HTTP adapter is untouched. A live
+  adapter and activation await approved response/header compatibility, real
+  provider crash/restart tests and safe compensation tests.
+- Unchanged: Credit/User/Supplier/Admin source, financial databases, event
+  topics/payloads and existing 002/005/007/009 findings. No token storage or
+  delegated credentials are introduced; repost background recovery is not resumed.
+- Next verification: Annablee implements/agrees this protocol; re-inspect actual
+  handlers, DTOs, migrations and tests; run same-key/different-key, lost response,
+  provider/Order commit failures, stale reset/compensation and authorization
+  contract tests. Only then assess READY_FOR_VERIFICATION / VERIFIED and remove
+  Order's HTTP hard gate through a separately approved integration change.

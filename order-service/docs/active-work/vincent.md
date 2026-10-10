@@ -1,5 +1,44 @@
 # Vincent - Active Work
 
+## Durable command recovery contract-stub slice — locally verified 2026-10-10
+
+- Vincent explicitly confirms `sprint-2-3-credit-service-concurrency` and approves
+  the updated Order/frontend plan: PENDING/COMPLETED outcomes, immutable same-key
+  actions, candidate-ID reuse, claims/leases plus existing row locks, user-assisted
+  authorization, pending UI and expiry-preserving reconciliation. Credit remains
+  read-only; its existing business request bodies must not grow.
+- Additional explicit approval: implement and test against a documented contract
+  stub; keep live HTTP recovery disabled until Annablee provides and verifies
+  historical key replay, result retrieval, fencing and scoped compensation.
+- Started: clean worktree and branch inspected; local identity reconciled without
+  deleting Yao Xiang's historical profile. Relevant actual Credit routes and
+  transactional replay rechecked: base routes exist, recovery protocol is
+  INCOMPLETE_OR_INCOMPATIBLE (existing FEEDBACK-003/006), not live verification.
+- Implemented: ADR-033 / ARCH-EVO-038 / CHANGE-100; durable V5 intent/lease/
+  generation/target guard, safe atomic finalizers, same-key stub historical replay
+  and conditional reversal; owner-only API/discovery; pending/account-scoped
+  IndexedDB UI and auth-only Continue. Requested Credit cooperation handoff is
+  concurrency/concurrency-order-credit.md; FEEDBACK-010 extends 003/006.
+- Backend verification: final Java 21 Maven verify **298 passed, 0 failures/errors/
+  skips**, including real PostgreSQL command recovery/migrations and ten legacy
+  race cases. Fresh coverage **95.76% lines / 81.82% branches**. No gate reduction.
+  TDD red/green details and timer-isolation commands are in CHANGE-100.
+- Frontend final: **73/73 tests**, lint **0 errors / 12 pre-existing unrelated
+  warnings**, Next route generation/typecheck and production build passed.
+  No native authenticated browser/IndexedDB QA claim. Commit hashes follow below.
+- Source drift: approved PDF SHA256 values match. Generic format/drift helpers
+  do not accept historical local table/text formats and FAIL separately; existing
+  committed AI log merge markers preserved, no false all-workflow-passed claim.
+- Blocking dependency: actual Credit historical key replay/result/fencing/safe
+  compensation missing (INCOMPLETE_OR_INCOMPATIBLE). Credit and all sibling/
+  infrastructure code unchanged; HTTP recovery hard disabled. Required action:
+  Annablee agrees/implements handoff; re-inspect and run real contract/crash/restart
+  tests before live enablement. Stub financial state is not durable across restart.
+- Next: peer implementation, approved real HTTP adapter, native IndexedDB/
+  authenticated desktop/mobile browser QA and operational/scale-to-zero review.
+  Repost background retries and delegated credentials remain deferred. Learning
+  updated but excluded; local profile is personal and not staged. Sprint [~].
+
 ## Automatic retry versus optional retry control clarification - 2026-10-10
 
 - Started/finished: Vincent asks why a Retry/Check-status button is needed when

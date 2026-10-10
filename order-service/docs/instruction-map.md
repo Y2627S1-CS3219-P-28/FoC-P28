@@ -1,5 +1,10 @@
 # Instruction Map
 
+Approved foreground recovery slice: ADR-033 / CHANGE-100. Current implementation,
+class/sequence/data contracts and Credit cooperation handoff are in
+`concurrency/concurrency-order-credit.md`; FEEDBACK-010 tracks the live gate.
+Scoped context loading applies only to this slice and preserves historical records.
+
 | Path | Scope | Notes |
 |---|---|---|
 | `../AGENTS.md` | Parent multi-service repository, including Order Service | Repository-wide stack, API, security, testing, deployment, Git, and service conventions; applies together with the service instructions |

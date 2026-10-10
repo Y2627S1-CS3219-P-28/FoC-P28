@@ -1,5 +1,12 @@
 # Order Service Work Allocation
 
+## Current Vincent implementation extension — 2026-10-10
+
+Vincent explicitly approves CREATE/ACCEPT/CANCEL_ACCEPTED recovery across Order
+and companion frontend on sprint-2-3-credit-service-concurrency, including the
+shared foundation/schema/interface refinements in ADR-033. Stub-only milestone;
+no peer edits, live recovery or repost recovery. Historical allocations remain.
+
 ## Current concurrency verification branch (2026-10-09)
 
 Vincent additionally approves the fifth pair, courier acceptance versus requester

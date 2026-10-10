@@ -1,5 +1,25 @@
 # Order Service Requirements Traceability
 
+## CHANGE-100 / ADR-033: foreground command recovery stub
+
+| ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| REC-CREATE | F1/F2 + ADR-033 | Commit immutable intent/candidate before reservation; one OPEN and saved terminal result after confirmed success | ADR-033; concurrency/concurrency-order-credit.md | OrderCommandService; OrderCommandStore; OrderCreationService.createConfirmed | OrderCommandRecoveryIntegrationTest: intent barrier, lost response, local rollback, insufficient funds | TESTED_STUB; live blocked |
+| REC-ACCEPT | F3/F4.1.1/F13 + ADR-033 | Same/different-key competitors cannot produce multiple assignments; preserve deadline and reverse invalid remote success | ADR-033; existing Order acceptance rules | Command claims/guard; OrderAssignmentService.acceptConfirmed; LocalCreditCommandStub | Recovery integration: concurrent claim, expiry compensation, competing cancel/expiry | TESTED_STUB; live blocked |
+| REC-ABORT | F11.2 + ADR-025/033 | Accepted-only reset confirmed before one immutable attempt + same-ID OPEN/EXPIRED + approved outbox | ADR-025; ADR-033 | OrderTransitionService.abortConfirmed; existing history/outbox | Recovery integration: successful three-action flow, unknown abort blocks start; CreditCommandStubTest old reset replay | TESTED_STUB; live blocked |
+| REC-AUTH | ADR-010/033 | Owner/immutable input binding; unknown then 401 stays pending; no stored token; owned past read does not require new-task eligibility | ADR-033 / handoff authorization | OrderCommandService; OrderCommandController; existing JWT security | OrderCommandGateTest; OrderCommandSecurityTest; recovery authorization test | TESTED_STUB; real peer auth blocked |
+| REC-LEASE | NFR3 + ADR-033 | Only due, unclaimed/expired-lease work is recovered; stale generation cannot finalize/compensate | ADR-033; V5 constraints | OrderCommandStore; minute recovery scheduler; protocol stub | Recovery PG claims/generation tests; stub fencing test; OrderCommandSchedulerTest | TESTED_STUB; provider fence blocked |
+| REC-UI | ADR-033 + NFR3 | Persist frozen key before POST, retain on timeout/reload, disable pending action, Continue only for authorization, account isolation | ADR-033; frontend integration/style guide | useOrderCommand; IndexedDB storage; PendingOrderCommands; existing routes/actions | Hook 7 cases; pending panel 3 cases; full frontend regression | RTL/build tested; browser gate open |
+| REC-DB | ADR-008/016/033 + NFR3 | Versioned V5 migration, clean/upgrade, preserved previous orders/history/outbox | Database migration workflow; V5 handoff | V5__durable_foreground_commands.sql | OrderOutboxMigrationTest; real PostgreSQL recovery suite | PostgreSQL tested; consuming DB handoff pending |
+
+Full backend verification: 298 tests, 0 failures/errors/skips; JaCoCo 95.76%
+lines and 81.82% branches. This is executed Order/contract-stub evidence, not
+verified Credit historical persistence, live broker delivery or hosted-browser
+completion. FEEDBACK-010 extends 003/006; Sprint remains `[~]`.
+Earlier concurrency tests now prove caught NOWAIT 55P03 and isolate per-case
+state, preserving current per-order lifecycle isolation rather than requiring
+an obsolete blocking lifecycle batch. All ten legacy race cases pass.
+
 ## CHANGE-093: Courier acceptance versus requester OPEN cancellation
 
 | D1 / approved invariant | Existing implementation | Simultaneous verification |

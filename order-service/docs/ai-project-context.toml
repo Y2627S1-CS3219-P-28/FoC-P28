@@ -1,4 +1,7 @@
 schema_version = 1
+foreground_command_recovery_decision = "docs/decisions/ADR-033-durable-credit-command-stub.md"
+foreground_command_recovery_scope = "contract-stub-only; live HTTP disabled; no repost recovery"
+recovery_context_loading = "latest effective and relevant sections approved by Vincent 2026-10-10"
 service = "order-service"
 canonical_context = "docs/ai-project-context.md"
 active_sprint_pointer = "docs/current-sprint.md"

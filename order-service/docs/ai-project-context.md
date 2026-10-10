@@ -1,5 +1,13 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-10: Vincent approves CHANGE-100 / ADR-033 foreground
+CREATE/ACCEPT/CANCEL_ACCEPTED durable command recovery against a documented
+contract stub. Live HTTP recovery remains disabled pending Credit historical
+key/result/fencing/compensation verification. No peer source changes or stored
+credentials. Scoped latest-effective context loading is approved for this slice.
+Historical recovery-deferred statements below are superseded only within this
+boundary; paused repost recovery is not resumed.
+
 CHANGE-093 extends the approved Order database concurrency verification with
 courier acceptance versus requester OPEN cancellation, both winner orderings.
 New pair 2/2 and full five-race class 10/10 pass; combined acceptance/service

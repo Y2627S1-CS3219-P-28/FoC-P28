@@ -1,5 +1,12 @@
 # Active Sprint
 
+## CHANGE-100 / ADR-033: foreground command recovery stub milestone
+
+Vincent's approved Sprint 2–3 slice on sprint-2-3-credit-service-concurrency
+adds durable CREATE/ACCEPT/CANCEL_ACCEPTED recovery and companion frontend.
+Local contract-stub tests only; live HTTP recovery disabled. Repost background
+retries and delegated credentials remain paused. Sprint `[~]`.
+
 ## CHANGE-093 concurrency verification extension
 
 Vincent approves the fifth real PostgreSQL race: courier acceptance versus

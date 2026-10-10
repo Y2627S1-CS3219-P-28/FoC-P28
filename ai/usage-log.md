@@ -2038,3 +2038,21 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Affected locations:** Order peer feedback/current-developer active work/context/change log; this disclosure. Existing main peer/scripts/config edits preserved, not regenerated; no new application, event, schema or workflow edit. Prior three staging URLs restored to newer deployed/main routes.
 - **Author verification:** Yao Xiang requested the conflict resolution and CI checks after reverting prior fixes/pulling main. AI ran recorded checks; developer review, merge commit and hosted CI confirmation pending. No credentials printed or committed.
 >>>>>>> afe4691fdfedd1b1bf5861799d67b60129a8d13a
+
+## Durable foreground command recovery assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-10
+- **Mode:** Approved architecture recording, TDD implementation, verification and documentation.
+- **Affected locations:** Order recovery controller/coordinator/store/stub/scheduler, existing confirmed finalizers/domain/persistence guard, Flyway V5, tests, concurrency/concurrency-order-credit.md, workflow/traceability/feedback/active work; shared frontend command storage/hooks/notices and companion request/errand routes. Learning remains Git-excluded. Credit, other services, gateway/compose/cloud source unchanged.
+- **Exact prompt:**
+
+  > I approve the plan and u can start implementing now. I am Vincent working on `sprint-2-3-credit-service-concurrency`.
+
+- **Exact follow-up prompts:**
+
+  > Approve contract-stub implementation; keep live recovery disabled.
+  > Approve scoped context loading for this recovery slice.
+
+- **Key response:** Implemented the approved local Order/frontend stub milestone with same-key immutable intent, DB-clock claims/leases/fences, unresolved target guards, atomic local finalization, unknown-outcome persistence, authorization-only Continue and deadline compensation. Live HTTP recovery remains hard disabled. Minimal Credit business bodies unchanged; FEEDBACK-010 and the detailed handoff specify unimplemented provider historical replay/result/fencing/reversal work. Final backend verify passes 298 tests/no failures/errors/skips and JaCoCo 95.76% lines/81.82% branches. Frontend 73 tests, lint (0 errors/12 pre-existing warnings), typecheck and production build pass. Generic workflow/source helpers fail on historical format mismatches; manual source hashes match. Existing historical merge markers were preserved, not repaired or treated as approvals.
+- **Author verification:** Vincent approved design, identity/scope, no-stored-token recovery, deadline preservation and stub-only implementation. AI executed recorded local checks; Vincent/Annablee review and real provider/browser/runtime verification remain pending. No live peer crash durability, production completion or hosted CI result is claimed; no credentials logged or committed.

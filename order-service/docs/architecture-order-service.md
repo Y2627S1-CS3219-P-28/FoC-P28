@@ -1,5 +1,22 @@
 # Order Service Architecture
 
+## Foreground durable command stub — CHANGE-100 / ADR-033
+
+Latest approved CREATE/ACCEPT/CANCEL_ACCEPTED refinement: commit immutable intent
+and candidate/target before Credit I/O; claim with a DB-clock lease/generation;
+use a durable unresolved target guard plus existing row locks; atomically commit
+Order/history/receipt/outbox and terminal command result. Owner-only status reads
+are not new-task eligibility checks; mutation/resume still revalidates eligibility.
+Five-second UI polling, frozen account-scoped IndexedDB intent and auth-only
+Continue controls accompany this slice. A separate minute command scan is
+mock-only; lifecycle/outbox schedules and repost behavior do not change.
+
+The [class responsibilities, service sequence, minimal peer contracts and V5
+data model](../concurrency/concurrency-order-credit.md) are the effective feature
+design. Historical diagrams apply except these explicitly amended unsafe-call
+boundaries. HTTP recovery remains hard disabled; Credit protocol is a documented
+stub assumption, not verified financial durability. FEEDBACK-010 extends 003/006.
+
 ## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
 
 Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.

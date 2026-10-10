@@ -1,5 +1,21 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-038: Approved durable foreground Credit-command stub slice
+
+Vincent approves ADR-033 / CHANGE-100 on 2026-10-10: durable two-state command/
+lease recovery for CREATE, ACCEPT and CANCEL_ACCEPTED, account-scoped frontend
+intents and pending/auth-only Continue UI. This supersedes proposal 034 ONLY for
+the approved stub milestone. Real Credit replay/result/fencing/reversal are
+missing; live HTTP recovery is hard disabled. No peer edits, stored tokens,
+delegated credentials, new broker or repost recovery. Scoped effective-context
+loading is approved; preserve history and all testing/approval gates.
+Design chain: ADR-033 -> concurrency/concurrency-order-credit.md -> command
+classes/API/store + V5 -> recovery tests/frontend tests -> CHANGE-100 evidence.
+Order/frontend stub implementation is locally tested (CHANGE-100); live provider
+integration and browser/operational gates remain blocked/open, not Sprint completion.
+Owner-only result reads reuse validated identity/role facts without treating a
+past task as new courier eligibility; actual mutation execution still verifies it.
+
 ## ARCH-EVO-034: Proposed cross-service creation crash recovery
 
 - Status: PROPOSED, not approved or implemented. Vincent requested analysis and
