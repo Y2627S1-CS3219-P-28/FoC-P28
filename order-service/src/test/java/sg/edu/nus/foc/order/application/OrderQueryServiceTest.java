@@ -56,4 +56,18 @@ class OrderQueryServiceTest {
 
         verify(repository).findCourierOrders("courier", 2, 20);
     }
+
+    @Test
+    void personalStatusFiltersAndNullArePassedToTheRepositoryBoundary() {
+        OrderRepository repository = mock(OrderRepository.class);
+        OrderQueryService queries = new OrderQueryService(repository);
+        queries.requestedBy("requester", OrderStatus.EXPIRED, 2, 10);
+        queries.courierFor("courier", OrderStatus.ABORTED, 1, 20);
+        queries.requestedBy("requester", null, 0, 20);
+        queries.courierFor("courier", null, 0, 20);
+        verify(repository).findRequestedBy("requester", OrderStatus.EXPIRED, 2, 10);
+        verify(repository).findCourierOrders("courier", OrderStatus.ABORTED, 1, 20);
+        verify(repository).findRequestedBy("requester", null, 0, 20);
+        verify(repository).findCourierOrders("courier", null, 0, 20);
+    }
 }

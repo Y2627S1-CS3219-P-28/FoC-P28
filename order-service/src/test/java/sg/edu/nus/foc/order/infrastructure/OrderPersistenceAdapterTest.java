@@ -11,6 +11,9 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
@@ -48,6 +51,21 @@ class OrderPersistenceAdapterTest {
     }
 
     @Test
+    void lifecycleIdSelectionAndRowLockDelegateToInfrastructure() {
+        JpaOrderRepository jpa = mock(JpaOrderRepository.class);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        Instant cutoff = Instant.parse("2026-10-05T10:00:00Z");
+        when(jpa.findDueUnassignedIds(OrderStatus.OPEN, cutoff)).thenReturn(List.of("expired"));
+        when(jpa.findDueForAutoCompletionIds(OrderStatus.DELIVERED, cutoff)).thenReturn(List.of("delivered"));
+
+        assertEquals(List.of("expired"), adapter.findDueUnassignedIds(OrderStatus.OPEN, cutoff));
+        assertEquals(List.of("delivered"), adapter.findDueForAutoCompletionIds(cutoff));
+        adapter.getForLifecycleUpdate("expired");
+
+        verify(jpa).findByIdForLifecycleUpdate("expired");
+    }
+
+    @Test
     void absentStatusUsesPagedUnfilteredQuerySortedNewestFirst() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         when(jpa.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
@@ -73,5 +91,48 @@ class OrderPersistenceAdapterTest {
         verify(jpa).findByStatusOrderByCreatedAtDesc(eq(OrderStatus.COMPLETED), pageable.capture());
         assertEquals(100, pageable.getValue().getPageSize());
         assertEquals(Sort.by(Sort.Direction.DESC, "createdAt"), pageable.getValue().getSort());
+    }
+
+    @Test
+    void personalStatusFiltersUseDatabasePaginationAndPreserveFilteredTotals() {
+        JpaOrderRepository jpa = mock(JpaOrderRepository.class);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        PageRequest page = PageRequest.of(1, 10);
+        when(jpa.findRequesterOrdersByStatus("requester", OrderStatus.EXPIRED, page))
+                .thenReturn(new PageImpl<>(List.of(), page, 12));
+        when(jpa.findByRequesterIdOrderByCreatedAtDesc("requester", page))
+                .thenReturn(new PageImpl<>(List.of(), page, 25));
+        when(jpa.findCourierTimelineByStatus("courier", "COMPLETED", page))
+                .thenReturn(new PageImpl<>(List.of(), page, 15));
+        when(jpa.findCourierTimeline("courier", page))
+                .thenReturn(new PageImpl<>(List.of(), page, 31));
+
+        assertEquals(12, adapter.findRequestedBy("requester", OrderStatus.EXPIRED, 1, 10).getTotalItems());
+        assertEquals(25, adapter.findRequestedBy("requester", null, 1, 10).getTotalItems());
+        assertEquals(15, adapter.findCourierOrders("courier", OrderStatus.COMPLETED, 1, 10).getTotalItems());
+        assertEquals(31, adapter.findCourierOrders("courier", null, 1, 10).getTotalItems());
+        verify(jpa).findRequesterOrdersByStatus("requester", OrderStatus.EXPIRED, page);
+        verify(jpa).findCourierTimelineByStatus("courier", "COMPLETED", page);
+    }
+
+    @Test
+    void abortedStatusReturnsImmutableAttemptViewsWithoutReadingCurrentReopenedState() {
+        JpaOrderRepository jpa = mock(JpaOrderRepository.class);
+        JpaOrderCourierAttemptRepository attempts = mock(JpaOrderCourierAttemptRepository.class);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, attempts);
+        Instant now = Instant.parse("2026-10-09T10:00:00Z");
+        Order order = Order.open("requester", "item", "pickup", "delivery", 3, 30, now, now.plusSeconds(3600));
+        order.accept("courier", 0, now.plusSeconds(1));
+        OrderCourierAttempt attempt = new OrderCourierAttempt(order, "courier", order.getVersion(), now.plusSeconds(2));
+        CourierOrderReference reference = mock(CourierOrderReference.class);
+        when(reference.getAttemptId()).thenReturn(attempt.getId());
+        when(attempts.findById(attempt.getId())).thenReturn(Optional.of(attempt));
+        when(jpa.findCourierTimelineByStatus(eq("courier"), eq("ABORTED"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(reference)));
+
+        Order result = adapter.findCourierOrders("courier", OrderStatus.ABORTED, 0, 20).getItems().getFirst();
+        assertEquals(OrderStatus.ABORTED, result.getStatus());
+        assertEquals(attempt.getId(), result.getAttemptId());
+        assertEquals("courier", result.getCourierId());
     }
 }

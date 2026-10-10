@@ -105,7 +105,7 @@
   No new retry schema/peer endpoint/refund-confirmation event silently approved.
 - Context/diagram/contract/traceability/feedback/timer/test chain synchronized;
   original PDF/PNG and learning unchanged. Local verify passed 163 backend tests,
-  34 unchanged frontend tests, >=80% line/branch gates; peers/browser/cloud open.
+  34 unchanged frontend tests,  >=80% line/branch gates; peers/browser/cloud open.
 
 ## ARCH-EVO-027: Sprint 2-3 abort history and lifecycle amendments (2026-10-08)
 
@@ -136,7 +136,7 @@
   query isolation, transitions/repost, task events, mocks/HTTP contracts and UI.
 - Evidence: CHANGE-082 records 162 passing backend tests including clean/upgrade
   PostgreSQL/history/pagination/rollback, 34 frontend tests, production build,
-  lint/typecheck and fresh >=80% line/branch coverage. Effective editable diagrams,
+  lint/typecheck and fresh  >=80% line/branch coverage. Effective editable diagrams,
   traceability/contracts/context are synchronized; peer/browser/cloud gates pending.
 
 ## ARCH-EVO-025: Hourly outbox recovery polling (2026-10-08)
@@ -893,3 +893,31 @@ The required report is an audit baseline, not the entire response. Add meaningfu
 - Supersedes duplicated production action role-context calls and production mock-role default for Order only.
 - User explicitly requested contextual centralized annotations. Use standard Spring method security; no handwritten RoleAspect, no role ordering, no cross-request authorization cache. Token verification/roles precede annotations; adapters verify client identity and keep fresh courier eligibility. Domain ownership remains under lock. Local/system flows unchanged.
 - Source PDFs remain unavailable; effective approved Markdown and actual User role/eligibility source inspected.
+
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+### ARCH-EVO-034 — Compact event contract
+
+Architecture/specification change approved by Yao Xiang 2026-10-09; CHANGE-092 / ADR-031. Supersedes payload portions of ADR-011/016/018/019 for refund/completion only. Exact seven keys; internal metadata; saved legacy conversion; no data-model migration. Actual Credit consumer is incompatible (FEEDBACK-009), User overdue source unresolved. Order implementation verification is separate from BLOCKED integration; original history retained.
+
+### ARCH-EVO-035 — Per-order lifecycle failures
+
+Implementation/design refinement approved by the explicit user request (Yao Xiang, 2026-10-09). CHANGE-093 documents why catching inside one batch transaction is insufficient and replaces it with per-order REQUIRES_NEW execution and DB ID selection, preserving row rechecks and atomic state/outbox. No product/peer/schema/cadence change. Deterministic verification: 44 focused pass; fresh Maven verify 232 total / 211 passed / 21 Docker skips / 0 failures/errors, existing coverage gates pass (91.44% lines / 82.10% branches). Four new live PostgreSQL isolation/locking/query regressions remain unverified without Docker; mock Spring transaction-proxy tests do not replace them. Sprint [~]; CHANGE-093 holds exact evidence.
+
+### ARCH-EVO-036 — Personal Order filters and polling
+
+User-approved UI/query specification refinement, Yao Xiang 2026-10-09, CHANGE-094/ADR-032. No new service interaction: reuse personal endpoint and auth, add optional exact enum filter behind repositories, DB content/count before pagination including ABORTED immutable views; reset frontend page and cancel stale reads. Selected over client-only filtering/new endpoints; more frequent visible Order reads (5 seconds vs15) remain guarded. No schema/peer/event/cron/paused retry change. Source/test, class/sequence refinement and contracts recorded; integrated completion remains unverified.
+
+### ARCH-EVO-037 — Personal filter options match mode
+
+User-approved UI refinement, Yao Xiang 2026-10-09, CHANGE-095 under ADR-025/032. Replace shared all-status options with explicit requester/courier option lists on OrderStatusFilter; requester excludes ABORTED, courier excludes OPEN/EXPIRED/CANCELLED. No backend/contract/schema/peer/auth change. Class/caller responsibility and current context amended; two tests observed failing first, full 60 frontend tests and lint/typecheck pass; eight browser fixture mode/width checks pass. Live integration/normal font-dependent build gaps remain.
+
+### ARCH-EVO-038 — Independent outbox recovery items
+
+Implementation refinement authorized by Yao Xiang's explicit per-job isolation request, 2026-10-10, CHANGE-096 under ADR-013/026. Replace active batch claiming with SQL-filtered bounded IDs and per-event REQUIRES_NEW claim/marker/retry writes; outside catch includes failures while saving retry state. Enqueue remains in the original atomic Order transaction; external publication cannot roll back. Individual claims cost more round trips but isolate failures and start the lease immediately before publication. Existing legacy batch API remains unused by the scheduler. Tests-first regression: 1 expected failure (retry database unavailable), target/change096-red.log. Focused 43 tests passed, including eight PostgreSQL lifecycle/outbox isolation tests; fresh source-only wrapper-selected Maven 3.9.16 / Java21 offline verify: 252 tests passed, 0 failures/errors/skips, including 28 PostgreSQL tests. JaCoCo 95.99% lines / 83.72% branches; unchanged >=80% gates passed. Logs: target/change096-focused.log and target/change096-verify.log; reports target/change096-source-check/target/. Docker28.4.0; isolated PostgreSQL15 Testcontainers; new isolation suites mock all cloud publishers. No application database, peer service, real topic or cloud setting changed.
+
+## ARCH-EVO-034: Swagger current-origin metadata (CHANGE-098)
+
+Classification: implementation detail within the approved gateway/OpenAPI runtime. Live staging Swagger was HTTPS gateway but generated server was HTTP backend. A dedicated Order OpenApiConfiguration supplies relative / to resolve against the specification origin. No business interaction, auth/CORS policy, trusted-header or infrastructure change. Tests first: one expected server-URL failure and one existing documentation pass (target/change098-red.log). Fresh source-only wrapper-selected Maven3.9.16/Java21 offline verify:253 tests,0 failures/errors/skips, including28 PostgreSQL tests; coverage96.00% lines (1441/1501),83.72% branches (468/559), unchanged >=80% gates pass. Generated target/openapi.json servers=[{url:"/",description:"Current gateway or service origin"}];160 current POM/source/test/resource files equal the fresh tested copy. Logs/reports target/change098-verify.log and target/change098-source-check/target/, evidence target/change098-evidence.json. git diff --check passes. No local application container rebuild or real authenticated browser request; no commit/push/cloud deployment. Staging remains unchanged until Order Service redeployment.

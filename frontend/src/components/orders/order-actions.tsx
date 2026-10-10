@@ -42,7 +42,7 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
       onUpdated(updated)
       if (path === "complete" || path === "cancel") invalidateCreditBalance()
       if (path === "cancel-accepted") {
-        toast.success(updated.status === "OPEN" ? "Errand reopened for other couriers" : "Expired errand cancelled")
+        toast.success(updated.status === "OPEN" ? "Errand reopened for other couriers" : "Expired errand aborted")
       } else {
         toast.success(success)
       }
@@ -67,13 +67,13 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
         {order.status === "ACCEPTED" && (
           <AlertDialog>
             <AlertDialogTrigger render={<Button size="sm" variant="destructive" disabled={busy} />}>
-              Cancel errand
+              Abort errand
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Cancel this accepted errand?</AlertDialogTitle>
+                <AlertDialogTitle>Abort this accepted errand?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  If the errand has not expired, it will reopen for other couriers. If it has expired, the cancellation is final.
+                  If the errand has not expired, it will reopen for other couriers. If it has expired, the abort is final.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -81,9 +81,9 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
                 <AlertDialogAction
                   variant="destructive"
                   disabled={busy}
-                  onClick={() => void perform("cancel-accepted", "Errand cancelled")}
+                  onClick={() => void perform("cancel-accepted", "Errand aborted")}
                 >
-                  Yes, cancel errand
+                  Yes, abort errand
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

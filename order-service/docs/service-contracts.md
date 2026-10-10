@@ -1,5 +1,10 @@
 # Service Contracts
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 ## Effective validation amendment - CHANGE-091 / ADR-030
 
 New automatic plans require repostDueAt >= original.expiresAt and
@@ -166,3 +171,38 @@ retained. These are defaults, not runtime SLAs, especially with idle Cloud Run C
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
+
+CHANGE-093 changes only internal lifecycle processing boundaries: due-ID query and per-order transaction/lock/recheck, caught failures and successful-transition counts. Existing internal expiry-trigger API path/body/authentication remains unchanged; its expired count now excludes skipped/failed candidates. No foreign API or event body change.
+
+## Personal Order status filter — CHANGE-094 / ADR-032
+
+`GET /api/orders/mine?mode=requester|courier&userId=<verified-uid>&page=1&size=20&status=COMPLETED`
+
+- status is an optional uppercase OrderStatus query parameter: OPEN, ACCEPTED, IN_PROGRESS, PICKED_UP, DELIVERED, COMPLETED, CANCELLED, ABORTED, EXPIRED. Omitted/empty means all; invalid enum or mode returns 400 VALIDATION_ERROR. No request body or new endpoint.
+- Same production Firebase/role and selected-mode/identity verification; status cannot broaden ownership. Existing local behavior retained.
+- Response remains `{items,page,size,totalItems,totalPages}`; one-based page, default 20/max 100. Filtered counts and content share the same DB constraints.
+- Requester status applies to current owned Orders and retains hiding linked EXPIRED originals. Courier status applies to current assignments plus that courier's immutable ABORTED attempts only when status=ABORTED; all includes both. Business id and nullable attemptId/history behavior unchanged.
+- POST /{id}/cancel-accepted unchanged. Abort errand is presentation wording; state/history/credit/outbox behavior unchanged.
+- Frontend Order refresh5 seconds while visible/auth-ready; same selected status/page on periodic/manual/focus/mutation reads. Credit polling remains15 seconds. No financial mutation is triggered by polling.
+
+CHANGE-095 UI refinement: personal dropdown choices are mode-specific (requester excludes ABORTED; courier excludes OPEN/EXPIRED/CANCELLED). This does not alter /api/orders/mine accepted enum, page shape, ownership/auth or server query contract.
+
+## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
+
+The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.
+
+Internal repository addition only: findDueIds(now, limit) returns eligible event IDs in deterministic created_at/event_id order, bounded in SQL; each individual claim revalidates eligibility under lock. No HTTP or subscriber payload change. FEEDBACK-009 remains unresolved.
+
+## Swagger current-origin server — CHANGE-098 (2026-10-10)
+
+CHANGE-098 sets an explicit relative OpenAPI server / through OpenApiConfiguration. Swagger now resolves API calls against the origin serving the specification, retaining /api/orders paths and Firebase authorization. Live staging docs previously advertised an HTTP backend host despite HTTPS gateway UI. This is an Order-only documentation routing implementation detail; no gateway, peer, CORS allowlist, forwarded-header trust, schema, frontend or deployment-env change. Tests first: one expected server-URL failure and one existing documentation pass (target/change098-red.log). Fresh source-only wrapper-selected Maven3.9.16/Java21 offline verify:253 tests,0 failures/errors/skips, including28 PostgreSQL tests; coverage96.00% lines (1441/1501),83.72% branches (468/559), unchanged >=80% gates pass. Generated target/openapi.json servers=[{url:"/",description:"Current gateway or service origin"}];160 current POM/source/test/resource files equal the fresh tested copy. Logs/reports target/change098-verify.log and target/change098-source-check/target/, evidence target/change098-evidence.json. git diff --check passes. No local application container rebuild or real authenticated browser request; no commit/push/cloud deployment. Staging remains unchanged until Order Service redeployment.
+
+## Backend creation expiry guard — CHANGE-099 (2026-10-10)
+
+Existing contract, newly verified at the HTTP boundary: POST /api/orders requires
+expiresAt >= server validation time + 30 minutes. OrderCreationService supplies
+Instant.now(); Order.open enforces the minimum before Supplier validation/Credit
+reservation/persistence. Earlier values produce HTTP 400 VALIDATION_ERROR with
+an expiresAt detail. Client-supplied timestamps cannot replace the server clock.
+Wire schema and role checks remain unchanged; exact domain boundary is inclusive.
+Direct API regression uses mocked providers; it is not a live integration claim.

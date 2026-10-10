@@ -215,10 +215,12 @@ class OrderApplicationServicesTest {
         OrderAuditLogger audit = mock(OrderAuditLogger.class);
         OrderTransitionService transitions = mock(OrderTransitionService.class);
         LifecycleProcessingService lifecycle = new LifecycleProcessingService(
-                orders, checkpoints, reposts, outbox, applicationEvents, eventFactory, audit, transitions);
+                orders, new OrderExpiryProcessingService(orders, checkpoints, outbox, applicationEvents, eventFactory, audit),
+                reposts, audit, transitions);
         Order expired = Order.open("requester", "item", "p", "d", 2, 15, START.minusSeconds(1800), START);
-        when(orders.findDueUnassigned(OrderStatus.OPEN, START))
-            .thenReturn(List.of(expired), List.of());
+        when(orders.findDueUnassignedIds(OrderStatus.OPEN, START))
+            .thenReturn(List.of(expired.getId()), List.of());
+        when(orders.getForLifecycleUpdate(expired.getId())).thenReturn(Optional.of(expired));
         when(orders.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         assertEquals(1, lifecycle.expireDue(START));
         assertEquals(0, lifecycle.expireDue(START));
@@ -230,10 +232,10 @@ class OrderApplicationServicesTest {
         Instant deliveredBefore = autoCompletionNow.minusSeconds(48 * 60L * 60L);
         Order delivered = Order.open(
                 "requester", "delivered item", "p", "d", 2, 15, START.minusSeconds(3600), START);
-        when(orders.findDueForAutoCompletion(deliveredBefore)).thenReturn(List.of(delivered));
+        when(orders.findDueForAutoCompletionIds(deliveredBefore)).thenReturn(List.of(delivered.getId()));
         when(transitions.autoComplete(delivered.getId(), autoCompletionNow)).thenReturn(true);
         assertEquals(1, lifecycle.autoCompleteDue(autoCompletionNow));
-        verify(orders).findDueForAutoCompletion(deliveredBefore);
+        verify(orders).findDueForAutoCompletionIds(deliveredBefore);
         verify(transitions).autoComplete(delivered.getId(), autoCompletionNow);
 
         RepostPlan plan = new RepostPlan(true, START, 1, 15, START.plusSeconds(3600));

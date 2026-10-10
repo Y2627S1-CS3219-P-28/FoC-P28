@@ -54,3 +54,53 @@ describe("Order history page integration", () => {
     expect(screen.queryByRole("button", { name: "Abort" })).not.toBeInTheDocument()
   })
 })
+
+describe("personal status filters", () => {
+  it.each([["requester", MyRequestsPage], ["courier", MyErrandsPage]] as const)("%s defaults to all statuses and requests a selected status", async (mode, Page) => {
+    mocks.api.mockResolvedValue({ items: [], page: 1, size: 20, totalItems: 0, totalPages: 0 })
+    render(<Page />)
+    await waitFor(() => expect(mocks.api).toHaveBeenCalled())
+    expect(mocks.api.mock.calls[0][0]).toBe("/api/orders/mine?mode=" + mode + "&userId=user&page=1&size=20")
+    fireEvent.click(screen.getByRole("combobox", { name: /Filter .* by status/ }))
+    fireEvent.pointerDown(await screen.findByRole("option", { name: "Completed" }), { pointerType: "mouse" })
+    fireEvent.click(screen.getByRole("option", { name: "Completed" }))
+    await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).toBe("/api/orders/mine?mode=" + mode + "&userId=user&page=1&size=20&status=COMPLETED"))
+    expect(await screen.findByText(/No .* match this status/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("combobox", { name: /Filter .* by status/ }))
+    fireEvent.pointerDown(await screen.findByRole("option", { name: "All statuses" }), { pointerType: "mouse" })
+    fireEvent.click(screen.getByRole("option", { name: "All statuses" }))
+    await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).not.toContain("status="))
+  })
+})
+
+it.each([["requester", MyRequestsPage, "EXPIRED", "Expired"], ["courier", MyErrandsPage, "ABORTED", "Aborted"]] as const)("%s resets pagination when status changes and preserves it on refresh", async (mode, Page, status, label) => {
+  mocks.api.mockImplementation((path: string) => {
+    const params = new URL(path, "http://localhost").searchParams
+    return Promise.resolve({ items: [{ ...order, status }], page: Number(params.get("page")), size: 20, totalItems: 42, totalPages: 3 })
+  })
+  render(<Page />)
+  await screen.findByText(new RegExp("Old request " + status))
+  expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled()
+  fireEvent.click(screen.getByRole("button", { name: "Next" }))
+  await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).toContain("page=2"))
+  fireEvent.click(screen.getByRole("combobox", { name: /Filter .* by status/ }))
+  fireEvent.pointerDown(await screen.findByRole("option", { name: label }), { pointerType: "mouse" })
+  fireEvent.click(screen.getByRole("option", { name: label }))
+  await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).toBe("/api/orders/mine?mode=" + mode + "&userId=user&page=1&size=20&status=" + status))
+  await screen.findByText(new RegExp("Old request " + status))
+  fireEvent.click(screen.getByRole("button", { name: "Next" }))
+  await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).toContain("page=2&size=20&status=" + status))
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }))
+  await waitFor(() => expect(mocks.api.mock.calls.at(-1)?.[0]).toContain("page=2&size=20&status=" + status))
+})
+
+it.each([
+  ["requester", MyRequestsPage, ["All statuses", "Open", "Accepted", "In Progress", "Picked Up", "Delivered", "Completed", "Cancelled", "Expired"]],
+  ["courier", MyErrandsPage, ["All statuses", "Accepted", "In Progress", "Picked Up", "Delivered", "Completed", "Aborted"]],
+] as const)("%s offers only statuses visible in that personal view", async (_mode, Page, options) => {
+  mocks.api.mockResolvedValue({ items: [], page: 1, size: 20, totalItems: 0, totalPages: 0 })
+  render(<Page />)
+  await waitFor(() => expect(mocks.api).toHaveBeenCalled())
+  fireEvent.click(screen.getByRole("combobox", { name: /Filter .* by status/ }))
+  await waitFor(() => expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual(options))
+})

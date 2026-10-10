@@ -1,5 +1,10 @@
 # Order Service
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 For **local real HTTP peers + real Google Pub/Sub into local Credit**, use the
 approved [local-live runbook](docs/local-live-testing.md) (CHANGE-088 / ADR-029).
 It includes credentials/IAM prerequisites, Setup/build/up/Check/Pause/down and
@@ -131,3 +136,25 @@ Production uses GET /api/users/role-context with the caller's verified token and
 The production Order-specific variable ORDER_USER_SERVICE_MODE defaults to http and takes precedence over the shared USER_SERVICE_MODE mock configuration. Explicit mock overrides are for controlled tests only. Production administrators need admin in their stored User Service roles; MOCK_ADMIN_EMAILS has no effect in HTTP mode. Ensure USER_SERVICE_URL points to the deployed User Service and the caller has a registered User profile.
 
 The default local/non-production profile remains anonymous: role annotations are inactive, mock peers use the supplied per-user actor IDs, and local HTTP peers continue their existing token-based User Service checks. Swagger assets remain public; scheduler/system flows keep their existing separate authorization. See ADR-024 and the shared authorization diagrams for details.
+
+Scheduler failure isolation (CHANGE-093): each expiry/auto-completion Order has its own transaction and NOWAIT lock. A failed Order is logged and skipped while later Orders continue; counts reflect successful commits. DB queries select eligible IDs, with latest delivered-checkpoint cutoff. Whole-pass catches still isolate the two lifecycle phases. Scheduling/event schema settings are unchanged.
+
+## Personal list filtering and refresh
+
+My Requests and My Errands offer All statuses or a selected status and previous/next pagination. Order lists refresh every 5 seconds while the tab is visible and authentication is ready; manual/focus/action refresh remains. Credit balance polling remains15 seconds. Accepted courier action is labelled Abort errand; its existing cancel-accepted route is unchanged. API clients can pass optional `status=COMPLETED` to GET /api/orders/mine; omitted status includes all, invalid 400. See CHANGE-094/ADR-032 for verification and limits.
+
+## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
+
+The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.
+
+Tests-first regression: 1 expected failure (retry database unavailable), target/change096-red.log. Focused 43 tests passed, including eight PostgreSQL lifecycle/outbox isolation tests; fresh source-only wrapper-selected Maven 3.9.16 / Java21 offline verify: 252 tests passed, 0 failures/errors/skips, including 28 PostgreSQL tests. JaCoCo 95.99% lines / 83.72% branches; unchanged >=80% gates passed. Logs: target/change096-focused.log and target/change096-verify.log; reports target/change096-source-check/target/. Docker28.4.0; isolated PostgreSQL15 Testcontainers; new isolation suites mock all cloud publishers. No application database, peer service, real topic or cloud setting changed.
+
+## Swagger behind the staging/production gateway (CHANGE-098)
+
+Open /api/orders/docs or /api/orders/swagger-ui/index.html on the HTTPS gateway. OpenAPI advertises the relative server / so Try it out uses that same gateway origin rather than an HTTP backend URL. Authorize with a valid environment-specific Firebase ID token; APIs remain protected in prod profile. After deploying the new Order image, check /api/orders/v3/api-docs has servers[0].url=/ and Swagger Request URL uses the gateway. This correction requires no database/env/IAM changes.
+
+Backend expiry validation (CHANGE-099): POST /api/orders also enforces
+expiresAt >= server current time + 30 minutes. Invalid deadlines return HTTP 400
+VALIDATION_ERROR with an expiresAt detail, before Supplier/Credit calls or Order
+writes. This does not depend on the browser validation. Exactly 30 minutes from
+the backend's validation instant is allowed; allow for request transit time.

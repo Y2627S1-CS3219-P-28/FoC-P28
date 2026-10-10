@@ -23,3 +23,7 @@ The scheduler cannot guarantee recovery on the current Cloud Run configuration (
 ## Scope
 
 Order Service only. Existing topics, event types, resulting Order snapshots, and publisher interfaces remain in use. ADR-016 specifies that event snapshots omit checkpoint history. This decision does not add peer consumers, topic/subscription configuration, a dead-letter topic, or Cloud Run billing changes. Flyway remains the selected schema migration tool.
+
+## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
+
+The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.

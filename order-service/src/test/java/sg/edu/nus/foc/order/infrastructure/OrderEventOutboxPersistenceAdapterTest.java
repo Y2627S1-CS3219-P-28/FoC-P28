@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.json.JsonMapper;
@@ -15,6 +16,18 @@ import sg.edu.nus.foc.order.domain.OutboxState;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 
 class OrderEventOutboxPersistenceAdapterTest {
+    @Test
+    void delegatesDueIdSelectionAndLimitToTheDatabase() {
+        JpaOrderEventOutboxRepository repository = mock(JpaOrderEventOutboxRepository.class);
+        Instant now = Instant.parse("2026-10-10T00:00:00Z");
+        when(repository.findDueIds(now, 7)).thenReturn(List.of("due-event"));
+
+        assertEquals(List.of("due-event"), new OrderEventOutboxPersistenceAdapter(
+                repository, JsonMapper.builder().build()).findDueIds(now, 7));
+
+        verify(repository).findDueIds(now, 7);
+    }
+
     @Test
     void serializesTypedEventWithStableMetadataAsPendingOutboxRow() {
         JpaOrderEventOutboxRepository repository = mock(JpaOrderEventOutboxRepository.class);
@@ -27,7 +40,6 @@ class OrderEventOutboxPersistenceAdapterTest {
         event.setOrderId("order-1");
         event.setOrderVersion(3);
         event.setOccurredAt(Instant.parse("2026-10-01T10:00:00Z"));
-        event.setActorId("requester-1");
         when(repository.save(any(OrderEventOutbox.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         adapter.enqueue(event);

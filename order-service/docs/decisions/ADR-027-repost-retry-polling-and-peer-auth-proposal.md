@@ -1,5 +1,9 @@
 # ADR-027: Repost retry limits, polling and deferred peer authorization
 
+## Effective Order UI follow-up — CHANGE-094 / ADR-032, 2026-10-09
+
+Yao Xiang requests Order list polling every 5 seconds; this supersedes only the earlier Order 15-second interval. Credit/generic default remains15 seconds. Personal status filtering is DB-before-pagination with immutable ABORTED history; courier accepted action wording becomes Abort errand. Auth, visibility, cleanup/no-overlap, immediate refresh and paused retry design remain.
+
 ## Effective follow-up — CHANGE-086, 2026-10-09
 
 Vincent explicitly requested implementing user-selected automatic new expiry
@@ -171,5 +175,5 @@ edit is made by this documentation decision.
   response protection, immediate mutation refresh and unauthorized-user isolation.
 - Peer security tests: wrong caller/audience/expired credential, unpermitted
   delegated action/requester, revoked role, replay/idempotency, positive cases.
-- Backend/RTL/contract/isolated PostgreSQL/live peer/UI and unchanged >=80% coverage
+- Backend/RTL/contract/isolated PostgreSQL/live peer/UI and unchanged  >=80% coverage
   gates. Existing CHANGE-083 results do not verify these unimplemented behaviors.

@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -106,7 +108,11 @@ public class OrderController {
         return orderMapper.toResponse(queries.available(page - 1, size));
     }
 
-    @Operation(summary = "List orders for the authenticated requester or courier")
+    @Operation(summary = "List personal orders, optionally filtered by status")
+    @ApiResponse(responseCode = "200", description = "Paginated orders owned by the verified requester or courier")
+    @ApiResponse(responseCode = "400", description = "Invalid mode or status")
+    @ApiResponse(responseCode = "401", description = "Authentication required in production")
+    @ApiResponse(responseCode = "403", description = "Caller identity or role does not match")
     @GetMapping("/mine")
     @RequireOrderRole
     public OrderPageResponse mine(
@@ -114,15 +120,17 @@ public class OrderController {
             @RequestParam String userId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Optional Order status; omit to include all statuses")
+            @RequestParam(required = false) OrderStatus status) {
         OrderPage orders = switch (mode.toLowerCase()) {
             case "requester" -> {
                 String authenticatedUser = users.verifyRequester(userId, authorization);
-                yield queries.requestedBy(authenticatedUser, page - 1, size);
+                yield queries.requestedBy(authenticatedUser, status, page - 1, size);
             }
             case "courier" -> {
                 String authenticatedUser = users.verifyCourier(userId, authorization);
-                yield queries.courierFor(authenticatedUser, page - 1, size);
+                yield queries.courierFor(authenticatedUser, status, page - 1, size);
             }
             default -> throw new OrderProblem(
                     "VALIDATION_ERROR",

@@ -1,5 +1,10 @@
 # Sprint 1 Contracts
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 Only the following logical contract subset applies. Concrete HTTP paths, methods, schemas, and retry schedule remain open questions. CHANGE-053 approves Order snapshots; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 defines the unified completion event; CHANGE-063/ADR-013 approves transactional outbox delivery; CHANGE-065/ADR-015 adds Spring-scheduled OPEN expiry and CHANGE-071/ADR-019 makes it share `OpenOrderRefundTaskEvent` with requester cancellation; CHANGE-067/ADR-016 excludes checkpoint history from event snapshots; CHANGE-068/ADR-017 adds the user-approved Order-side Credit assignment stub before acceptance.
 
 ## Consumed contracts
@@ -49,3 +54,7 @@ The updated publisher pairs and method names are diagrammed in CHANGE-053/056. T
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
+
+## Effective personal list extension — CHANGE-094
+
+/api/orders/mine supports optional uppercase OrderStatus query, omitted/empty all; invalid 400; owner/mode/auth and existing one-based page envelope unchanged. Server filters current requester/courier records and immutable ABORTED courier history before paging/counting. Superseded requester originals remain hidden. See docs/service-contracts.md and ADR-032.

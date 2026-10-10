@@ -1,5 +1,19 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
+
+Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.
+
+## Lifecycle per-order failure isolation — CHANGE-093 (2026-10-09)
+
+Yao Xiang explicitly requests failed scheduled tasks be skipped while later successes continue. Due selection returns IDs filtered in the DB (latest delivery cutoff for completion), without locking a whole batch. Nontransactional lifecycle coordinator calls fresh NOWAIT-locking per-order transactions (expiry worker / existing autoComplete with REQUIRES_NEW), catches each RuntimeException including commit failures, logs order ID, counts only successful transitions, then continues. Scheduler retains independent whole-pass catches. Failed orders remain eligible next normal lifecycle pass; no new repost retry mechanism or cron/contract/schema/peer change. Previous batch transaction description is superseded by this refinement; CHANGE-092 compact payloads and FEEDBACK-009 remain unchanged.
+
+
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 ## Effective CHANGE-091 validation
 
 New plans: repostExpiresAt >= repostDueAt + 30 minutes, due >= original expiry.
@@ -112,7 +126,7 @@ Overall Sequences 5/8 (F6.4/F7 and approved overdue amendment): requester comple
 | F10/F11.1/.2 abort/refund/penalty | State/version/ownership guards, reset failure, deadline-during-reset, outbox and PostgreSQL rollback tests | Order verified; peer subscribers pending |
 | NTH4 + F10.1.3 approved override | Reserve failure, authenticated replay, original hiding/count, real PostgreSQL visibility and RTL manual-repost update | Local verification; trusted auto-repost credential missing |
 | F6.4/F7 + approved F12 amendment | 48h/cadence tests and latest checkpoint regression; normal outbox tests | Local verification; deployed idle scheduler pending |
-| NFR3.1.1 | Fresh Maven verify >=80% lines and branches; exact results in CHANGE-082 | Gate passed locally |
+| NFR3.1.1 | Fresh Maven verify  >=80% lines and branches; exact results in CHANGE-082 | Gate passed locally |
 
 Do not confuse overall diagrams 1-12 with Sprint 1's diagrams 1-11. NTH1 all-orders API exists; full NTH3 report/hold/resolution Order APIs/UI are not established by this lifecycle change. Inspect/approve those contracts before implementing them rather than marking all of Sprint 3 complete.
 
@@ -121,3 +135,130 @@ Do not confuse overall diagrams 1-12 with Sprint 1's diagrams 1-11. NTH1 all-ord
 Use Java 21 and a running Docker engine, then `cd order-service` and `mvnw.cmd -B -ntp verify` on Windows (`./mvnw -B -ntp verify` on Linux). Testcontainers uses isolated PostgreSQL databases, not the application volume. In `frontend`, run `npm ci`, `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`.
 
 After backup/review and image rebuild, application startup applies V3 through Flyway; do not edit V1/V2, run ddl-auto=update, or delete application volumes. HTTP mode must wait for the peer APIs in feedback; a mock test is not a production credit/refund test. Browser, live PubSub consumer and Cloud Run checks remain explicit follow-up gates.
+
+
+### Compact publication bodies (CHANGE-092)
+
+```mermaid
+sequenceDiagram
+    participant Flow as Completion / cancellation / expiry
+    participant DB as Order + outbox
+    participant Dispatch as After-commit / recovery
+    participant Broker as Existing Pub/Sub topics
+    participant Peers as Credit / User
+    Flow->>DB: Commit terminal state and compact intent atomically
+    DB-->>Dispatch: After commit signal (or recovery claim)
+    Dispatch->>Dispatch: Normalize legacy saved snapshots; restore internal versions
+    Dispatch->>Broker: Seven-field JSON; schema version 2 attribute
+    Broker-->>Dispatch: Message ID
+    Dispatch->>DB: Mark published
+    Broker-->>Peers: Delivery (consumer migration required)
+    Note over Peers: FEEDBACK-009: Credit currently rejects shape; User overdue source unresolved
+```
+
+```mermaid
+classDiagram
+    class OrderTaskEvent {
+        <<interface>>
+        +getEventId()
+        +getEventType()
+        +getOrderId()
+        +getOccurredAt()
+        +getEventVersion() internal
+        +getOrderVersion() internal
+    }
+    class OpenOrderRefundTaskEvent {
+        +eventId String
+        +eventType String
+        +orderId String
+        +orderStatus OrderStatus
+        +creditAmount long
+        +occurredAt Instant
+        +courierId String nullable
+    }
+    class OrderCompletionTaskEvent {
+        +eventId String
+        +eventType String
+        +orderId String
+        +orderStatus OrderStatus
+        +creditAmount long
+        +occurredAt Instant
+        +courierId String
+    }
+    class AcceptedOrderCancellationTaskEvent {
+        +existing version1 envelope and snapshot unchanged
+    }
+    OpenOrderRefundTaskEvent ..|> OrderTaskEvent
+    OrderCompletionTaskEvent ..|> OrderTaskEvent
+    AcceptedOrderCancellationTaskEvent ..|> OrderTaskEvent
+```
+
+No persistence column/type change. JsonIgnore metadata is retained only in outbox columns/attributes; it is not part of the two compact bodies.
+
+
+## Per-order scheduler failure boundaries — CHANGE-093
+
+```mermaid
+sequenceDiagram
+    participant Cron as OrderLifecycleScheduler
+    participant Batch as LifecycleProcessingService
+    participant DB as PostgreSQL
+    participant Worker as Expiry worker / autoComplete proxy
+    Cron->>Batch: expireDue(now) / autoCompleteDue(now)
+    Batch->>DB: Select only due IDs (status + deadline/latest delivery)
+    DB-->>Batch: Candidate IDs, no batch row locks
+    loop Each candidate ID
+        Batch->>Worker: Process in REQUIRES_NEW
+        Worker->>DB: Lock this Order NOWAIT and recheck eligibility
+        alt Eligible and processing succeeds
+            Worker->>DB: Commit Order/checkpoint/outbox/receipt as applicable
+            Worker-->>Batch: true after commit
+            Batch->>Batch: Increment success count
+        else Row changed or disappeared
+            Worker-->>Batch: Skip, no transition
+        else Processing, lock or commit fails
+            Worker->>DB: Roll back only this transaction
+            Worker-->>Batch: RuntimeException outside transaction
+            Batch->>Batch: Log ID and continue next candidate
+        end
+    end
+    Batch-->>Cron: Successfully processed count
+    Note over Cron,Batch: Whole-scan failure still allows the other phase and next cron pass
+```
+
+```mermaid
+classDiagram
+    class OrderLifecycleScheduler
+    class LifecycleProcessingService {
+        +expireDue(now) int
+        +autoCompleteDue(now) int
+    }
+    class OrderExpiryProcessingService {
+        +expire(orderId, now) boolean
+    }
+    class OrderTransitionService {
+        +autoComplete(orderId, now) boolean
+    }
+    class OrderRepository {
+        <<interface>>
+        +findDueUnassignedIds(status, now) List~String~
+        +findDueForAutoCompletionIds(cutoff) List~String~
+        +getForLifecycleUpdate(id) Optional~Order~
+    }
+    OrderLifecycleScheduler --> LifecycleProcessingService
+    LifecycleProcessingService --> OrderRepository : DB ID selection
+    LifecycleProcessingService --> OrderExpiryProcessingService : separate transaction
+    LifecycleProcessingService --> OrderTransitionService : separate transaction
+    OrderExpiryProcessingService --> OrderRepository : NOWAIT lock
+    OrderTransitionService --> OrderRepository : NOWAIT for autoComplete
+```
+
+No entity/schema migration. The expiry worker owns its atomic expiry/checkpoint/refund intent; completion retains its existing receipt/outbox flow. Normal command locks, status rules, compact payloads, cron cadence, peer integration blockers and paused automatic repost work are unchanged.
+
+## Mode-specific status options — CHANGE-095 (2026-10-09)
+
+Requester dropdown excludes ABORTED. Courier dropdown excludes OPEN, EXPIRED and CANCELLED; it retains ABORTED immutable-attempt history. All statuses remains the default. OrderStatusFilter requires an explicit requester/courier mode, supplied by each existing page. This is a UI-only refinement of ADR-032: existing API enum/query, authentication, ownership, pagination and five-second polling remain unchanged.
+
+## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
+
+The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.

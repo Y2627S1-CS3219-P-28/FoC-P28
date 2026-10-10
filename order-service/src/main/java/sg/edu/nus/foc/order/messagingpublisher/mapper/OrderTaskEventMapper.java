@@ -47,62 +47,28 @@ public interface OrderTaskEventMapper {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "eventId", source = "eventId")
     @Mapping(target = "eventType", constant = "OrderCompletionTaskEvent")
-    @Mapping(target = "eventVersion", constant = "1")
+    @Mapping(target = "eventVersion", constant = "2")
     @Mapping(target = "orderId", source = "order.id")
     @Mapping(target = "orderVersion", source = "resultingVersion")
+    @Mapping(target = "orderStatus", source = "order.status")
+    @Mapping(target = "creditAmount", source = "order.offeredCredits")
+    @Mapping(target = "courierId", source = "order.courierId")
     @Mapping(target = "occurredAt", source = "occurredAt")
-    @Mapping(target = "actorId", source = "actorId")
-    @Mapping(target = "order", source = "snapshot")
-    @Mapping(target = "overdue", source = "overdue")
-    @Mapping(target = "overdueAt", source = "overdueAt")
     OrderCompletionTaskEvent toCompletionEvent(
-            String eventId,
-            Order order,
-            long resultingVersion,
-            String actorId,
-            Instant occurredAt,
-            boolean overdue,
-            Instant overdueAt,
-            OrderEventSnapshot snapshot);
-
-    default OrderCompletionTaskEvent toCompletionEvent(
-            String eventId,
-            Order order,
-            String actorId,
-            Instant occurredAt,
-            boolean overdue,
-            Instant overdueAt,
-            OrderEventSnapshot snapshot) {
-        long resultingVersion = order == null ? 0 : order.getVersion() + 1;
-        return toCompletionEvent(eventId, order, resultingVersion, actorId, occurredAt, overdue, overdueAt, snapshot);
-    }
+            String eventId, Order order, long resultingVersion, Instant occurredAt);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "eventId", source = "eventId")
     @Mapping(target = "eventType", constant = "OpenOrderRefundTaskEvent")
-    @Mapping(target = "eventVersion", constant = "1")
+    @Mapping(target = "eventVersion", constant = "2")
     @Mapping(target = "orderId", source = "order.id")
     @Mapping(target = "orderVersion", source = "resultingVersion")
+    @Mapping(target = "orderStatus", source = "order.status")
+    @Mapping(target = "creditAmount", source = "order.offeredCredits")
+    @Mapping(target = "courierId", source = "order.courierId")
     @Mapping(target = "occurredAt", source = "occurredAt")
-    @Mapping(target = "actorId", source = "actorId")
-    @Mapping(target = "order", source = "snapshot")
     OpenOrderRefundTaskEvent toOpenRefundEvent(
-            String eventId,
-            Order order,
-            long resultingVersion,
-            String actorId,
-            Instant occurredAt,
-            OrderEventSnapshot snapshot);
-
-    default OpenOrderRefundTaskEvent toOpenRefundEvent(
-            String eventId,
-            Order order,
-            String actorId,
-            Instant occurredAt,
-            OrderEventSnapshot snapshot) {
-        long resultingVersion = order == null ? 0 : order.getVersion() + 1;
-        return toOpenRefundEvent(eventId, order, resultingVersion, actorId, occurredAt, snapshot);
-    }
+            String eventId, Order order, long resultingVersion, Instant occurredAt);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "eventId", source = "eventId")

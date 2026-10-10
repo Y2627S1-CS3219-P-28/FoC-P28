@@ -1,5 +1,10 @@
 # Peer Service API Feedback
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 CHANGE-088 / ADR-029 now implements an opt-in [local real broker connector](local-live-testing.md)
 with isolated refund/completion push subscriptions and existing Google auth.
 This resolves the absent local ingress configuration, NOT peer semantic gaps or
@@ -9,6 +14,7 @@ removed/upgraded on this basis. No Credit subscription to User penalty topic;
 003/005/006/007 and User consumers remain as documented below.
 
 Current handoff: **2026-10-09**, Vincent, `sprint-2-3-credit`, CHANGE-087.
+Pre-CHANGE-092 evidence (refund/completion schema compatibility is now superseded by FEEDBACK-009).
 Inspected integrated revision: `09e04a0` (`pull: credit service`).
 
 Follow-up financial verification (2026-10-09, source unchanged): existing focused
@@ -58,6 +64,7 @@ below retain the earlier inspection; no Supplier implementation change is claime
 | User | Abort penalty and completion consumers | MISSING, FEEDBACK-002; Order publisher exists |
 | Credit (Annablee) | Active reservation confirmation/reconciliation | INCOMPLETE_OR_INCOMPATIBLE for durable retries, FEEDBACK-006 |
 | User, Supplier, Credit | Trusted delegated background calls | MISSING, FEEDBACK-005; documentation ONLY |
+| Credit/User | Compact refund/completion consumer migration and overdue data source | INCOMPLETE_OR_INCOMPATIBLE, FEEDBACK-009 |
 | Supplier | Pair validation and batch lookup | Existing routes; no extra foreground business API needed |
 
 **Latest user decision: pause ALL background retry implementation until peers agree.**
@@ -227,7 +234,7 @@ this UI. Missing accounts require the existing signup registration-facts flow.
 
 Development topic **accepted-order-cancellation-dev-v1**; production from
 ORDER_ACCEPTED_CANCELLATION_TOPIC. Event AcceptedOrderCancellationTaskEvent,
-version 1, exact envelope/snapshot in section 4.
+version 1, unchanged envelope/snapshot in section 4.
 
 - EVERY successful ACCEPTED-only courier abort emits this after synchronous
   Credit reset: both OPEN and EXPIRED current outcomes.
@@ -246,10 +253,11 @@ Create a **separate User subscription** to order-completion-dev-v1 (production
 ORDER_COMPLETION_TOPIC). Do not share a competing-consumer subscription with
 Credit: BOTH services need every completion.
 
-OrderCompletionTaskEvent carries the COMPLETED snapshot and overdue boolean/
-timestamp. Identify courier via snapshot courierId, not actorId (which may be
-requester or lifecycle). Apply User-owned on-time/late policy once by eventId,
-ACK after commit. Order does not prescribe a new numeric penalty rule.
+OrderCompletionTaskEvent now carries only the seven-field COMPLETED body in section 4.
+Identify courier via courierId. Apply User-owned on-time/late policy once by eventId
+only after agreeing the authoritative separate overdue source (FEEDBACK-009);
+this body has no overdue or deadline facts. ACK after durable effects commit.
+Order does not prescribe a new numeric penalty rule.
 
 Existing GET /api/users/role-context returns userId/roles from authenticated
 Firebase UID and User-owned role records:
@@ -301,26 +309,47 @@ for unattended calls, if peers approve FEEDBACK-005.
 Authoritative serialization: messagingpublisher/dto/*TaskEvent.java,
 OrderEventSnapshot, RepostPlanEventSnapshot, OrderTaskEventMapper.
 
-Full completion JSON message data:
+Effective compact refund/completion JSON message data (schema v2):
 
 ~~~json
 {
   "eventId": "stable-event-uuid",
   "eventType": "OrderCompletionTaskEvent",
+  "orderId": "business-order-id",
+  "orderStatus": "COMPLETED",
+  "creditAmount": 5,
+  "occurredAt": "2026-10-09T04:00:00Z",
+  "courierId": "courier-firebase-uid"
+}
+~~~
+
+Refund has the same seven keys, eventType OpenOrderRefundTaskEvent and orderStatus
+CANCELLED or EXPIRED. courierId may be null and is still present. No requester's ID,
+versions, snapshot/history, actor, overdue or deadline is sent. Credit looks up
+its own transaction by orderId; User overdue-source agreement remains FEEDBACK-009.
+Pub/Sub attributes retain eventId/eventType/eventVersion=2. See FEEDBACK-009 for
+consumer incompatibility, rollout and required tests.
+
+Accepted cancellation JSON message data remains version 1:
+
+~~~json
+{
+  "eventId": "stable-event-uuid",
+  "eventType": "AcceptedOrderCancellationTaskEvent",
   "eventVersion": 1,
   "orderId": "business-order-id",
   "orderVersion": 7,
   "occurredAt": "2026-10-09T04:00:00Z",
-  "actorId": "requester-firebase-uid",
+  "actorId": "courier-firebase-uid",
   "order": {
     "id": "business-order-id",
     "requesterId": "requester-firebase-uid",
-    "courierId": "courier-firebase-uid",
+    "courierId": null,
     "itemDescription": "Collect a parcel",
     "pickupSupplierId": "pickup-id",
     "deliverySupplierId": "delivery-id",
     "offeredCredits": 5,
-    "status": "COMPLETED",
+    "status": "OPEN",
     "createdAt": "2026-10-09T01:00:00Z",
     "expiresAt": "2026-10-09T02:00:00Z",
     "deliveryTimeLimitMinutes": 15,
@@ -334,19 +363,15 @@ Full completion JSON message data:
       "deliveryDurationMinutes": 30,
       "used": false
     }
-  },
-  "overdue": false,
-  "overdueAt": null
+  }
 }
 ~~~
 
-Refund and abort use the SAME envelope/snapshot keys, but **omit overdue and
-overdueAt entirely**. Change eventType, resulting status/courier/actor according
-to the sections above. repostPlan may be null; links/IDs may be null as applicable.
-There is NO checkpoint list, row UUID, attemptId, generic facts or outcomeType.
-Current event snapshot has NO repostExpiresAt. CHANGE-086 implements that field
-in Order storage/API/UI, but intentionally does NOT add it to the peer event
-snapshot. Credit's RepostPlanSnapshot therefore still matches these five fields.
+Accepted cancellation retains the envelope/snapshot keys above, without overdue or
+overdueAt. Resulting status is OPEN or EXPIRED, actorId is the aborting courier,
+and snapshot courierId is cleared. Its User-only penalty subscription remains.
+repostPlan and links may be null; no checkpoints, internal row UUID, attemptId,
+generic facts, outcomeType or repostExpiresAt is included.
 
 Order commits status and event intent atomically, attempts immediate after-commit
 publication, then recovers pending/failed rows every 15 minutes for ALL three
@@ -356,7 +381,8 @@ subscriptions, least-privilege subscriber IAM, durable deduplication, retry/
 dead-letter monitoring and recovery. Pull ACK or authenticated push/function
 handler is for owners to agree/provision; no callback endpoint is invented here.
 Push wraps JSON as base64 message.data; decode before validating type/version,
-envelope/snapshot IDs. Duplicate delivery is expected.
+the appropriate body schema and stable event ID. Snapshot ID/version checks apply
+only to the unchanged accepted event. Duplicate delivery is expected.
 
 Existing Credit HTTP error envelope (example assignment state conflict):
 
@@ -431,8 +457,8 @@ execution below verifies Credit-local behavior, not deployed subscriptions.
 | --- | --- | --- |
 | FEEDBACK-004: courier assignment | PUT /api/credits/orders/{orderId}/courier-assignment; Firebase courier bearer; JSON {"courierId":"courier-uid"}; exactly 200, empty body | MATCHES_APPROVED_CONTRACT for the synchronous route and basic guards; recovery remains FEEDBACK-006 |
 | FEEDBACK-003: core reset | POST /api/credits/orders/{orderId}/hold-for-reopen; Firebase courier bearer; no body; exactly 200, empty body | Route/reset exists; replay security remains INCOMPLETE_OR_INCOMPATIBLE in section 1 |
-| FEEDBACK-002 Credit: refund | OpenOrderRefundTaskEvent v1; CANCELLED/EXPIRED and null courier; old order ID/requester/amount checked; release once | MATCHES_APPROVED_CONTRACT for current refund handling in source; separate legacy topic mismatch is FEEDBACK-007 |
-| FEEDBACK-002 Credit: completion | OrderCompletionTaskEvent v1; COMPLETED, matching courier and overdue facts; debit requester reserved/total and credit courier once | MATCHES_APPROVED_CONTRACT for current completion handling in source |
+| FEEDBACK-002 Credit: refund | OpenOrderRefundTaskEvent v1; CANCELLED/EXPIRED and null courier; old order ID/requester/amount checked; release once | Historical v1 match; current compact v2 INCOMPLETE_OR_INCOMPATIBLE, FEEDBACK-009; accepted-topic gap remains 007 |
+| FEEDBACK-002 Credit: completion | OrderCompletionTaskEvent v1; COMPLETED, matching courier and overdue facts; debit requester reserved/total and credit courier once | Historical v1 match; current compact v2 INCOMPLETE_OR_INCOMPATIBLE, FEEDBACK-009 |
 | Existing reservation/read/balance/signup | PUT/GET reservation; GET /me; POST /registration-facts | Present; no duplicate route requested; terminal replay safety remains FEEDBACK-006 |
 
 ### Concrete implementation/test evidence
@@ -447,7 +473,7 @@ Paths below are relative to repository root; peer files remain read-only.
   replay/different-assignment conflict; reset retains reservation; transactional
   refund/settlement, event ID+payload hash deduplication, ledger/account updates.
 - `credit-service/src/main/java/sg/edu/nus/foc/credit/messaging/CreditOrderEventConsumer.java`
-  and `OrderEventMessage.java`: matching current refund/completion envelope and
+  and `OrderEventMessage.java`: matching former v1 refund/completion envelope and
   snapshot fields, subscription/type matching and completion-only overdue fact.
 - `credit-service/src/main/java/sg/edu/nus/foc/credit/api/CreditOrderEventController.java`:
   POST /api/credits/internal/order-events decodes wrapped Base64 data and returns
@@ -496,7 +522,7 @@ Push envelope received by the existing Credit endpoint:
 ~~~json
 {
   "message": {
-    "data": "BASE64_OF_FULL_ORDER_EVENT_JSON_FROM_SECTION_4",
+    "data": "BASE64_OF_ORDER_EVENT_JSON_FROM_SECTION_4",
     "messageId": "pubsub-message-id"
   },
   "subscription": "projects/protean-vigil-509704-q4/subscriptions/credit-open-order-refund-dev-v1"
@@ -650,7 +676,7 @@ adapter surface, NOT an active missing-provider requirement. An old adapter unit
 test mocks the missing route; it does not verify that Credit implements it.
 Removing that surface is a separate approved cleanup, not performed here.
 
-### Financial event fields: sufficient, but the snapshot is not minimal
+### Historical v1 audit — superseded by CHANGE-092 compact bodies
 
 Current envelope fields consumed for decoding/validation, ledger attribution or
 duplicate-payload hashing: `eventId`, `eventType`, `eventVersion`, `orderId`,
@@ -720,3 +746,29 @@ producer/consumer/DTO/test-source comparisons performed; no tests rerun, financi
 mutation, cloud write, message replay or source edit. Publication states observed
 included a pending refund; PUBLISHED is not proof of a refund/transfer. Existing
 003/005/006/007 entries and paused background-auth/retry scope remain unchanged.
+
+
+### FEEDBACK-009 — Compact refund/completion consumers
+
+- Status: OPEN; classification INCOMPLETE_OR_INCOMPATIBLE; approved Order-only schema milestone, not integration verification.
+- Evidence: Credit OrderEventMessage and CreditOrderEventConsumer currently require nested order, envelope/order matching versions, and completion overdue. These will reject the new bodies. User completion consumer/overdue source remains unverified. Do not mark these flows done.
+- Credit action: consume OpenOrderRefundTaskEvent and OrderCompletionTaskEvent using the schema below; lookup its existing transaction/requester by orderId, refund CANCELLED/EXPIRED, transfer COMPLETED to the supplied courierId, verify amount/assignment against Credit-owned state and deduplicate eventId. Do not recreate already implemented reservation/assignment/reset endpoints.
+- User action: completion still requires the existing overdue penalty / on-time score deduction policy, but this message supplies no overdue/deadline data. Agree and verify an authoritative separate source before implementing that policy; occurredAt alone cannot determine overdue. Accepted cancellation keeps its existing payload/penalty behavior.
+- Order behavior: writes intent atomically; publishes after commit with Pub/Sub attributes eventId/eventType/eventVersion (2 for these bodies). Topics retain existing dev-v1/prod-v1 names; their suffix does not imply the new body is v1. Coordinate consumer rollout before using current topics for live financial tests. No peer code or cloud changes made.
+- Request: implement/verify compact parsing, null courier refund, terminal statuses, duplicate/replay/amount/courier checks and failures. Next verification re-read peer schemas/tests, then real refund/completion and duplicate-delivery integration.
+
+Compact body (both event types, exactly seven keys):
+
+```json
+{
+  "eventId": "stable-event-uuid",
+  "eventType": "OpenOrderRefundTaskEvent",
+  "orderId": "public-order-id",
+  "orderStatus": "EXPIRED",
+  "creditAmount": 10,
+  "occurredAt": "2026-10-09T12:00:00Z",
+  "courierId": null
+}
+```
+
+Completion uses eventType OrderCompletionTaskEvent, orderStatus COMPLETED and its assigned courierId. Refund uses CANCELLED or EXPIRED; courierId is the saved resulting Order value, including null. creditAmount is the integer offeredCredits. No requester, snapshot, actor, history, versions or overdue fields appear in either body. AcceptedOrderCancellationTaskEvent contract is unchanged.

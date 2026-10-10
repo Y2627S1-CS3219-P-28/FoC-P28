@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 class OrderLifecycleSchedulerTest {
     @Test
@@ -19,7 +20,7 @@ class OrderLifecycleSchedulerTest {
 
         ArgumentCaptor<Instant> expiry = ArgumentCaptor.forClass(Instant.class);
         ArgumentCaptor<Instant> completion = ArgumentCaptor.forClass(Instant.class);
-        var inOrder = inOrder(lifecycle);
+        InOrder inOrder = inOrder(lifecycle);
         inOrder.verify(lifecycle).expireDue(expiry.capture());
         inOrder.verify(lifecycle).autoCompleteDue(completion.capture());
         assertEquals(expiry.getValue(), completion.getValue());

@@ -1,5 +1,6 @@
 package sg.edu.nus.foc.order.application;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -43,6 +45,8 @@ class OrderOutboxDispatcherTest {
         ArgumentCaptor<OrderCompletionTaskEvent> published = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
         verify(completion).publishOrderCompletionTask(published.capture());
         assertEquals(event.getEventId(), published.getValue().getEventId());
+        assertEquals(2, published.getValue().getEventVersion());
+        assertEquals(2, published.getValue().getOrderVersion());
         verify(repository).markPublished(eq(event.getEventId()), any(Instant.class));
         verify(repository, never()).scheduleRetry(any(), any(), any());
     }
@@ -123,6 +127,13 @@ class OrderOutboxDispatcherTest {
         verify(publisher).publishOpenOrderRefundTask(captured.capture());
         assertEquals("expiry-event-1", captured.getValue().getEventId());
         assertEquals("OpenOrderRefundTaskEvent", captured.getValue().getEventType());
+        tools.jackson.databind.JsonNode json = JsonMapper.builder().build().valueToTree(captured.getValue());
+        assertEquals(7, json.size());
+        assertEquals(4, json.path("creditAmount").asInt());
+        assertEquals("EXPIRED", json.path("orderStatus").asString());
+        assertTrue(json.path("courierId").isNull());
+        assertEquals(2, captured.getValue().getEventVersion());
+        assertEquals(2, captured.getValue().getOrderVersion());
         verify(repository).markPublished(eq("expiry-event-1"), any(Instant.class));
     }
 
@@ -149,7 +160,145 @@ class OrderOutboxDispatcherTest {
         verify(publisher).publishOpenOrderRefundTask(captured.capture());
         assertEquals("cancel-event-legacy", captured.getValue().getEventId());
         assertEquals("OpenOrderRefundTaskEvent", captured.getValue().getEventType());
+        tools.jackson.databind.JsonNode json = JsonMapper.builder().build().valueToTree(captured.getValue());
+        assertEquals(7, json.size());
+        assertEquals(4, json.path("creditAmount").asInt());
+        assertEquals("CANCELLED", json.path("orderStatus").asString());
+        assertTrue(json.path("courierId").isNull());
+        assertEquals(2, captured.getValue().getEventVersion());
+        assertEquals(2, captured.getValue().getOrderVersion());
         verify(repository).markPublished(eq("cancel-event-legacy"), any(Instant.class));
+    }
+
+    @Test
+    void convertsPendingSnapshotCompletionWithoutChangingIdentityOrFacts() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher publisher = mock(IOrderCompletionTaskPublisher.class);
+        String payload = """
+                {"eventId":"legacy-completion","eventType":"OrderCompletionTaskEvent","eventVersion":1,
+                 "orderId":"order-completed","orderVersion":7,"occurredAt":"2026-10-01T10:00:00Z",
+                 "actorId":"requester","overdue":true,"overdueAt":"2026-10-01T09:00:00Z",
+                 "order":{"id":"order-completed","courierId":"saved-courier","status":"COMPLETED",
+                 "offeredCredits":9,"version":7}}
+                """;
+        OrderEventOutbox message = OrderEventOutbox.pending(
+                "legacy-completion", "order-completed", "OrderCompletionTaskEvent", 1, 7, payload, CREATED_AT);
+        message.claim(CREATED_AT, CREATED_AT.plusSeconds(30));
+        when(repository.claim(eq("legacy-completion"), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(message));
+
+        dispatcher(repository, publisher).dispatch("legacy-completion");
+
+        ArgumentCaptor<OrderCompletionTaskEvent> captured = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
+        verify(publisher).publishOrderCompletionTask(captured.capture());
+        tools.jackson.databind.JsonNode json = JsonMapper.builder().build().valueToTree(captured.getValue());
+        assertEquals(7, json.size());
+        assertEquals("legacy-completion", captured.getValue().getEventId());
+        assertEquals(CREATED_AT, captured.getValue().getOccurredAt());
+        assertEquals("COMPLETED", json.path("orderStatus").asString());
+        assertEquals("saved-courier", json.path("courierId").asString());
+        assertEquals(9, json.path("creditAmount").asInt());
+        assertEquals(2, captured.getValue().getEventVersion());
+        assertEquals(7, captured.getValue().getOrderVersion());
+        verify(repository).markPublished(eq("legacy-completion"), any(Instant.class));
+    }
+
+    @Test
+    void invalidSavedLegacySnapshotIsRetriedRatherThanAcknowledged() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher publisher = mock(IOrderCompletionTaskPublisher.class);
+        String payload = """
+                {"eventId":"invalid","eventType":"OrderCompletionTaskEvent",
+                 "orderId":"order","order":{"status":"COMPLETED"}}
+                """;
+        OrderEventOutbox message = OrderEventOutbox.pending(
+                "invalid", "order", "OrderCompletionTaskEvent", 1, 7, payload, CREATED_AT);
+        message.claim(CREATED_AT, CREATED_AT.plusSeconds(30));
+        when(repository.claim(eq("invalid"), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(message));
+
+        dispatcher(repository, publisher).dispatch("invalid");
+
+        verify(publisher, never()).publishOrderCompletionTask(any());
+        verify(repository, never()).markPublished(any(), any());
+        verify(repository).scheduleRetry(eq("invalid"), any(), any());
+    }
+
+    @Test
+    void retryPersistenceFailureDoesNotSkipTheNextDueEvent() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher completion = mock(IOrderCompletionTaskPublisher.class);
+        OrderCompletionTaskEvent failedEvent = completionEvent();
+        OrderCompletionTaskEvent successfulEvent = completionEvent();
+        successfulEvent.setEventId("event-successful");
+        when(repository.findDueIds(any(Instant.class), eq(0)))
+                .thenReturn(List.of(failedEvent.getEventId(), successfulEvent.getEventId()));
+        when(repository.claim(eq(failedEvent.getEventId()), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(claimed(failedEvent.getEventId(), failedEvent.getEventType(), failedEvent)));
+        when(repository.claim(eq(successfulEvent.getEventId()), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(claimed(successfulEvent.getEventId(), successfulEvent.getEventType(), successfulEvent)));
+        doThrow(new IllegalStateException("publisher unavailable")).when(completion)
+                .publishOrderCompletionTask(org.mockito.ArgumentMatchers.argThat(
+                        event -> event.getEventId().equals(failedEvent.getEventId())));
+        doThrow(new IllegalStateException("retry database unavailable")).when(repository)
+                .scheduleRetry(eq(failedEvent.getEventId()), any(Instant.class), any());
+
+        assertDoesNotThrow(() -> dispatcher(repository, completion).dispatchDueBatch());
+
+        verify(repository).markPublished(eq(successfulEvent.getEventId()), any(Instant.class));
+        verify(repository, never()).markPublished(eq(failedEvent.getEventId()), any(Instant.class));
+    }
+
+    @Test
+    void failedClaimDoesNotSkipALaterDueEvent() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher completion = mock(IOrderCompletionTaskPublisher.class);
+        OrderCompletionTaskEvent successfulEvent = completionEvent();
+        when(repository.findDueIds(any(Instant.class), eq(0)))
+                .thenReturn(List.of("claim-failed", successfulEvent.getEventId()));
+        when(repository.claim(eq("claim-failed"), any(Instant.class), any(Instant.class)))
+                .thenThrow(new IllegalStateException("claim commit failed"));
+        when(repository.claim(eq(successfulEvent.getEventId()), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(claimed(successfulEvent.getEventId(), successfulEvent.getEventType(), successfulEvent)));
+
+        assertDoesNotThrow(() -> dispatcher(repository, completion).dispatchDueBatch());
+
+        verify(repository).markPublished(eq(successfulEvent.getEventId()), any(Instant.class));
+        verify(repository, never()).claimDue(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void failedPublishedMarkerRetriesItsEventAndContinues() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher completion = mock(IOrderCompletionTaskPublisher.class);
+        OrderCompletionTaskEvent firstEvent = completionEvent();
+        OrderCompletionTaskEvent nextEvent = completionEvent();
+        nextEvent.setEventId("next-event");
+        when(repository.findDueIds(any(Instant.class), eq(0)))
+                .thenReturn(List.of(firstEvent.getEventId(), nextEvent.getEventId()));
+        when(repository.claim(eq(firstEvent.getEventId()), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(claimed(firstEvent.getEventId(), firstEvent.getEventType(), firstEvent)));
+        when(repository.claim(eq(nextEvent.getEventId()), any(Instant.class), any(Instant.class)))
+                .thenReturn(Optional.of(claimed(nextEvent.getEventId(), nextEvent.getEventType(), nextEvent)));
+        doThrow(new IllegalStateException("published marker commit failed"))
+                .when(repository).markPublished(eq(firstEvent.getEventId()), any());
+
+        assertDoesNotThrow(() -> dispatcher(repository, completion).dispatchDueBatch());
+
+        verify(repository).scheduleRetry(eq(firstEvent.getEventId()), any(), any());
+        verify(repository).markPublished(eq(nextEvent.getEventId()), any());
+    }
+
+    @Test
+    void emptyDueSelectionDoesNotClaimOrPublishAnything() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher completion = mock(IOrderCompletionTaskPublisher.class);
+        when(repository.findDueIds(any(), eq(0))).thenReturn(List.of());
+
+        dispatcher(repository, completion).dispatchDueBatch();
+
+        verify(repository, never()).claim(any(), any(), any());
+        verify(completion, never()).publishOrderCompletionTask(any());
     }
 
     private OrderOutboxDispatcher dispatcher(
@@ -194,7 +343,6 @@ class OrderOutboxDispatcherTest {
         event.setOrderId("order-1");
         event.setOrderVersion(2);
         event.setOccurredAt(CREATED_AT);
-        event.setActorId("requester-1");
         return event;
     }
 }
