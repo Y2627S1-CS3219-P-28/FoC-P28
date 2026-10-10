@@ -18,6 +18,8 @@
 # Credit Service Cloud SQL:
 #   - per-environment databases and users exist on the shared instance
 #   - credit-service runtime identity can connect and read its password secrets
+# Order Service Pub/Sub, per environment:
+#   - its three topics exist and order-service's runtime identity may publish to them
 # Credit Service Pub/Sub push (when enabled in project.env):
 #   - three Order-topic subscriptions target the authenticated Credit push endpoint
 #   - shared dead-letter topic/recovery subscription and required IAM bindings exist
@@ -178,6 +180,22 @@ else
   done
 fi
 
+echo "Order Service Pub/Sub topics"
+for env in "${environments[@]}"; do
+  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_ACCEPTED_CANCELLATION_TOPIC; do
+    topic=$(environment_value "$env" "$key")
+    if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      problem "order-service: Pub/Sub topic '$topic' ($env) does not exist"
+    elif gcloud pubsub topics get-iam-policy "$topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+        jq -e --arg member "serviceAccount:$(runtime_sa order-service)" \
+          '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+      ok "order-service: may publish to '$topic' ($env)"
+    else
+      problem "order-service: $(runtime_sa order-service) cannot publish to '$topic' ($env)"
+    fi
+  done
+done
+
 echo "Credit Service Pub/Sub push"
 for env in "${environments[@]}"; do
   if [[ $(credit_pubsub_enabled "$env") != true ]]; then
@@ -296,7 +314,7 @@ done
 
 if [[ ${#problems[@]} -gt 0 ]]; then
   echo
-  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
+  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, infra/gcp/configure-order-pubsub.sh <environment> and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
   if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     {
       echo "### Cloud infrastructure incomplete"

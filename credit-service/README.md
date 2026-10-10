@@ -81,9 +81,10 @@ account, and ledger mutations. It returns HTTP 204 only after that transaction s
 non-success response is retried by Pub/Sub. After ten unsuccessful deliveries, the subscription
 forwards the message to the environment's shared Credit dead-letter topic for inspection/recovery.
 
-An infrastructure owner provisions staging after the Cloud Run service and Order topics exist:
+An infrastructure owner provisions staging after the Cloud Run service exists:
 
 ```bash
+infra/gcp/configure-order-pubsub.sh staging    # the environment's own Order topics
 infra/gcp/configure-credit-pubsub.sh staging
 ```
 
