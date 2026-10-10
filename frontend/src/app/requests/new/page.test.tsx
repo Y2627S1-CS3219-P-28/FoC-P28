@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api"
 const mocks = vi.hoisted(() => ({ api: vi.fn(), push: vi.fn(), user: { uid: "requester-1" } }))
 
 vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
+vi.mock("@/lib/order-command-storage", () => ({ readOrderIntent: async () => null }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: mocks.user, loading: false }) }))
 vi.mock("@/components/require-auth", () => ({ RequireAuth: ({ children }: { children: ReactNode }) => children }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }))
@@ -98,6 +99,7 @@ describe("request creation quarter-hour time integration", () => {
 
   it("rejects a past expiry without posting", async () => {
     render(<NewRequestPage />)
+    await waitFor(() => expect(screen.getByLabelText("Order expiry date")).not.toBeDisabled())
     fireEvent.change(screen.getByLabelText("Order expiry date"), { target: { value: "2026-10-07" } })
     fireEvent.submit(screen.getByRole("form", { name: "Post request form" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Order expiry must be at least 30 minutes from now")

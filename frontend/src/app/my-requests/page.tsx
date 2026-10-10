@@ -7,6 +7,7 @@ import { OrderCard } from "@/components/orders/order-card"
 import { RepostControls } from "@/components/orders/repost-controls"
 import { OrderStatusFilter } from "@/components/orders/order-status-filter"
 import { OrderPagination } from "@/components/orders/order-pagination"
+import { PendingOrderCommands } from "@/components/orders/pending-order-commands"
 import { RequireAuth } from "@/components/require-auth"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,7 @@ export default function MyRequestsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-muted-foreground">Requests you posted</p><h1 className="text-2xl font-semibold tracking-tight">My requests</h1><p className="mt-1 text-muted-foreground">Track your orders, outcomes, and repost settings.</p></div><Button variant="outline" size="sm" onClick={() => void load()}>Refresh</Button></div>
         <OrderStatusFilter mode="requester" value={query.status} label="Filter requests by status"
           onChange={(status) => setQuery({ status, page: 1 })} />
+        <PendingOrderCommands onResolved={() => void load()} />
         {error && <p role="status" className="text-xs text-muted-foreground">Could not refresh your requests. We will try again.</p>}
         {loading || !supplierNamesReady ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{query.status ? "No requests match this status." : "You have not posted a request yet."}</CardContent></Card> : <div className="space-y-4">{orders.map((order) => <OrderCard key={order.id} order={order} supplierNames={supplierNames} actions={<OrderActions order={order} mode="requester" onUpdated={replace} />} footer={<RepostControls order={order} onUpdated={replace} />} />)}</div>}
         <OrderPagination page={query.page} totalPages={totalPages} disabled={loading}

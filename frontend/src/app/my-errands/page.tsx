@@ -6,6 +6,7 @@ import { OrderActions } from "@/components/orders/order-actions"
 import { OrderCard } from "@/components/orders/order-card"
 import { OrderStatusFilter } from "@/components/orders/order-status-filter"
 import { OrderPagination } from "@/components/orders/order-pagination"
+import { PendingOrderCommands } from "@/components/orders/pending-order-commands"
 import { RequireAuth } from "@/components/require-auth"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ export default function MyErrandsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-muted-foreground">Delivery work</p><h1 className="text-2xl font-semibold tracking-tight">My errands</h1><p className="mt-1 text-muted-foreground">Move accepted orders through pickup and delivery.</p></div><Button variant="outline" size="sm" onClick={() => void load()}>Refresh</Button></div>
         <OrderStatusFilter mode="courier" value={query.status} label="Filter errands by status"
           onChange={(status) => setQuery({ status, page: 1 })} />
+        <PendingOrderCommands onResolved={() => void load()} />
         {error && <p role="status" className="text-xs text-muted-foreground">Could not refresh your errands. We will try again.</p>}
         {loading || !supplierNamesReady ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{query.status ? "No errands match this status." : "You have not accepted an errand yet."}</CardContent></Card> : <div className="grid gap-4 md:grid-cols-2">{orders.map((order) => <OrderCard key={order.attemptId ?? order.id} order={order} supplierNames={supplierNames} actions={<OrderActions order={order} mode="courier" onUpdated={replace} />} />)}</div>}
         <OrderPagination page={query.page} totalPages={totalPages} disabled={loading}

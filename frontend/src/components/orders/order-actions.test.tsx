@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { OrderActions } from "@/components/orders/order-actions"
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/hooks/use-api", () => ({
   useApi: () => mocks.api,
 }))
+vi.mock("@/lib/order-command-storage", () => ({ readOrderIntent: async () => null }))
 
 vi.mock("@/components/providers/auth-provider", () => ({
   useAuth: () => ({ user: { uid: "courier-1" } }),
@@ -47,20 +48,23 @@ describe("OrderActions accepted cancellation", () => {
     vi.clearAllMocks()
   })
 
-  it("shows cancellation only to the courier for an accepted errand", () => {
+  it("shows cancellation only to the courier for an accepted errand", async () => {
     const onUpdated = vi.fn()
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={onUpdated} />)
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abort errand" })).not.toBeDisabled())
 
     expect(screen.getByRole("button", { name: "Start errand" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Abort errand" })).toBeInTheDocument()
 
     cleanup()
     render(<OrderActions order={{ ...acceptedOrder, status: "IN_PROGRESS" }} mode="courier" onUpdated={onUpdated} />)
+    await act(async () => {})
     expect(screen.queryByRole("button", { name: "Abort errand" })).not.toBeInTheDocument()
 
     cleanup()
     render(<OrderActions order={acceptedOrder} mode="requester" onUpdated={onUpdated} />)
+    await act(async () => {})
     expect(screen.queryByRole("button", { name: "Abort errand" })).not.toBeInTheDocument()
   })
 
@@ -70,10 +74,11 @@ describe("OrderActions accepted cancellation", () => {
     mocks.api.mockResolvedValue(reopenedOrder)
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={onUpdated} />)
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abort errand" })).not.toBeDisabled())
 
     fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
     expect(screen.getByRole("heading", { name: "Abort this accepted errand?" })).toBeInTheDocument()
-    expect(mocks.api).not.toHaveBeenCalled()
+    expect(mocks.api).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }))
 
     fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 
@@ -95,6 +100,7 @@ describe("OrderActions accepted cancellation", () => {
     mocks.api.mockResolvedValue(abortedOrder)
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abort errand" })).not.toBeDisabled())
     fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
     fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 
@@ -102,9 +108,13 @@ describe("OrderActions accepted cancellation", () => {
   })
 
   it("shows the API error when an accepted cancellation cannot be completed", async () => {
-    mocks.api.mockRejectedValue(new Error("This errand is no longer accepted."))
+    mocks.api.mockImplementation(async (path: string) => {
+      if (path.endsWith("capabilities")) return { enabled: false }
+      throw new Error("This errand is no longer accepted.")
+    })
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abort errand" })).not.toBeDisabled())
     fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
     fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 

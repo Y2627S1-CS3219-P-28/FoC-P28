@@ -10,6 +10,8 @@ vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: mocks.user }) }))
 vi.mock("@/components/require-auth", () => ({ RequireAuth: ({ children }: { children: ReactNode }) => children }))
 vi.mock("@/hooks/use-supplier-names", () => ({ useSupplierNames: () => ({ names: {}, ready: true }) }))
+// Recovery discovery is verified separately; these fixtures model Order list responses only.
+vi.mock("@/components/orders/pending-order-commands", () => ({ PendingOrderCommands: () => null }))
 vi.mock("@/components/orders/order-card", () => ({ OrderCard: ({ order, actions, footer }: {
   order: Order; actions: ReactNode; footer: ReactNode
 }) => <article>{order.itemDescription} {order.status} {order.attemptId}{actions}{footer}</article> }))
