@@ -1,5 +1,34 @@
 # Vincent - Active Work
 
+## Swagger / Pub/Sub documentation audit — 2026-10-10, inspected
+
+- Request: check current generated Order endpoint and published-event/topic
+  documentation; no application or contract changes requested.
+- Vincent profile/allocation/current branch match
+  `sprint-2-3-credit-service-concurrency-update-event-payload`.
+- Scope: inspect controllers, OpenAPI configuration/generated JSON/test and
+  publisher schemas/topics; preserve existing local profile changes. Live HTTP
+  recovery remains disabled. No application/contract/schema/UI/cloud edits.
+- Result: 24 controller operation mappings match the generated 24 HTTP
+  operations / 23 paths, including seven command routes, status filter,
+  lifecycle routes and explicit repostExpiresAt. bearerAuth schema exists.
+  Generated doc has no three event schemas, topic names or Pub/Sub extensions.
+- Current configured defaults: order-completion-dev-v1, open-order-refund-dev-v1,
+  accepted-order-cancellation-dev-v1. Event DTOs/publishers and service-contract
+  documentation inspected; deployed topic overrides/Swagger not checked.
+- Gaps: most HTTP routes document only success, no full error/validation examples;
+  legacy /{id}/repost/configure advertises inferred 200 although application always
+  conflicts. Relative expiry constraints lack schema descriptions. Existing test
+  validates emitted operations and two named command paths, not exhaustive
+  controller-vs-document parity or event contracts.
+- Verification: fresh rerun OpenApiDocumentationTest in matching source copy:
+  2 tests pass, zero failures/errors/skips. Log target/change103-openapi-audit.log;
+  generated JSON in target/change102-verification/target/openapi.json. No new tests
+  or live HTTP/business integration run; no all-documentation-complete claim.
+- Next: user decision on documentation-only enhancement for complete errors,
+  constraints/examples and Pub/Sub contract reference (no invented HTTP publish
+  routes). Sprint/live recovery gates unchanged. Audit records/disclosure only.
+
 ## CHANGE-101/102: JWT learning and merged minute orchestration - locally verified
 
 - Started: 2026-10-10. Vincent confirms current branch

@@ -2047,3 +2047,13 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Vincent requested JWT-signature learning and merging the minute jobs into recovery -> OPEN expiry -> >=48-hour DELIVERED completion; explicitly confirmed sprint-2-3-credit-service-concurrency-update-event-payload.
 - **Key response:** Removed the independent command timer, retained mock-only HTTP recovery gate and durable per-item guards, captured lifecycle time after recovery, isolated phase failures and kept immediate/15-minute outbox publication. Observed ownership-test RED; corrected one test-fixture verification-order mistake; 28 focused tests and full fresh-source Java 21 Maven verify (301 tests, zero failures/errors/skips) passed. JaCoCo 95.60% lines / 81.95% branches. Real PostgreSQL tests use Credit contract stubs, not live peer recovery. Existing source-manifest/workflow table-format helper failures are recorded separately, not passed.
 - **Author verification:** Vincent explicitly chose the merge and confirmed identity/branch. AI ran the recorded checks; human code review and hosted CI remain pending. No credentials logged/stored or live HTTP recovery enabled; Sprint remains incomplete. Learning remains excluded from Git.
+
+## Swagger endpoint and Pub/Sub documentation audit assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-10
+- **Mode:** Read-only source/generated-document inspection and existing test verification.
+- **Affected locations:** Order controllers/configuration/event DTOs/publishers/service contracts/generated OpenAPI inspected; Vincent active-work and this disclosure updated only.
+- **Prompt:** Have we updated Swagger endpoints and Pub/Sub events/topics based on all current Order endpoints and topics?
+- **Key response:** Found 24 HTTP operations across 23 paths matching 24 controller mappings, including command recovery and explicit automatic-repost expiry. Generated document has no three Pub/Sub event schemas/topic names. Most error responses and relative expiry explanations are incomplete; deprecated configure route misleadingly advertises 200 despite always conflicting. Reran existing OpenApiDocumentationTest: 2 tests pass, zero failures/errors/skips; test does not verify event contracts or exhaustive route parity. No application, contract, frontend, schema, peer or infrastructure change; no deployed Swagger/topic verification.
+- **Author verification:** Vincent requested the audit. AI inspected current branch/source and regenerated test document; human review and any documentation-enhancement approval remain pending. Live HTTP recovery remains disabled, not made functional by its appearance in Swagger.
