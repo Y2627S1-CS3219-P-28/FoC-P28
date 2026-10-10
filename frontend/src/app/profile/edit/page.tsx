@@ -60,9 +60,6 @@ export default function EditProfilePage() {
         }
 
         if (!profile) return
-
-        setUsername(profile.username ?? "")
-        setEmail(profile.email ?? "")
     }, [loading, user, router])
 
     async function handleSaveUsername(event: React.FormEvent<HTMLFormElement>) {
@@ -362,7 +359,7 @@ export default function EditProfilePage() {
                                 variant="outline"
                                 onClick={handleCheckEmailVerification}
                             >
-                                I've verified my email
+                                I&apos;ve verified my email
                             </Button>
                         </div>
                     )}
@@ -454,7 +451,10 @@ export default function EditProfilePage() {
                             {passwordMessage} 
                         </p> 
                     )} 
-                    <Button type="submit" disabled={changingPassword}> 
+                    <Button 
+                        type="submit" 
+                        disabled={changingPassword || !passwordValid}
+                    > 
                         {changingPassword ? "Changing Password..." : "Change Password"} 
                     </Button>
                 </form>
@@ -480,13 +480,13 @@ export default function EditProfilePage() {
                 Permanently delete your account and its associated profile.
                 This action cannot be undone.
             </p>
-            <div className="w-full pt-4">
-                {deleteError && (
+            {deleteError && (
+                <div className="w-full pt-4">
                     <p className="text-sm text-destructive" role="alert">
                         {deleteError}
                     </p>
-                )}
-            </div>
+                </div>
+            )}
             <div className="w-full pt-4">
                 <DeleteAccountButton onError={handleDeleteError}/>
             </div>

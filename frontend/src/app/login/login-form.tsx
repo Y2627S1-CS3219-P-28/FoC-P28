@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { FirebaseError } from "firebase/app"
 
 import { useAuth } from "@/components/providers/auth-provider"
@@ -47,7 +47,7 @@ function safeNext(next: string | null): string {
 }
 
 export function LoginForm() {
-  const { user, loading, signIn, signUp, resendVerificationEmail } = useAuth()
+  const { signIn, signUp, resendVerificationEmail } = useAuth()
   const router = useRouter()
   const next = safeNext(useSearchParams().get("next"))
 
