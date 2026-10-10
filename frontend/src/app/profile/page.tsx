@@ -6,79 +6,56 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/providers/auth-provider"
 import { useConfig } from "@/components/providers/config-provider"
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { DeleteAccountButton } from "@/components/profile/DeleteAccountButton"
-
-
-type UserProfile = {
-  email: string
-  username: string
-  roles: string[]
-  penalty: number
-  isCourierSuspended: boolean
-}
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function ProfilePage() {
-  const { user, loading, getIdToken } = useAuth()
+  const { user, loading, profile, profileLoading, refreshProfile, getIdToken } = useAuth()
   const config = useConfig()
   const router = useRouter()
 
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [profileLoading, setProfileLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
-    if (loading) return
-
-    if (!user) {
+    if (!loading && !user) {
       router.replace("/login")
-      return
     }
-
-    async function loadProfile() {
-      try {
-        const token = await getIdToken()
-        
-        // Debug code for testing token-related APIs
-        // Remove before actual
-        // console.log(token)
-
-        const response = await fetch(
-          `${config.apiBaseUrl}/api/users/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error("Failed to load profile")
-        }
-
-        const data = await response.json()
-        setProfile(data)
-      } catch (error) {
-        console.error(error)
-      } finally {
-        setProfileLoading(false)
-      }
-    }
-
-    loadProfile()
   }, [loading, user, getIdToken, config, router])
 
   if (loading || profileLoading) {
-    return <div className="flex min-h-screen items-center justify-center">
-              <Card className="w-full max-w-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl">{"Loading..."}</CardTitle>
-                </CardHeader>
-              </Card>
-            </div>
+    return (
+      <div className="p-6">
+        <p>Loading profile...</p>
+        <pre className="mt-4 text-sm">
+          {JSON.stringify(
+            {
+              loading,
+              profileLoading,
+              hasUser: !!user,
+              hasProfile: !!profile,
+            },
+            null,
+            2
+          )}
+        </pre>
+      </div>
+    )
+  }
+
+  //if (loading || profileLoading) {
+    //return <div className="flex min-h-screen items-center justify-center">
+              //<Card className="w-full max-w-sm">
+                //<CardHeader>
+                  //<CardTitle className="text-xl">{"Loading..."}</CardTitle>
+                //</CardHeader>
+              //</Card>
+            //</div>
+  //}
+
+  if (!user) { 
+    return null 
   }
 
   if (!profile) {
@@ -92,36 +69,35 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{"My Profile"}</CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <p>Email: {profile.email}</p>
-          <p>Roles: {profile.roles.join(", ")}</p>
-          <p>Penalty: {profile.penalty}</p>
-
-          <p>
-            Courier status:{" "}
-            {profile.isCourierSuspended ? "Suspended" : "Active"}
-          </p>
-        </CardContent>
-        <CardFooter className="flex flex-col items-stretch gap-3">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">My Profile</h1>
+        </div>
+        <div className="flex flex-col gap-1">
           <div className="w-full border-t pt-4">
-            <h3 className="font-semibold text-destructive">
-              Danger Zone
-            </h3>
-            <p className="mt-1 mb-3 text-sm text-muted-foreground">
-              Permanently delete your account and its associated profile.
-              This action cannot be undone.
-            </p>
+            <p>Username: {profile.username}</p>
+            <p>Email: {profile.email}</p>
+            <p>Roles: {profile.roles.join(", ")}</p>
+            <p>Penalty: {profile.penalty}</p>
 
-            <DeleteAccountButton />
+            <p>
+              Courier status:{" "}
+              {profile.isCourierSuspended ? "Suspended" : "Active"}
+            </p>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="w-full border-t pt-4">
+            <Button
+              type="button"
+              className="w-fit"
+              disabled={editing}
+              onClick={() => router.push("/profile/edit")}
+            >
+              Edit profile
+            </Button>
+          </div>
+        </div>
     </div>
   )
 }

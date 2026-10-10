@@ -28,6 +28,39 @@ public class FirebaseAuthService {
         }
     }
 
+    public UserRecord getUser(String firebaseUid) {
+        try {
+            return FirebaseAuth.getInstance().getUser(firebaseUid);
+        } catch (FirebaseAuthException e) {
+            throw new RuntimeException(
+                    "Failed to retrieve Firebase user",
+                    e
+            );
+        }
+    }
+
+    public String getVerifiedEmail(String firebaseUid) {
+        UserRecord firebaseUser = getUser(firebaseUid);
+
+        if (!firebaseUser.isEmailVerified()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Email has not been verified"
+            );
+        }
+
+        String email = firebaseUser.getEmail();
+
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Firebase user has no email address"
+            );
+        }
+
+        return email;
+    }
+
     public void updateUserEmail(String firebaseUid, String newEmail) {
         try {
             UpdateRequest request = new UpdateRequest(firebaseUid)

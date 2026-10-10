@@ -1,9 +1,9 @@
 package com.p28.userservice.logic;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -132,22 +132,42 @@ public class UserService {
         }
     }
 
-    // Currently, users can only update their email and username
+    // Currently, users can only update their username
     // TODO: update password
     public User updateUser(String userId, UpdateUserRequest request) {
         User user = getUserByUserId(userId);
 
-        String email = request.getEmail();
         String username = request.getUsername();
-
-        // Updates Firebase email
-        if (email != null && !email.equals(user.getEmail())) {
-            user.setEmail(email);
-            firebaseAuthService.updateUserEmail(userId, email);
-        }
 
         if (username != null) {
             user.setUsername(username);
+        }
+
+        return userRepository.save(user);
+    }
+
+    // Syncs MongoDB user email with Firebase
+    public User syncVerifiedEmail(String userId) {
+        User user = getUserByUserId(userId);
+
+        // Firebase is the source of truth for the verified email.
+        String verifiedEmail =
+                firebaseAuthService.getVerifiedEmail(userId);
+
+        // Update MongoDB only after Firebase verification succeeds.
+        user.setEmail(verifiedEmail);
+
+        return userRepository.save(user);
+    }
+
+    // Updates email
+    public User updateUserEmail(String userId, UpdateUserRequest request) {
+        User user = getUserByUserId(userId);
+        String email = request.getEmail();
+        
+        if (email != null && !email.equals(user.getEmail())) {
+            user.setEmail(email);
+            firebaseAuthService.updateUserEmail(userId, email);
         }
 
         return userRepository.save(user);

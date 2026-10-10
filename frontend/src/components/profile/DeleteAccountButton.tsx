@@ -63,6 +63,7 @@ export default function DeleteAccountButton() {
       <Button
         type="button"
         variant="destructive"
+        className="w-fit"
         onClick={handleDelete}
         disabled={deleting}
       >

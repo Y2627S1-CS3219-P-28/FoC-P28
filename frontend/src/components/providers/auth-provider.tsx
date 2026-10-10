@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react"
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -12,15 +12,19 @@ import {
 
 import { useConfig } from "@/components/providers/config-provider"
 import { getFirebaseAuth } from "@/lib/firebase"
+import { loadUserProfile, type UserProfile } from "@/lib/user-profile"
 
 type AuthContextValue = {
   user: User | null
   loading: boolean
+  profile: UserProfile | null
+  profileLoading: boolean
+  refreshProfile: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
   resendVerificationEmail: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
-  getIdToken: () => Promise<string | null>
+  getIdToken: (forceRefresh?: boolean) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -30,13 +34,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  // Prevent repeated profile loads on ordinary token refreshes.
+  const profileUidRef = useRef<string | null>(null)
+
+  // Request counter to make sure requests are for the correct profile
+  const profileRequestIdRef = useRef(0)
+
+  // Refreshes user profile information when needed
+   const refreshProfile = useCallback(async () => {
+    const auth = getFirebaseAuth(config)
+    const currentUser = auth.currentUser
+    const requestId = ++profileRequestIdRef.current
+
+    if (!currentUser || !currentUser.emailVerified) {
+      setProfile(null)
+      setProfileLoading(false)
+      return
+    }
+
+    setProfileLoading(true)
+
+    try {
+      const data = await loadUserProfile(
+        currentUser,
+        config.apiBaseUrl
+      )
+
+      // Don't apply a stale result after switching accounts.
+      if (requestId === profileRequestIdRef.current &&
+          auth.currentUser?.uid === currentUser.uid) {
+        setProfile(data)
+      }
+    } catch (error) {
+      console.error("Failed to load user profile:", error)
+
+      if (requestId === profileRequestIdRef.current &&
+          auth.currentUser?.uid === currentUser.uid) {
+        setProfile(null)
+      }
+
+      throw error
+    } finally {
+      // Prevent another user on the same browser from setting loading false
+      // while current user is loading profile
+      if (requestId === profileRequestIdRef.current) {
+        setProfileLoading(false)
+      }
+    }
+  }, [config])
+
   useEffect(() => {
     const auth = getFirebaseAuth(config)
-    return onIdTokenChanged(auth, (next) => {
-      setUser(next?.emailVerified ? next : null)
+    const unsubscribe = onIdTokenChanged(auth, (nextUser) => {
+      if (!nextUser || !nextUser.emailVerified) {
+        // Token changed, meaning profile changed
+        profileRequestIdRef.current++
+        profileUidRef.current = null
+
+        setUser(null)
+        setProfile(null)
+        setProfileLoading(false)
+        setLoading(false)
+        return
+      }
+
+      setUser(nextUser)
       setLoading(false)
+
+      // Load once when a new authenticated UID appears.
+      // Token refreshes for the same user won't trigger another load.
+      if (profileUidRef.current !== nextUser.uid) {
+        profileRequestIdRef.current++
+        profileUidRef.current = nextUser.uid
+
+        void refreshProfile().catch(() => {
+          // Error is logged and reflected in profile state.
+        })
+      }
     })
-  }, [config])
+    
+    return unsubscribe
+  }, [config, refreshProfile])
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -47,16 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log(user)
 
-      // User can only sign in after verifying the email through link
-      if (user && user.emailVerified) {
-        console.log(`${user.email} is verified`)
-        console.log(`${user.email} redirected to home page.`)
-      } else {
+      // User is signed out if email is not verified
+      if (!user.emailVerified) {
         await firebaseSignOut(auth);
 
         console.log(`${user.email} is not verified`)
         throw new Error("EMAIL_NOT_VERIFIED");
       }
+
+      console.log(`${user.email} is verified`)
     },
     [config],
   )
@@ -64,20 +144,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(
     async (email: string, password: string) => {
         let user = null;
+        const auth = getFirebaseAuth(config);
 
         try {
-            const auth = getFirebaseAuth(config);
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 email, 
                 password
             );
             
-            // Signed up 
+            // Signed up on Firebase
             user = userCredential.user;
             const token = await user.getIdToken();
                     
-            // Use Firebase provided uid as our user ID
+            // Create user doc on MongoDB
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {
@@ -93,18 +173,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log("API Error: ", data.message || "Unknown error")
                 throw new Error(data.message || "Failed to create user");
             }
-
-            await sendEmailVerification(user);
-        
-            console.log("Verification email sent");
-
-            await firebaseSignOut(auth);
         } catch (error) {
             // Error happened
-            // Did not go through, delete firebase acc
+            // Did not go through, delete Firebase acc
             if (user) {
+              try {
                 console.log(`Deleting firebase user ${user.email}`);
                 await user.delete();
+              } catch (deleteError) {
+                console.error("Failed to clean up Firebase user:", deleteError)
+              }
             }
 
             // Log it in console
@@ -117,16 +195,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             throw new Error("Something went wrong during sign up.");
         }
+
+        try {
+          await sendEmailVerification(user);
+        
+          console.log("Verification email sent");
+        } catch (error) {
+          console.error("Failed to send verification email:", error)
+          throw new Error(
+              "Your account was created, but we couldn't send the verification email. Please try resending it."
+          )
+        } finally {
+          await firebaseSignOut(auth);
+        }
     },
     [config],
   )
 
-  const signOut = useCallback(() => firebaseSignOut(getFirebaseAuth(config)), [config])
+  const signOut = useCallback(async () => {
+    profileUidRef.current = null
+    profileRequestIdRef.current++
+
+    setUser(null)
+    setProfile(null)
+    setProfileLoading(false)
+
+    await firebaseSignOut(getFirebaseAuth(config))
+  }, [config])
 
   // Firebase refreshes the ID token automatically when it is close to expiry.
-  const getIdToken = useCallback(async () => {
+  // By default, refresh is not enforced and will be done close to expiry
+  // Can force this refresh when email changes
+  const getIdToken = useCallback(async (forceRefresh = false) => {
     const current = getFirebaseAuth(config).currentUser
-    return current ? current.getIdToken() : null
+    return current ? current.getIdToken(forceRefresh) : null
   }, [config])
 
   const resendVerificationEmail = useCallback(async (email: string, password: string) => {
@@ -154,8 +256,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ user, loading, signIn, signUp, signOut, getIdToken, resendVerificationEmail }),
-    [user, loading, signIn, signUp, signOut, getIdToken, resendVerificationEmail],
+    () => ({ user, loading, profile, profileLoading, refreshProfile, 
+      signIn, signUp, signOut, getIdToken, resendVerificationEmail }),
+    [user, loading, profile, profileLoading, refreshProfile, 
+      signIn, signUp, signOut, getIdToken, resendVerificationEmail],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -175,6 +175,21 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    // POST /api/users/me/email-sync
+    // Update own email info
+    @Operation(summary = "Synchronise requesting user's email in MongoDB with Firebase")
+    @PostMapping("/me/email-sync")
+    public ResponseEntity<User> updateUser(
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        // Get user from auth token
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String userId = token.getUid();
+        User user = userService.syncVerifiedEmail(userId);
+
+        return ResponseEntity.ok(user);
+    }
+
     // PUT /api/users/:userId
     // Only admin can update other users' info
     @Operation(summary = "Update any user's info")
