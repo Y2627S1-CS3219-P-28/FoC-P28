@@ -11,6 +11,8 @@ public interface OrderEventOutboxRepository {
 
     Optional<OrderEventOutbox> claim(String eventId, Instant now, Instant leaseExpiry);
 
+    List<String> findDueIds(Instant now, int limit);
+
     List<OrderEventOutbox> claimDue(Instant now, Instant leaseExpiry, int limit);
 
     void markPublished(String eventId, Instant publishedAt);

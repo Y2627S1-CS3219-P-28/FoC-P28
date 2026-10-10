@@ -212,7 +212,7 @@ peer_dependencies = ["FEEDBACK-002", "FEEDBACK-003", "FEEDBACK-004", "FEEDBACK-0
 decision = "ADR-027 / CHANGE-084; Vincent 2026-10-09"
 mechanism = "authenticated HTTP polling; no WebSocket/SSE/frontend broker"
 polling_implemented = true
-interval = "15 seconds while visible; focus/visibility/mutation refresh; AbortController cleanup and no overlap"
+interval = "Order lists5 seconds (ADR-032); Credit15 seconds; visible/auth-ready, focus/visibility/mutation refresh; AbortController cleanup/no overlap"
 auth_ready_required = true
 immediate_mutation_refetch = true
 
@@ -292,3 +292,114 @@ live_financial_verified = false
 credit_owner_review_pending = true
 running_credit_rebuilt = false
 background_retries_paused = true
+
+[compact_events_change_092]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+branch = "order-service/sprint-1/yx-sprint-2-and-3"
+wire_fields = ["eventId", "eventType", "orderId", "orderStatus", "creditAmount", "occurredAt", "courierId"]
+compact_schema_version = 2
+accepted_schema_unchanged = true
+peer_integration = "BLOCKED: FEEDBACK-009"
+
+[lifecycle_failure_isolation_change_093]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+coordinator_transaction = "none"
+per_order_transaction = "REQUIRES_NEW"
+due_selection = "database IDs and latest delivered checkpoint"
+error_boundary = "outside each per-order invocation"
+verification = "44 focused passed; fresh verify 232 total, 211 passed, 21 Docker skips, zero failures/errors; existing coverage gates pass"
+line_coverage_percent = 91.44
+branch_coverage_percent = 82.10
+postgres_isolation_verified = true
+postgres_blocker = ""
+postgres_last_verified_date = "2026-10-10"
+postgres_followup_evidence = "CHANGE-096: all four lifecycle PostgreSQL tests passed; full 252 tests passed without skips"
+
+[order_ui_change_094]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+order_poll_seconds = 5
+credit_poll_seconds_unchanged = 15
+status_query = "optional uppercase enum on /api/orders/mine; DB filter before count/pagination"
+courier_action_label = "Abort errand"
+frontend_tests_passed = 58
+backend_tests_passed = 219
+backend_docker_skips = 24
+real_postgres_filter_verified = true
+postgres_filter_last_verified_date = "2026-10-10"
+normal_frontend_build = "blocked by existing Google Fonts connectivity"
+browser_fixture_scenarios_passed = 8
+
+[personal_filter_options_change_095]
+approved_by = "Yao Xiang"
+requester_excludes = ["ABORTED"]
+courier_excludes = ["OPEN", "EXPIRED", "CANCELLED"]
+api_contract_unchanged = true
+frontend_tests_passed = 60
+browser_fixture_scenarios_passed = 8
+
+[scheduler_isolation_change_096]
+approved_by = "Yao Xiang"
+date = "2026-10-10"
+selection = "DB-filtered IDs; bounded SQL outbox limit"
+coordinator_transaction = "none"
+lifecycle_per_order_transaction = "REQUIRES_NEW"
+outbox_per_item_writes = "REQUIRES_NEW claim/mark/retry; REQUIRED enqueue"
+error_boundary = "outside persistence/worker proxy, per item"
+focused_tests_passed = 43
+backend_tests_passed = 252
+backend_tests_skipped = 0
+postgres_tests_passed = 28
+line_coverage_percent = 95.99
+branch_coverage_percent = 83.72
+real_pubsub_verified = false
+peer_integration_blocker = "FEEDBACK-009"
+
+[order_ui_missing_supplier_references_change097]
+classification = "implementation detail; existing fallback label"
+response_contract = "Supplier lookup items and missingIds, unchanged"
+missing_label = "Location unavailable"
+frontend_tests_passed = 63
+production_frontend_build_passed = true
+local_frontend_recreated = true
+authenticated_browser_verified = false
+supplier_data_restored = false
+
+[swagger_current_origin_change098]
+classification = "implementation detail; approved gateway/OpenAPI runtime"
+server_url = "/"
+configuration_class = "OpenApiConfiguration"
+backend_tests_passed = 253
+backend_tests_skipped = 0
+line_coverage_percent = 96.00
+branch_coverage_percent = 83.72
+staging_fix_deployed = false
+staging_authenticated_browser_verified = false
+
+[backend_expiry_validation_verification]
+change_record = "changes/CHANGE-099-backend-expiry-api-regression.md"
+date = "2026-10-10"
+developer = "Yao Xiang"
+rule = "existing expiresAt >= server validation instant + 30 minutes; inclusive"
+implementation_changed = false
+regression = "OrderCreationExpiryApiTest; short/past deadlines return expiry-specific 400 before credit reservation or writes"
+verification = "19 focused tests passed; full result in change record"
+live_deployment_retested = false
+
+[main_typed_credit_merge_verification]
+date = "2026-10-10"
+incoming_commit = "a641836ce8c9d7b1458560099bc079a1fb62b1b0"
+feedback_conflict_resolved = true
+other_staged_changes_preserved = true
+compact_contract_preserved = true
+credit_consumer_migration_pending = true
+order_tests_passed = 258
+order_tests_skipped = 0
+ci_force_update_reintroduced = false
+infrastructure_scripts_preserved_from_main = true
+hosted_ci_rerun_pending = true
+live_staging_production_infrastructure_passed = true
+initial_cloud_run_transient_dns_failure = true
+merge_commit_created = false

@@ -33,6 +33,7 @@ import sg.edu.nus.foc.order.application.OrderRepostService;
 import sg.edu.nus.foc.order.application.OrderTransitionService;
 import sg.edu.nus.foc.order.application.UserServicePort;
 import sg.edu.nus.foc.order.api.mapper.OrderMapperImpl;
+import sg.edu.nus.foc.order.config.OpenApiConfiguration;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -47,7 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
     })
-@Import(OrderMapperImpl.class)
+@Import({OrderMapperImpl.class, OpenApiConfiguration.class})
 @AutoConfigureMockMvc(addFilters = false)
 @ImportAutoConfiguration({
     SpringDocConfigProperties.class,
@@ -73,6 +74,20 @@ class OpenApiDocumentationTest {
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;
+
+    @Test
+    void swaggerUsesTheCurrentOriginInsteadOfAnInternalBackendUrl() throws Exception {
+        String json = mvc.perform(get(PREFIX + "/v3/api-docs")
+                .header("Host", "order-service-staging.example.run.app")
+                .header("X-Forwarded-Host", "gateway-staging.example.run.app")
+                .header("X-Forwarded-Proto", "http"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        JsonNode servers = mapper.readTree(json).path("servers");
+        assertThat(servers.size()).isEqualTo(1);
+        assertThat(servers.get(0).path("url").asString()).isEqualTo("/");
+    }
 
     @Test
     void everyEndpointIsDocumented() throws Exception {
@@ -106,5 +121,8 @@ class OpenApiDocumentationTest {
             }
         }
         assertThat(problems).as("Undocumented API operations").isEmpty();
+        JsonNode personal = paths.path("/api/orders/mine").path("get");
+        assertThat(personal.path("parameters").toString()).contains("status", "COMPLETED", "ABORTED");
+        assertThat(personal.path("responses").has("400")).isTrue();
     }
 }

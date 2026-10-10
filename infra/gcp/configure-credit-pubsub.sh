@@ -41,7 +41,6 @@ fi
 gc() { gcloud --project "$PROJECT_ID" --quiet "$@"; }
 exists() { "$@" >/dev/null 2>&1; }
 push_service_url="https://credit-service-$environment-$PROJECT_NUMBER.$REGION.run.app"
-push_endpoint="$push_service_url/api/credits/internal/order-events"
 push_service_account=$CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT
 push_service_account_id=${push_service_account%%@*}
 pubsub_service_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
@@ -55,6 +54,11 @@ subscriptions=(
   "$CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION"
   "$CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION"
   "$CREDIT_ORDER_COMPLETION_SUBSCRIPTION"
+)
+push_paths=(
+  "/api/credits/internal/order-events/open-refund"
+  "/api/credits/internal/order-events/accepted-cancellation"
+  "/api/credits/internal/order-events/completion"
 )
 
 echo "Configuring Credit Pub/Sub push delivery for $environment"
@@ -106,6 +110,7 @@ fi
 for index in "${!subscriptions[@]}"; do
   subscription=${subscriptions[$index]}
   topic=${topics[$index]}
+  push_endpoint="$push_service_url${push_paths[$index]}"
   if ! exists gc pubsub subscriptions describe "$subscription"; then
     gc pubsub subscriptions create "$subscription" \
       --topic "$topic" \
@@ -144,4 +149,4 @@ for index in "${!subscriptions[@]}"; do
     --member "serviceAccount:$pubsub_service_agent" --role roles/pubsub.subscriber >/dev/null
 done
 
-echo "Credit Pub/Sub push delivery is configured for $environment: $push_endpoint"
+echo "Credit Pub/Sub push delivery is configured for $environment under $push_service_url/api/credits/internal/order-events"

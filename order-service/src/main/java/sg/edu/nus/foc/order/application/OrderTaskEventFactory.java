@@ -25,16 +25,8 @@ public class OrderTaskEventFactory {
             boolean overdue,
             Instant overdueAt) {
         long resultingVersion = order.getVersion() + 1;
-        OrderEventSnapshot snapshot = snapshot(order, resultingVersion);
         return mapper.toCompletionEvent(
-                eventId("OrderCompletionTaskEvent", commandId),
-                order,
-                resultingVersion,
-                actorId,
-                occurredAt,
-                overdue,
-                overdueAt,
-                snapshot);
+                eventId("OrderCompletionTaskEvent", commandId), order, resultingVersion, occurredAt);
     }
 
     public OpenOrderRefundTaskEvent openRefund(
@@ -43,14 +35,8 @@ public class OrderTaskEventFactory {
             String actorId,
             Instant occurredAt) {
         long resultingVersion = order.getVersion() + 1;
-        OrderEventSnapshot snapshot = snapshot(order, resultingVersion);
         return mapper.toOpenRefundEvent(
-                eventId("OpenOrderRefundTaskEvent", commandId),
-                order,
-                resultingVersion,
-                actorId,
-                occurredAt,
-                snapshot);
+                eventId("OpenOrderRefundTaskEvent", commandId), order, resultingVersion, occurredAt);
     }
 
     public AcceptedOrderCancellationTaskEvent acceptedCancellation(
@@ -74,14 +60,8 @@ public class OrderTaskEventFactory {
             Order order,
             Instant occurredAt) {
         long resultingVersion = order.getVersion() + 1;
-        OrderEventSnapshot snapshot = snapshot(order, resultingVersion);
         return mapper.toOpenRefundEvent(
-                eventId("OpenOrderRefundTaskEvent", commandId),
-                order,
-                resultingVersion,
-                "lifecycle",
-                occurredAt,
-                snapshot);
+                eventId("OpenOrderRefundTaskEvent", commandId), order, resultingVersion, occurredAt);
     }
 
     private OrderEventSnapshot snapshot(Order order, long resultingVersion) {

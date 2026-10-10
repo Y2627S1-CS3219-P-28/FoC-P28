@@ -1,5 +1,7 @@
 # ADR-018: Order version is owned by Order Service
 
+> Payload supersession (2026-10-09): CHANGE-092 / ADR-031 replaces only refund/completion JSON bodies with exactly seven fields. Order/version metadata remains internal; completion overdue facts are no longer sent. Accepted-cancellation schema is unchanged. FEEDBACK-009 blocks current peer integration. Earlier rationale below is preserved history.
+
 - Status: Accepted by user
 - Date: 2026-10-06
 - Owner: Order Service

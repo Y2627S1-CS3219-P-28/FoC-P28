@@ -57,43 +57,42 @@ class OrderTaskEventFactoryTest {
                 "command-4", order, "requester-1", OCCURRED_AT);
 
         assertEquals("OrderCompletionTaskEvent", completion.getEventType());
-        assertFalse(completion.isOverdue());
-        assertEquals(overdueAt, completion.getOverdueAt());
-        assertTrue(overdueCompletion.isOverdue());
-        assertEquals(overdueAt, overdueCompletion.getOverdueAt());
-        assertEquals(1, completion.getEventVersion());
-        assertEquals("requester-1", completion.getActorId());
+        assertEquals(order.getStatus(), completion.getOrderStatus());
+        assertEquals(order.getCourierId(), completion.getCourierId());
+        assertEquals(order.getOfferedCredits(), completion.getCreditAmount());
+        assertEquals(2, completion.getEventVersion());
+        assertEquals("requester-1", acceptedCancellation.getActorId());
         assertEquals(order.getId(), completion.getOrderId());
         assertEquals(order.getVersion() + 1, completion.getOrderVersion());
         JsonNode serializedCompletion = objectMapper.valueToTree(completion);
         assertFalse(serializedCompletion.path("order").has("checkpoints"));
         assertFalse(objectMapper.valueToTree(openCancellation).path("order").has("checkpoints"));
         assertFalse(objectMapper.valueToTree(acceptedCancellation).path("order").has("checkpoints"));
-        assertEquals(order.getId(), completion.getOrder().getId());
-        assertEquals(order.getRequesterId(), completion.getOrder().getRequesterId());
-        assertEquals(order.getCourierId(), completion.getOrder().getCourierId());
-        assertEquals(order.getItemDescription(), completion.getOrder().getItemDescription());
-        assertEquals(order.getPickupSupplierId(), completion.getOrder().getPickupSupplierId());
-        assertEquals(order.getDeliverySupplierId(), completion.getOrder().getDeliverySupplierId());
-        assertEquals(order.getOfferedCredits(), completion.getOrder().getOfferedCredits());
-        assertEquals(order.getVersion() + 1, completion.getOrder().getVersion());
-        assertEquals(order.getStatus(), completion.getOrder().getStatus());
-        assertEquals(order.getCreatedAt(), completion.getOrder().getCreatedAt());
-        assertEquals(order.getExpiresAt(), completion.getOrder().getExpiresAt());
-        assertEquals(order.getDeliveryTimeLimitMinutes(), completion.getOrder().getDeliveryTimeLimitMinutes());
-        assertEquals(order.getOriginalOrderId(), completion.getOrder().getOriginalOrderId());
-        assertEquals(order.getRepostedOrderId(), completion.getOrder().getRepostedOrderId());
-        assertEquals(repostPlan.isEnabled(), completion.getOrder().getRepostPlan().isEnabled());
-        assertEquals(repostPlan.getDueAt(), completion.getOrder().getRepostPlan().getDueAt());
-        assertEquals(repostPlan.getCreditAmount(), completion.getOrder().getRepostPlan().getCreditAmount());
+        assertEquals(order.getId(), acceptedCancellation.getOrder().getId());
+        assertEquals(order.getRequesterId(), acceptedCancellation.getOrder().getRequesterId());
+        assertEquals(order.getCourierId(), acceptedCancellation.getOrder().getCourierId());
+        assertEquals(order.getItemDescription(), acceptedCancellation.getOrder().getItemDescription());
+        assertEquals(order.getPickupSupplierId(), acceptedCancellation.getOrder().getPickupSupplierId());
+        assertEquals(order.getDeliverySupplierId(), acceptedCancellation.getOrder().getDeliverySupplierId());
+        assertEquals(order.getOfferedCredits(), acceptedCancellation.getOrder().getOfferedCredits());
+        assertEquals(order.getVersion() + 1, acceptedCancellation.getOrder().getVersion());
+        assertEquals(order.getStatus(), acceptedCancellation.getOrder().getStatus());
+        assertEquals(order.getCreatedAt(), acceptedCancellation.getOrder().getCreatedAt());
+        assertEquals(order.getExpiresAt(), acceptedCancellation.getOrder().getExpiresAt());
+        assertEquals(order.getDeliveryTimeLimitMinutes(), acceptedCancellation.getOrder().getDeliveryTimeLimitMinutes());
+        assertEquals(order.getOriginalOrderId(), acceptedCancellation.getOrder().getOriginalOrderId());
+        assertEquals(order.getRepostedOrderId(), acceptedCancellation.getOrder().getRepostedOrderId());
+        assertEquals(repostPlan.isEnabled(), acceptedCancellation.getOrder().getRepostPlan().isEnabled());
+        assertEquals(repostPlan.getDueAt(), acceptedCancellation.getOrder().getRepostPlan().getDueAt());
+        assertEquals(repostPlan.getCreditAmount(), acceptedCancellation.getOrder().getRepostPlan().getCreditAmount());
         assertEquals(
                 repostPlan.getDeliveryDurationMinutes(),
-                completion.getOrder().getRepostPlan().getDeliveryDurationMinutes());
-        assertTrue(completion.getOrder().getRepostPlan().isUsed());
+                acceptedCancellation.getOrder().getRepostPlan().getDeliveryDurationMinutes());
+        assertTrue(acceptedCancellation.getOrder().getRepostPlan().isUsed());
         assertEquals("OrderCompletionTaskEvent", overdueCompletion.getEventType());
         assertEquals("OpenOrderRefundTaskEvent", openCancellation.getEventType());
         assertEquals("AcceptedOrderCancellationTaskEvent", acceptedCancellation.getEventType());
-        assertNotNull(openCancellation.getOrder());
+        assertEquals(order.getOfferedCredits(), openCancellation.getCreditAmount());
         assertNotNull(acceptedCancellation.getOrder());
     }
 
@@ -108,8 +107,8 @@ class OrderTaskEventFactoryTest {
                 15,
                 CREATED_AT,
                 EXPIRES_AT);
-        OrderCompletionTaskEvent event = factory.completion(
-                "command-5", order, "requester-2", OCCURRED_AT, false, OCCURRED_AT.plusSeconds(900));
+        AcceptedOrderCancellationTaskEvent event = factory.acceptedCancellation(
+                "command-5", order, "requester-2", OCCURRED_AT);
         OrderTaskEventMapper mapper = Mappers.getMapper(OrderTaskEventMapper.class);
 
         assertNull(event.getOrder().getCourierId());
@@ -119,24 +118,15 @@ class OrderTaskEventFactoryTest {
         assertFalse(objectMapper.valueToTree(event).path("order").has("checkpoints"));
         assertNull(mapper.toSnapshot((Order) null, 0L));
         assertNull(mapper.toSnapshot((RepostPlan) null));
-        assertNull(mapper.toCompletionEvent(null, null, null, null, false, null, null));
-        assertNull(mapper.toOpenRefundEvent(null, null, null, null, null));
+        assertNull(mapper.toCompletionEvent(null, null, 0, null));
+        assertNull(mapper.toOpenRefundEvent(null, null, 0, null));
         assertNull(mapper.toAcceptedCancellationEvent(null, null, null, null, null));
-        assertNotNull(mapper.toCompletionEvent(null, order, "requester-2", OCCURRED_AT, false, null, null));
-        assertNotNull(mapper.toCompletionEvent(null, null, "requester-2", OCCURRED_AT, false, null, null));
-        assertNotNull(mapper.toCompletionEvent(null, null, null, OCCURRED_AT, false, null, null));
-        assertNotNull(mapper.toCompletionEvent(null, null, null, null, true, EXPIRES_AT, event.getOrder()));
-        assertNotNull(mapper.toOpenRefundEvent(null, order, "requester-2", OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenRefundEvent(null, null, "requester-2", OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenRefundEvent(null, null, null, OCCURRED_AT, null));
-        assertNotNull(mapper.toOpenRefundEvent(null, null, null, null, event.getOrder()));
+        assertNotNull(mapper.toCompletionEvent("event", order, 1, OCCURRED_AT));
+        assertNotNull(mapper.toOpenRefundEvent("event", order, 1, OCCURRED_AT));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, order, "requester-2", OCCURRED_AT, null));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, null, "requester-2", OCCURRED_AT, null));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, null, null, OCCURRED_AT, null));
         assertNotNull(mapper.toAcceptedCancellationEvent(null, null, null, null, event.getOrder()));
-        assertNull(mapper.toCompletionEvent("event-1", order, "requester-2", OCCURRED_AT, false, null, null).getOrder());
-        assertNotNull(mapper.toCompletionEvent(
-                "event-2", order, "requester-2", OCCURRED_AT, true, EXPIRES_AT, null).getOverdueAt());
         order.expire(0, EXPIRES_AT);
         Order reposted = order.createRepost(
                 "repost", 2, 15, EXPIRES_AT.plusSeconds(1), EXPIRES_AT.plusSeconds(3601));
@@ -155,8 +145,8 @@ class OrderTaskEventFactoryTest {
         assertEquals(first.getEventId(), retry.getEventId());
         assertEquals("OpenOrderRefundTaskEvent", first.getEventType());
         assertEquals(order.getId(), first.getOrderId());
-        assertEquals("lifecycle", first.getActorId());
-        assertEquals(OrderStatus.EXPIRED, first.getOrder().getStatus());
+        assertEquals(2, first.getEventVersion());
+        assertEquals(OrderStatus.EXPIRED, first.getOrderStatus());
         assertFalse(objectMapper.valueToTree(first).path("order").has("checkpoints"));
     }
 }

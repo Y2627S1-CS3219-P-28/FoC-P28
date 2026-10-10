@@ -75,3 +75,11 @@ grant blanket ownership of shared frontend/configuration files.
 - `[x]` Completed and verified through the non-negotiable completion gate in `AGENTS.md`.
 
 This file records shared team allocation only. The ignored `docs/local/developer-profile.md` identifies the current developer in a local workspace.
+
+## Current Yao Xiang UI/query scope extension — 2026-10-09
+
+The user explicitly assigns CHANGE-094 on order-service/sprint-1/yx-sprint-2-and-3: existing Order frontend My Requests/My Errands status filters, abort wording and Order-only five-second polling, with optional status support in the Order-owned personal query. Initial frontend diff is clean; preserve Vincent history/repost logic and all peer/auth/shared layout/client source. Only feature components/hooks are affected; no blanket shared ownership.
+
+## Narrow scheduler reliability extension — 2026-10-10
+
+Yao Xiang explicitly requests DB-selected and transactionally independent scheduled items on order-service/sprint-1/yx-sprint-2-and-3. CHANGE-096 covers Order lifecycle verification and active outbox selection/per-event transaction/error isolation only. No reassignment of Vincent/peer work, paused background repost retries, frontend or shared configuration.

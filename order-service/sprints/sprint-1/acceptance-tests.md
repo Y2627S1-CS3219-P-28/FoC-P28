@@ -1,5 +1,10 @@
 # Sprint 1 Acceptance Tests
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 ## CHANGE-057 - Admin all-orders query supporting NTH1
 
 - Only a caller whose User Service role-context includes `admin` may list orders; anonymous callers receive 401 and authenticated non-admin callers receive 403.
@@ -122,3 +127,13 @@ For any later approved frontend slice, follow `docs/frontend-integration-workflo
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
+
+CHANGE-093 regression obligations: failed-first/middle/last expiry and completion continue; all-failure/empty passes return zero; proxy processing and commit failures do not roll back later transactions; locked/missing/changed rows skip safely; latest delivered checkpoint selection happens in DB. Real PostgreSQL rollback/NOWAIT tests are required when Docker is available. No new repost/retry worker.
+
+## CHANGE-094 regressions
+
+- Five-second Order timing, auth wait/hidden pause, no overlap/cleanup, account and changed-filter stale-response guards; Credit default unchanged.
+- Abort errand button/dialog/confirmation and existing cancel-accepted POST/version/identity/success/error behavior; requester/non-ACCEPTED does not show courier action.
+- Both personal pages default all, status selection/reset and filtered empty state; paging plus manual refresh preserve status; selected status removes optimistic nonmatching mutations.
+- Optional/empty/invalid status binding, one-based metadata, verified owner/mode denial and OpenAPI docs. DB content/count/history/visibility/ownership regressions require isolated PostgreSQL, currently skipped without Docker.
+- Browser fixture uses actual components/styles with mock auth/API at 320/768/1440/1920; normal build still requires existing Google fonts download.

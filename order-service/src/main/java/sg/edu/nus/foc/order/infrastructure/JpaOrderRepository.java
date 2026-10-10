@@ -29,6 +29,20 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
                     + "+ (select count(*) from order_courier_attempts where courier_id = :courierId)",
             nativeQuery = true)
     Page<CourierOrderReference> findCourierTimeline(@Param("courierId") String courierId, Pageable pageable);
+
+    @Query(value = "select id as \"orderId\", cast(null as uuid) as \"attemptId\", created_at as \"visibleAt\" "
+            + "from orders where courier_id = :courierId and status = :status "
+            + "union all select order_id as \"orderId\", id as \"attemptId\", aborted_at as \"visibleAt\" "
+            + "from order_courier_attempts where courier_id = :courierId and :status = 'ABORTED' "
+            + "order by \"visibleAt\" desc, \"orderId\", \"attemptId\"",
+            countQuery = "select (select count(*) from orders where courier_id = :courierId and status = :status) "
+                    + "+ (select count(*) from order_courier_attempts where courier_id = :courierId and :status = 'ABORTED')",
+            nativeQuery = true)
+    Page<CourierOrderReference> findCourierTimelineByStatus(
+            @Param("courierId") String courierId,
+            @Param("status") String status,
+            Pageable pageable);
+
     Page<Order> findByStatusAndExpiresAtAfterOrderByCreatedAtAsc(
             OrderStatus status,
             Instant now,
@@ -44,9 +58,32 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
             @Param("requesterId") String requesterId,
             Pageable pageable);
 
+    @Query(value = "select o from Order o where o.requesterId = :requesterId and o.status = :status "
+            + "and (o.status <> sg.edu.nus.foc.order.domain.OrderStatus.EXPIRED "
+            + "or o.repostedOrderId is null) order by o.createdAt desc",
+            countQuery = "select count(o) from Order o where o.requesterId = :requesterId and o.status = :status "
+                    + "and (o.status <> sg.edu.nus.foc.order.domain.OrderStatus.EXPIRED "
+                    + "or o.repostedOrderId is null)")
+    Page<Order> findRequesterOrdersByStatus(
+            @Param("requesterId") String requesterId,
+            @Param("status") OrderStatus status,
+            Pageable pageable);
+
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
+
+    @Query("select o.id from Order o where o.status = :status "
+            + "and o.expiresAt <= :now and o.courierId is null order by o.createdAt, o.id")
+    List<String> findDueUnassignedIds(@Param("status") OrderStatus status, @Param("now") Instant now);
+
+    @Query("select o.id from Order o where o.status = :status "
+            + "and (select max(c.occurredAt) from OrderCheckpoint c "
+            + "where c.orderId = o.id and c.status = :status) <= :deliveredAtOrBefore "
+            + "order by o.createdAt, o.id")
+    List<String> findDueForAutoCompletionIds(
+            @Param("status") OrderStatus status,
+            @Param("deliveredAtOrBefore") Instant deliveredAtOrBefore);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Order> findByStatusAndExpiresAtLessThanEqualAndCourierIdIsNull(
@@ -67,4 +104,9 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")
     Optional<Order> findByIdForUpdate(@Param("id") String id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdForLifecycleUpdate(@Param("id") String id);
 }

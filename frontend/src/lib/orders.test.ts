@@ -180,3 +180,8 @@ describe("quarter-hour errand times", () => {
       .toBe("Choose repost minutes of 00, 15, 30, or 45.")
   })
 })
+
+it("sends optional status alongside owner and pagination instead of filtering a loaded page", () => {
+  expect(orderMinePath("courier", "uid-2", 2, "ABORTED")).toBe("/api/orders/mine?mode=courier&userId=uid-2&page=2&size=20&status=ABORTED")
+  expect(orderMinePath("requester", "uid-1", 1, null)).not.toContain("status=")
+})

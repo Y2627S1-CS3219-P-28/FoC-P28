@@ -1,5 +1,10 @@
 # Order Service Sprint 1 Sequences 1â€“11 â€” Handoff to Yao Xiang
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 **Branch:** `sprint-1/seq-1-to-seq-11`
 **Repository area:** `order-service/` plus the approved shared `frontend/` vertical slice
 **Handoff owner:** Vincent
@@ -489,3 +494,9 @@ changing peer-owned source.
 ## CHANGE-079 authorization handoff
 
 Human command APIs now declare requester/courier/admin role annotations; shared reads accept any recognized role. Production role lookup defaults to real User Service via ORDER_USER_SERVICE_MODE=http, independently of the shared mock mode. Before deployment, ensure admin users have stored admin roles and USER_SERVICE_URL is valid. Local !prod anonymous/mock behavior and system scheduler paths remain. The adapter reuses verified JWT subject/roles and retains fresh courier eligibility and locked ownership guards. See ADR-024 and the shared authorization diagrams. Verification results are recorded in CHANGE-079.
+
+CHANGE-093: lifecycle jobs select due IDs and process each through a separate NOWAIT-locking transaction. Catching occurs outside the worker/proxy, including commit failures; later orders continue. Outbox atomicity and minute lifecycle / 15-minute recovery settings remain. Verify real PostgreSQL skipped tests when Docker is available; see CHANGE-093 for evidence.
+
+## CHANGE-094 handoff
+
+Yao Xiang requested Order-only5-second polling, Abort errand wording and personal status filters. Reuse mine endpoint with optional status; DB content/count match including courier ABORTED history and requester repost visibility. Both pages default all and reset page 1; existing primitives/auth/clients reused.58 frontend and219 backend tests pass;24DBtests skip without Docker.8 isolated browser scenarios pass at 320-1920; normal frontend build blocked by Google Fonts. Run isolated PostgreSQL filters and real authenticated UI before integrated completion; no peer/retry/schema/event change.

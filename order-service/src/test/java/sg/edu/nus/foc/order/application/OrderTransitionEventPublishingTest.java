@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -61,11 +63,12 @@ class OrderTransitionEventPublishingTest {
         sequence.verify(dependencies.outbox).enqueue(event.capture());
         sequence.verify(dependencies.applicationEvents)
                 .publishEvent(new OrderOutboxDispatchRequested(event.getValue().getEventId()));
-        assertFalse(event.getValue().isOverdue());
-        assertEquals(START.plusSeconds(16 * 60L), event.getValue().getOverdueAt());
-        assertEquals(OrderStatus.COMPLETED, event.getValue().getOrder().getStatus());
+        verify(dependencies.eventFactory).completion(
+                eq("complete-1"), eq(order), eq("requester-1"), any(Instant.class),
+                eq(false), eq(START.plusSeconds(16 * 60L)));
+        assertEquals(OrderStatus.COMPLETED, event.getValue().getOrderStatus());
         assertEquals(1, event.getValue().getOrderVersion());
-        assertEquals(1, event.getValue().getOrder().getVersion());
+        assertEquals("courier-1", event.getValue().getCourierId());
         assertTrue(history.stream().anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.DELIVERED));
     }
 
@@ -84,7 +87,7 @@ class OrderTransitionEventPublishingTest {
     }
 
     @Test
-    void completionEventCarriesOverdueFactsForTheSameEventType() {
+    void overdueCompletionUsesTheSameCompactEventType() {
         Order order = deliveredOrder();
         List<OrderCheckpoint> history = List.of(
                 checkpoint(order, OrderStatus.ACCEPTED, START),
@@ -95,8 +98,9 @@ class OrderTransitionEventPublishingTest {
 
         ArgumentCaptor<OrderCompletionTaskEvent> event = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertTrue(event.getValue().isOverdue());
-        assertEquals(START.plusSeconds(15 * 60L), event.getValue().getOverdueAt());
+        verify(dependencies.eventFactory).completion(
+                eq("complete-overdue"), eq(order), eq("requester-1"), any(Instant.class),
+                eq(true), eq(START.plusSeconds(15 * 60L)));
         assertEquals("OrderCompletionTaskEvent", event.getValue().getEventType());
     }
 
@@ -126,10 +130,10 @@ class OrderTransitionEventPublishingTest {
         assertEquals(commandId, receipt.getValue().getCommandId());
         ArgumentCaptor<OrderCompletionTaskEvent> event = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertEquals("lifecycle", event.getValue().getActorId());
+        assertEquals("courier-1", event.getValue().getCourierId());
         assertEquals(autoCompletedAt, event.getValue().getOccurredAt());
         assertEquals("OrderCompletionTaskEvent", event.getValue().getEventType());
-        assertFalse(event.getValue().isOverdue());
+        assertEquals(OrderStatus.COMPLETED, event.getValue().getOrderStatus());
         verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
         verify(dependencies.users, never()).verifyRequester(any(), any());
     }
@@ -155,7 +159,7 @@ class OrderTransitionEventPublishingTest {
     }
 
     @Test
-    void openCancellationCommitsFullResultingEventToOutbox() {
+    void openCancellationCommitsCompactResultingEventToOutbox() {
         Order order = Order.open("requester-1", "item", "pickup", "delivery", 3, 15, START, START.plusSeconds(3600));
         TestDependencies dependencies = dependencies(order, "CANCEL", "cancel-1", List.of());
 
@@ -164,7 +168,7 @@ class OrderTransitionEventPublishingTest {
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
         ArgumentCaptor<OpenOrderRefundTaskEvent> event = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertEquals(OrderStatus.CANCELLED, event.getValue().getOrder().getStatus());
+        assertEquals(OrderStatus.CANCELLED, event.getValue().getOrderStatus());
         assertEquals("OpenOrderRefundTaskEvent", event.getValue().getEventType());
         verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
     }
@@ -277,8 +281,10 @@ class OrderTransitionEventPublishingTest {
 
         ArgumentCaptor<OrderCompletionTaskEvent> event = ArgumentCaptor.forClass(OrderCompletionTaskEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertFalse(event.getValue().isOverdue());
-        assertEquals(START.plusSeconds(960), event.getValue().getOverdueAt());
+        assertEquals(OrderStatus.COMPLETED, event.getValue().getOrderStatus());
+        verify(dependencies.eventFactory).completion(
+                eq("latest-complete"), eq(order), eq("requester-1"), any(Instant.class),
+                eq(false), eq(START.plusSeconds(960)));
     }
 
     @Test
@@ -311,6 +317,7 @@ class OrderTransitionEventPublishingTest {
         when(users.verifyRequester("requester-1", AUTHORIZATION)).thenReturn("requester-1");
         when(users.verifyCourier("courier-1", AUTHORIZATION)).thenReturn("courier-1");
         when(orders.getForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orders.getForLifecycleUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orders.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(checkpoints.findByOrderId(order.getId())).thenAnswer(invocation -> List.copyOf(history));
         doAnswer(invocation -> {
@@ -318,7 +325,8 @@ class OrderTransitionEventPublishingTest {
             history.add(checkpoint);
             return checkpoint;
         }).when(checkpoints).save(any(OrderCheckpoint.class));
-        return new TestDependencies(orders, checkpoints, receipts, users, credits, outbox, applicationEvents);
+        return new TestDependencies(orders, checkpoints, receipts, users, credits, outbox, applicationEvents,
+                spy(new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class))));
     }
 
     private OrderTransitionService service(TestDependencies dependencies) {
@@ -330,7 +338,7 @@ class OrderTransitionEventPublishingTest {
                 dependencies.credits,
                 dependencies.outbox,
                 dependencies.applicationEvents,
-                new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
+                dependencies.eventFactory,
                 mock(OrderAuditLogger.class));
     }
 
@@ -360,6 +368,7 @@ class OrderTransitionEventPublishingTest {
             UserServicePort users,
             CreditServicePort credits,
             OrderEventOutboxRepository outbox,
-            ApplicationEventPublisher applicationEvents) {
+            ApplicationEventPublisher applicationEvents,
+            OrderTaskEventFactory eventFactory) {
     }
 }

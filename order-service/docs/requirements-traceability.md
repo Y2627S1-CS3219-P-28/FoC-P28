@@ -29,6 +29,15 @@ Eight focused cases pass, zero skips; full verification reruns all eight and
 passes 215 tests/no failures/errors/skips. Fresh coverage: 95.67% lines/84.70%
 branches. Peers/delivery mocked, results in CHANGE-092; no live ledger/broker/
 Sprint completion claim. Production/contract/schema/frontend behavior unchanged.
+## Lifecycle per-order failure isolation — CHANGE-093 (2026-10-09)
+
+Yao Xiang explicitly requests failed scheduled tasks be skipped while later successes continue. Due selection returns IDs filtered in the DB (latest delivery cutoff for completion), without locking a whole batch. Nontransactional lifecycle coordinator calls fresh NOWAIT-locking per-order transactions (expiry worker / existing autoComplete with REQUIRES_NEW), catches each RuntimeException including commit failures, logs order ID, counts only successful transitions, then continues. Scheduler retains independent whole-pass catches. Failed orders remain eligible next normal lifecycle pass; no new repost retry mechanism or cron/contract/schema/peer change. Previous batch transaction description is superseded by this refinement; CHANGE-092 compact payloads and FEEDBACK-009 remain unchanged.
+
+
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
 
 ## CHANGE-091: Actual field errors and new repost minimum
 
@@ -209,3 +218,53 @@ See CHANGE-077 / ADR-022. API/event schemas, backend class responsibilities and 
 ## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
+
+CHANGE-092 executable evidence: exact seven-field refund/completion JSON, unchanged accepted schema, internal metadata and saved legacy normalization verified by CompactOrderEventContractTest/OrderTaskEventFactoryTest/OrderOutboxDispatcherTest/PubSub and transition regressions. 32 focused pass; fresh verify 195 passed/17 Docker skips, no failures/errors, coverage 91.33%/81.77%. F4.1.5/F4.1.7/F4.1.8/F5/F10/F11/F13 and approved F12 amendment traced in CHANGE-092. Credit/User integration BLOCKED FEEDBACK-009. No Sprint [x] upgrade.
+
+## CHANGE-094 executable evidence
+
+| D1 / amendment | Behavior and source responsibility | Verification |
+| --- | --- | --- |
+| F2/F8/F9; ADR-025/032 | OrderController.mine -> OrderQueryService -> domain repository -> JPA filtered current/history page/count; My Requests/My Errands Select and pagination | OrderMineStatusFilterTest, OrderQueryServiceTest, OrderPersistenceAdapterTest, OpenApiDocumentationTest and RTL page/helper tests pass; OrderPersonalStatusJpaIntegrationTest3 cases skipped without Docker |
+| F4.1.9/F11; ADR-025 | OrderActions changes courier ACCEPTED label/dialog only, existing POST unchanged |4 existing updated action tests pass, positive/error and requester/incorrect-state visibility; domain regression suite unchanged |
+| NFR2/NFR3; ADR-027/032 | Existing useOrderList/visible polling with explicit5-second Order interval, auth/hidden/cancel/stale safeguards; Credit15-second default retained |58 frontend tests, lint0 errors (12 unrelated existing warnings), typecheck pass;8 browser fixture width/mode scenarios pass; normal production build blocked by Google Fonts network |
+
+Fresh backend verify:243total,219passed,24 Docker skips,0 failures/errors; lines92.36%, branches82.41%, existing >=80% gates pass. Browser fixtures mock auth/API/supplier names and omit AppShell/Geist font loading; they do not verify real Firebase/peers/production typography. No Sprint [x] claim.
+
+## CHANGE-095 verification
+
+| D1 / amendment | Behavior / source | Test / result |
+| --- | --- | --- |
+| F2/F8/F9; ADR-025/032 | Explicit OrderStatusFilter mode; My Requests excludes ABORTED; My Errands excludes OPEN/EXPIRED/CANCELLED | Exact rendered option tests fail first then pass; existing selection/pagination integration tests retained |
+| NFR2/NFR3 | Existing Base UI style and correct mode choices across responsive widths; no auth/client/API changes | Full frontend 60 passed, lint/typecheck passed; eight actual-component mock-API browser scenarios at 320–1920 passed |
+
+No backend tests rerun for this UI-only correction. Browser auth/API/font limitations and earlier PostgreSQL/Google Fonts build gaps remain; Sprint stays [~].
+
+## CHANGE-096 verified scheduler isolation
+
+| Project D1 reference | Requirement / approved invariant | Implementation | Test | Result |
+| --- | --- | --- | --- | --- |
+| F4.1.8 / F10; CHANGE-093 | DB selects due OPEN/unassigned IDs; independent expiry rollback and continuation | JpaOrderRepository.findDueUnassignedIds; OrderExpiryProcessingService.expire; LifecycleProcessingService.expireDue | LifecycleFailureIsolationTest; LifecycleTransactionIsolationTest; OrderLifecycleIsolationJpaIntegrationTest | Passed, including real PostgreSQL rollback/NOWAIT |
+| F4.1.5 / F5 / F13; ADR-020/026 | DB selects latest-delivery >=48h; independent completion commit/rollback | JpaOrderRepository.findDueForAutoCompletionIds; OrderTransitionService.autoComplete | LifecycleTransactionIsolationTest; OrderLifecycleIsolationJpaIntegrationTest | Passed, including PostgreSQL latest checkpoint query |
+| NFR2/NFR3; ADR-013 | DB-filtered due outbox IDs; per-event transactions and outside catch | JpaOrderEventOutboxRepository.findDueIds; OrderEventOutboxPersistenceAdapter; OrderOutboxDispatcher | OrderOutboxDispatcherTest; OrderEventOutboxPersistenceAdapterTest; OrderOutboxIsolationJpaIntegrationTest | Passed, including retry/marker mutation rollback and unrelated caller rollback |
+
+Tests-first regression: 1 expected failure (retry database unavailable), target/change096-red.log. Focused 43 tests passed, including eight PostgreSQL lifecycle/outbox isolation tests; fresh source-only wrapper-selected Maven 3.9.16 / Java21 offline verify: 252 tests passed, 0 failures/errors/skips, including 28 PostgreSQL tests. JaCoCo 95.99% lines / 83.72% branches; unchanged >=80% gates passed. Logs: target/change096-focused.log and target/change096-verify.log; reports target/change096-source-check/target/. Docker28.4.0; isolated PostgreSQL15 Testcontainers; new isolation suites mock all cloud publishers. No application database, peer service, real topic or cloud setting changed.
+
+This clears the previous local PostgreSQL skip limitation for CHANGE-092/093/094 (all 28 current DB tests executed). It does not verify real Credit/User consumers or real cloud publication and does not upgrade Sprint [~]. Frontend source unchanged and its tests/build not rerun this turn.
+
+## CHANGE-097 personal Order rendering resilience
+
+F2/F8/F9 personal Order views and NFR2/NFR3: useSupplierNames consumes both existing Supplier lookup items and missingIds. Definitive missing references use the existing Location unavailable label and stop blocking Order cards. New hook tests reproduce partial/all-missing failures first;63 full frontend tests, lint/typecheck and Docker production build pass. Local frontend rebuilt, both personal routes/assets return200 and serve corrected hook. No API/peer/data or authorization changes; authenticated browser and missing data restoration unverified. See changes/CHANGE-097-missing-supplier-order-cards.md.
+
+## CHANGE-098 Swagger gateway routing
+
+Parent AGENTS OpenAPI documentation requirement and NFR2/NFR3/NFR6: explicit current-origin server metadata prevents Swagger targeting a backend HTTP origin from an HTTPS gateway UI. New OpenApiConfiguration and updated OpenApiDocumentationTest retain documented API paths and authentication policy. Tests first: one expected server-URL failure and one existing documentation pass (target/change098-red.log). Fresh source-only wrapper-selected Maven3.9.16/Java21 offline verify:253 tests,0 failures/errors/skips, including28 PostgreSQL tests; coverage96.00% lines (1441/1501),83.72% branches (468/559), unchanged >=80% gates pass. Generated target/openapi.json servers=[{url:"/",description:"Current gateway or service origin"}];160 current POM/source/test/resource files equal the fresh tested copy. Logs/reports target/change098-verify.log and target/change098-source-check/target/, evidence target/change098-evidence.json. git diff --check passes. No local application container rebuild or real authenticated browser request; no commit/push/cloud deployment. Staging remains unchanged until Order Service redeployment.
+
+## Backend expiry bypass regression — CHANGE-099 (2026-10-10)
+
+| Requirement / invariant | Implementation | Test / evidence |
+| --- | --- | --- |
+| F1.1-F1.3 creation and approved 30-minute server expiry minimum | Existing OrderCreationService, Order.open, OrderExceptionHandler | New OrderCreationExpiryApiTest: four short/past HTTP requests rejected with expiry-only 400 and no financial/persistence writes; valid create remains successful. Existing domain test verifies inclusive exact 1800s. Focused 19 tests pass; full result in CHANGE-099. |
+
+Business/API/architecture unchanged. Documentation and regression coverage only;
+manual/automatic ADR-030 behavior and unresolved peer integration gates retained.

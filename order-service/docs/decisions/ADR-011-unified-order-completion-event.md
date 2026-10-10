@@ -1,5 +1,7 @@
 # ADR-011: Unified order completion event
 
+> Payload supersession (2026-10-09): CHANGE-092 / ADR-031 replaces only refund/completion JSON bodies with exactly seven fields. Order/version metadata remains internal; completion overdue facts are no longer sent. Accepted-cancellation schema is unchanged. FEEDBACK-009 blocks current peer integration. Earlier rationale below is preserved history.
+
 > Current Pub/Sub project/topic/authentication configuration is recorded in CHANGE-073/ADR-021; the historical topic-placeholder note below is superseded.
 
 - Status: Accepted by the user's explicit request; implementation and suite verification passed

@@ -135,10 +135,11 @@ export function validateCreateOrderForm(form: CreateOrderForm, now = new Date())
 
 const commandId = () => crypto.randomUUID()
 
-export function orderMinePath(mode: OrderMode, userId: string, page = 1): string {
+export function orderMinePath(mode: OrderMode, userId: string, page = 1, status: OrderStatus | null = null): string {
   const params = new URLSearchParams({ mode, userId })
   params.set("page", String(Math.max(1, page)))
   params.set("size", "20")
+  if (status) params.set("status", status)
   return `/api/orders/mine?${params.toString()}`
 }
 

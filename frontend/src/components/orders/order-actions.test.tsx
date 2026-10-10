@@ -53,15 +53,15 @@ describe("OrderActions accepted cancellation", () => {
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={onUpdated} />)
 
     expect(screen.getByRole("button", { name: "Start errand" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Cancel errand" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Abort errand" })).toBeInTheDocument()
 
     cleanup()
     render(<OrderActions order={{ ...acceptedOrder, status: "IN_PROGRESS" }} mode="courier" onUpdated={onUpdated} />)
-    expect(screen.queryByRole("button", { name: "Cancel errand" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Abort errand" })).not.toBeInTheDocument()
 
     cleanup()
     render(<OrderActions order={acceptedOrder} mode="requester" onUpdated={onUpdated} />)
-    expect(screen.queryByRole("button", { name: "Cancel errand" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Abort errand" })).not.toBeInTheDocument()
   })
 
   it("confirms cancellation, calls the existing versioned API, and reports a reopened errand", async () => {
@@ -71,11 +71,11 @@ describe("OrderActions accepted cancellation", () => {
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={onUpdated} />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel errand" }))
-    expect(screen.getByRole("heading", { name: "Cancel this accepted errand?" })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
+    expect(screen.getByRole("heading", { name: "Abort this accepted errand?" })).toBeInTheDocument()
     expect(mocks.api).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole("button", { name: "Yes, cancel errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 
     await waitFor(() => {
       expect(mocks.api).toHaveBeenCalledWith("/api/orders/order-1/cancel-accepted", {
@@ -95,18 +95,18 @@ describe("OrderActions accepted cancellation", () => {
     mocks.api.mockResolvedValue(abortedOrder)
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={vi.fn()} />)
-    fireEvent.click(screen.getByRole("button", { name: "Cancel errand" }))
-    fireEvent.click(screen.getByRole("button", { name: "Yes, cancel errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 
-    await waitFor(() => expect(mocks.success).toHaveBeenCalledWith("Expired errand cancelled"))
+    await waitFor(() => expect(mocks.success).toHaveBeenCalledWith("Expired errand aborted"))
   })
 
   it("shows the API error when an accepted cancellation cannot be completed", async () => {
     mocks.api.mockRejectedValue(new Error("This errand is no longer accepted."))
 
     render(<OrderActions order={acceptedOrder} mode="courier" onUpdated={vi.fn()} />)
-    fireEvent.click(screen.getByRole("button", { name: "Cancel errand" }))
-    fireEvent.click(screen.getByRole("button", { name: "Yes, cancel errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Abort errand" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, abort errand" }))
 
     await waitFor(() => {
       expect(mocks.error).toHaveBeenCalledWith("This errand is no longer accepted.")
