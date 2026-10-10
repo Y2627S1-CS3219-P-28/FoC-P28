@@ -1,5 +1,221 @@
 # Vincent - Active Work
 
+## Automatic retry versus optional retry control clarification - 2026-10-10
+
+- Started/finished: Vincent asks why a Retry/Check-status button is needed when
+  recovery should be automatic. Clarification of the proposal only: retry button
+  is not required for authorized automatic recovery; status polling is automatic.
+  Fresh user authorization/sign-in may require an explicit Continue control.
+- Current no-stored-token/deferred-service-identity proposal cannot promise
+  financial background replay after a crash/logout. Same-key optional retry is
+  not a substitute for a scheduler, and missing authorization does not become
+  terminal failure. No UI decision, peer contract or implementation selected.
+- Verification: workflow/profile/proposal summary and Git branch/state inspected;
+  no runtime/source re-verification or tests required/run for this clarification.
+  Existing plan, 003/005/006 and full pre-coding gate remain pending; Sprint [~].
+  Only this active-work clarification changed; prior dirty records preserved.
+  Next: approve/modify the existing plan and agree peer recovery/auth contracts.
+
+## Three-Credit-command recovery implementation plan - 2026-10-10
+
+- Started: Vincent requests a plan first for durable frontend keys, Order/Credit
+  replay, lease-safe minute recovery and user-assisted authorization renewal for
+  reservation, assignment and abort reset. This is NOT permission to implement,
+  alter Credit, resume deferred background credentials or deploy infrastructure.
+- Identity/allocation/branch match sprint-2-3-credit-service-concurrency; Sprint
+  remains [~]. Preserve existing uncommitted advisory records; peers read-only.
+- Rechecked actual frontend key builders/useApi, creation/assignment/transition
+  services, CreditServicePort/HttpPeerAdapters, receipt and row-lock implementation,
+  Credit controller/transactional reservation/assignment/reset and relevant test
+  source. Credit's endpoints exist, but historical command-key result/recovery
+  and attempt-fencing semantics remain INCOMPLETE_OR_INCOMPATIBLE (003/006).
+- Working proposal: PENDING/COMPLETED plus outcome, ownership lease/generation,
+  retry timing and separate safe reason metadata; immutable key/input binding,
+  per-command and per-order claims, user-authenticated resume after crash rather
+  than persisted tokens or auth bypass, existing synchronous/outbox boundaries.
+- Gate: required broad historical rehydration is not complete; some large reads
+  truncated. No full source-drift/workflow/implementation-ready claim. Complete
+  that gate and resolve pending detailed design/provider approvals before coding.
+- Finished: appended the candidate schema/classes/sequence/locking/auth/UI/API/
+  test plan to PROPOSED ARCH-EVO-034, existing FEEDBACK-006 and excluded learning,
+  plus AI disclosure. Two-state representation is proposed with safe reason
+  metadata; no selected wire contract, migration number, storage or source added.
+- Verification: git diff --check passed (existing CRLF normalization warning),
+  learning local links/fences passed, learning remains Git-excluded. Manual D1
+  and selected Overall SHA256 match recorded values. Git shows only the four
+  pre-existing tracked advisory paths changed; no source/peer/frontend/test/schema
+  changes. No tests/live calls/full workflow audit claimed; no commit or push.
+- Blocked implementation: actual Credit's historical operation replay, authorized
+  result retrieval, stale-attempt fencing and compensation require Annablee's
+  agreement (003/006); unattended auth remains paused (005). User-assisted recovery
+  may be a separately approved interim milestone, not falsely automatic finance.
+  Current effective application files and peer routes remain unchanged.
+- Next: Vincent approves/modifies the plan and UI/key/storage/claim/guard scope;
+  peer agrees provider contract and missed-deadline recovery; finish full context/
+  traceability/source-drift gate, synchronize approved ADR/change/diagrams/contracts,
+  then TDD. Uncommitted docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md preserve earlier advisory edits;
+  withheld commit because proposal/human review pending and prior edits overlap.
+
+## UI-to-Credit durable command flow review - 2026-10-10
+
+- Started: Vincent requests a step-by-step rationality review of PENDING/
+  RETRYABLE/COMPLETED activities and frontend-generated keys shared with Credit.
+  Design discussion only, no application, peer or migration approval. Profile,
+  allocation and sprint-2-3-credit-service-concurrency match; Sprint [~].
+- Rechecked frontend payload builders, CreateOrder/OrderActor DTOs, Order adapter,
+  Credit controller and transactional replay/assignment/reset code, current
+  ADR-018/027, proposal 034 and feedback 006. Existing frontend generates UUID
+  commandId on each payload build; Order does not forward an activity key in the
+  three active HTTP mutations. Current peer historical-key replay not established.
+- Finished requested design review: extended the existing excluded learning,
+  PROPOSED ARCH-EVO-034 follow-up and existing FEEDBACK-006 plus disclosure.
+  Records explicit transaction boundaries and client key lifecycle, optional peer
+  PENDING versus atomic effect/result, timeout handling, leases/concurrent UI retries
+  and authoritative terminal outcomes. No implemented protocol or contract selected.
+- Verification: git diff --check, learning local links and balanced fences pass;
+  learning remains Git-excluded. No runtime calls, tests, cloud/DB mutations or
+  application/peer/frontend/test/schema/infra edits. Full historical workflow audit
+  not claimed; some broad record reads truncated. No source-drift completion claim.
+- Next: user reviews proposed flow; Annablee agrees 003/006 scoped historical
+  operation identity/result/retention and compensation; 005 auth remains paused.
+  Detailed source/schema/API/UI/TDD approval still required before implementation.
+  Current docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md stay uncommitted pending human
+  proposal review, preserving prior advisory edits; learning excluded. No push.
+
+## Two-state whole-handler replay clarification - 2026-10-10
+
+- Started: Vincent challenges whether explicit recovery phases are necessary
+  when peer deduplication permits whole-function replay. Explanation-only follow-up,
+  not worker/schema/peer-contract approval. Vincent/profile/branch match; scope
+  remains Order-owned, peers read-only, Sprint [~], background retries paused.
+- Inspected current creation/receipt and Credit reservation/assignment/reset
+  replay code plus existing ARCH-EVO-034 and ADR-018. Explained that PENDING/
+  COMPLETED is viable if COMPLETED stores success/rejection outcome and the
+  handler is idempotent end to end. Explicit phases are optional, not mandatory.
+- Updated the existing excluded learning note and disclosure only. Required
+  pre-I/O durable inputs/IDs, peer atomic effect/deduplication/equivalent result,
+  local atomic effects/completion, concurrency/deadline/current-state checks and
+  compensation. Current peer calls do not all have historical activity-ID replay.
+- Finished: git diff --check and learning links/fences pass; learning still
+  Git-excluded. No tests or runtime calls,
+  full historical workflow audit not claimed (partial/truncated context reads).
+  No code/design/contract implementation selected. Next: human review and explicit
+  detailed design/peer agreement before any implementation. Existing dirty proposal
+  records preserved, new advisory docs uncommitted; no commit/push.
+
+## Durable pending-activity scheduler clarification - 2026-10-10
+
+- Started: Vincent asks whether pending-before-HTTP plus minute-based recovery
+  can make unsafe outbound operations consistent. Advisory evaluation only,
+  not application/worker/contract approval. Profile/allocation/current branch
+  match sprint-2-3-credit-service-concurrency; peers read-only and Sprint [~].
+- Current context/ADR-027/018, proposal ARCH-EVO-034, outbound adapter/creation
+  and Credit reserve/replay/assignment/reset rechecked. Broad historical reads
+  partly truncated; full workflow audit not claimed. Initial guessed ADR-027
+  filename failed; actual listed ADR file subsequently read successfully.
+- Finished advisory clarification; updated the existing excluded crash-recovery
+  learning and AI disclosure. Explain independent committed intent, atomic local
+  finalization, terminal success versus rejection, ambiguity reconciliation, safe
+  idempotency, attempt-aware stale replay prevention and worker claims.
+- Verification: git diff --check and learning links/fences pass; learning remains
+  Git-excluded. No runtime requests, application/peer/tests/schema edits or tests
+  run. No full source-drift/completion audit claimed for this advisory follow-up.
+- Next: review the proposal, then approve operation-specific designs and agree
+  FEEDBACK-005/006/003 before implementation. Background retry pause unchanged;
+  a minute scan is recommended, not selected/implemented as a new schedule.
+  Current-turn active-work/AI/learning edits uncommitted; previous proposal edits
+  in architecture-evolution/peer feedback preserved. Human review pending, no push.
+
+## Creation/credit crash recovery learning and proposal - 2026-10-10
+
+- Started: Vincent asks for outcome classification, a solution proposal and
+  general learning documentation, not implementation. Profile/allocation/branch
+  match sprint-2-3-credit-service-concurrency; Sprint 2-3 remains [~]. Peers read-only.
+  Existing active-work/AI notes preserved. Cross-service recovery previously
+  deferred; this turn authorizes investigation/documentation only, not a worker.
+- Inspected current CREATE transaction, ignored reservation response, actual
+  Credit PUT/GET/replay/transaction/error paths and existing tests/FEEDBACK-006.
+  D1/selected Overall SHA-256 match. Current outbox covers committed outcomes,
+  not creation intent. Broad historical context batches partly truncated; full
+  workflow completion audit not claimed. No application/peer/runtime/cloud edits.
+- Finished the requested proposal/learning task: added excluded learning/
+  cross-service-state-change-crash-recovery.md (349 lines); registered PROPOSED
+  ARCH-EVO-034; appended discussion to existing FEEDBACK-006; added AI disclosure.
+  Covers outcome classification versus retryability, durable intent before remote
+  write, stable candidate/command binding, active-state confirmation, crash matrix,
+  forward recovery/compensation, late-write fencing, alternatives and future tests.
+- Verification: git diff --check passes (existing CRLF normalization warning);
+  learning has four balanced fence markers and all local Markdown links exist.
+  git check-ignore confirms learning remains excluded. Exact change scope is
+  documentation/disclosure only; no application/peer/test/schema/infra edits.
+  No unit, distributed recovery, browser or live peer tests run for this proposal.
+- Remaining: explicit detailed-design approval, agreed pre-creation compensation/
+  late-write terminal protocol (FEEDBACK-006), delegated authorization (005),
+  versioned migration/worker/UI contracts and actual fault-injection integration.
+  Background retries remain paused. No effective ADR/contract/design superseded.
+- Uncommitted paths: docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md; local learning file excluded.
+  Proposal awaits human review; mixed pre-existing advisory notes in active-work/
+  disclosure preserved and not staged. No commit/push. Next: review proposal and
+  agree provider recovery/auth before any implementation; Sprint remains [~].
+
+## Credit synchronous response-code clarification - 2026-10-10
+
+- Follow-up: explained identical replay as same business orderId, requesterId
+  and amount. Existing Credit replayReservation compares requester/amount and
+  returns existing reservation/current account without reserving again; mismatch
+  returns 409. Replay does not require RESERVED status, so 200 alone is not proof
+  of an active hold. Existing terminal replay/recovery feedback remains; no fix,
+  runtime request, tests or application/peer change. Advisory clarification done.
+- Started/finished: same Vincent/branch/scope, advisory source inspection only.
+  Re-read CreditController, ErrorCode, GlobalExceptionHandler, JsonSecurityHandlers,
+  reservation/assignment/reset persistence branches and Order adapter/error advice.
+- Provider success: reservation 201 new / 200 identical replay with reservation
+  JSON; assignment and reset exactly 200 without body, including accepted replay.
+  Provider errors: 400 validation, 401 authentication, 403 permission/self/assignment,
+  404 missing account or reservation, 409 insufficient credits/reservation conflict,
+  503 role lookup/persistence failure, 500 unexpected errors. Reset 404 is reservation;
+  insufficient credits applies to reservation, not assignment/reset. Routing/media
+  failures are separate from business outcomes; transport failures have no HTTP code.
+- Order reservation translates peer errors; assignment/reset propagate RestClient
+  errors with no equivalent advice mapping, so client-facing results can be generic
+  500 rather than the original peer status. Report this existing gap, no fix selected.
+  Timeout/lost acknowledgement may follow remote success; existing recovery deferral
+  unchanged. Tests/runtime requests not run; no source/contract/schema/peer edits.
+- Next: developer review. Static findings do not verify live integration or close
+  Sprint gates. Existing uncommitted records retained; no commit/push.
+
+## Outbound state-modifying interaction audit - 2026-10-10
+
+- Started: Vincent requests an existing-source inventory, not implementation or
+  a new contract. Profile/allocation/branch agree on
+  sprint-2-3-credit-service-concurrency. Order-owned advisory scope; all peers
+  read-only. Preserve prior records; no runtime API, database or cloud mutations.
+- Inspection scope: HTTP adapters/ports and production callers, security role
+  client, transition/lifecycle/repost services, outbox dispatch, event DTOs and
+  topic settings; relevant actual User/Supplier/Credit providers and current
+  contracts/ADR-025/026/feedback. No architecture change or approval proposed.
+- Result: three active HTTP mutations to Credit: PUT reservation (creation and
+  both repost paths), PUT courier-assignment (acceptance), POST hold-for-reopen
+  (every ACCEPTED-only abort). Three event streams: OpenOrderRefundTaskEvent for
+  CANCELLED/EXPIRED to Credit, OrderCompletionTaskEvent for requester/scheduled
+  completion to Credit and intended User facts, AcceptedOrderCancellationTaskEvent
+  for every abort to User only. Topics are environment-configured, not necessarily
+  the default dev names. User subscriber/live processing remains unverified.
+- Supplier POST validate performs repository reads only; User role-context and
+  courier-eligibility GET implementations only read user data. Start/pickup/deliver
+  have no additional peer business mutation. Legacy settle HTTP method exists but
+  has no production caller; completion uses its event, not that missing route.
+- Audit finished: response inventory ready. Non-safe means intended business
+  mutation, not insecure or non-idempotent. Publication ACK is not financial
+  completion. Next action: developer review; deferred cross-service consistency
+  and peer consumer gates unchanged. No source/tests/contracts/schema changed.
+- Verification limitations: static inspection only; no test run or live consumer
+  verification. Larger historical workflow-context output was partly truncated;
+  no full context/gate/source-drift audit or Sprint completion claimed.
+
 ## CHANGE-093: Courier acceptance versus requester cancellation - 2026-10-09
 
 - Test slice locally verified. Vincent explicitly approves the fifth real PostgreSQL race on

@@ -221,6 +221,104 @@ No new CreditsRefunded event or refund-confirmation gate is approved here.
 GET /api/credits/me already serves balance polling; no new API is required for
 this UI. Missing accounts require the existing signup registration-facts flow.
 
+#### 2026-10-10 proposed creation-recovery extension (ARCH-EVO-034)
+
+Documentation/discussion only; not an approved wire contract or implementation.
+Existing PUT/GET can support same-ID reservation reconciliation with valid caller
+authorization. Order still needs to persist the intent before the write and
+interpret the response's matching requester/amount/order ID and RESERVED state.
+Current adapter discards that body. Neither service's local transaction makes
+these two commits atomic.
+
+Credit owner discussion required for compensation when a reservation succeeds but
+OPEN cannot subsequently be committed, including expiry or permanent rejection:
+
+- Agree an idempotent authorized cancellation/refund operation for a creation
+  intent that never became an Order. Exact route/event, fields and responses are
+  UNRESOLVED; do not fabricate a CANCELLED Order snapshot on the existing topic.
+- The operation must resolve the same reservation identity, release at most once,
+  and return or expose authoritative terminal state. A PAID reservation must not
+  be blindly refunded or reactivated by creation recovery.
+- Agree terminal fencing for cancellation before/alongside a delayed reservation
+  write. GET 404 alone cannot establish that the write will never commit. A
+  delayed original PUT must not create a hold after compensation was finalized.
+  Any operation ID/fencing token and its retention are contract decisions, not
+  assumed existing fields. Order worker leases alone cannot fence remote writes.
+- Test lost successful replies, matching/terminal replay, concurrent duplicate
+  requests, local failure after remote commit, compensation replay and delayed PUT
+  versus cancellation. Existing matching PUT/GET routes are not called missing;
+  this additional recovery protocol remains INCOMPLETE_OR_INCOMPATIBLE.
+
+Unattended authorization is separately FEEDBACK-005 and remains paused. No
+browser token persistence, authorization bypass, new endpoint/topic or Credit
+source change is authorized by this proposal. Durable creation recovery is
+PROPOSED, not a verified financial integration.
+
+#### Proposed operation-key replay for foreground commands and recovery
+
+Vincent asks for a review of one frontend command key carried through Order to
+Credit for reservation, assignment and reset. This is a proposal under ARCH-EVO-034,
+NOT an approved addition to ADR-018's current no-command-field peer contracts.
+
+- Existing routes remain PUT reservation, PUT courier-assignment and POST
+  hold-for-reopen as above. Order's inbound commandId is currently not forwarded.
+  Reservation uses business ID/requester/amount replay; assignment/reset inspect
+  current state. Historical activity identity/result replay for all three is
+  INCOMPLETE_OR_INCOMPATIBLE for the proposed recovery requirement, not another
+  missing copy of the existing business endpoint.
+- Discuss an authenticated operation key scoped by operation/caller, immutable
+  target/actor/payload binding, atomic financial effect + deduplication/result,
+  equivalent success/rejection replay and concurrent duplicate behavior. Exact key
+  header/body, request DTO additions, response/status-query format and retention
+  are UNRESOLVED; do not silently change the current request contracts.
+- A separate committed Credit PENDING record is optional for single-DB synchronous
+  work. If used, agree stale-claim recovery. Do not mark a command completed before
+  its financial effect commits or only in a later unrelated success transaction.
+  Rejection replay must follow rollback/no-effect guarantees; transient/auth errors
+  are not immutable business rejection. Validate caller on every replay.
+- Same business order can have repeated courier attempts; stale historical reset
+  or assignment must not affect a newer attempt. Coordinate FEEDBACK-003 for any
+  operation/generation amendment; actor/order ID alone is not an agreed solution.
+- Agree recovery authorization (005), late-write/compensation protocol (006) and
+  lost reply, changed payload, simultaneous duplicates, concurrent UI/worker,
+  restart and stale-reset tests before implementing or claiming compatibility.
+
+#### Proposed three-command implementation plan: agreement needed before code
+
+2026-10-10, PROPOSED under ARCH-EVO-034. Existing routes and business bodies are
+not missing; their historical command replay/recovery is classified
+INCOMPLETE_OR_INCOMPATIBLE for the new requirement. No peer change authorized.
+
+- Candidate transport: `Idempotency-Key: <frontend commandId>` on the three
+  existing reservation/assignment/hold calls, with existing Firebase bearer and
+  unchanged JSON/no-body shapes. Header name/protocol NOT agreed yet. Different
+  operations/actors require separate keys and server scope/input binding.
+- Credit must atomically commit the financial mutation with its durable historical
+  operation key and safe equivalent result, serialize concurrent duplicates and
+  validate caller/ownership on every replay. A historical success must not mutate
+  a newer courier attempt; current nullable-courier checks alone are insufficient.
+- Agree whether existing bodyless 200 replies remain usable or whether a result
+  query/operation receipt is needed. Reservation success must include/read matching
+  ACTIVE RESERVED state; terminal refunded/paid replay is not a fresh reservation.
+  Operation lookup must support the authorized courier for assignment/reset;
+  existing requester-only GET is not assumed suitable for that role.
+- Agree definitive no-effect rejection versus ambiguous/unresolved response;
+  retention, wrong-input key conflict, old/new attempt fencing, late writes and
+  reconciliation/compensation when local acceptance/creation is now invalid.
+  Exact additional endpoint/path/request/response is pending owner agreement;
+  no unsafe use of existing full-Order refund event for an absent Order is selected.
+- Interim authorization proposal: persist NO Firebase token; scheduler identifies
+  recovery but financial replay waits for user-authenticated same-key resume.
+  Fully unattended delegation remains FEEDBACK-005 and paused. Expired-token 401
+  cannot erase an earlier ambiguous financial operation. Credit must never accept
+  an activity key/requesterId alone as authority.
+- Required tests after agreement: all three lost-response/commit-replay paths,
+  same-key changed-input/caller rejection, concurrent duplicates, expired-token
+  then refreshed-token replay, reset versus later acceptance/late worker, terminal
+  reservation replay and agreed compensation. Tests must use actual provider;
+  mocks cannot close 003/006. Owner Annablee; next step contract discussion and
+  reinspection, not Order-only assumption or provider source edit.
+
 ## 2. User Service
 
 ### FEEDBACK-002 (User): courier-abort penalty subscriber

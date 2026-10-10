@@ -1798,3 +1798,73 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Added both winner orderings using existing actual Spring services/PG15/Flyway, separate transactions and blocking-PID proof. Exactly one version/checkpoint/winning receipt; losing request conflicts; Credit assignment only when accept wins, refund intent/after-commit dispatch only when cancel wins. Focused pair 2/2; combined all five races (10) and service regressions (13) 23/23; actual domain/transition regression 36/36. Zero failures/errors/skips. Characterization passed existing locks unchanged; no fabricated failing-test claim. Test commit 827844b, no push.
 - **Key response follow-up:** Task-specific verification records committed separately as 0f50886; staged diff, TOML parse and learning link/fence checks pass. Mixed prior active-work/disclosure notes remain uncommitted rather than being included in the test/record commits.
 - **Author verification:** Vincent explicitly approved the test scope/design; no new business/API decision. Peers and dispatcher mocked, Order database real; no live financial/broker/browser or fresh full-suite/coverage claim. Initial combined selector included nonexistent OrderDomainTest (no cases ran under that name); actual named domain classes ran in the successful separate regression. Manual D1/Overall hashes match. Generic drift checker exits 2 for manifest headers; verify_gate exits 1 with five format/history findings; full historical reads partly truncated. Gates/Sprint [~] and deferred recovery retained. Learning excluded; prior uncommitted advisory records preserved and not staged with the test; human review pending.
+
+## Outbound state-modifying interaction audit assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Read-only source inspection and explanation
+- **Affected locations:** Order Vincent active-work and this disclosure only. Order outbound HTTP/ports/callers/outbox/events/configuration and relevant User/Supplier/Credit provider code inspected unchanged.
+- **Prompt:** "I would like to check are there any non-safe request (state modifying whther in db or what, which means instead of read it causes changes) that order service will send to other service.... If yes what are there, list out here"
+- **Key response:** Found three active HTTP mutations to Credit (reservation, courier assignment, hold/reset), refund/completion events for financial changes and abort/completion facts intended for User-owned consequences. Query-only Supplier validation uses POST but performs no business write; User role/eligibility queries read data. Legacy settlement HTTP method has no production call site. Topic names are configurable. No new contract, cleanup or business implementation selected; static source evidence is not live financial/consumer verification.
+- **Author verification:** Developer review pending. No runtime requests, cloud/database writes, tests or live delivery verification. Peer source remains read-only; only required audit records updated. Full historical workflow context output partly truncated; no complete workflow/source-drift audit or Sprint completion claim. Existing peer consumer/auth/recovery gates retained; no push.
+
+## Credit synchronous response-code clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Read-only source inspection
+- **Affected locations:** Vincent active-work and this disclosure only; Credit controller/error/security/persistence and Order adapter/error advice inspected unchanged.
+- **Prompt:** "For this 3 synchronous request, what are the code it can return ?"
+- **Key response:** Reservation returns 201 new/200 replay with JSON; assignment/reset return bodyless 200. Listed implemented 400/401/403/404/409/503/500 outcomes and operation-specific causes. Distinguished Credit responses from Order translations: reservation maps errors, assignment/reset can expose generic 500 because RestClient failures lack matching advice. A timeout has no HTTP response and does not prove no remote mutation.
+- **Author verification:** Source inspection only, no test or live request, no new contract/behavior/security decision, no peer/application edits. Developer review pending; existing cross-service recovery and Sprint gates unchanged. Audit records uncommitted, no push.
+
+## Cross-service creation crash-recovery proposal assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Source inspection, architecture proposal and learning documentation only
+- **Affected locations:** Excluded Order learning/cross-service-state-change-crash-recovery.md; ARCH-EVO-034 in architecture-evolution; proposed extension of existing FEEDBACK-006; Vincent active-work; this disclosure. Application, peer, test, schema and deployment files unchanged.
+- **Prompt:** Classify known success/rejection/unknown reservation outcomes, explain Credit success followed by Order crash or code failure, propose consistent recovery and document the general engineering framework in learning.
+- **Key response:** Recommended a durable creation intent committed before the remote write, stable candidate ID and command/payload binding, authoritative active-state confirmation, same-ID reconciliation, atomic local completion, and durable compensation when forward completion becomes invalid. Explained that HTTP errors can be ambiguous, terminal replay 200 is not an active hold, GET 404 cannot fence an in-flight PUT, and local row locks/outcome outboxes do not close the creation crash window. Compensation, late-write fencing, pending UI/API and worker authorization are proposals, not silently selected contracts. Primary references: AWS Builders' Library idempotent APIs, Microsoft Saga and Compensating Transaction patterns.
+- **Author verification:** Developer approval/review pending. Actual source inspected; no runtime calls, database/cloud changes, application implementation or recovery tests. Broad historical context reads partly truncated; full workflow audit not claimed. Manual D1/Overall hashes match. Background retry and delegated credentials remain paused; Sprint remains [~]. Documentation checks recorded in Vincent active-work; no commit/push and pre-existing advisory edits preserved.
+
+## Durable pending-activity scheduler clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Advisory source review and learning documentation
+- **Affected locations:** Existing excluded cross-service-state-change-crash-recovery learning, Vincent active-work and this disclosure only; application/peer/test/schema/contract/infra files unchanged.
+- **Prompt:** Can Order save a pending activity before unsafe outbound HTTP, mark it completed on a resolved outcome/local commit, and run a minute scheduler to redo pending work after timeout or crash?
+- **Key response:** Yes as a durable-workflow foundation, not a generic blind retry. Intent must commit before I/O; local effects and success marker commit atomically; known permanent rejection is terminal failure, not eventual success; ambiguous prior attempts need reconciliation. Resume the missing phase with immutable identity, idempotent provider behavior, claims/leases, per-order coordination, deadlines/backoff and compensation. Current assignment/reset replay lacks an attempt identity for future stale background requests; no new field approved. AWS idempotent API and Microsoft Saga primary references consulted.
+- **Author verification:** Human review pending; advisory request does not approve a worker. Branch/profile/allocation match; existing ADR-027 pause and FEEDBACK-005/006 remain. No tests/live requests/cloud writes or completion claim; broad historical reads partly truncated, full workflow audit not claimed. A guessed ADR path failed then the actual file was read. Final documentation checks recorded in active-work. Existing uncommitted changes preserved; no commit/push.
+
+## Two-state whole-handler replay clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Advisory clarification and learning documentation
+- **Affected locations:** Existing excluded cross-service-state-change-crash-recovery learning, Vincent active-work and this disclosure only; no application, peer, schema, test or contract change.
+- **Prompt:** Can PENDING/COMPLETED alone suffice if recovery replays the whole function with the same ID and peers recognize previously executed operations?
+- **Key response:** Agreed conditionally and corrected the earlier overly categorical phase-resumption statement: explicit phases are optional when whole-handler replay is idempotent. Durable immutable intent, atomic peer effect/deduplication with equivalent prior result, atomic local effects/completion, final success/rejection outcome, per-order coordination and expiry/compensation/auth rules remain necessary. Current reservation uses business ID/requester/amount; assignment/reset have no per-activity historical result identity. No new field or peer contract approved. AWS Builders' Library idempotent API guidance consulted.
+- **Author verification:** Human review pending. Actual code inspected, no tests/live requests or full historical workflow audit claimed; some context output truncated. Existing pause/approval gates retained; advisory clarification is not architecture selection or implementation. Documentation checks in active-work; previous dirty records preserved, no commit/push.
+
+## UI-to-Credit durable command flow review assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Design review, source inspection and proposal/learning documentation
+- **Affected locations:** Existing excluded crash-recovery learning; proposed ARCH-EVO-034 follow-up; existing FEEDBACK-006 extension; Vincent active-work and this disclosure. No frontend/application/peer/test/migration/infra source edited.
+- **Prompt:** Review step-by-step pending-before-call, peer pending/completion timing, timeout RETRYABLE recovery and frontend-generated idempotency keys retained until terminal success/failure, for creation, acceptance and abort.
+- **Key response:** Recommended committed immutable intent before I/O; optional peer pending but atomic effect/deduplication/result; atomic Order effects/completion before HTTP terminal success; resolved rejection separate from unknown outcome; lease-safe foreground/background replay and per-order coordination; original key/payload retained after uncertainty, backend evidence retained after browser clearing. Current UI generates fresh command IDs per payload build and Credit calls do not carry them. Proposed scoped key/response/retention amendments require agreement; no wire DTO or schema selected. Spring transaction and AWS idempotent API primary sources consulted.
+- **Author verification:** Developer/peer approval pending; review is not implementation authorization. Current branch/profile/allocation match, background retries and delegated auth remain paused. Actual code inspected; no runtime/tests/cloud actions or full historical workflow audit claimed; some broad context reads truncated. Documentation checks in active-work; prior dirty records preserved and no commit/push.
+
+## Three foreground Credit command recovery plan assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Source inspection, proposed implementation plan and learning documentation
+- **Affected locations:** Existing ARCH-EVO-034 proposal, FEEDBACK-006 discussion, Vincent active-work, excluded crash-recovery learning and this disclosure. No application, peer, test, migration, frontend, runtime or cloud files changed.
+- **Prompt:** Propose a plan first for frontend-to-Credit consistency across reservation, assignment and abort reset; coordinate user/scheduler retries, show safe retry-attempt messages after timeout/crash, and ask the frontend for renewed authorization when unavailable.
+- **Key response:** Proposed PENDING/COMPLETED commands with immutable actor/input binding, initial committed lease before I/O, fenced claims, per-order unresolved-command guards, atomic peer/local effects plus results, proposed key header/status/resume/discovery contracts, client key persistence and same-key Retry/Check-status. Minute recovery without saved tokens/delegated credentials must wait for user authorization; crash UI reflects durable observation, not an impossible crash reply. Historical Credit replay and compensation remain 003/006 gaps; 005 stays deferred. Source inspection distinguishes existing routes from missing recovery semantics. Primary PostgreSQL/Firebase/AWS docs consulted; no broker or effective contract selected.
+- **Author verification:** Vincent and peer review pending; plan-first request does not approve implementation or resume paused workers. Branch/profile/allocation match. D1/selected Overall manual hashes match; full historical mandatory rehydration incomplete/truncated, full pre-coding gate not claimed. No tests/live calls or cloud writes; final documentation checks in active-work. Existing dirty records preserved; no commit/push.

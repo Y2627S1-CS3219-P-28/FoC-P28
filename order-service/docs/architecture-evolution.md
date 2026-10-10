@@ -1,5 +1,232 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-034: Proposed cross-service creation crash recovery
+
+- Status: PROPOSED, not approved or implemented. Vincent requested analysis and
+  learning documentation on 2026-10-10; that request is not implementation approval.
+  Classification: architecture refinement requiring approval before implementation.
+- Existing design: synchronous Credit reservation precedes local OPEN persistence.
+  Order's local transaction/row lock cannot roll back Credit's separate transaction.
+  Current creation generates its candidate in memory, and the reserve adapter
+  ignores the success body. A remote commit plus local crash can orphan a hold.
+- Proposed design: commit a durable Order-owned operation intent before the remote
+  write; bind caller, command, immutable request and one candidate business ID;
+  reconcile/replay the same candidate; confirm matching RESERVED state; atomically
+  commit OPEN, checkpoint, receipt and operation success. Recover failed local
+  commits by continuing forward, or durably compensate if creation is no longer
+  valid. A lost local commit acknowledgment requires a local state read too.
+- Unknown outcome is not rejection: timeouts and generic server errors can occur
+  after Credit commits. An earlier ambiguous attempt is not disproved by a later
+  rejection, nor by GET 404 while a write remains in flight. Terminal replay 200
+  is not an active hold. Stop permanent unchanged retries; retain unresolved work.
+- Alternatives: plain synchronous HTTP/in-memory retries leave the crash gap;
+  durable HTTP orchestration is recommended; a broker command/outbox protocol is
+  another option but adds contracts/infrastructure; a local transaction alone
+  cannot provide distributed atomicity. No new broker or transport is selected.
+- Approval gates: operation schema and migration, command ownership/hash checks,
+  worker claim/lease and fencing, authoritative reservation interpretation,
+  compensation and late-write prevention, retry/deadline/escalation policies,
+  UI/API pending behavior, deployment scheduling and fault-injection tests.
+  FEEDBACK-006 covers provider recovery/compensation agreement; FEEDBACK-005
+  covers delegated authorization. ALL background retry implementation stays paused.
+- Scope: creation/reservation proposal, not implementation of assignment/reset
+  recovery. Existing approved lifecycle, contracts, diagrams, schemas and ADRs
+  remain effective. No new endpoint/topic/status or peer change is approved.
+- Evidence: inspected actual OrderCreationService, HttpPeerAdapters and Credit
+  PUT/GET, replay and transactional error paths. No live recovery test performed.
+  Local excluded learning: learning/cross-service-state-change-crash-recovery.md.
+  This shared register preserves proposal status independently of that local file.
+
+### 2026-10-10 proposed command-key protocol follow-up
+
+- Vincent requests rationality review, not implementation approval: frontend
+  generates/retains one commandId per intent, Order persists immutable intent and
+  business IDs, Credit recognizes a scoped operation identity, Order/peer each
+  commit their own effects with the appropriate durable result, unresolved work
+  is recovered with safe whole-handler replay. Extra explicit phases are optional.
+- PROPOSED extension for review includes all three active financial HTTP writes
+  (reservation, assignment, reset) and their UI callers. It does not silently
+  expand the approved scope or change ADR-018's current minimal peer payloads.
+- Current frontend generates a fresh UUID per payload build; Order does not send
+  that command key in these Credit calls. Credit deduplicates reservation by
+  business order ID and assignment/reset by current state, not a historical command
+  identity/result. Coordinated API/auth/replay amendments require peer approval.
+- PENDING/RETRYABLE/COMPLETED is one candidate representation, not selected schema.
+  COMPLETED includes resolved SUCCESS/REJECTED; PENDING with retry metadata is an
+  alternative. Minute scan cannot claim actively leased foreground jobs; expired
+  ambiguous financial work needs reconciliation/compensation, not abandonment.
+- Same key requires immutable args/actor/operation binding; completed results are
+  persisted with local effects. Browser clears only its active key on authoritative
+  terminal result; servers retain deduplication evidence. Unknown responses and
+  subsequent auth errors must not cause a new financial identity. Exact client
+  persistence, response/query DTOs, peer key transport/retention, concurrency and
+  fault-injection tests remain approval gates; 003/005/006 remain open. No new
+  broker/event/topic, source, migration or worker is approved or implemented.
+
+### Proposed implementation plan: three foreground Credit commands
+
+Status: PROPOSED for Vincent's review, 2026-10-10. The request asks for a plan
+FIRST; it does not approve application/test/schema changes, peer changes or
+resumption of ADR-027's paused background work. Classification: architecture/
+contract/data/security change requiring detailed approval and peer agreement.
+This expands proposal 034 for review only, not the effective approved architecture.
+
+#### Scope and current evidence
+
+- Proposed slice: user-initiated CREATE/reservation, ACCEPT/courier assignment,
+  CANCEL_ACCEPTED/abort reset. Reposts use the reservation port too: coordinate its
+  signature safely, but automatic/manual repost recovery is not silently included.
+- Actual provider routes: PUT reservation (requesterId/amount, 201/200 JSON),
+  PUT courier-assignment (courierId, exact 200 empty), POST hold-for-reopen
+  (no body, exact 200 empty). Firebase caller/self/role requirements remain.
+- Actual Order reserves before local OPEN; acceptance/abort lock the Order row
+  before Credit and commit receipts afterward. CREATE has no current Order row
+  to lock. CommandReceipt deduplicates operation/command but lacks actor/input
+  binding and a durable pre-I/O recovery record; reserve discards success JSON.
+- Actual frontend builds a new UUID per request build, obtains tokens through
+  useApi and supports visible 15-second reads. No durable client action identity
+  or command-status/recovery endpoint exists in inspected implementation.
+- Requirement references to finish tracing: creation F1/F2; acceptance F3/F4.1.1;
+  concurrency F13; accepted abort F11.2 and ADR-025; NFR3 tests/coverage and NFR4
+  logging. Full original text/source-chain review remains a pre-coding gate;
+  no new D1 acceptance wording or completed feature marker is asserted here.
+
+#### Proposed command record and responsibilities
+
+- Keep two lifecycle states PENDING and COMPLETED, with final SUCCESS/REJECTED.
+  Separate metadata describes retry/auth/reconciliation reasons, not OrderStatus.
+- Candidate Order-owned record: commandId, actorId, operation, immutable canonical
+  input/hash, target/candidate business ID, original version/validated timing,
+  status/outcome, saved safe result, attemptCount, nextRetryAt, worker owner,
+  leaseExpiresAt, monotonically increasing claim generation, safe reason/error
+  and audit timestamps. No bearer/refresh tokens or credentials in the record.
+- Candidate classes: command application coordinator, command repository/JPA
+  adapter, recovery scheduler, operation-specific executors, named status/resume
+  DTOs and mapper; reuse User/Supplier/Credit ports, lifecycle domain methods,
+  receipt/history/outbox rules. Names are proposals, not source files created.
+- A new next-numbered Flyway migration after current V4 must be coordinated and
+  tested clean/upgrade. Do not edit V1-V4 or invent a schema by ORM auto-update.
+  Historical receipts need a reviewed compatibility path, not fabricated inputs.
+
+#### Proposed execution sequence and locking
+
+1. Browser persists one UUID and frozen request per logical action before POST,
+   scoped to the authenticated account. Same action retry retains both; a new
+   action uses a new key. Candidate storage is IndexedDB; approval required.
+2. Order authenticates/authorizes first, validates key/operation/actor/input binding
+   and atomically commits PENDING plus initial worker lease before remote I/O.
+   CREATE persists its single candidate business ID. Existing completed command
+   returns its authorized saved result; valid active claim returns pending status.
+3. All foreground/resume/scheduler entry points share one DB claim implementation.
+   Eligibility is PENDING, nextRetryAt <= DB time, and no valid lease. Atomic
+   conditional UPDATE or locked batch claim increments generation and commits;
+   FOR UPDATE SKIP LOCKED is suitable only for recovery queue selection.
+4. Different commands for an existing Order use its row lock AND a durable
+   unresolved-command guard. Once an unsafe call is issued, a competing start,
+   accept, abort, cancel or expiry must not invalidate it unnoticed after a crash.
+   Guard persists until reconciliation, not merely until worker lease expiry.
+   All affected transition/lifecycle entry points must honor it. Lock ordering,
+   takeover, lease renewal, generation checks and peer late-write fencing require
+   PostgreSQL tests; a Java synchronized method is not sufficient across replicas.
+5. Credit receives a proposed Idempotency-Key header using commandId; current
+   bodies remain minimal. Credit authenticates every replay, binds actor/operation/
+   target/input, serializes duplicates and atomically commits financial effect
+   plus historical key/result. Exact header/result/query/retention is peer-owned
+   and UNAPPROVED. Mere current-state replay or a lease cannot fence late writes.
+6. Confirm success including matching ACTIVE reservation semantics; atomically
+   commit Order state/history/receipt/existing outbox and command success under
+   the current claim generation. Preserve existing post-commit Pub/Sub dispatch.
+7. Definitive no-effect rejection commits terminal rejection only after rollback.
+   Timeout/ambiguous error rolls back business writes and separately commits
+   retry metadata conditional on ownership/generation; failure to write that
+   metadata leaves the initial durable PENDING intact. A crash cannot report its
+   own crash; another worker detects the expired lease and recorded uncertainty.
+8. Recovery reconciles original input/key and current state. A lost local COMMIT
+   reply is resolved by reading the local result first. Remote success after
+   expiry/conflicting state cannot simply become rejection: use agreed recovery/
+   compensation or retain PENDING with reconciliation-needed and operator alert.
+   No synthetic OPEN/ACCEPTED or erased financial uncertainty is approved.
+
+#### Proposed authorization, UI and API contracts
+
+- No stored user tokens, role bypass, unauthenticated retry or new service identity.
+  Existing useApi requests use current Firebase authorization. Expired token can
+  be refreshed while the user session is valid; otherwise ask for sign-in.
+- Without delegated credentials, recovered jobs cannot autonomously call peers
+  after logout/crash. Minute scheduler may identify stale/due work and expose
+  authorization-needed; user explicitly resumes with a fresh token. This limitation
+  must be approved as the interim milestone; fully unattended finance stays blocked.
+- Candidate inbound GET /api/orders/commands/{commandId} plus paginated owned
+  pending-command discovery and POST .../{commandId}/resume. Authenticated owner
+  only, resume has no replacement payload and uses the saved command. Paths/DTOs
+  require approval; no endpoints are added by this record. Unknown command GET404
+  does not authorize generating a new key after a timed-out in-flight submission.
+- Pending response candidate: HTTP 202, commandId, PENDING, attemptCount,
+  reason, nextRetryAt, safe message and optional orderId. Terminal responses
+  preserve successful business codes and store/replay safe rejection envelopes.
+  Commands never expose raw provider traces, token, payload hash or worker internals.
+- Frontend keeps keys after timeout, 202, uncertain 5xx or auth interruption;
+  backend result is authoritative. Same-key Retry/Check-status stays available;
+  disable new conflicting actions/input changes while unresolved. Terminal result
+  clears browser active intent only, never server deduplication evidence.
+- Reuse visible 15-second polling for owned command status/list and existing order/
+  balance refresh. Recover on reload/login through browser key or owned server
+  discovery, so CREATE without a saved Order card remains visible as an operation.
+- Honest messages: scheduled retry time and last attempt; processing attempt N;
+  outcome unknown/checking; sign in or Continue to authorize recovery; definite
+  rejection; reconciliation needed. Never claim crash knowledge on network timeout,
+  automatic retry while auth is unavailable, or completion from Credit alone.
+  Existing neutral components, USER Requester/Courier roles, responsive web and
+  hidden business IDs remain; no ADMIN mutation permission or mode switch added.
+
+#### Proposed delivery order and acceptance tests
+
+1. Obtain design/provider agreement, finish full workflow/source drift review and
+   exact FR/NFR mapping; record ADR/change/contracts/class+sequence/data diagrams.
+2. TDD durable intent/input binding/result replay and safe next migration.
+3. TDD claim/generation/per-order guard, replay-safe three executors and mapped
+   peer results; implement only provider-verified agreed contracts.
+4. TDD authorized status/resume/discovery, client key persistence, pending/retry/
+   auth UI and polling; implement coordinated shared frontend/auth changes only.
+5. TDD recovery scanning, bounded batches/backoff/lease renewal and escalation.
+   Keep minute scan separate from lifecycle and 15-minute outcome-outbox recovery.
+6. Inject failures before/after each intent, peer and local commit/response;
+   race UI/UI, UI/scheduler, two schedulers, lease takeover/stale worker, different
+   keys/order, expiry/cancel versus pending acceptance and start versus abort.
+   Verify one financial effect, one local outcome/history/outbox intent, immutable
+   payload conflict, account isolation, timeout+401 recovery and reload/key loss.
+7. Run Java21 Maven verify, real isolated PostgreSQL migration/concurrency tests,
+   actual Credit contract/integration tests, Vitest/RTL/lint/typecheck/build,
+   authenticated browser tests and live runtime checks. Preserve >=80% lines and
+   branches; code existence or mocked success cannot close Sprint [~].
+- Observability: correlated command/operation/actor/business IDs, attempt/lease
+  generation and safe classification; pending-age/auth/reconciliation metrics
+  and alerts. No sensitive input/tokens in logs; retry budget escalation retains
+  unresolved money records. Exact backoff, timeouts, lease duration and retention
+  are configurable and must be agreed, not hardcoded examples selected silently.
+
+#### Alternatives, operational limits and approval questions
+
+- Recommended: durable synchronous HTTP fast path + exceptional recovery/status
+  polling; keeps current result dependency, adds DB/contract/worker complexity.
+  Plain browser retries/in-process events lose crash records. A broker command
+  flow adds coupling/versioning/IAM/consumer operations and still needs idempotency;
+  no new broker is proposed. Query-only recovery can observe but cannot safely
+  resolve an in-flight write without peer identity/fencing semantics. Existing
+  EV-7 outcome events/outbox and EV-5 lifecycle remain unchanged.
+- Lease expiry alone does NOT prove old worker/HTTP request stopped; Credit must
+  deduplicate overlapping same-command calls and prevent stale attempts affecting
+  newer commands. Safety guarantee is one logical effect, not one physical call.
+- Cloud Run idle/scale-to-zero may delay an in-process minute scan. Guaranteed
+  background timing requires a separate approved deployment/cost decision.
+- Await approval of new schema/API/UI storage and claim/guard behavior; peer's
+  historical key/result/stale-write/compensation contract; explicit user-assisted
+  auth resume interim milestone; and expired-success policy. Retain existing
+  deadlines until an approved alternative; blocked compensation cannot be faked.
+- Rechecked relevant source and primary D1/Overall hashes match. Broad historical
+  mandatory rehydration remains incomplete/truncated, so this is a bounded proposal,
+  not a completed pre-coding gate. No source/test/schema/cloud change or commit.
+
 ## ARCH-EVO-033: New repost minimum and actual-field errors (CHANGE-091)
 
 - Classification: user-approved specification refinement; Vincent, 2026-10-09,
