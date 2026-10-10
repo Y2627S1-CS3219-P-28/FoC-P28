@@ -28,6 +28,7 @@ import com.p28.userservice.authentication.FirebaseAuthService;
 import com.p28.userservice.logic.AddUserRequest;
 import com.p28.userservice.logic.ApplyPenaltyRequest;
 import com.p28.userservice.logic.CourierEligibility;
+import com.p28.userservice.logic.RequesterEligibility;
 import com.p28.userservice.logic.UpdateUserRequest;
 import com.p28.userservice.logic.UserRoleContext;
 import com.p28.userservice.logic.UserService;
@@ -109,6 +110,20 @@ public class UserController {
 
         return ResponseEntity.ok(
                 userService.getCourierEligibility(userId)
+        );
+    }
+
+    // GET /api/users/requester-eligibility/
+    @Operation(summary = "Get requesting user's requester eligibility from auth token")
+    @GetMapping("/requester-eligibility")
+    public ResponseEntity<RequesterEligibility> getRequesterEligibility(
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String userId = token.getUid();
+
+        return ResponseEntity.ok(
+                userService.getRequesterEligibility(userId)
         );
     }
 

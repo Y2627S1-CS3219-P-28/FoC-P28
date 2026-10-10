@@ -77,6 +77,17 @@ public class UserService {
             );
     }
 
+    public RequesterEligibility getRequesterEligibility(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> 
+                        new RuntimeException("User not found"));
+
+        Instant now = Instant.now();
+
+        return new RequesterEligibility(verifyRequester(user));
+    }
+
     public AdminEligibility getAdminEligibility(String userId) {
         User user = userRepository
                 .findByUserId(userId)
@@ -133,7 +144,7 @@ public class UserService {
     }
 
     // Currently, users can only update their username
-    // TODO: update password
+    // Password and email are handled elsewhere
     public User updateUser(String userId, UpdateUserRequest request) {
         User user = getUserByUserId(userId);
 
@@ -177,6 +188,21 @@ public class UserService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
  
+        boolean isAdmin = user.getRoles() != null && user.getRoles().contains("admin");
+        
+        // Checks if it is the last admin
+        // Throws error if it is
+        if (isAdmin) {
+            long adminCount = userRepository.countByRolesContaining("admin");
+
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Cannot delete the last administrator"
+                );
+            }
+        }
+
         // Deletes user from Firebase
         firebaseAuthService.deleteUser(user.getUserId());
 
@@ -197,6 +223,11 @@ public class UserService {
 
         List<String> roles = user.getRoles();
         return roles == null || !roles.contains("admin");
+    }
+
+    public boolean verifyRequester(User user) {
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("requester");
     }
 
     // Adds admin role to user

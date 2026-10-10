@@ -9,4 +9,6 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByUserId(String userId);
 
     Optional<User> findFirstByRolesContaining(String role);
+
+    long countByRolesContaining(String role);
 }
