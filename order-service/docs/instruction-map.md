@@ -19,3 +19,5 @@
 No nested `AGENTS.md` files exist inside `order-service/`. The shared sibling `../frontend/AGENTS.md` applies whenever an approved Order Service vertical slice affects frontend source. Add an Order Service nested file only after a local source/test/deployment subtree exists and needs rules not already covered here; register it in this map.
 
 The parent project `../AGENTS.md` requires Java 21/Spring Boot 4.1.1, Firestore defaults, Docker/Cloud Run conventions, OpenAPI, Firebase authentication, and repository-wide tests. ADR-008 records the user-approved Order Service exception: PostgreSQL on Cloud SQL and Cloud Run. The parent file was not modified; sibling-service Firestore conventions remain unchanged.
+
+CHANGE-092 / ADR-031 updates event guidance in AGENTS.md, skills.md and the spec-driven-development skill: compact refund/completion vs unchanged accepted envelope. FEEDBACK-009 records explicit approval of the Order-only milestone, not compatible peer integration.

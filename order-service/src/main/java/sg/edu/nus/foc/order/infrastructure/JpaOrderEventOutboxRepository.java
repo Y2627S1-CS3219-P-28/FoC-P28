@@ -12,6 +12,15 @@ import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 @Repository
 public interface JpaOrderEventOutboxRepository extends JpaRepository<OrderEventOutbox, String> {
     @Query(value = """
+            select event_id from order_event_outbox
+            where (state = 'PENDING' and next_attempt_at <= :now)
+               or (state = 'IN_PROGRESS' and lease_until <= :now)
+            order by created_at, event_id
+            limit :limit
+            """, nativeQuery = true)
+    List<String> findDueIds(@Param("now") Instant now, @Param("limit") int limit);
+
+    @Query(value = """
             select * from order_event_outbox
             where event_id = :eventId
               and ((state = 'PENDING' and next_attempt_at <= :now)

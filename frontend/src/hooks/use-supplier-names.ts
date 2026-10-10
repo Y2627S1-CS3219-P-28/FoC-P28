@@ -25,7 +25,14 @@ export function useSupplierNames(ids: string[]) {
       signal: controller.signal,
     })
       .then((response) => {
-        setNames(Object.fromEntries(response.items.map((supplier) => [supplier.id, supplierOptionLabel(supplier)])))
+        const resolvedNames: Record<string, string> = Object.fromEntries(
+          response.items.map((supplier) => [supplier.id, supplierOptionLabel(supplier)]),
+        )
+        // Missing locations are a completed lookup, so they must not keep Order cards loading.
+        for (const id of response.missingIds) {
+          resolvedNames[id] = "Location unavailable"
+        }
+        setNames(resolvedNames)
       })
       .catch((requestError) => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return

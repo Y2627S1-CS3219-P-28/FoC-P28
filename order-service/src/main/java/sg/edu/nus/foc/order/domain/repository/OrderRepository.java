@@ -12,6 +12,8 @@ public interface OrderRepository {
 
     Optional<Order> getForUpdate(String id);
 
+    Optional<Order> getForLifecycleUpdate(String id);
+
     Order save(Order order);
 
     void saveAbortedAttempt(OrderCourierAttempt attempt);
@@ -20,11 +22,19 @@ public interface OrderRepository {
 
     OrderPage findRequestedBy(String requesterId, int page, int size);
 
+    OrderPage findRequestedBy(String requesterId, OrderStatus status, int page, int size);
+
     OrderPage findCourierOrders(String courierId, int page, int size);
+
+    OrderPage findCourierOrders(String courierId, OrderStatus status, int page, int size);
 
     OrderPage findAllOrders(OrderStatus status, int page, int size);
 
     List<Order> findDueUnassigned(OrderStatus status, Instant now);
+
+    List<String> findDueUnassignedIds(OrderStatus status, Instant now);
+
+    List<String> findDueForAutoCompletionIds(Instant deliveredAtOrBefore);
 
     List<Order> findDueForAutoCompletion(Instant deliveredAtOrBefore);
 }

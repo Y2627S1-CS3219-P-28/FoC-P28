@@ -1,5 +1,7 @@
 # ADR-016: Exclude checkpoint history from Order events
 
+> Payload supersession (2026-10-09): CHANGE-092 / ADR-031 replaces only refund/completion JSON bodies with exactly seven fields. Order/version metadata remains internal; completion overdue facts are no longer sent. Accepted-cancellation schema is unchanged. FEEDBACK-009 blocks current peer integration. Earlier rationale below is preserved history.
+
 - **Status:** Accepted by the user's explicit request; implementation complete, Maven verification blocked locally
 - **Date:** 2026-10-06
 - **Owner:** Order Service

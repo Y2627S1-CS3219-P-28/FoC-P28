@@ -33,6 +33,23 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> getForLifecycleUpdate(String id) {
+        return repository.findByIdForLifecycleUpdate(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> findDueUnassignedIds(OrderStatus status, Instant now) {
+        return repository.findDueUnassignedIds(status, now);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> findDueForAutoCompletionIds(Instant deliveredAtOrBefore) {
+        return repository.findDueForAutoCompletionIds(OrderStatus.DELIVERED, deliveredAtOrBefore);
+    }
+
+    @Override
     public Order save(Order order) {
         if (order.getAttemptId() != null) {
             throw new IllegalArgumentException("Courier history cannot be saved as a current Order.");
@@ -63,11 +80,26 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    public OrderPage findRequestedBy(String requesterId, OrderStatus status, int page, int size) {
+        if (status == null) {
+            return findRequestedBy(requesterId, page, size);
+        }
+        return toOrderPage(repository.findRequesterOrdersByStatus(requesterId, status, pageRequest(page, size)));
+    }
+
+    @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public OrderPage findCourierOrders(String courierId, int page, int size) {
-        Page<CourierOrderReference> result = repository.findCourierTimeline(
-                courierId,
-                pageRequest(page, size));
+        return findCourierOrders(courierId, null, page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public OrderPage findCourierOrders(String courierId, OrderStatus status, int page, int size) {
+        PageRequest pageable = pageRequest(page, size);
+        Page<CourierOrderReference> result = status == null
+                ? repository.findCourierTimeline(courierId, pageable)
+                : repository.findCourierTimelineByStatus(courierId, status.name(), pageable);
         List<Order> items = result.getContent().stream()
                 .map(reference -> reference.getAttemptId() == null
                         ? repository.findById(reference.getOrderId()).orElseThrow()

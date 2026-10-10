@@ -91,7 +91,6 @@ class OrderOutboxJpaIntegrationTest {
         event.setOrderId(order.getId());
         event.setOrderVersion(1);
         event.setOccurredAt(now);
-        event.setActorId("requester-1");
         outbox.enqueue(event);
 
         List<OrderEventOutbox> claimed = outbox.claimDue(now.plusSeconds(1), now.plusSeconds(60), 10);
@@ -132,7 +131,6 @@ class OrderOutboxJpaIntegrationTest {
         event.setOrderId(order.getId());
         event.setOrderVersion(1);
         event.setOccurredAt(now);
-        event.setActorId("requester-rollback");
 
         assertThrows(IllegalStateException.class, () -> new TransactionTemplate(transactionManager).execute(status -> {
             orders.saveAndFlush(order);

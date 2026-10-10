@@ -31,6 +31,14 @@ public class OrderQueryService {
         return orders.findCourierOrders(courierId, page, size);
     }
 
+    public OrderPage requestedBy(String requesterId, OrderStatus status, int page, int size) {
+        return orders.findRequestedBy(requesterId, status, page, size);
+    }
+
+    public OrderPage courierFor(String courierId, OrderStatus status, int page, int size) {
+        return orders.findCourierOrders(courierId, status, page, size);
+    }
+
     public OrderPage allOrders(OrderStatus status, int page, int size) {
         return orders.findAllOrders(status, page, size);
     }

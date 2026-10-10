@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 import sg.edu.nus.foc.order.domain.OrderEventOutbox;
@@ -32,11 +33,17 @@ public class OrderEventOutboxPersistenceAdapter implements OrderEventOutboxRepos
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<OrderEventOutbox> claim(String eventId, Instant now, Instant leaseExpiry) {
         Optional<OrderEventOutbox> claimable = repository.findClaimableByIdForUpdate(eventId, now);
         claimable.ifPresent(outbox -> outbox.claim(now, leaseExpiry));
         return claimable;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> findDueIds(Instant now, int limit) {
+        return repository.findDueIds(now, limit);
     }
 
     @Override
@@ -48,14 +55,14 @@ public class OrderEventOutboxPersistenceAdapter implements OrderEventOutboxRepos
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPublished(String eventId, Instant publishedAt) {
         OrderEventOutbox outbox = repository.findById(eventId).orElseThrow();
         outbox.markPublished(publishedAt);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void scheduleRetry(String eventId, Instant nextAttemptAt, String error) {
         OrderEventOutbox outbox = repository.findById(eventId).orElseThrow();
         outbox.scheduleRetry(nextAttemptAt, error);

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef } from "react"
 
-export const ORDER_POLL_INTERVAL_MS = 15_000
+export const ORDER_POLL_INTERVAL_MS = 5_000
+const DEFAULT_POLL_INTERVAL_MS = 15_000
 
 /** Read-only refreshes; callers supply auth readiness and handle user-facing errors. */
 export function useVisiblePolling(
   callback: (signal: AbortSignal) => Promise<void>,
   enabled: boolean,
-  intervalMs = ORDER_POLL_INTERVAL_MS,
+  intervalMs = DEFAULT_POLL_INTERVAL_MS,
 ) {
   const active = useRef<AbortController | null>(null)
   const queued = useRef(false)

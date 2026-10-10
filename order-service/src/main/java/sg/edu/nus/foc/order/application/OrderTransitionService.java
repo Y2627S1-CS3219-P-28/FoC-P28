@@ -6,6 +6,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.order.domain.CommandReceipt;
 import sg.edu.nus.foc.order.domain.Order;
@@ -65,7 +66,7 @@ public class OrderTransitionService {
                 "COMPLETE", commandId, order, authenticatedActor, completedAt, version, false, history);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean autoComplete(String id, Instant completedAt) {
         String commandId = "AUTO_COMPLETE:" + id;
         Optional<CommandReceipt> previous = receipts.findExisting("AUTO_COMPLETE", commandId);
@@ -73,7 +74,8 @@ public class OrderTransitionService {
             return false;
         }
 
-        Order order = findForUpdate(id);
+        Order order = orders.getForLifecycleUpdate(id)
+                .orElseThrow(() -> OrderProblem.notFound("Order not found."));
         if (order.getStatus() != OrderStatus.DELIVERED) {
             return false;
         }

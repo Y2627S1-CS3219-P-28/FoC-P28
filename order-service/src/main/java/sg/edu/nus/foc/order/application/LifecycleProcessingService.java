@@ -2,66 +2,56 @@ package sg.edu.nus.foc.order.application;
 
 import java.time.Instant;
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 import sg.edu.nus.foc.order.domain.Order;
-import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderStatus;
-import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
-import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LifecycleProcessingService {
+
     private final OrderRepository orders;
-    private final OrderCheckpointRepository checkpoints;
+    private final OrderExpiryProcessingService expiry;
     private final OrderRepostService reposts;
-    private final OrderEventOutboxRepository outbox;
-    private final ApplicationEventPublisher applicationEvents;
-    private final OrderTaskEventFactory eventFactory;
     private final OrderAuditLogger audit;
     private final OrderTransitionService transitions;
 
-    @Transactional
     public int autoCompleteDue(Instant now) {
         Instant deliveredAtOrBefore = now.minus(Order.AUTOMATIC_COMPLETION_DELAY);
-        List<Order> dueOrders = orders.findDueForAutoCompletion(deliveredAtOrBefore);
+        List<String> dueOrderIds = orders.findDueForAutoCompletionIds(deliveredAtOrBefore);
         int completedCount = 0;
-        for (Order order : dueOrders) {
-            if (transitions.autoComplete(order.getId(), now)) {
-                completedCount++;
+        for (String orderId : dueOrderIds) {
+            try {
+                if (transitions.autoComplete(orderId, now)) {
+                    completedCount++;
+                }
+            } catch (RuntimeException exception) {
+                log.error("Automatic completion failed for order {}; continuing with remaining orders.",
+                        orderId, exception);
             }
         }
         return completedCount;
     }
 
-    @Transactional
     public int expireDue(Instant now) {
-        List<Order> dueOrders = orders.findDueUnassigned(OrderStatus.OPEN, now);
-        for (Order order : dueOrders) {
-            long version = order.getVersion();
-            order.expire(version, now);
-
-            OrderCheckpoint expiredCheckpoint = new OrderCheckpoint(
-                    order.getId(),
-                    order.getStatus(),
-                    now,
-                    "lifecycle",
-                    null);
-            checkpoints.save(expiredCheckpoint);
-            Order saved = orders.save(order);
-
-            String commandId = "EXPIRE:" + saved.getId();
-            OpenOrderRefundTaskEvent event = eventFactory.openRefund(commandId, saved, now);
-            outbox.enqueue(event);
-            applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
-            audit.action("EXPIRE", saved.getId(), "lifecycle", commandId, "accepted");
+        List<String> dueOrderIds = orders.findDueUnassignedIds(OrderStatus.OPEN, now);
+        int expiredCount = 0;
+        for (String orderId : dueOrderIds) {
+            try {
+                if (expiry.expire(orderId, now)) {
+                    expiredCount++;
+                }
+            } catch (RuntimeException exception) {
+                log.error("Expiry failed for order {}; continuing with remaining orders.", orderId, exception);
+            }
         }
-        return dueOrders.size();
+        return expiredCount;
     }
 
     public int repostDue(Instant now, String lifecycleAuthorization) {

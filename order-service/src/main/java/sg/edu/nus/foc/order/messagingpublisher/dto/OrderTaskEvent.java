@@ -15,7 +15,4 @@ public interface OrderTaskEvent {
 
     Instant getOccurredAt();
 
-    String getActorId();
-
-    OrderEventSnapshot getOrder();
 }

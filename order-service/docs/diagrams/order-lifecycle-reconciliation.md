@@ -1,5 +1,10 @@
 # Attached Order flow: approved amendments and implementation gaps
 
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
 CHANGE-088 adds only the [ADR-029 local transport sequence](../decisions/ADR-029-local-live-credit-push.md)
 and [test runbook](../local-live-testing.md). Lifecycle boxes/rules below remain
 unchanged: immediate after-commit plus 15-minute recovery, minute lifecycle.
@@ -136,3 +141,95 @@ repostFailureAt. Successful linkage clears the latest failure; another authorize
 eligible failed attempt overwrites it. Local browser input/auth/state/version
 rejections before an eligible attempt cannot write a persisted peer outcome.
 No retry task is created by this recorder. Existing event JSON remains unchanged.
+
+
+## Per-order scheduler failure boundaries — CHANGE-093
+
+```mermaid
+sequenceDiagram
+    participant Cron as OrderLifecycleScheduler
+    participant Batch as LifecycleProcessingService
+    participant DB as PostgreSQL
+    participant Worker as Expiry worker / autoComplete proxy
+    Cron->>Batch: expireDue(now) / autoCompleteDue(now)
+    Batch->>DB: Select only due IDs (status + deadline/latest delivery)
+    DB-->>Batch: Candidate IDs, no batch row locks
+    loop Each candidate ID
+        Batch->>Worker: Process in REQUIRES_NEW
+        Worker->>DB: Lock this Order NOWAIT and recheck eligibility
+        alt Eligible and processing succeeds
+            Worker->>DB: Commit Order/checkpoint/outbox/receipt as applicable
+            Worker-->>Batch: true after commit
+            Batch->>Batch: Increment success count
+        else Row changed or disappeared
+            Worker-->>Batch: Skip, no transition
+        else Processing, lock or commit fails
+            Worker->>DB: Roll back only this transaction
+            Worker-->>Batch: RuntimeException outside transaction
+            Batch->>Batch: Log ID and continue next candidate
+        end
+    end
+    Batch-->>Cron: Successfully processed count
+    Note over Cron,Batch: Whole-scan failure still allows the other phase and next cron pass
+```
+
+```mermaid
+classDiagram
+    class OrderLifecycleScheduler
+    class LifecycleProcessingService {
+        +expireDue(now) int
+        +autoCompleteDue(now) int
+    }
+    class OrderExpiryProcessingService {
+        +expire(orderId, now) boolean
+    }
+    class OrderTransitionService {
+        +autoComplete(orderId, now) boolean
+    }
+    class OrderRepository {
+        <<interface>>
+        +findDueUnassignedIds(status, now) List~String~
+        +findDueForAutoCompletionIds(cutoff) List~String~
+        +getForLifecycleUpdate(id) Optional~Order~
+    }
+    OrderLifecycleScheduler --> LifecycleProcessingService
+    LifecycleProcessingService --> OrderRepository : DB ID selection
+    LifecycleProcessingService --> OrderExpiryProcessingService : separate transaction
+    LifecycleProcessingService --> OrderTransitionService : separate transaction
+    OrderExpiryProcessingService --> OrderRepository : NOWAIT lock
+    OrderTransitionService --> OrderRepository : NOWAIT for autoComplete
+```
+
+No entity/schema migration. The expiry worker owns its atomic expiry/checkpoint/refund intent; completion retains its existing receipt/outbox flow. Normal command locks, status rules, compact payloads, cron cadence, peer integration blockers and paused automatic repost work are unchanged.
+
+## Outbox item isolation — CHANGE-096
+
+```mermaid
+sequenceDiagram
+    participant Cron as OrderOutboxScheduler
+    participant Relay as OrderOutboxDispatcher
+    participant Store as OrderEventOutboxPersistenceAdapter
+    participant DB as PostgreSQL
+    participant Broker as PubSub
+    Cron->>Relay: dispatchDueBatch (no transaction)
+    Relay->>Store: findDueIds(now, batchSize)
+    Store->>DB: SQL status/deadline/lease filter, ordering and LIMIT
+    DB-->>Relay: eligible IDs
+    loop Each event ID
+        Relay->>Store: claim in REQUIRES_NEW
+        Store->>DB: Recheck eligibility, SKIP LOCKED, commit lease
+        alt Claimed
+            Relay->>Broker: Publish outside DB transaction
+            alt Acknowledged
+                Relay->>Store: markPublished in REQUIRES_NEW
+            else Publish or marker failed
+                Relay->>Store: scheduleRetry in REQUIRES_NEW
+            end
+        else Another worker owns the event
+            Relay->>Relay: Skip
+        end
+        Note over Relay,Store: Catch claim/commit/retry-write errors after transaction ends; continue
+    end
+```
+
+If retry persistence fails, its transaction rolls back; the existing committed lease expires for recovery. An acknowledged publish cannot be rolled back, so a marker failure may replay the stable event ID. Existing lifecycle state/intent rollback rules and cron intervals remain unchanged.

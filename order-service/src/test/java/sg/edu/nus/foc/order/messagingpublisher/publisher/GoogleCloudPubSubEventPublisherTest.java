@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,7 +39,16 @@ class GoogleCloudPubSubEventPublisherTest {
         String messageId = eventPublisher.publish(TOPIC_ID, completionEvent());
 
         assertEquals("message-123", messageId);
-        verify(publisher).publish(any(PubsubMessage.class));
+        ArgumentCaptor<PubsubMessage> sent = ArgumentCaptor.forClass(PubsubMessage.class);
+        verify(publisher).publish(sent.capture());
+        tools.jackson.databind.JsonNode body = JsonMapper.builder().build()
+                .readTree(sent.getValue().getData().toStringUtf8());
+        java.util.Set<String> fields = new java.util.HashSet<>();
+        body.propertyNames().forEach(fields::add);
+        assertEquals(java.util.Set.of("eventId", "eventType", "orderId", "orderStatus",
+                "creditAmount", "occurredAt", "courierId"), fields);
+        assertEquals("2", sent.getValue().getAttributesOrThrow("eventVersion"));
+        assertEquals("event-123", sent.getValue().getAttributesOrThrow("eventId"));
     }
 
     @Test
@@ -117,10 +127,9 @@ class GoogleCloudPubSubEventPublisherTest {
         OrderCompletionTaskEvent event = new OrderCompletionTaskEvent();
         event.setEventId("event-123");
         event.setEventType("OrderCompletionTaskEvent");
-        event.setEventVersion(1);
+        event.setEventVersion(2);
         event.setOrderVersion(4L);
         event.setOccurredAt(Instant.parse("2026-10-02T10:00:00Z"));
-        event.setActorId("requester-1");
         return event;
     }
 }

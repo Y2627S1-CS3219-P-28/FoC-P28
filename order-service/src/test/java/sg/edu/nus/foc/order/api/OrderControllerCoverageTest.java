@@ -57,8 +57,8 @@ class OrderControllerCoverageTest {
         when(queries.get(order.getId())).thenReturn(order);
         OrderPage page = new OrderPage(List.of(order), 0, 20, 1, 1);
         when(queries.available(anyInt(), anyInt())).thenReturn(page);
-        when(queries.requestedBy(anyString(), anyInt(), anyInt())).thenReturn(page);
-        when(queries.courierFor(anyString(), anyInt(), anyInt())).thenReturn(page);
+        when(queries.requestedBy(anyString(), isNull(), anyInt(), anyInt())).thenReturn(page);
+        when(queries.courierFor(anyString(), isNull(), anyInt(), anyInt())).thenReturn(page);
     }
 
     @Test
@@ -71,9 +71,9 @@ class OrderControllerCoverageTest {
         assertEquals(1, controller.available(1, 20).getItems().size());
         when(users.verifyRequester("requester", AUTH)).thenReturn("requester");
         when(users.verifyCourier("courier", AUTH)).thenReturn("courier");
-        assertEquals(1, controller.mine("requester", "requester", AUTH, 1, 20).getItems().size());
-        assertEquals(1, controller.mine("courier", "courier", AUTH, 1, 20).getItems().size());
-        assertThrows(OrderProblem.class, () -> controller.mine("other", "id", AUTH, 1, 20));
+        assertEquals(1, controller.mine("requester", "requester", AUTH, 1, 20, null).getItems().size());
+        assertEquals(1, controller.mine("courier", "courier", AUTH, 1, 20, null).getItems().size());
+        assertThrows(OrderProblem.class, () -> controller.mine("other", "id", AUTH, 1, 20, null));
         verify(creation).create(eq("create"), eq("requester"), eq("item"), eq("pickup"), eq("delivery"), eq(2L),
             eq(15), eq(START.plusSeconds(86400)), isNull(), eq(AUTH));
     }

@@ -44,3 +44,7 @@ The superseded standalone class diagram showed generic `submitCourierOutcomeFlag
 ## Version handling
 
 If any source timestamp or fingerprint changes, reread the complete changed document, compare it with this reference, report conflicts, and update the persistent context only after authority is established.
+
+## CHANGE-092 source recheck — 2026-10-09
+
+D1, Overall and Updated PDFs are now available in the local Foc directory (one directory above the checkout); all three SHA-256 fingerprints match the recorded table. Earlier absent-source statements remain dated history. No PDF modified. ADR-031 is the approved effective payload amendment: compact refund/completion, unchanged accepted snapshot.
