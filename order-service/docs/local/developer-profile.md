@@ -1,5 +1,23 @@
 # Current Developer Profile
 
+## Effective current profile — Vincent, 2026-10-10
+
+- Name: Vincent
+- Developer number: Developer 2
+- Branch: `sprint-2-3-credit-service-concurrency`
+- Sprint: Sprint 2 and Sprint 3, approved durable command recovery contract-stub slice.
+- Assigned scope: Order Service and its shared frontend for CREATE, ACCEPT and
+  ACCEPTED-only abort recovery; Order-owned migration, tests and cooperation
+  handoff under `concurrency/concurrency-order-credit.md`. Sibling services remain
+  read-only. No cloud/deployment changes or service credentials.
+- Approval: Vincent explicitly confirmed identity/branch and approved the updated
+  plan on 2026-10-10. Separately approved a documented contract-stub milestone with
+  live HTTP recovery disabled until Credit implements and verifies the contract.
+- UI: pending/disabled until terminal outcome; an explicit recovery control only
+  when user authorization is needed. No persisted bearer/refresh tokens.
+
+## Historical Yao Xiang profile from the integrated checkout
+
 - Name: Yao Xiang
 - Developer number: Developer 1
 - Sprint: Sprint 2 and Sprint 3, approved compact-event slice and lifecycle failure-isolation fix
