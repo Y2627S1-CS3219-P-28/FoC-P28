@@ -121,7 +121,10 @@ Or re-run **Deploy production** with an older commit SHA (its images are still i
 - **Least privilege at runtime.** Each Cloud Run service runs as `foc-<service>@`, which can
   only access its own Firestore databases (IAM condition on the database name).
 - **Config vs secrets.** Non-secret settings are committed in `infra/environments/*.env`.
-  Secrets go in Secret Manager and are mounted with `--set-secrets` in `EXTRA_FLAGS`.
+  Secrets go in Secret Manager and are mounted with `--set-secrets` in `EXTRA_FLAGS`: the Order and
+  Credit database passwords, and the User Service's MongoDB Atlas connection string
+  (`user-mongodb-uri-<environment>`; `bootstrap.sh` creates it, the owner adds the value with
+  `printf '%s' "$URI" | gcloud secrets versions add user-mongodb-uri-<environment> --data-file=-`).
 
 ## One-time setup (already done for this project)
 

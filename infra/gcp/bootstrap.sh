@@ -63,6 +63,7 @@ sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "
 credit_sql_database() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_DATABASE" || echo "$CREDIT_SQL_PRODUCTION_DATABASE"; }
 credit_sql_user() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_USER" || echo "$CREDIT_SQL_PRODUCTION_USER"; }
 credit_sql_secret() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_SECRET" || echo "$CREDIT_SQL_PRODUCTION_SECRET"; }
+user_mongodb_secret() { [[ $1 == staging ]] && echo "$USER_MONGODB_STAGING_SECRET" || echo "$USER_MONGODB_PRODUCTION_SECRET"; }
 secret_has_version() {
   local secret=$1 version
   version=$(gc secrets versions list "$secret" --filter='state=ENABLED' --format='value(name)' | head -n1)
@@ -148,6 +149,16 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 # The Credit Service runtime identity may connect to Cloud SQL; database credentials remain in Secret Manager.
 project_binding --member "serviceAccount:$(runtime_sa credit-service)" --role roles/cloudsql.client --condition None
+
+log "User Service MongoDB connection strings (Secret Manager)"
+for env in "${ENVIRONMENTS[@]}"; do
+  secret=$(user_mongodb_secret "$env")
+  exists gc secrets describe "$secret" || gc secrets create "$secret" --replication-policy=automatic >/dev/null
+  gc secrets add-iam-policy-binding "$secret" \
+    --member "serviceAccount:$(runtime_sa user-service)" --role roles/secretmanager.secretAccessor >/dev/null
+  secret_has_version "$secret" ||
+    echo "NOTE: add the $env MongoDB URI: printf '%s' \"\$URI\" | gcloud secrets versions add $secret --data-file=-"
+done
 
 log "Firestore databases (database-per-service)"
 for svc in ${FIRESTORE_SERVICES[@]+"${FIRESTORE_SERVICES[@]}"}; do

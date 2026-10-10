@@ -20,6 +20,9 @@
 #   - credit-service runtime identity can connect and read its password secrets
 # Order Service Pub/Sub, per environment:
 #   - its three topics exist and order-service's runtime identity may publish to them
+# User Service MongoDB, per environment:
+#   - its connection-string secret exists and user-service's identity can read it
+#   - the secret has a value once user-service-<environment> is deployed
 # Credit Service Pub/Sub push (when enabled in project.env):
 #   - three Order-topic subscriptions target the authenticated Credit push endpoint
 #   - shared dead-letter topic/recovery subscription and required IAM bindings exist
@@ -50,6 +53,7 @@ sql_secret() { [[ $1 == staging ]] && echo "$CLOUD_SQL_STAGING_SECRET" || echo "
 credit_sql_database() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_DATABASE" || echo "$CREDIT_SQL_PRODUCTION_DATABASE"; }
 credit_sql_user() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_USER" || echo "$CREDIT_SQL_PRODUCTION_USER"; }
 credit_sql_secret() { [[ $1 == staging ]] && echo "$CREDIT_SQL_STAGING_SECRET" || echo "$CREDIT_SQL_PRODUCTION_SECRET"; }
+user_mongodb_secret() { [[ $1 == staging ]] && echo "$USER_MONGODB_STAGING_SECRET" || echo "$USER_MONGODB_PRODUCTION_SECRET"; }
 credit_pubsub_enabled() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_ENABLED" || echo "$CREDIT_PUBSUB_PRODUCTION_ENABLED"; }
 credit_dlq_topic() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_TOPIC" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_TOPIC"; }
 credit_dlq_subscription() { [[ $1 == staging ]] && echo "$CREDIT_PUBSUB_STAGING_DLQ_SUBSCRIPTION" || echo "$CREDIT_PUBSUB_PRODUCTION_DLQ_SUBSCRIPTION"; }
@@ -194,6 +198,29 @@ for env in "${environments[@]}"; do
       problem "order-service: $(runtime_sa order-service) cannot publish to '$topic' ($env)"
     fi
   done
+done
+
+echo "User Service MongoDB connection string"
+for env in "${environments[@]}"; do
+  secret=$(user_mongodb_secret "$env")
+  if ! gcloud secrets describe "$secret" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "user-service: Secret Manager secret '$secret' does not exist"
+    continue
+  fi
+  if gcloud secrets get-iam-policy "$secret" --project "$PROJECT_ID" --format json |
+      jq -e --arg m "serviceAccount:$(runtime_sa user-service)" \
+        '.bindings // [] | any(.role == "roles/secretmanager.secretAccessor" and (.members | index($m)))' >/dev/null; then
+    ok "user-service: $(runtime_sa user-service) can access secret '$secret'"
+  else
+    problem "user-service: $(runtime_sa user-service) cannot access secret '$secret'"
+  fi
+  if gcloud secrets versions list "$secret" --project "$PROJECT_ID" --filter='state=ENABLED' --format='value(name)' | grep -q .; then
+    ok "user-service: secret '$secret' has a value"
+  elif gcloud run services describe "user-service-$env" --project "$PROJECT_ID" --region "$REGION" >/dev/null 2>&1; then
+    problem "user-service: secret '$secret' has no enabled version, but user-service-$env is deployed"
+  else
+    ok "user-service: secret '$secret' has no value yet (add it before the first $env deploy)"
+  fi
 done
 
 echo "Credit Service Pub/Sub push"
