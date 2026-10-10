@@ -83,3 +83,14 @@ boundary; native browser storage/transaction behavior still needs browser QA.
 Lease renewal/production timeouts and scale-to-zero operational scheduling need
 review before production activation. Local profile changes remain personal,
 and learning documentation remains excluded from commits.
+
+## Local atomic commits
+
+- `2e2b263`: approved design, persistent context, Credit handoff and AI disclosure.
+- `3dd1bf8`: backend command recovery, V5 migration and verified backend tests.
+- `5dea2ee`: frontend pending-command recovery and verified frontend tests.
+
+No push performed. Only personal `docs/local/developer-profile.md` identity
+reconciliation remains uncommitted; no peer or infrastructure files are staged.
+Learning remains Git-excluded. The final verification handoff is a separate
+documentation-only commit.

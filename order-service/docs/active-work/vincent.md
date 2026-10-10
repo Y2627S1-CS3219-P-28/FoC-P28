@@ -25,7 +25,12 @@
   TDD red/green details and timer-isolation commands are in CHANGE-100.
 - Frontend final: **73/73 tests**, lint **0 errors / 12 pre-existing unrelated
   warnings**, Next route generation/typecheck and production build passed.
-  No native authenticated browser/IndexedDB QA claim. Commit hashes follow below.
+  No native authenticated browser/IndexedDB QA claim.
+- Local atomic commits: `2e2b263` approved design/contract-stub handoff and
+  disclosure; `3dd1bf8` backend recovery/migration/tests; `5dea2ee` shared
+  frontend pending-command recovery/tests. No push performed. Only the personal
+  `docs/local/developer-profile.md` identity reconciliation is left uncommitted;
+  learning remains excluded. Final verification handoff records these hashes.
 - Source drift: approved PDF SHA256 values match. Generic format/drift helpers
   do not accept historical local table/text formats and FAIL separately; existing
   committed AI log merge markers preserved, no false all-workflow-passed claim.
