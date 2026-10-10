@@ -128,7 +128,14 @@ Or re-run **Deploy production** with an older commit SHA (its images are still i
 ```bash
 gcloud auth login   # or activate an owner service account
 infra/gcp/bootstrap.sh
+infra/gcp/configure-order-pubsub.sh staging      # Order topics + publisher access, per environment
+infra/gcp/configure-order-pubsub.sh production
+infra/gcp/configure-credit-pubsub.sh staging     # Credit push subscriptions (after credit-service is deployed)
 ```
+
+Each environment has its own Order topics (`*-staging-v1`, `*-prod-v1`). Local runs publish to the
+`*-dev-v1` topics, which no cloud environment subscribes to, so a laptop can never deliver events to
+staging.
 
 The script is idempotent and works out its service lists from the repository: every service
 folder gets a runtime identity, and every service using the Firestore client gets its
