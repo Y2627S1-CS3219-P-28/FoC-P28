@@ -37,5 +37,6 @@
   fails existing manifest-column format. Generic completion helper fails on
   historical heterogeneous traceability/status tables and active-work text;
   these are not backend failures or claimed passes. No broad history repair.
-- Source/test commit: `10fd76d`; documentation/disclosure committed separately.
+- Source/test commit: `10fd76d`; documentation/disclosure commit: `7914810`.
+  Learning remains excluded; personal profile is intentionally unstaged. No push.
 - Rollback: restore separate timer and constructor/tests; do not delete data.

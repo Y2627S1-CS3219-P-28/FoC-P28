@@ -30,7 +30,9 @@
 - Next: human review/rebuild Order when ready; Annablee's real replay/result/
   fencing/compensation contract still required before enabling HTTP recovery.
   Sprint `[~]`; live recovery `[!]`. Personal local profile remains unstaged;
-  learning remains excluded. Documentation/disclosure commit recorded below.
+  learning remains excluded. Documentation/disclosure commit: `7914810`.
+  Source/test commit: `10fd76d`; no push performed. Final deterministic helper
+  still reports 173 historical-format blockers; none concern SCH-* rows.
 
 ## Durable command recovery contract-stub slice — locally verified 2026-10-10
 
