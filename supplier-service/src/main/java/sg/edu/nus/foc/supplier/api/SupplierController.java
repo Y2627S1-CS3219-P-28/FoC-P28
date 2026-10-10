@@ -185,9 +185,7 @@ public class SupplierController {
     @PreAuthorize(ADMIN_ONLY)
     @Operation(summary = "Update any field or the active status of a supplier (admin, F6.2)")
     public SupplierResponse update(@PathVariable String id, @Valid @RequestBody UpdateSupplierRequest request) {
-        Supplier current = service.get(id);
-        boolean active = request.active() != null ? request.active() : current.active();
-        Supplier updated = service.update(id, request.applyTo(current.details()), active);
+        Supplier updated = service.update(id, request::applyTo, request.active());
         return SupplierResponse.from(updated, service.isOpenNow(updated), null);
     }
 
