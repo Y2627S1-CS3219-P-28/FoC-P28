@@ -25,6 +25,6 @@ public final class Suppliers {
 
     public static Supplier supplier(String id, SupplierDetails details, boolean active) {
         Instant t = Instant.parse("2026-09-01T00:00:00Z");
-        return new Supplier(id, details, active, SupplierSource.ADMIN, t, t);
+        return new Supplier(id, details, active, SupplierSource.ADMIN, null, false, t, t);
     }
 }

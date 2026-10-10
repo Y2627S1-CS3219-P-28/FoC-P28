@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -69,8 +70,14 @@ public class SupplierService {
         return created;
     }
 
-    public Supplier update(String id, SupplierDetails details, boolean active) {
-        Supplier updated = repository.update(id, details, active);
+    /**
+     * An administrator's edit (F6.2). {@code change} is applied to the current details inside the write
+     * transaction, so concurrent edits of different fields are not lost.
+     *
+     * @param active the new active flag, or {@code null} to keep it
+     */
+    public Supplier update(String id, UnaryOperator<SupplierDetails> change, Boolean active) {
+        Supplier updated = repository.update(id, change, active);
         invalidateCache();
         return updated;
     }
@@ -78,7 +85,7 @@ public class SupplierService {
     /** Soft delete (F6.3): the record stays retrievable by ID but is no longer selectable. */
     public Supplier deactivate(String id) {
         Supplier current = get(id);
-        return current.active() ? update(id, current.details(), false) : current;
+        return current.active() ? update(id, UnaryOperator.identity(), false) : current;
     }
 
     /** F5.1: both suppliers must exist, be active and be different. */

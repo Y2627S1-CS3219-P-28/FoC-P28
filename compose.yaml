@@ -93,6 +93,12 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 12
 
   supplier-service:
     build: ./supplier-service
@@ -101,6 +107,9 @@ services:
     environment:
       <<: [*backend-env, *firestore-env]
       FIRESTORE_DATABASE_ID: supplier-local
+      # Roles come from the User Service. Reads don't need it, so there is deliberately no
+      # startup dependency on it; set SUPPLIER_USER_SERVICE_MODE=mock to use MOCK_ADMIN_EMAILS.
+      USER_SERVICE_MODE: ${SUPPLIER_USER_SERVICE_MODE:-http}
       # Mounted, not baked into the image (Supplier F2.1.1).
       SUPPLIER_SEED_FILE: /data/supplier-seed-data.csv
     volumes:
@@ -162,6 +171,10 @@ services:
     environment:
       <<: *backend-env
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
+    depends_on:
+      <<: *backend-depends
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s
@@ -201,8 +214,11 @@ services:
       ORDER_LIFECYCLE_CRON: ${ORDER_LIFECYCLE_CRON:-0 * * * * *}
       ORDER_OUTBOX_RECOVERY_CRON: ${ORDER_OUTBOX_RECOVERY_CRON:-0 */15 * * * *}
     volumes:
+      # Your gcloud application-default credentials, to publish to the real Pub/Sub dev topics.
+      # Optional: without them a placeholder is mounted, the stack still starts, and Order events
+      # stay in the outbox (logged as publish failures) instead of reaching Pub/Sub.
       - type: bind
-        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to your local ADC credentials file}
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:-./infra/local/adc-placeholder.json}
         target: /var/run/secrets/google/application_default_credentials.json
         read_only: true
     depends_on:

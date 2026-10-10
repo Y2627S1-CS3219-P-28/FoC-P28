@@ -159,6 +159,18 @@ export function mapsUrl(supplier: Pick<Supplier, "latitude" | "longitude">): str
   return `https://www.google.com/maps/search/?api=1&query=${supplier.latitude},${supplier.longitude}`
 }
 
+/**
+ * The fields an edit actually changed. Sending only these in the PATCH means two administrators
+ * editing different fields of the same supplier don't overwrite each other's changes.
+ */
+export function changedFields(before: SupplierInput, after: SupplierInput): Partial<SupplierInput> {
+  return Object.fromEntries(
+    (Object.keys(after) as (keyof SupplierInput)[])
+      .filter((key) => after[key] !== before[key])
+      .map((key) => [key, after[key]]),
+  ) as Partial<SupplierInput>
+}
+
 export function toInput(supplier: Supplier): SupplierInput {
   return {
     name: supplier.name,
