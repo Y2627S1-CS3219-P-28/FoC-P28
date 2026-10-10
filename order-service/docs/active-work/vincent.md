@@ -25,6 +25,9 @@
   deployment/CI changes. Maven/browser/cloud/ledger tests not rerun for doc-only task.
 - Human review and live peer/financial/penalty gates remain. No Sprint or peer VERIFIED
   upgrade; HTTP recovery remains disabled. See CHANGE-103 for commands and evidence.
+- Documentation/validator commit: `5556eb9`; local only, not pushed. Final guide
+  relative links (7) and whitespace checks pass. AI disclosure recorded separately;
+  learning remains excluded and no application/sibling edits were included.
 
 ## Swagger / Pub/Sub documentation audit — 2026-10-10, inspected
 

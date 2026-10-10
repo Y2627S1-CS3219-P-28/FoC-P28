@@ -69,3 +69,7 @@ Historical decisions/feedback are preserved. Sprint remains `[~]`.
 No Java, frontend, peer source, migrations, database, topic/subscription, IAM,
 Compose, gateway, CI or service credentials were changed. Documentation validation
 does not fix operational or authorization gaps and does not finish the Sprint.
+
+Documentation/validator commit: `5556eb9`, local only. Guide relative links (7)
+and whitespace/scope checks pass. Task disclosure and commit handoff are recorded
+separately; excluded learning is not staged. Human review remains pending.
