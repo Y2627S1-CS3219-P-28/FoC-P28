@@ -1,7 +1,6 @@
 # Vincent - Active Work
 
 ## CHANGE-103: AsyncAPI Pub/Sub documentation — 2026-10-10/11, locally verified
-
 - Vincent profile/allocation/branch match
   `sprint-2-3-credit-service-concurrency-update-event-payload`; clean starting tree.
 - User approves documenting current Pub/Sub in AsyncAPI, not changing messages,
