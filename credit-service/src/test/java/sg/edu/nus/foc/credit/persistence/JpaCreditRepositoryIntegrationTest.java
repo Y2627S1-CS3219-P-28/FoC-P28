@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +29,9 @@ import sg.edu.nus.foc.credit.credit.ReservationResult;
 import sg.edu.nus.foc.credit.credit.ReservationStatus;
 import sg.edu.nus.foc.credit.credit.CreditOutcomeEvent;
 import sg.edu.nus.foc.credit.credit.CreditOutcomeType;
+import sg.edu.nus.foc.credit.credit.CreditDirection;
+import sg.edu.nus.foc.credit.credit.CreditTransactionPage;
+import sg.edu.nus.foc.credit.credit.CreditTransactionType;
 import sg.edu.nus.foc.credit.error.AccountNotFoundException;
 import sg.edu.nus.foc.credit.error.EventConflictException;
 import sg.edu.nus.foc.credit.error.InsufficientCreditsException;
@@ -241,19 +245,19 @@ class JpaCreditRepositoryIntegrationTest {
                 .isInstanceOf(AccountNotFoundException.class);
 
         repository.refund(outcome("refund-1", CreditOutcomeType.OPEN_ORDER_REFUND,
-                "CANCELLED", null, "requester"));
+                "CANCELLED", null));
         assertThatThrownBy(() -> repository.holdForReopen("order-1", "requester"))
                 .isInstanceOf(ReservationStateConflictException.class);
     }
 
     @Test
-    void refundsOpenAndAcceptedCancellationEventsExactlyOnce() {
+    void refundsCancellationAndExpiryEventsExactlyOnce() {
         createAccount("requester");
         createAccount("courier");
         repository.reserve("open-order", "requester", 10);
         CreditOutcomeEvent openRefund = outcomeForOrder(
                 "refund-open", CreditOutcomeType.OPEN_ORDER_REFUND,
-                "open-order", 10, "EXPIRED", null, "lifecycle");
+                "open-order", 10, "EXPIRED", null);
 
         repository.refund(openRefund);
         repository.refund(openRefund);
@@ -264,49 +268,90 @@ class JpaCreditRepositoryIntegrationTest {
                 .isEqualTo("REFUNDED");
         assertThat(repository.findAccount("requester").orElseThrow().reservedBalance()).isZero();
         assertThat(count("credit_ledger")).isEqualTo(4);
-
-        repository.reserve("accepted-order", "requester", 7);
-        repository.assignCourier("accepted-order", "courier");
-        repository.refund(outcomeForOrder(
-                "refund-accepted", CreditOutcomeType.ACCEPTED_ORDER_CANCELLATION,
-                "accepted-order", 7, "ABORTED", null, "courier"));
         assertThat(jdbc.queryForObject(
-                "select status from credit_reservations where order_id = 'accepted-order'", String.class))
-                .isEqualTo("REFUNDED");
+                "select refund_reason from credit_ledger where order_id = 'open-order' and effect_type = 'REFUND'",
+                String.class)).isEqualTo("EXPIRY");
 
-        assertThatThrownBy(() -> repository.refund(outcomeForOrder(
-                "refund-bad", CreditOutcomeType.ACCEPTED_ORDER_CANCELLATION,
-                "accepted-order", 7, "ABORTED", null, "other-courier")))
-                .isInstanceOf(ReservationStateConflictException.class);
+        repository.reserve("cancelled-order", "requester", 7);
+        repository.refund(outcomeForOrder(
+                "refund-cancelled", CreditOutcomeType.OPEN_ORDER_REFUND,
+                "cancelled-order", 7, "CANCELLED", null));
+        assertThat(jdbc.queryForObject(
+                "select status from credit_reservations where order_id = 'cancelled-order'", String.class))
+                .isEqualTo("REFUNDED");
         assertThatThrownBy(() -> repository.refund(new CreditOutcomeEvent(
-                "refund-open", CreditOutcomeType.OPEN_ORDER_REFUND, 1, "open-order", 2,
-                OCCURRED_AT, "lifecycle", "requester", null, 11, "EXPIRED", false, null)))
+                "refund-open", CreditOutcomeType.OPEN_ORDER_REFUND, "open-order", "EXPIRED",
+                11, OCCURRED_AT, null)))
                 .isInstanceOf(EventConflictException.class);
     }
 
     @Test
-    void refundsAcceptedCancellationWhenReopenHoldAlreadyClearedTheCourier() {
+    void verifiesRefundCourierAgainstAuthoritativeReservation() {
         createAccount("requester");
         createAccount("courier");
         repository.reserve("order-1", "requester", 10);
         repository.assignCourier("order-1", "courier");
+        assertThatThrownBy(() -> repository.refund(outcome(
+                "refund-mismatch", CreditOutcomeType.OPEN_ORDER_REFUND,
+                "EXPIRED", null)))
+                .isInstanceOf(ReservationStateConflictException.class);
         repository.holdForReopen("order-1", "courier");
-        CreditOutcomeEvent cancellation = outcome(
-                "refund-after-hold", CreditOutcomeType.ACCEPTED_ORDER_CANCELLATION,
-                "ABORTED", null, "courier");
+        repository.refund(outcome("refund-after-hold", CreditOutcomeType.OPEN_ORDER_REFUND,
+                "EXPIRED", null));
+        assertThat(repository.findReservation("order-1").orElseThrow().status())
+                .isEqualTo(ReservationStatus.REFUNDED);
+    }
 
-        repository.refund(cancellation);
-        repository.refund(cancellation);
+    @Test
+    void rejectsMissingReservationAndMismatchedCompactFinancialFacts() {
+        createAccount("requester");
+        createAccount("courier");
+        assertThatThrownBy(() -> repository.refund(outcomeForOrder(
+                "missing", CreditOutcomeType.OPEN_ORDER_REFUND,
+                "missing-order", 10, "EXPIRED", null)))
+                .isInstanceOf(ReservationNotFoundException.class);
 
-        assertThat(repository.findReservation("order-1").orElseThrow()).satisfies(reservation -> {
-            assertThat(reservation.status()).isEqualTo(ReservationStatus.REFUNDED);
-            assertThat(reservation.courierId()).isNull();
-        });
-        assertThat(repository.findAccount("requester").orElseThrow()).satisfies(account -> {
-            assertThat(account.totalBalance()).isEqualTo(50);
-            assertThat(account.reservedBalance()).isZero();
-        });
-        assertThat(count("credit_ledger")).isEqualTo(4);
+        repository.reserve("order-1", "requester", 10);
+        assertThatThrownBy(() -> repository.refund(new CreditOutcomeEvent(
+                "wrong-amount", CreditOutcomeType.OPEN_ORDER_REFUND, "order-1", "CANCELLED",
+                11, OCCURRED_AT, null)))
+                .isInstanceOf(ReservationStateConflictException.class);
+        assertThat(repository.findReservation("order-1").orElseThrow().status())
+                .isEqualTo(ReservationStatus.RESERVED);
+    }
+
+    @Test
+    void readsStableNewestFirstHistoryAndMapsLegacyRefunds() {
+        createAccount("requester");
+        repository.reserve("order-1", "requester", 10);
+        repository.refund(outcome("refund-1", CreditOutcomeType.OPEN_ORDER_REFUND,
+                "CANCELLED", null));
+        jdbc.update("""
+                insert into credit_ledger
+                    (entry_id, user_id, order_id, origin_type, origin_id, effect_type, amount,
+                     total_balance_delta, reserved_balance_delta, occurred_at, created_at, refund_reason)
+                values (?, 'requester', 'legacy-order', 'LEGACY_REFUND', 'legacy-refund',
+                        'REFUND', 3, 0, -3, ?, ?, null)
+                """, UUID.randomUUID(), Timestamp.from(Instant.parse("2099-01-01T00:00:00Z")),
+                Timestamp.from(Instant.parse("2099-01-01T00:00:00Z")));
+
+        CreditTransactionPage first = repository.findTransactions("requester", 1, 2);
+        assertThat(first.items()).hasSize(2);
+        assertThat(first.items().getFirst().type()).isEqualTo(CreditTransactionType.REFUNDED);
+        assertThat(first.items().getFirst().direction()).isEqualTo(CreditDirection.CREDIT);
+        assertThat(first.items().getFirst().orderId()).isEqualTo("legacy-order");
+        assertThat(first.totalItems()).isEqualTo(4);
+        assertThat(first.totalPages()).isEqualTo(2);
+
+        CreditTransactionPage all = repository.findTransactions("requester", 1, 10);
+        assertThat(all.items()).extracting(transaction -> transaction.type())
+                .containsExactlyInAnyOrder(
+                        CreditTransactionType.REFUNDED,
+                        CreditTransactionType.REFUNDED_CANCELLATION,
+                        CreditTransactionType.RESERVATION,
+                        CreditTransactionType.INITIAL_ALLOCATION);
+        assertThat(all.items()).extracting(transaction -> transaction.occurredAt())
+                .isSortedAccordingTo(java.util.Comparator.reverseOrder());
     }
 
     @Test
@@ -317,7 +362,7 @@ class JpaCreditRepositoryIntegrationTest {
         repository.reserve("order-1", "requester", 10);
         repository.assignCourier("order-1", "courier");
         CreditOutcomeEvent completion = outcome(
-                "complete-1", CreditOutcomeType.ORDER_COMPLETION, "COMPLETED", "courier", "requester");
+                "complete-1", CreditOutcomeType.ORDER_COMPLETION, "COMPLETED", "courier");
 
         repository.settle(completion);
         repository.settle(completion);
@@ -331,9 +376,8 @@ class JpaCreditRepositoryIntegrationTest {
         assertThat(count("credit_ledger")).isEqualTo(6);
 
         assertThatThrownBy(() -> repository.settle(new CreditOutcomeEvent(
-                "complete-bad", CreditOutcomeType.ORDER_COMPLETION, 1, "order-1", 2,
-                OCCURRED_AT, "requester", "requester", "other-courier", 10,
-                "COMPLETED", false, null)))
+                "complete-bad", CreditOutcomeType.ORDER_COMPLETION, "order-1", "COMPLETED",
+                10, OCCURRED_AT, "other-courier")))
                 .isInstanceOf(ReservationStateConflictException.class);
     }
 
@@ -342,15 +386,13 @@ class JpaCreditRepositoryIntegrationTest {
     }
 
     private CreditOutcomeEvent outcome(String eventId, CreditOutcomeType type, String status,
-                                       String courierId, String actorId) {
-        return outcomeForOrder(eventId, type, "order-1", 10, status, courierId, actorId);
+                                       String courierId) {
+        return outcomeForOrder(eventId, type, "order-1", 10, status, courierId);
     }
 
     private CreditOutcomeEvent outcomeForOrder(String eventId, CreditOutcomeType type, String orderId,
-                                               long amount, String status, String courierId,
-                                               String actorId) {
-        return new CreditOutcomeEvent(eventId, type, 1, orderId, 2, OCCURRED_AT, actorId,
-                "requester", courierId, amount, status, false, null);
+                                               long amount, String status, String courierId) {
+        return new CreditOutcomeEvent(eventId, type, orderId, status, amount, OCCURRED_AT, courierId);
     }
 
     private long count(String table) {

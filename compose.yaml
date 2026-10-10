@@ -128,7 +128,6 @@ services:
       CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-credit-push-local@demo-foc.iam.gserviceaccount.com
       CREDIT_ORDER_COMPLETION_SUBSCRIPTION: ${CREDIT_ORDER_COMPLETION_SUBSCRIPTION:-credit-order-completion-dev-v1}
       CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: ${CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION:-credit-open-order-refund-dev-v1}
-      CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION: ${CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION:-credit-accepted-order-cancellation-dev-v1}
     depends_on:
       <<: *backend-depends
       credit-postgres:

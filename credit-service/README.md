@@ -46,6 +46,7 @@ Order-to-Credit service calls is separate work.
 |---|---|---|
 | `POST` | `/api/credits/registration-facts` | Idempotently allocate 50 credits after registration. |
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
+| `GET` | `/api/credits/me/transactions?page=1&size=20` | Return the authenticated user's newest credit transactions. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
 | `PUT` | `/api/credits/orders/{orderId}/courier-assignment` | Idempotently associate the authenticated courier before Order persists acceptance. |
@@ -62,14 +63,18 @@ endpoint:
 | Event | Push endpoint | Credit action |
 |---|---|---|
 | `OpenOrderRefundTaskEvent` | `POST /api/credits/internal/order-events/open-refund` | Release the requester's reservation after `CANCELLED` or `EXPIRED`. |
-| `AcceptedOrderCancellationTaskEvent` | `POST /api/credits/internal/order-events/accepted-cancellation` | Release the reservation after the assigned courier aborts at/after expiry. |
 | `OrderCompletionTaskEvent` | `POST /api/credits/internal/order-events/completion` | Debit the requester's reserved/total balance and credit the recorded courier. |
 
 These endpoints use a separate Google OIDC security chain from the Firebase-authenticated user API.
 It validates the push service-account email, token issuer and audience. Each endpoint invokes its
 designated handler directly, while checking the subscription and declared event type as routing
-guardrails. The receiver also validates event version 1,
-top-level/snapshot identifiers and versions, resulting status, requester, amount, and courier.
+guardrails. The receiver requires compact schema version 2 in the Pub/Sub attributes and verifies
+the attribute event ID/type against the seven-field body. Credit resolves the requester from its
+reservation and verifies the event amount and courier against that authoritative record.
+
+`AcceptedOrderCancellationTaskEvent` remains an Order/User penalty event and is not consumed by
+Credit. When an expired accepted-order cancellation requires a financial refund, Order emits a
+separate `OpenOrderRefundTaskEvent` with `orderStatus=EXPIRED`.
 
 The service records `eventId` and a payload hash in the same PostgreSQL transaction as reservation,
 account, and ledger mutations. It returns HTTP 204 only after that transaction succeeds; any
@@ -96,6 +101,9 @@ validates the schema at application startup:
 | `credit_reservations` | `order_id` | One idempotent reservation per order. |
 | `credit_idempotency_records` | `(operation, idempotency_key)` | Event/command source, payload hash, resource, and replay protection. |
 | `credit_ledger` | `entry_id` | Immutable evidence of every successful balance change. |
+
+Refund ledger rows persist `CANCELLATION` or `EXPIRY`. Historical rows without a reason are exposed
+as a generic refund. Transaction history is ordered by occurrence time, creation time, then entry ID.
 
 Account, reservation/idempotency, and ledger writes commit in one PostgreSQL transaction.
 Account rows are locked during balance mutations so concurrent reservations cannot overdraw an account.

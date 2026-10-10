@@ -3,7 +3,6 @@ import { createServer } from 'node:http';
 const expectedBody = JSON.stringify({ message: { data: 'synthetic-test' }, subscription: 'synthetic' });
 const expectedPaths = new Set([
   '/api/credits/internal/order-events/open-refund',
-  '/api/credits/internal/order-events/accepted-cancellation',
   '/api/credits/internal/order-events/completion',
 ]);
 createServer((request, response) => {

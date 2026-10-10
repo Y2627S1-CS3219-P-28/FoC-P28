@@ -60,7 +60,6 @@ import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.credit.CreditService;
 import sg.edu.nus.foc.credit.error.GlobalExceptionHandler;
-import sg.edu.nus.foc.credit.messaging.AcceptedOrderCancellationEventHandler;
 import sg.edu.nus.foc.credit.messaging.OpenOrderRefundEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderEventMessage;
@@ -84,7 +83,6 @@ class PubSubPushSecurityTest {
     @MockitoBean CreditService credits;
     @MockitoBean OrderEventPayloadDecoder decoder;
     @MockitoBean OpenOrderRefundEventHandler openRefundHandler;
-    @MockitoBean AcceptedOrderCancellationEventHandler acceptedCancellationHandler;
     @MockitoBean OrderCompletionEventHandler completionHandler;
     @MockitoBean(name = "jwtDecoder") JwtDecoder firebaseDecoder;
 
@@ -96,12 +94,11 @@ class PubSubPushSecurityTest {
                 .issuedAt(Instant.now().minusSeconds(10)).expiresAt(Instant.now().plusSeconds(300)).build();
         doReturn(user).when(firebaseDecoder).decode(FIREBASE_TOKEN);
         when(roles.rolesFor(any())).thenReturn(Set.of(Role.COURIER));
-        when(decoder.decode(eq(SUBSCRIPTION), eq(PAYLOAD), eq(SUBSCRIPTION),
+        when(decoder.decode(eq(SUBSCRIPTION), eq(PAYLOAD), any(), eq(SUBSCRIPTION),
                 eq("OpenOrderRefundTaskEvent")))
                 .thenReturn(new OrderEventMessage(
-                        "security-test-event", "OpenOrderRefundTaskEvent", 1,
-                        "order-1", 1, Instant.now(), "requester-1",
-                        null, null, null));
+                        "security-test-event", "OpenOrderRefundTaskEvent",
+                        "order-1", "CANCELLED", 10, Instant.now(), null));
     }
 
     @AfterAll
@@ -115,9 +112,10 @@ class PubSubPushSecurityTest {
 
         push(token("valid")).andExpect(status().isNoContent());
 
-        verify(decoder).decode(SUBSCRIPTION, PAYLOAD, SUBSCRIPTION, "OpenOrderRefundTaskEvent");
+        verify(decoder).decode(eq(SUBSCRIPTION), eq(PAYLOAD), any(),
+                eq(SUBSCRIPTION), eq("OpenOrderRefundTaskEvent"));
         verify(openRefundHandler).handle(any(OrderEventMessage.class));
-        verifyNoInteractions(acceptedCancellationHandler, completionHandler);
+        verifyNoInteractions(completionHandler);
         verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
@@ -133,7 +131,6 @@ class PubSubPushSecurityTest {
     void everyTypedPushPathRejectsAMissingToken() throws Exception {
         for (String path : List.of(
                 CreditOrderEventController.OPEN_REFUND_PATH,
-                CreditOrderEventController.ACCEPTED_CANCELLATION_PATH,
                 CreditOrderEventController.COMPLETION_PATH)) {
             mvc.perform(post(path)
                     .contentType(MediaType.APPLICATION_JSON).content(envelope()))
@@ -209,13 +206,13 @@ class PubSubPushSecurityTest {
     }
 
     private void verifyNoEventInteractions() {
-        verifyNoInteractions(decoder, openRefundHandler, acceptedCancellationHandler,
-                completionHandler);
+        verifyNoInteractions(decoder, openRefundHandler, completionHandler);
     }
 
     private static String envelope() {
         String data = Base64.getEncoder().encodeToString(PAYLOAD.getBytes(StandardCharsets.UTF_8));
         return "{\"message\":{\"data\":\"" + data + "\",\"messageId\":\"test-message\"},"
+                .replace("\"messageId\":\"test-message\"", "\"messageId\":\"test-message\",\"attributes\":{\"eventId\":\"security-test-event\",\"eventType\":\"OpenOrderRefundTaskEvent\",\"eventVersion\":\"2\"}")
                 + "\"subscription\":\"" + SUBSCRIPTION + "\"}";
     }
 
@@ -282,7 +279,7 @@ class PubSubPushSecurityTest {
         }
         @Bean CreditPushProperties pushProperties() {
             return new CreditPushProperties("test-project", AUDIENCE, SERVICE_ACCOUNT,
-                    "completion", "refund", "unused-accepted-cancellation");
+                    "completion", "refund");
         }
     }
 }
