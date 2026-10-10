@@ -160,7 +160,7 @@ and curly quotes.
 | `FIRESTORE_EMULATOR_HOST` | – | Use the Firestore emulator |
 | `FIREBASE_AUTH_PROJECT_ID` | `demo-foc` | Firebase project that issues ID tokens |
 | `FIREBASE_AUTH_EMULATOR_HOST` | – | Accept Auth emulator tokens (local only) |
-| `USER_SERVICE_MODE` / `USER_SERVICE_URL` | `mock` / – | Role lookup (`http` in compose; the cloud sets it in `deploy/env.yaml`) |
+| `USER_SERVICE_MODE` / `USER_SERVICE_URL` | `mock` / – | Role lookup: `http` in compose; still `mock` in the cloud until the User Service can grant `admin` (#22) |
 | `USER_SERVICE_TIMEOUT` | `3s` | Connect/read timeout for role lookups; in the cloud it must cover a User Service cold start (about 20 s) |
 | `USER_SERVICE_ROLE_CACHE_TTL` | `30s` | How long a user's roles are reused; `0s` disables the cache |
 | `MOCK_ADMIN_EMAILS` | – | Admins while in mock mode |

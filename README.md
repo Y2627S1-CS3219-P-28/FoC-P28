@@ -128,8 +128,17 @@ docker compose up --build
 
 Locally, sign-in uses the Firebase **Auth emulator**: create an account on the sign-in
 page (or in the emulator UI). Emulator accounts are separate from the cloud ones and are
-kept across restarts in the `firebase-data` volume. Accounts whose email is listed in
-`MOCK_ADMIN_EMAILS` (default `admin@u.nus.edu,e1398851@u.nus.edu`) receive the admin role.
+kept across restarts in the `firebase-data` volume. Services that run with mock roles give the
+admin role to the accounts listed in `MOCK_ADMIN_EMAILS` (default
+`admin@u.nus.edu,e1398851@u.nus.edu`).
+
+The Supplier Service reads roles from the User Service instead. Signing up on the sign-in page
+creates the User Service profile, but the User Service has no API to grant `admin` yet, so grant it
+once in the local MongoDB (or set `SUPPLIER_USER_SERVICE_MODE=mock` in `.env`):
+
+```bash
+docker compose exec mongodb mongosh UserServiceDB --quiet   --eval 'db.users.updateOne({email: "admin@u.nus.edu"}, {$addToSet: {roles: "admin"}})'
+```
 
 Locally, creating a user with the app's user sign up function will create a user in a local 
 MongoDB database, seperate from the MongoDB Atlas cloud. It is kept across restarts in the 
@@ -141,6 +150,22 @@ then `use UserServiceDB` and `db.users.find()` in the mongosh terminal.
 Signing up an account locally will require email verification, which can be emulated by
 entering `docker compose logs firebase-emulator` upon account creation and copying the
 verification link into a web browser while the app is running locally.
+
+### Third-party images
+
+The application services are built from our own Dockerfiles. Databases, messaging and base images
+are pre-built images, used unmodified:
+
+| Image | Source | Used for |
+| --- | --- | --- |
+| `eclipse-temurin:21-jdk`, `eclipse-temurin:21-jre` | [Docker Official Image](https://hub.docker.com/_/eclipse-temurin) (Eclipse Adoptium) | Build and runtime of the Spring Boot services |
+| `node:24-alpine`, `node:24-slim` | [Docker Official Image](https://hub.docker.com/_/node) (Node.js) | Frontend build and runtime; base of the Firebase emulator image |
+| `nginx:1.29-alpine`, `nginx:1.28-alpine` | [Docker Official Image](https://hub.docker.com/_/nginx) (NGINX) | Gateway; local Pub/Sub push ingress (`compose.local-live.yaml`) |
+| `mongo:8` | [Docker Official Image](https://hub.docker.com/_/mongo) (MongoDB) | User Service database (local) |
+| `postgres:15-alpine` | [Docker Official Image](https://hub.docker.com/_/postgres) (PostgreSQL) | Order and Credit Service databases (local) |
+| `cloudflare/cloudflared:2025.9.1` | [Docker Hub](https://hub.docker.com/r/cloudflare/cloudflared) (Cloudflare) | Optional tunnel for local Pub/Sub push (`compose.local-live.yaml`) |
+| `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators` | [Google Cloud CLI](https://cloud.google.com/sdk/docs/downloads-docker) | Firestore emulator in integration tests (Testcontainers) |
+| `firebase-tools@15.31.0` (npm) | [Firebase CLI](https://github.com/firebase/firebase-tools) | Firebase Auth and Firestore emulators (`infra/firebase-emulator`) |
 
 ---
 
