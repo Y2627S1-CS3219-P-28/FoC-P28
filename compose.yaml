@@ -214,8 +214,11 @@ services:
       ORDER_LIFECYCLE_CRON: ${ORDER_LIFECYCLE_CRON:-0 * * * * *}
       ORDER_OUTBOX_RECOVERY_CRON: ${ORDER_OUTBOX_RECOVERY_CRON:-0 */15 * * * *}
     volumes:
+      # Your gcloud application-default credentials, to publish to the real Pub/Sub dev topics.
+      # Optional: without them a placeholder is mounted, the stack still starts, and Order events
+      # stay in the outbox (logged as publish failures) instead of reaching Pub/Sub.
       - type: bind
-        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to your local ADC credentials file}
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:-./infra/local/adc-placeholder.json}
         target: /var/run/secrets/google/application_default_credentials.json
         read_only: true
     depends_on:
