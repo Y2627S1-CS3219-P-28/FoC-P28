@@ -92,6 +92,14 @@ public class Order {
 
     public static Order open(String requesterId, String description, String pickup, String delivery,
                              long credits, int duration, Instant createdAt, Instant expiresAt, RepostPlan repostPlan) {
+        return openWithId(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
+                credits, duration, createdAt, expiresAt, repostPlan);
+    }
+
+    /** Durable creation retries use the candidate business ID saved before Credit I/O. */
+    public static Order openWithId(String candidateId, String requesterId, String description, String pickup, String delivery,
+                             long credits, int duration, Instant createdAt, Instant expiresAt, RepostPlan repostPlan) {
+        UUID.fromString(candidateId);
         List<OrderProblem.Detail> errors = new ArrayList<>();
         if (requesterId == null || requesterId.isBlank()) errors.add(new OrderProblem.Detail("requesterId", "A verified requester is required."));
         validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
@@ -99,7 +107,7 @@ public class Order {
         if (delivery == null || delivery.isBlank()) errors.add(new OrderProblem.Detail("deliverySupplierId", "Select a delivery supplier."));
         else if (delivery.equals(pickup)) errors.add(new OrderProblem.Detail("deliverySupplierId", "Delivery supplier must differ from pickup supplier."));
         rejectInvalidFields(errors);
-        Order order = new Order(UUID.randomUUID().toString(), requesterId, description, pickup, delivery,
+        Order order = new Order(candidateId, requesterId, description, pickup, delivery,
                 credits, duration, createdAt, expiresAt, null);
         if (repostPlan != null) {
             repostPlan.validateAgainst(expiresAt);

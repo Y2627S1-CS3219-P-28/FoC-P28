@@ -34,7 +34,8 @@ class OrderOutboxMigrationTest {
 
         flyway.migrate();
 
-        assertEquals("4", latestVersion("outbox_clean"));
+        assertEquals("5", latestVersion("outbox_clean"));
+        assertTrue(tableExists("outbox_clean", "order_commands"));
         assertTrue(tableExists("outbox_clean", "order_event_outbox"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_due"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_expired_lease"));
@@ -47,7 +48,7 @@ class OrderOutboxMigrationTest {
 
         flyway("outbox_upgrade").migrate();
 
-        assertEquals("4", latestVersion("outbox_upgrade"));
+        assertEquals("5", latestVersion("outbox_upgrade"));
         assertTrue(tableExists("outbox_upgrade", "order_event_outbox"));
     }
 
@@ -64,7 +65,7 @@ class OrderOutboxMigrationTest {
                     + "now(),now()+interval '1 hour',15,true,now()+interval '2 hours',2,15,false)");
         }
         flyway(schema).migrate();
-        assertEquals("4", latestVersion(schema));
+        assertEquals("5", latestVersion(schema));
         try (Connection connection = connection(); Statement statement = connection.createStatement();
                 ResultSet result = statement.executeQuery("select enabled,repost_expires_at,status,id from "
                         + schema + ".orders where id='legacy'")) {

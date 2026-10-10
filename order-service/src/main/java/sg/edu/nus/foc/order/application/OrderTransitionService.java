@@ -128,6 +128,16 @@ public class OrderTransitionService {
 
     @Transactional
     public Order cancelAccepted(String commandId, String id, String actor, long version, String authorization) {
+        return cancelAcceptedInternal(commandId, id, actor, version, authorization, false);
+    }
+
+    @Transactional
+    public Order abortConfirmed(String commandId, String id, String actor, long version, String authorization) {
+        return cancelAcceptedInternal(commandId, id, actor, version, authorization, true);
+    }
+
+    private Order cancelAcceptedInternal(String commandId, String id, String actor, long version,
+                                         String authorization, boolean confirmed) {
         String authenticatedActor = users.verifyCourier(actor, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting("CANCEL_ACCEPTED", commandId);
         if (previous.isPresent()) {
@@ -136,7 +146,7 @@ public class OrderTransitionService {
 
         Order order = findForUpdate(id);
         order.validateAcceptedCancellation(authenticatedActor, version);
-        credits.holdForReopen(order.getId(), authorization);
+        if (!confirmed) credits.holdForReopen(order.getId(), authorization);
         Instant cancelledAt = Instant.now();
         orders.saveAbortedAttempt(new OrderCourierAttempt(order, authenticatedActor, version, cancelledAt));
         checkpoints.save(new OrderCheckpoint(

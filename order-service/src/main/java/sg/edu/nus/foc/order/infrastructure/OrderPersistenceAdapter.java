@@ -21,6 +21,12 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 public class OrderPersistenceAdapter implements OrderRepository {
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
+    private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setCommandStore(sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands) {
+        this.commands = commands;
+    }
 
     @Override
     public Optional<Order> get(String id) {
@@ -29,12 +35,16 @@ public class OrderPersistenceAdapter implements OrderRepository {
 
     @Override
     public Optional<Order> getForUpdate(String id) {
-        return repository.findByIdForUpdate(id);
+        Optional<Order> locked = repository.findByIdForUpdate(id);
+        if (commands != null) commands.guard(id);
+        return locked;
     }
 
     @Override
     public Optional<Order> getForLifecycleUpdate(String id) {
-        return repository.findByIdForLifecycleUpdate(id);
+        Optional<Order> locked = repository.findByIdForLifecycleUpdate(id);
+        if (commands != null) commands.guard(id);
+        return locked;
     }
 
     @Override

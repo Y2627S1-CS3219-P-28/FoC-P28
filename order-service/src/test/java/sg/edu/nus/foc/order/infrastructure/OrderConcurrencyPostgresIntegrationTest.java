@@ -71,9 +71,27 @@ class OrderConcurrencyPostgresIntegrationTest {
     @MockitoBean MockPeerAdapters peers;
     @MockitoBean OrderOutboxDispatcher dispatcher;
     @MockitoSpyBean OrderCheckpointPersistenceAdapter checkpointAdapter;
+    @MockitoSpyBean OrderPersistenceAdapter orderAdapter;
+    private final java.util.concurrent.ConcurrentMap<String, RuntimeException> lifecycleLockFailures =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     @BeforeEach
     void authenticationOnly() {
+        // Each race has its own isolated state, even when an earlier assertion fails.
+        jdbc.update("delete from order_commands");
+        outbox.deleteAll();
+        receipts.deleteAll();
+        checkpoints.deleteAll();
+        jdbc.update("delete from order_courier_attempts");
+        orders.deleteAll();
+        lifecycleLockFailures.clear();
+        doAnswer(call -> {
+            try { return call.callRealMethod(); }
+            catch (RuntimeException failure) {
+                lifecycleLockFailures.put(Thread.currentThread().getName(), failure);
+                throw failure;
+            }
+        }).when(orderAdapter).getForLifecycleUpdate(anyString());
         when(peers.verifyRequester(anyString(), nullable(String.class)))
                 .thenAnswer(call -> call.getArgument(0));
         when(peers.verifyCourier(anyString(), nullable(String.class)))
@@ -153,7 +171,7 @@ class OrderConcurrencyPostgresIntegrationTest {
                 order.getId(), order.getRequesterId(), order.getVersion(), null);
         Supplier<Object> expire = () -> lifecycle.expireDue(Instant.now());
         Race result = race(order, cancellationFirst ? OrderStatus.CANCELLED : OrderStatus.EXPIRED,
-                cancellationFirst ? cancel : expire, cancellationFirst ? expire : cancel, false);
+                cancellationFirst ? cancel : expire, cancellationFirst ? expire : cancel, cancellationFirst);
 
         assertSuccess(result.first());
         if (cancellationFirst) {
@@ -178,7 +196,7 @@ class OrderConcurrencyPostgresIntegrationTest {
         Supplier<Object> accept = () -> accept(order, "courier-race");
         Supplier<Object> expire = () -> lifecycle.expireDue(order.getExpiresAt());
         Race result = race(order, acceptanceFirst ? OrderStatus.ACCEPTED : OrderStatus.EXPIRED,
-                acceptanceFirst ? accept : expire, acceptanceFirst ? expire : accept, false);
+                acceptanceFirst ? accept : expire, acceptanceFirst ? expire : accept, acceptanceFirst);
 
         assertSuccess(result.first());
         if (acceptanceFirst) {
@@ -319,7 +337,11 @@ class OrderConcurrencyPostgresIntegrationTest {
             if (Boolean.TRUE.equals(blocked)) return;
             if (second.isDone()) {
                 Outcome outcome = second.get();
-                assertTrue(allowNowait && isLockUnavailable(outcome.failure()),
+                // CHANGE-093 isolates each lifecycle row and catches NOWAIT failures.
+                // Prove a real PostgreSQL 55P03 occurred, not merely an early return.
+                boolean safelySkipped = outcome.failure() == null && Integer.valueOf(0).equals(outcome.value())
+                        && isLockUnavailable(lifecycleLockFailures.get(secondName));
+                assertTrue(allowNowait && (isLockUnavailable(outcome.failure()) || safelySkipped),
                         () -> "Competitor finished without row-lock contention: " + outcome);
                 return;
             }

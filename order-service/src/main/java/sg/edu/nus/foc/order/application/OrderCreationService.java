@@ -36,6 +36,21 @@ public class OrderCreationService {
             Instant expiresAt,
             RepostPlan repostPlan,
             String authorization) {
+        return createInternal(commandId, null, requesterId, description, pickup, delivery, amount,
+                duration, expiresAt, repostPlan, authorization, false);
+    }
+
+    @Transactional
+    public Order createConfirmed(String commandId, String candidateId, String requesterId,
+            String description, String pickup, String delivery, long amount, int duration,
+            Instant expiresAt, RepostPlan plan, String authorization) {
+        return createInternal(commandId, candidateId, requesterId, description, pickup, delivery,
+                amount, duration, expiresAt, plan, authorization, true);
+    }
+
+    private Order createInternal(String commandId, String candidateId, String requesterId,
+            String description, String pickup, String delivery, long amount, int duration,
+            Instant expiresAt, RepostPlan repostPlan, String authorization, boolean confirmed) {
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "CREATE",
                 commandId);
@@ -45,7 +60,8 @@ public class OrderCreationService {
 
         String authenticatedRequester = users.verifyRequester(requesterId, authorization);
 
-        Order order = Order.open(
+        Order order = Order.openWithId(
+                candidateId == null ? java.util.UUID.randomUUID().toString() : candidateId,
                 authenticatedRequester,
                 description,
                 pickup,
@@ -56,9 +72,10 @@ public class OrderCreationService {
                 expiresAt,
                 repostPlan);
 
-        suppliers.validatePair(pickup, delivery, authorization);
-
-        credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
+        if (!confirmed) {
+            suppliers.validatePair(pickup, delivery, authorization);
+            credits.reserve(order.getId(), authenticatedRequester, amount, authorization);
+        }
         audit.dependency("credit-service", "reserve", order.getId(), "accepted");
 
         Order saved = orders.save(order);

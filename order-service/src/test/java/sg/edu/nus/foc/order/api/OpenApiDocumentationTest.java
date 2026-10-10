@@ -43,7 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class},
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -71,6 +71,7 @@ class OpenApiDocumentationTest {
     @MockitoBean private OrderRepostService reposts;
     @MockitoBean private LifecycleProcessingService lifecycle;
     @MockitoBean private UserServicePort users;
+    @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCommandService commands;
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;
@@ -98,6 +99,8 @@ class OpenApiDocumentationTest {
         Files.writeString(Path.of("target/openapi.json"), json);
 
         JsonNode paths = mapper.readTree(json).path("paths");
+        assertThat(paths.has("/api/orders/commands/create")).isTrue();
+        assertThat(paths.has("/api/orders/commands/{key}/resume")).isTrue();
         assertThat(paths.isEmpty()).as("OpenAPI document lists no paths").isFalse();
 
         List<String> problems = new ArrayList<>();
