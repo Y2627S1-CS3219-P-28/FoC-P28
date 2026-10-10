@@ -56,18 +56,18 @@ Ensure-LocalTopic 'test-project' 'vincent' $names.RefundTopic
 Assert-True ($script:cloudCalls.Count -eq 2 -and $script:cloudCalls[1].Contains('topics create')) 'Create missing isolated topic'
 Assert-True ($script:cloudCalls[1].Contains('foc-local-test=vincent')) 'Label created topic'
 $script:cloudCalls.Clear()
-Ensure-LocalSubscription 'test-project' 'vincent' $names.RefundSubscription $names.RefundTopic $names 'https://sample-tunnel.trycloudflare.com/api/credits/internal/order-events'
+Ensure-LocalSubscription 'test-project' 'vincent' $names.RefundSubscription $names.RefundTopic $names 'https://sample-tunnel.trycloudflare.com/api/credits/internal/order-events/open-refund'
 Assert-True ($script:cloudCalls.Count -eq 2) 'Missing push subscription is created once'
 Assert-True ($script:cloudCalls[1].Contains('--push-auth-token-audience https://foc-local-vincent.invalid/credit-push')) 'Configure custom audience on creation'
 Assert-True ($script:cloudCalls[1].Contains('--push-auth-service-account foc-local-vincent-push@test-project.iam.gserviceaccount.com')) 'Authenticated push, not public no-auth delivery'
 Assert-True ($script:cloudCalls[1].Contains('--dead-letter-topic projects/test-project/topics/order-credit-dlq-local-vincent-v1')) 'DLQ configured'
 $fakeCloud[$names.RefundSubscription] = $owned | ConvertTo-Json -Depth 8 -Compress
 $script:cloudCalls.Clear()
-Ensure-LocalSubscription 'test-project' 'vincent' $names.RefundSubscription $names.RefundTopic $names 'https://new-tunnel.trycloudflare.com/api/credits/internal/order-events'
+Ensure-LocalSubscription 'test-project' 'vincent' $names.RefundSubscription $names.RefundTopic $names 'https://new-tunnel.trycloudflare.com/api/credits/internal/order-events/open-refund'
 Assert-True ($script:cloudCalls.Count -eq 3 -and $script:cloudCalls[1].Contains('--update-labels=')) 'Owned subscription update uses correct gcloud labels flag'
 Assert-True ($script:cloudCalls[2].Contains('modify-push-config') -and $script:cloudCalls[2].Contains('https://new-tunnel.trycloudflare.com')) 'Retarget only owned subscription after tunnel recreation'
 $script:cloudCalls.Clear()
-Assert-Rejected { Ensure-LocalSubscription 'test-project' 'peer' $names.RefundSubscription $names.RefundTopic $names 'https://new-tunnel.trycloudflare.com/api/credits/internal/order-events' } 'Refuse foreign push subscription'
+Assert-Rejected { Ensure-LocalSubscription 'test-project' 'peer' $names.RefundSubscription $names.RefundTopic $names 'https://new-tunnel.trycloudflare.com/api/credits/internal/order-events/open-refund' } 'Refuse foreign push subscription'
 Assert-True ($script:cloudCalls.Count -eq 1) 'No foreign subscription mutations'
 $parseTokens = $null
 $parseErrors = $null

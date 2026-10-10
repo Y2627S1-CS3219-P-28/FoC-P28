@@ -15,7 +15,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +33,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
-import sg.edu.nus.foc.credit.messaging.OrderEventPayloadConsumer;
 import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -54,9 +55,6 @@ class CreditApiIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbc;
-
-    @Autowired
-    private OrderEventPayloadConsumer orderEvents;
 
     @Autowired
     private CreditPushProperties pushProperties;
@@ -234,16 +232,22 @@ class CreditApiIntegrationTest {
                 "projects/demo-foc/subscriptions/credit-order-completion-dev-v1");
         byte[] body = mapper.writeValueAsBytes(envelope);
 
-        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+        mvc.perform(post(CreditOrderEventController.COMPLETION_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+        mvc.perform(post(CreditOrderEventController.COMPLETION_PATH)
                         .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+
+        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -279,8 +283,23 @@ class CreditApiIntegrationTest {
                 }
                 """.formatted(USER, USER);
 
-        orderEvents.consume(pushProperties.openRefundSubscriptionPath(), cancellation);
-        orderEvents.consume(pushProperties.openRefundSubscriptionPath(), cancellation);
+        String encoded = Base64.getEncoder().encodeToString(
+                cancellation.getBytes(StandardCharsets.UTF_8));
+        PubSubPushEnvelope envelope = new PubSubPushEnvelope(
+                new PubSubPushEnvelope.Message(encoded, "message-1"),
+                pushProperties.openRefundSubscriptionPath());
+        byte[] pushBody = mapper.writeValueAsBytes(envelope);
+
+        mvc.perform(post(CreditOrderEventController.OPEN_REFUND_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pushBody))
+                .andExpect(status().isNoContent());
+        mvc.perform(post(CreditOrderEventController.OPEN_REFUND_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pushBody))
+                .andExpect(status().isNoContent());
 
         assertThat(jdbc.queryForObject(
                 "select status from credit_reservations where order_id = 'order-1'", String.class))

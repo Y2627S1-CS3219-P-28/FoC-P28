@@ -5,6 +5,8 @@
 - Authority: explicit approval to implement the proposed local-live override,
   restricted HTTPS tunnel, isolated test topics/subscriptions and Google push auth.
 - Refines ADR-021 for local testing only; preserves ADR-013/025/026/028 contracts.
+- Amended on 2026-10-09: the restricted ingress now exposes the three typed
+  Credit push paths instead of the removed shared event path.
 - D1 chain: F4.1.7 cancellation, F4.1.8/F10 expiry, F4.1.5/F5.1 completion,
   F11 abort/reopening and NFR3 testing;
   approved technical invariant of real broker transport and scoped credentials.
@@ -19,7 +21,8 @@ Default Compose, deployment files and sibling source remain unchanged.
 
 Docker cloudflared creates a temporary public HTTPS Quick Tunnel. Its origin is
 an Order-owned nginx helper, not the gateway or whole Credit API. Nginx accepts
-only POST /api/credits/internal/order-events, preserves Authorization and JSON,
+only POST on `/api/credits/internal/order-events/open-refund`,
+`/accepted-cancellation`, and `/completion`, preserves Authorization and JSON,
 and forwards unchanged to credit-service:8080. Other paths/methods are rejected.
 Health is on a separate internal port. No helper host ports are published.
 Credit retains its Google signature, issuer, audience and verified SA checks;

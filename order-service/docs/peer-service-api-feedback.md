@@ -43,7 +43,7 @@ contracts for peer owners, or claim live integration from stub tests.
 ## Status and boundaries
 
 Inspection evidence: CreditController/DTOs, CreditService, JpaCreditRepository,
-CreditOrderEventController, CreditOrderEventConsumer/OrderEventMessage,
+CreditOrderEventController, typed event handlers/OrderEventMessage,
 CreditPushProperties, both security chains/role provider/push-token validator,
 relevant API/persistence/consumer/security test source, application/deployment
 configuration and infra/gcp/configure-credit-pubsub.sh; compared with Order's
@@ -128,8 +128,8 @@ Approved current contract (ADR-025):
 - OPEN keeps its same reservation. EXPIRED receives a separate
   `OpenOrderRefundTaskEvent` on `open-order-refund-dev-v1` / prod-v1 for Credit.
 
-Actual implementation: CreditOrderEventConsumer routes accepted cancellation
-to CreditService, whose validateOutcome requires ABORTED and whose processOutcome
+Actual implementation: the accepted-cancellation endpoint invokes its fixed
+Credit handler, whose CreditService validation requires ABORTED and whose processOutcome
 calls repository.refund. Its tests use ABORTED snapshots. The provisioning script
 also creates `credit-accepted-order-cancellation-dev-v1` / prod-v1 subscriptions.
 Consequently current Order OPEN/EXPIRED penalty events are rejected (400), rather
@@ -446,12 +446,14 @@ Paths below are relative to repository root; peer files remain read-only.
   row-locked RESERVED assignment, courier account existence, same-assignment
   replay/different-assignment conflict; reset retains reservation; transactional
   refund/settlement, event ID+payload hash deduplication, ledger/account updates.
-- `credit-service/src/main/java/sg/edu/nus/foc/credit/messaging/CreditOrderEventConsumer.java`
-  and `OrderEventMessage.java`: matching current refund/completion envelope and
-  snapshot fields, subscription/type matching and completion-only overdue fact.
+- `credit-service/src/main/java/sg/edu/nus/foc/credit/messaging/JsonOrderEventPayloadDecoder.java`,
+  the three typed Credit handlers and `OrderEventMessage.java`: matching current
+  envelopes and snapshot fields, subscription/type guardrails and the
+  completion-only overdue fact.
 - `credit-service/src/main/java/sg/edu/nus/foc/credit/api/CreditOrderEventController.java`:
-  POST /api/credits/internal/order-events decodes wrapped Base64 data and returns
-  **204 NO BODY after processing/transaction commit**. This is the push ACK,
+  typed POST routes under `/api/credits/internal/order-events/` decode wrapped
+  Base64 data and return **204 NO BODY after processing/transaction commit**.
+  This is the push ACK,
   not a refund/completion JSON response or callback to Order.
 - `credit-service/src/main/java/sg/edu/nus/foc/credit/security/SecurityConfig.java`
   and `PubSubPushTokenValidator.java`: separate push chain checks Google-signed
@@ -461,15 +463,14 @@ Paths below are relative to repository root; peer files remain read-only.
   live User role integration.
 - Existing test source: `credit-service/src/test/java/sg/edu/nus/foc/credit/api/CreditApiIntegrationTest.java`,
   `persistence/JpaCreditRepositoryIntegrationTest.java`,
-  `messaging/CreditOrderEventConsumerTest.java`,
+  `messaging/JsonOrderEventPayloadDecoderTest.java`,
+  `messaging/CreditOrderEventHandlersTest.java`,
   `api/CreditOrderEventControllerTest.java`, `security/SecurityComponentsTest.java`.
   Positive, negative and duplicate cases exist; legacy ABORTED consumer cases do
   NOT establish ADR-025 compliance. Missing replay cases are listed in section 1.
-- Executed follow-up: ./mvnw -B -ntp clean test
-  -Dtest=CreditOrderEventConsumerTest,CreditOrderEventControllerTest,CreditServiceTest,JpaCreditRepositoryIntegrationTest
-  in Java 21 with isolated PostgreSQL and source mounted read-only. PASS:
-  consumer 5, controller 3, service 7, persistence 12 (27 total, no failures/errors/
-  skips). Tested persistence settlement moved requester 50 -> 40, reserved 10 ->
+- Current verification: `./mvnw verify` in Java 21 with isolated PostgreSQL.
+  PASS: 79 tests with no failures/errors/skips, OpenAPI validation and JaCoCo
+  line/branch gates. Tested persistence settlement moved requester 50 -> 40, reserved 10 ->
   0, courier 50 -> 60; replay did not transfer again. Expired refund released
   reserved funds and marked REFUNDED; CANCELLED service/consumer mapping is also
   covered. This split-layer run does not exercise cloud transport or live Order
@@ -504,8 +505,9 @@ Push envelope received by the existing Credit endpoint:
 ~~~
 
 The separate `infra/gcp/configure-credit-pubsub.sh staging` script creates/updates
-authenticated push subscriptions to the deployed Credit URL plus
-`/api/credits/internal/order-events`, matching OIDC audience/service identity,
+authenticated push subscriptions to the deployed Credit URL plus the matching
+`/api/credits/internal/order-events/open-refund`, `/accepted-cancellation`, or
+`/completion` path, matching OIDC audience/service identity,
 retry settings, DLQ/recovery subscription and IAM. Bootstrap documents this
 separate step; merely running bootstrap/Compose does not prove it was run.
 The current script ALSO provisions the incompatible accepted-cancellation stream
@@ -549,7 +551,8 @@ Date: 2026-10-09. Owner: Credit (Annablee). Status: READY_FOR_VERIFICATION.
 Classification: INCOMPLETE_OR_INCOMPATIBLE. Existing endpoint, not a missing API.
 CHANGE-088 / ADR-029 live verification blocker; no new contract proposed.
 
-- Expected: POST /api/credits/internal/order-events receives the wrapped envelope
+- Expected: the matching typed POST under `/api/credits/internal/order-events/`
+  receives the wrapped envelope
   in section 6 and Authorization: Bearer <Google push service-account OIDC token>.
   Validate Google signature, expiry, issuer, configured audience, verified email
   and approved service account. This identity is NOT a Firebase user and must
@@ -616,7 +619,7 @@ Expected contracts: ADR-011 full completion/refund snapshots, ADR-018 minimal
 assignment/reset requests, ADR-025 User-only accepted-cancellation penalties.
 Evidence: Order HttpPeerAdapters/CreditServicePort and all production call sites;
 event DTOs/factory/mapper/publishers; CreditController/request DTOs,
-CreditOrderEventController/OrderEventMessage/CreditOrderEventConsumer,
+CreditOrderEventController/OrderEventMessage/typed Credit event handlers,
 CreditService/JpaCreditRepository; existing test source and local-live/cloud
 provisioning configuration. Field-name-only runtime outbox SELECTs confirm the
 persisted envelope/snapshot shapes for all three types, without exposing raw
@@ -700,8 +703,8 @@ No new schema/version/topic or provider implementation is selected by this audit
 | Requester or >=48-hour scheduled completion | OrderCompletionTaskEvent / `order-completion-*` | Credit transfers reserved funds to the recorded courier; User separately processes completion facts |
 | Every assigned courier abort | AcceptedOrderCancellationTaskEvent / `accepted-order-cancellation-*` | User penalties ONLY; current OPEN/EXPIRED, actorId is aborting courier; not a Credit refund command |
 
-Google Pub/Sub supplies the authenticated wrapped push to
-`POST /api/credits/internal/order-events`: message.data is Base64 event JSON,
+Google Pub/Sub supplies the authenticated wrapped push to the event's typed path
+under `POST /api/credits/internal/order-events/`: message.data is Base64 event JSON,
 plus subscription and optional messageId. Credit returns bodyless 204 after
 processing, including an idempotent replay. Order's publisher instead receives a
 Pub/Sub message ID; that is publication confirmation, not Credit completion.
