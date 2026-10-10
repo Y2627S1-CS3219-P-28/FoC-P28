@@ -26,6 +26,8 @@
 # Credit Service Pub/Sub push (when enabled in project.env):
 #   - three Order-topic subscriptions target the authenticated Credit push endpoint
 #   - shared dead-letter topic/recovery subscription and required IAM bindings exist
+# Network (Cloud Run Direct VPC egress; only the gateway is public):
+#   - VPC subnet with Private Google Access, which the deployer may use, and Cloud NAT
 #
 # Anything missing is fixed by the CI/CD owner re-running infra/gcp/bootstrap.sh, which
 # derives the same service lists from the repository.
@@ -328,6 +330,29 @@ for env in "${environments[@]}"; do
     problem "credit-service: Pub/Sub cannot mint OIDC tokens for '$push_sa'"
   fi
 done
+
+echo "Network (Cloud Run Direct VPC egress; only the gateway is public)"
+if ! gcloud compute networks describe "$VPC_NETWORK" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  problem "VPC network '$VPC_NETWORK' does not exist"
+elif [[ $(gcloud compute networks subnets describe "$VPC_SUBNET" --project "$PROJECT_ID" --region "$REGION" \
+    --format 'value(privateIpGoogleAccess)' 2>/dev/null) != True ]]; then
+  problem "subnet '$VPC_SUBNET' is missing or has Private Google Access off"
+else
+  ok "network '$VPC_NETWORK', subnet '$VPC_SUBNET' (Private Google Access on)"
+  if gcloud compute networks subnets get-iam-policy "$VPC_SUBNET" --project "$PROJECT_ID" --region "$REGION" \
+      --format json | jq -e --arg m "serviceAccount:$DEPLOYER_SA" \
+        '.bindings // [] | any(.role == "roles/compute.networkUser" and (.members | index($m)))' >/dev/null; then
+    ok "the deployer may deploy into '$VPC_SUBNET'"
+  else
+    problem "the deployer has no roles/compute.networkUser on subnet '$VPC_SUBNET'"
+  fi
+fi
+if gcloud compute routers describe "$VPC_ROUTER" --project "$PROJECT_ID" --region "$REGION" --format json 2>/dev/null |
+    jq -e --arg nat "$VPC_NAT" '.nats // [] | any(.name == $nat)' >/dev/null; then
+  ok "Cloud NAT '$VPC_NAT' on router '$VPC_ROUTER'"
+else
+  problem "Cloud NAT '$VPC_NAT' on router '$VPC_ROUTER' does not exist"
+fi
 
 echo "Config buckets"
 for env in "${environments[@]}"; do

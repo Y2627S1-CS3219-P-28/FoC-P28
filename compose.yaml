@@ -14,6 +14,9 @@
 #   http://localhost:3000   frontend directly
 #   http://localhost:4000   Firebase emulator UI (create/inspect test users and data)
 #
+# Like the cloud, the gateway is the entry point. Every other published port (services, databases,
+# emulators) is for debugging and bound to 127.0.0.1, so it isn't reachable from other machines.
+#
 # Each backend service adds its own block below (copy the template at the bottom).
 # Variables in ${...} can be overridden in a root `.env` file (see .env.example).
 
@@ -79,9 +82,9 @@ services:
   firebase-emulator:
     build: ./infra/firebase-emulator
     ports:
-      - "4000:4000" # emulator UI
-      - "9099:9099" # Auth
-      - "8090:8090" # Firestore
+      - "127.0.0.1:4000:4000" # emulator UI
+      - "127.0.0.1:9099:9099" # Auth
+      - "127.0.0.1:8090:8090" # Firestore
     volumes:
       - firebase-data:/data
     stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
@@ -90,7 +93,7 @@ services:
   mongodb:
     image: mongo:8
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb-data:/data/db
     healthcheck:
@@ -103,7 +106,7 @@ services:
   supplier-service:
     build: ./supplier-service
     ports:
-      - "8082:8080"
+      - "127.0.0.1:8082:8080"
     environment:
       <<: [*backend-env, *firestore-env]
       FIRESTORE_DATABASE_ID: supplier-local
@@ -125,7 +128,7 @@ services:
   credit-service:
     build: ./credit-service
     ports:
-      - "8084:8080"
+      - "127.0.0.1:8084:8080"
     environment:
       <<: *backend-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://credit-postgres:5432/${CREDIT_DB_NAME:-credit_service}
@@ -151,7 +154,7 @@ services:
   credit-postgres:
     image: postgres:15-alpine
     ports:
-      - "${CREDIT_POSTGRES_PORT:-5434}:5432"
+      - "127.0.0.1:${CREDIT_POSTGRES_PORT:-5434}:5432"
     environment:
       POSTGRES_DB: ${CREDIT_DB_NAME:-credit_service}
       POSTGRES_USER: ${CREDIT_DB_USERNAME:-credit_dev}
@@ -167,7 +170,7 @@ services:
   user-service:
     build: ./user-service
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     environment:
       <<: *backend-env
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
@@ -185,7 +188,7 @@ services:
   order-postgres:
     image: postgres:15-alpine
     ports:
-      - "${ORDER_POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${ORDER_POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: ${ORDER_DB_NAME:-order_service}
       POSTGRES_USER: ${ORDER_DB_USERNAME:-order_dev}
@@ -201,7 +204,7 @@ services:
   order-service:
     build: ./order-service
     ports:
-      - "${ORDER_SERVICE_PORT:-8083}:8080"
+      - "127.0.0.1:${ORDER_SERVICE_PORT:-8083}:8080"
     environment:
       <<: [*backend-env, *order-pubsub-topics]
       SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/${ORDER_DB_NAME:-order_service}
