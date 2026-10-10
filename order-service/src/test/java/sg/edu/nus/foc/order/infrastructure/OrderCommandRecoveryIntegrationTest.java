@@ -19,11 +19,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import sg.edu.nus.foc.order.application.recovery.*;
 import sg.edu.nus.foc.order.adapter.MockPeerAdapters;
+import sg.edu.nus.foc.order.api.dto.response.OrderResponse;
+import sg.edu.nus.foc.order.application.OrderLifecycleScheduler;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 /** F1/F3/F11/F13, ADR-033: real PostgreSQL commands; Credit is a contract stub. */
 @SpringBootTest(properties = {"spring.profiles.active=local", "order.peers.mode=mock",
-    "order.commands.enabled=true", "order.commands.cron=-", "order.lifecycle.cron=-",
+    "order.commands.enabled=true", "order.lifecycle.cron=-",
     "order.messaging.outbox.recovery-cron=-", "debug=false", "logging.level.root=WARN",
     "logging.level.org.hibernate.SQL=OFF"})
 @Testcontainers
@@ -42,6 +44,7 @@ class OrderCommandRecoveryIntegrationTest {
     @MockitoSpyBean sg.edu.nus.foc.order.application.OrderCreationService creation;
     @Autowired sg.edu.nus.foc.order.application.OrderTransitionService transitions;
     @Autowired sg.edu.nus.foc.order.application.LifecycleProcessingService lifecycle;
+    @Autowired OrderLifecycleScheduler scheduler;
 
     CommandRequest create(String actor) {
         return new CommandRequest("CREATE", actor, null, 0,
@@ -202,6 +205,97 @@ class OrderCommandRecoveryIntegrationTest {
         lifecycle.expireDue(Instant.now());
         assertEquals("OPEN", jdbc.queryForObject("select status from orders where id=?", String.class, opened.getId()));
         assertEquals(0, jdbc.queryForObject("select count(*) from order_event_outbox where order_id=?", Integer.class, opened.getId()));
+    }
+
+    @Test
+    void mergedTickResolvesValidAcceptanceWithoutExpiringTheAcceptedOrder() {
+        OrderResponse opened = service.submit(key(), create(key()), null).result();
+        String acceptanceKey = key();
+        String courier = key();
+        doAnswer(call -> {
+            call.callRealMethod();
+            throw new IllegalStateException("response lost");
+        }).doCallRealMethod().when(credit).execute(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        CommandView pending = service.submit(acceptanceKey,
+                new CommandRequest("ACCEPT", courier, opened.getId(), opened.getVersion(), null), null);
+        assertEquals("PENDING", pending.status());
+        due(acceptanceKey);
+
+        scheduler.processDueOrders();
+
+        assertEquals("SUCCESS", store.get(acceptanceKey).outcome());
+        assertEquals("ACCEPTED", jdbc.queryForObject(
+                "select status from orders where id=?", String.class, opened.getId()));
+        assertEquals(courier, balances.reservationCourier(opened.getId()));
+        jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        scheduler.processDueOrders();
+        assertEquals("ACCEPTED", jdbc.queryForObject(
+                "select status from orders where id=?", String.class, opened.getId()));
+        assertEquals(0, jdbc.queryForObject(
+                "select count(*) from order_event_outbox where order_id=?", Integer.class, opened.getId()));
+    }
+
+    @Test
+    void mergedTickCompensatesExpiredAcceptanceBeforeQueuingOneRefund() {
+        OrderResponse opened = service.submit(key(), create(key()), null).result();
+        String acceptanceKey = key();
+        doAnswer(call -> {
+            call.callRealMethod();
+            throw new IllegalStateException("response lost");
+        }).when(credit).execute(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        service.submit(acceptanceKey,
+                new CommandRequest("ACCEPT", key(), opened.getId(), opened.getVersion(), null), null);
+        jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        due(acceptanceKey);
+
+        scheduler.processDueOrders();
+
+        assertEquals("COMPLETED", store.get(acceptanceKey).status());
+        assertEquals("REJECTED", store.get(acceptanceKey).outcome());
+        assertNull(balances.reservationCourier(opened.getId()));
+        assertEquals("EXPIRED", jdbc.queryForObject(
+                "select status from orders where id=?", String.class, opened.getId()));
+        verify(credit, times(1)).compensate(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        assertEquals(1, jdbc.queryForObject(
+                "select count(*) from order_event_outbox where order_id=? and event_type='OpenOrderRefundTaskEvent'",
+                Integer.class, opened.getId()));
+
+        scheduler.processDueOrders();
+        assertEquals(1, jdbc.queryForObject(
+                "select count(*) from order_event_outbox where order_id=?", Integer.class, opened.getId()));
+    }
+
+    @Test
+    void mergedTickKeepsExpiryBlockedUntilCompensationIsConfirmed() {
+        OrderResponse opened = service.submit(key(), create(key()), null).result();
+        String acceptanceKey = key();
+        String courier = key();
+        doAnswer(call -> {
+            call.callRealMethod();
+            throw new IllegalStateException("response lost");
+        }).when(credit).execute(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        doReturn(false).when(credit).compensate(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        service.submit(acceptanceKey,
+                new CommandRequest("ACCEPT", courier, opened.getId(), opened.getVersion(), null), null);
+        jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        due(acceptanceKey);
+
+        scheduler.processDueOrders();
+
+        assertEquals("PENDING", store.get(acceptanceKey).status());
+        assertEquals("RECONCILIATION_REQUIRED", store.get(acceptanceKey).reason());
+        assertEquals("OPEN", jdbc.queryForObject(
+                "select status from orders where id=?", String.class, opened.getId()));
+        assertEquals(courier, balances.reservationCourier(opened.getId()));
+        assertEquals(0, jdbc.queryForObject(
+                "select count(*) from order_event_outbox where order_id=?", Integer.class, opened.getId()));
+
+        doCallRealMethod().when(credit).compensate(eq(acceptanceKey), any(), anyLong(), nullable(String.class));
+        due(acceptanceKey);
+        scheduler.processDueOrders();
+        assertEquals("REJECTED", store.get(acceptanceKey).outcome());
+        assertEquals("EXPIRED", jdbc.queryForObject(
+                "select status from orders where id=?", String.class, opened.getId()));
     }
 
     @Test void unresolvedAbortGuardsStartAndDoesNotCreateHistoryPrematurely() {

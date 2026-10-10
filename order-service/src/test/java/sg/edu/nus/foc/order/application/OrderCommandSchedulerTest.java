@@ -1,17 +1,26 @@
 package sg.edu.nus.foc.order.application;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import org.junit.jupiter.api.Test;
-import org.springframework.scheduling.annotation.Scheduled;
-import sg.edu.nus.foc.order.application.recovery.*;
+import sg.edu.nus.foc.order.application.recovery.OrderCommandService;
 
 class OrderCommandSchedulerTest {
-    @Test void minuteScanDelegatesToTheHardGatedCoordinator() throws Exception {
-        var service = mock(OrderCommandService.class);
-        new OrderCommandRecoveryScheduler(service).recover();
-        verify(service).recoverDue();
-        assertEquals("${order.commands.cron:0 * * * * *}",
-                OrderCommandRecoveryScheduler.class.getMethod("recover").getAnnotation(Scheduled.class).cron());
+    @Test
+    void sharedMinuteJobDelegatesToTheHardGatedCoordinator() {
+        OrderCommandService commands = mock(OrderCommandService.class);
+        LifecycleProcessingService lifecycle = mock(LifecycleProcessingService.class);
+
+        new OrderLifecycleScheduler(lifecycle, commands).processDueOrders();
+
+        verify(commands).recoverDue();
+    }
+
+    @Test
+    void noIndependentCommandRecoveryTimerRemains() {
+        assertThrows(ClassNotFoundException.class, () -> Class.forName(
+                "sg.edu.nus.foc.order.application.recovery.OrderCommandRecoveryScheduler"));
     }
 }
