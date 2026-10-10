@@ -120,6 +120,12 @@ cp .env.example .env        # optional: override ports / admin emails
 docker compose up --build
 ```
 
+No cloud credentials are needed to start the stack. The Order Service publishes its events
+to real Google Pub/Sub dev topics, which needs your gcloud application-default credentials
+(`gcloud auth application-default login`, then set `GOOGLE_APPLICATION_CREDENTIALS_HOST` in
+`.env`; see [order-service/README.md](order-service/README.md)). Without them the events stay in
+the Order Service's outbox, and everything else works.
+
 | URL | What |
 | --- | --- |
 | http://localhost:8080 | The app (gateway: UI + all APIs) — use this one |

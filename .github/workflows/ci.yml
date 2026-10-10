@@ -67,13 +67,8 @@ jobs:
           echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict
           tar -xzf "$archive" actionlint
           ./actionlint -color
-      - name: Validate compose.yaml
-        env:
-          # Compose requires this path even for static config validation; no service starts here.
-          GOOGLE_APPLICATION_CREDENTIALS_HOST: /tmp/order-service-ci-adc.json
-        run: |
-          touch "$GOOGLE_APPLICATION_CREDENTIALS_HOST"
-          docker compose -f compose.yaml config --quiet
+      - name: Validate compose.yaml (must work on a fresh clone, without a .env)
+        run: docker compose -f compose.yaml config --quiet
       - name: Ensure no credentials are committed
         run: |
           if git ls-files | grep -Ei '(service-account|serviceaccount|credentials|-sa-key).*\.json$|\.pem$|\.p12$'; then
