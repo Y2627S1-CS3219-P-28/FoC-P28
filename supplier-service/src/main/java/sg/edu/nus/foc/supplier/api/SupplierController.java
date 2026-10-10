@@ -19,7 +19,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sg.edu.nus.foc.supplier.error.BadRequestException;
 import sg.edu.nus.foc.supplier.error.ForbiddenException;
+import sg.edu.nus.foc.supplier.security.CallerRoles;
 import sg.edu.nus.foc.supplier.security.Role;
 import sg.edu.nus.foc.supplier.supplier.CatalogueQuery;
 import sg.edu.nus.foc.supplier.supplier.CatalogueQuery.SortDirection;
@@ -45,14 +45,15 @@ import sg.edu.nus.foc.supplier.supplier.SupplierService;
 
 /**
  * Supplier catalogue API. Every endpoint needs a signed-in user (see SecurityConfig):
- * reads are open to all roles, catalogue management requires {@code admin}.
+ * reads are open to all roles, catalogue management requires {@code admin}. Roles are looked up in the
+ * User Service only where they matter ({@link CallerRoles}), so reads don't depend on it.
  */
 @RestController
 @RequestMapping("/api/suppliers")
 @Tag(name = "Suppliers", description = "Campus stores, facilities and landmarks used as errand pickup and delivery points")
 public class SupplierController {
 
-    private static final String ADMIN_ONLY = "hasRole('ADMIN')";
+    private static final String ADMIN_ONLY = "@callerRoles.isAdmin(authentication)";
 
     private static final Map<String, SortField> SORT_FIELDS = Map.of(
             "name", SortField.NAME,
@@ -62,9 +63,11 @@ public class SupplierController {
             "updatedAt", SortField.UPDATED_AT);
 
     private final SupplierService service;
+    private final CallerRoles callerRoles;
 
-    public SupplierController(SupplierService service) {
+    public SupplierController(SupplierService service, CallerRoles callerRoles) {
         this.service = service;
+        this.callerRoles = callerRoles;
     }
 
     @GetMapping
@@ -104,7 +107,7 @@ public class SupplierController {
 
         StatusFilter statusFilter = parse("status", status, Map.of(
                 "active", StatusFilter.ACTIVE, "inactive", StatusFilter.INACTIVE, "all", StatusFilter.ALL));
-        if (statusFilter != StatusFilter.ACTIVE && !isAdmin(caller)) {
+        if (statusFilter != StatusFilter.ACTIVE && !callerRoles.isAdmin(caller)) {
             throw new ForbiddenException("Only administrators can list inactive suppliers.");
         }
         SortField sortField = sort == null ? null : parse("sort", sort, SORT_FIELDS);
@@ -130,11 +133,13 @@ public class SupplierController {
     }
 
     @GetMapping("/permissions")
-    @Operation(summary = "The caller's roles and what they may do in this service")
+    @Operation(summary = "The caller's roles (from the User Service) and what they may do in this service")
+    @ApiResponse(responseCode = "200", description = "The caller's roles; empty if they have no User Service profile")
+    @ApiResponse(responseCode = "503", description = "The User Service could not be reached")
     public PermissionsResponse permissions(JwtAuthenticationToken caller) {
-        List<String> roles = roles(caller).stream().map(Role::id).sorted().toList();
-        return new PermissionsResponse(caller.getName(), caller.getToken().getClaimAsString("email"), roles,
-                isAdmin(caller));
+        Set<Role> roles = callerRoles.of(caller);
+        return new PermissionsResponse(caller.getName(), caller.getToken().getClaimAsString("email"),
+                roles.stream().map(Role::id).sorted().toList(), roles.contains(Role.ADMIN));
     }
 
     @GetMapping("/{id}")
@@ -185,9 +190,7 @@ public class SupplierController {
     @PreAuthorize(ADMIN_ONLY)
     @Operation(summary = "Update any field or the active status of a supplier (admin, F6.2)")
     public SupplierResponse update(@PathVariable String id, @Valid @RequestBody UpdateSupplierRequest request) {
-        Supplier current = service.get(id);
-        boolean active = request.active() != null ? request.active() : current.active();
-        Supplier updated = service.update(id, request.applyTo(current.details()), active);
+        Supplier updated = service.update(id, request::applyTo, request.active());
         return SupplierResponse.from(updated, service.isOpenNow(updated), null);
     }
 
@@ -208,20 +211,5 @@ public class SupplierController {
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException(field,
                         "must be one of " + allowed.keySet().stream().sorted().toList()));
-    }
-
-    private static Set<Role> roles(JwtAuthenticationToken caller) {
-        Set<Role> roles = new HashSet<>();
-        for (GrantedAuthority authority : caller.getAuthorities()) {
-            String name = authority.getAuthority();
-            if (name != null && name.startsWith("ROLE_")) {
-                Role.fromId(name.substring("ROLE_".length())).ifPresent(roles::add);
-            }
-        }
-        return roles;
-    }
-
-    private static boolean isAdmin(JwtAuthenticationToken caller) {
-        return roles(caller).contains(Role.ADMIN);
     }
 }

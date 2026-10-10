@@ -27,7 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Authentication: every request needs a Firebase ID token (OAuth2 resource server, stateless).
- * Authorisation: roles come from the User Service; admin-only endpoints use {@code @PreAuthorize}.
+ * Authorisation: roles come from the User Service, looked up only by endpoints that need them
+ * ({@link CallerRoles}); admin-only endpoints use {@code @PreAuthorize}.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
@@ -77,7 +78,7 @@ class SecurityConfig {
     }
 
     @Bean
-    RoleProvider roleProvider(SupplierProperties properties) {
+    RoleProvider roleProvider(SupplierProperties properties, Clock clock) {
         SupplierProperties.UserServiceSettings userService = properties.userService();
         if (userService.mode() == SupplierProperties.Mode.MOCK) {
             log.info("Resolving roles with the mock User Service ({} admin email(s))",
@@ -87,24 +88,24 @@ class SecurityConfig {
         if (userService.baseUrl().isEmpty()) {
             throw new IllegalStateException("USER_SERVICE_URL is required when USER_SERVICE_MODE=http");
         }
+        log.info("Resolving roles with the User Service at {} (timeout {}, cache {})", userService.baseUrl(),
+                userService.timeout(), userService.roleCacheTtl());
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(userService.timeout());
         requestFactory.setReadTimeout(userService.timeout());
-        return new HttpUserServiceRoleProvider(RestClient.builder()
+        RoleProvider http = new HttpUserServiceRoleProvider(RestClient.builder()
                 .baseUrl(userService.baseUrl())
                 .requestFactory(requestFactory)
                 .build());
+        return userService.roleCacheTtl().isZero() ? http
+                : new CachingRoleProvider(http, userService.roleCacheTtl(), clock);
     }
 
+    /** Authorities stay empty: roles are resolved per endpoint by {@link CallerRoles}, not for every request. */
     @Bean
-    FirebaseRoleAuthoritiesConverter firebaseRoleAuthoritiesConverter(RoleProvider roleProvider) {
-        return new FirebaseRoleAuthoritiesConverter(roleProvider);
-    }
-
-    @Bean
-    JwtAuthenticationConverter jwtAuthenticationConverter(FirebaseRoleAuthoritiesConverter authorities) {
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> List.of());
         return converter;
     }
 

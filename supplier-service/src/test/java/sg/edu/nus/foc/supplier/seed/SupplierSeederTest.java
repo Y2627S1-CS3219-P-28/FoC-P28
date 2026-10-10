@@ -10,13 +10,16 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sg.edu.nus.foc.supplier.config.SupplierProperties;
 import sg.edu.nus.foc.supplier.supplier.Supplier;
+import sg.edu.nus.foc.supplier.supplier.SupplierDetails;
 import sg.edu.nus.foc.supplier.supplier.SupplierService;
 import sg.edu.nus.foc.supplier.supplier.SupplierSource;
 import sg.edu.nus.foc.supplier.support.InMemorySupplierRepository;
@@ -51,7 +54,7 @@ class SupplierSeederTest {
     @Test
     void firstLoadCreatesActiveSeedRecords() throws IOException {
         SeedReport report = seeder.seed(csv(COOL_SPOT + PRINTER));
-        assertThat(report).isEqualTo(new SeedReport(2, 0, 0, 0, 0));
+        assertThat(report).isEqualTo(new SeedReport(2, 0, 0, 0, 0, 0));
         assertThat(repository.findAll()).allSatisfy(s -> {
             assertThat(s.active()).isTrue();
             assertThat(s.source()).isEqualTo(SupplierSource.SEED);
@@ -62,7 +65,7 @@ class SupplierSeederTest {
     void reloadingTheSameFileChangesNothing() throws IOException {
         Path file = csv(COOL_SPOT + PRINTER);
         seeder.seed(file);
-        assertThat(seeder.seed(file)).isEqualTo(new SeedReport(0, 0, 2, 0, 0));
+        assertThat(seeder.seed(file)).isEqualTo(new SeedReport(0, 0, 2, 0, 0, 0));
         assertThat(repository.findAll()).hasSize(2);
     }
 
@@ -93,15 +96,115 @@ class SupplierSeederTest {
         Path file = csv(COOL_SPOT);
         seeder.seed(file);
         Supplier s = repository.findAll().getFirst();
-        repository.update(s.id(), s.details(), false);
+        repository.update(s.id(), d -> d, false);
         seeder.seed(file);
         assertThat(repository.findById(s.id()).orElseThrow().active()).isFalse();
+    }
+
+    // ---- Administrators' changes survive reloads (every Cloud Run restart reloads the file) ----------
+
+    private Supplier coolSpot() {
+        return repository.findAll().stream().filter(s -> s.details().name().startsWith("Cool Spot"))
+                .findFirst().orElseThrow();
+    }
+
+    private static SupplierDetails withClosingTime(SupplierDetails d, LocalTime closing) {
+        return new SupplierDetails(d.name(), d.type(), d.building(), d.floor(), d.locationDescription(),
+                d.latitude(), d.longitude(), d.openingTime(), closing, d.imageUrl());
+    }
+
+    private static SupplierDetails renamed(SupplierDetails d, String name) {
+        return new SupplierDetails(name, d.type(), d.building(), d.floor(), d.locationDescription(),
+                d.latitude(), d.longitude(), d.openingTime(), d.closingTime(), d.imageUrl());
+    }
+
+    @Test
+    void reloadKeepsAnAdministratorsEditOfASeedRecord() throws IOException {
+        Path file = csv(COOL_SPOT);
+        seeder.seed(file);
+        String id = coolSpot().id();
+        repository.update(id, d -> withClosingTime(d, LocalTime.of(23, 0)), null);
+
+        assertThat(seeder.seed(file)).isEqualTo(new SeedReport(0, 0, 0, 1, 0, 0));
+        assertThat(repository.findById(id).orElseThrow().details().closingTime()).isEqualTo(LocalTime.of(23, 0));
+    }
+
+    @Test
+    void reloadAfterAnAdministratorRenamesASeedRecordNeitherDuplicatesNorDeactivatesIt() throws IOException {
+        Path file = csv(COOL_SPOT);
+        seeder.seed(file);
+        String id = coolSpot().id();
+        repository.update(id, d -> renamed(d, "Cool Spot Too"), null);
+
+        assertThat(seeder.seed(file)).isEqualTo(new SeedReport(0, 0, 0, 1, 0, 0));
+        assertThat(repository.findAll()).singleElement().satisfies(s -> {
+            assertThat(s.id()).isEqualTo(id);
+            assertThat(s.details().name()).isEqualTo("Cool Spot Too");
+            assertThat(s.active()).isTrue();
+        });
+    }
+
+    @Test
+    void seedRecordsAnAdministratorChangedStayActiveWhenTheirRowIsRemoved() throws IOException {
+        seeder.seed(csv(COOL_SPOT + PRINTER));
+        Supplier printer = repository.findAll().stream()
+                .filter(s -> s.details().name().startsWith("Printer")).findFirst().orElseThrow();
+        repository.update(printer.id(), d -> withClosingTime(d, LocalTime.of(22, 0)), null);
+
+        SeedReport report = seeder.seed(csv(COOL_SPOT));
+        assertThat(report.deactivated()).isZero();
+        assertThat(repository.findById(printer.id()).orElseThrow().active()).isTrue();
+    }
+
+    @Test
+    void rowsMatchingAnAdministratorsSupplierLeaveItUntouched() throws IOException {
+        Supplier admin = repository.create(withClosingTime(details("Cool Spot", "Food", "Com2"), LocalTime.of(17, 0)),
+                SupplierSource.ADMIN);
+
+        assertThat(seeder.seed(csv(COOL_SPOT))).isEqualTo(new SeedReport(0, 0, 0, 1, 0, 0));
+        assertThat(repository.findAll()).containsExactly(admin);
+    }
+
+    @Test
+    void recordsSeededBeforeSeedKeysExistedAreAdoptedOnce() throws IOException {
+        Path file = csv(COOL_SPOT);
+        seeder.seed(file);
+        Supplier legacy = coolSpot();
+        repository.put(new Supplier(legacy.id(), legacy.details(), true, SupplierSource.SEED, null, false,
+                legacy.createdAt(), legacy.updatedAt()));
+
+        assertThat(seeder.seed(file).updated()).isEqualTo(1);
+        assertThat(repository.findById(legacy.id()).orElseThrow().seedKey()).isEqualTo(legacy.details().naturalKey());
+        assertThat(seeder.seed(file)).isEqualTo(new SeedReport(0, 0, 1, 0, 0, 0));
+    }
+
+    @Test
+    void anAdministratorsEditDuringTheLoadWins() throws IOException {
+        seeder.seed(csv(COOL_SPOT));
+        String id = coolSpot().id();
+        // The administrator saves after the loader has read the catalogue but before it writes.
+        InMemorySupplierRepository racing = new InMemorySupplierRepository(Clock.systemUTC()) {
+            @Override
+            public List<Supplier> findAll() {
+                List<Supplier> snapshot = super.findAll();
+                update(id, d -> withClosingTime(d, LocalTime.of(20, 0)), null);
+                return snapshot;
+            }
+        };
+        repository.findAll().forEach(racing::put);
+        SupplierProperties properties = new SupplierProperties(null, null, null, null, null, null);
+        SupplierSeeder racingSeeder = new SupplierSeeder(racing,
+                new SupplierService(racing, Clock.systemUTC(), properties), properties);
+
+        SeedReport report = racingSeeder.seed(csv(COOL_SPOT.replace("2130hrs", "2200hrs")));
+        assertThat(report.preserved()).isEqualTo(1);
+        assertThat(racing.findById(id).orElseThrow().details().closingTime()).isEqualTo(LocalTime.of(20, 0));
     }
 
     @Test
     void invalidAndDuplicateRowsAreSkippedWithoutBlockingOthers() throws IOException {
         SeedReport report = seeder.seed(csv(COOL_SPOT + ",Food,B,1,,1,1,0900hrs,1800hrs,\n" + COOL_SPOT + PRINTER));
-        assertThat(report).isEqualTo(new SeedReport(2, 0, 0, 0, 2));
+        assertThat(report).isEqualTo(new SeedReport(2, 0, 0, 0, 0, 2));
     }
 
     @Test

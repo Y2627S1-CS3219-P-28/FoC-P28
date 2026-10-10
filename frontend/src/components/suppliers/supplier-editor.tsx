@@ -14,14 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { useSupplierPermissions } from "@/hooks/use-supplier-permissions"
-import { toInput, type Supplier, type SupplierInput } from "@/lib/suppliers"
+import { changedFields, toInput, type Supplier, type SupplierInput } from "@/lib/suppliers"
 
 /** Create (no id) or edit (id) a supplier. Admin-only; the service rejects anyone else anyway. */
 export function SupplierEditor({ id }: { id?: string }) {
   const api = useApi()
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const { permissions, canManage } = useSupplierPermissions()
+  const { canManage, loading: permissionsLoading, error: permissionError } = useSupplierPermissions()
   const [existing, setExisting] = useState<Supplier | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [types, setTypes] = useState<string[]>([])
@@ -39,8 +39,14 @@ export function SupplierEditor({ id }: { id?: string }) {
 
   async function save(input: SupplierInput) {
     if (id) {
-      await api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}`, { method: "PATCH", body: input })
-      toast.success("Supplier updated")
+      // Only the edited fields, so a concurrent edit of other fields by another administrator is kept.
+      const changes = existing ? changedFields(toInput(existing), input) : input
+      if (Object.keys(changes).length === 0) {
+        toast("No changes to save")
+      } else {
+        await api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}`, { method: "PATCH", body: changes })
+        toast.success("Supplier updated")
+      }
       router.push(`/suppliers/${id}`)
     } else {
       // Optional fields are omitted rather than sent empty when creating.
@@ -52,7 +58,7 @@ export function SupplierEditor({ id }: { id?: string }) {
   }
 
   const backHref = id ? `/suppliers/${id}` : "/suppliers"
-  const ready = permissions !== null && (!id || existing || loadError)
+  const ready = !permissionsLoading && (!id || existing || loadError)
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:py-8">
@@ -62,6 +68,11 @@ export function SupplierEditor({ id }: { id?: string }) {
       </Button>
       {!ready ? (
         <Skeleton className="h-96 w-full" />
+      ) : permissionError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not check your permissions</AlertTitle>
+          <AlertDescription>{permissionError}</AlertDescription>
+        </Alert>
       ) : !canManage ? (
         <Alert variant="destructive">
           <AlertTitle>Administrators only</AlertTitle>

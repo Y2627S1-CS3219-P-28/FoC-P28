@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
@@ -22,7 +24,8 @@ import org.springframework.stereotype.Repository;
 /**
  * Firestore layout:
  * <ul>
- *   <li>{@code suppliers/{id}}: one document per supplier, auto-generated ID.</li>
+ *   <li>{@code suppliers/{id}}: one document per supplier, auto-generated ID. {@code seedKey} and
+ *       {@code adminModified} record whether the seed loader may still change it.</li>
  *   <li>{@code supplierKeys/{sha256(name|building)}}: {@code {supplierId}}, a uniqueness index.
  *       Firestore has no unique constraints, so creates and renames claim the key document in
  *       the same transaction as the supplier write.</li>
@@ -80,6 +83,7 @@ public class FirestoreSupplierRepository implements SupplierRepository {
     @Override
     public Supplier create(SupplierDetails details, SupplierSource source) {
         Instant now = clock.instant();
+        String seedKey = source == SupplierSource.SEED ? details.naturalKey() : null;
         return await(firestore.runTransaction(tx -> {
             DocumentReference keyRef = keys().document(details.naturalKey());
             DocumentSnapshot key = tx.get(keyRef).get();
@@ -87,7 +91,7 @@ public class FirestoreSupplierRepository implements SupplierRepository {
                 throw new DuplicateSupplierException(key.getString("supplierId"));
             }
             DocumentReference ref = suppliers().document();
-            Supplier supplier = new Supplier(ref.getId(), details, true, source, now, now);
+            Supplier supplier = new Supplier(ref.getId(), details, true, source, seedKey, false, now, now);
             tx.set(ref, toDocument(supplier));
             tx.set(keyRef, Map.of("supplierId", ref.getId()));
             return supplier;
@@ -95,7 +99,32 @@ public class FirestoreSupplierRepository implements SupplierRepository {
     }
 
     @Override
-    public Supplier update(String id, SupplierDetails details, boolean active) {
+    public Supplier update(String id, UnaryOperator<SupplierDetails> change, Boolean active) {
+        return modify(id, current -> Optional.of(current.editedByAdmin(change.apply(current.details()),
+                active != null ? active : current.active())))
+                .orElseThrow();
+    }
+
+    @Override
+    public Optional<Supplier> updateFromSeed(String id, SupplierDetails details) {
+        return modify(id, current -> current.managedBySeed()
+                ? Optional.of(current.seededWith(details))
+                : Optional.empty());
+    }
+
+    @Override
+    public Optional<Supplier> deactivateFromSeed(String id) {
+        return modify(id, current -> current.managedBySeed() && current.active()
+                ? Optional.of(current.deactivatedBySeed())
+                : Optional.empty());
+    }
+
+    /**
+     * Reads the supplier, applies {@code change} and writes the result in one transaction. Firestore re-runs
+     * the transaction on contention, so {@code change} always sees the latest committed record. An empty
+     * result writes nothing. A rename moves the uniqueness key in the same transaction.
+     */
+    private Optional<Supplier> modify(String id, Function<Supplier, Optional<Supplier>> change) {
         if (!isValidDocumentId(id)) {
             throw new SupplierNotFoundException(id);
         }
@@ -107,8 +136,12 @@ public class FirestoreSupplierRepository implements SupplierRepository {
                 throw new SupplierNotFoundException(id);
             }
             Supplier existing = fromDocument(current);
+            Optional<Supplier> changed = change.apply(existing);
+            if (changed.isEmpty()) {
+                return Optional.<Supplier>empty();
+            }
             String oldKey = existing.details().naturalKey();
-            String newKey = details.naturalKey();
+            String newKey = changed.get().details().naturalKey();
             DocumentReference newKeyRef = keys().document(newKey);
             if (!oldKey.equals(newKey)) {
                 DocumentSnapshot claimed = tx.get(newKeyRef).get();
@@ -117,13 +150,13 @@ public class FirestoreSupplierRepository implements SupplierRepository {
                 }
             }
             // All reads above, writes below (Firestore transaction rule).
-            Supplier updated = new Supplier(id, details, active, existing.source(), existing.createdAt(), now);
+            Supplier updated = changed.get().updatedAt(now);
             tx.set(ref, toDocument(updated));
             if (!oldKey.equals(newKey)) {
                 tx.delete(keys().document(oldKey));
                 tx.set(newKeyRef, Map.of("supplierId", id));
             }
-            return updated;
+            return Optional.of(updated);
         }));
     }
 
@@ -156,6 +189,8 @@ public class FirestoreSupplierRepository implements SupplierRepository {
         doc.put("imageUrl", d.imageUrl());
         doc.put("active", supplier.active());
         doc.put("source", supplier.source().name());
+        doc.put("seedKey", supplier.seedKey());
+        doc.put("adminModified", supplier.adminModified());
         doc.put("createdAt", toTimestamp(supplier.createdAt()));
         doc.put("updatedAt", toTimestamp(supplier.updatedAt()));
         return doc;
@@ -178,6 +213,9 @@ public class FirestoreSupplierRepository implements SupplierRepository {
                 details,
                 Boolean.TRUE.equals(doc.getBoolean("active")),
                 SupplierSource.valueOf(doc.getString("source")),
+                // Absent on records written before these fields existed.
+                doc.getString("seedKey"),
+                Boolean.TRUE.equals(doc.getBoolean("adminModified")),
                 toInstant(doc.getTimestamp("createdAt")),
                 toInstant(doc.getTimestamp("updatedAt")));
     }

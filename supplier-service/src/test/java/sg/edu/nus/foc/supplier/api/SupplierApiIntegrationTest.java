@@ -28,7 +28,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import sg.edu.nus.foc.supplier.security.FirebaseRoleAuthoritiesConverter;
 import sg.edu.nus.foc.supplier.support.FirestoreEmulator;
 
 /**
@@ -56,12 +55,9 @@ class SupplierApiIntegrationTest {
     @Autowired
     private MockMvc mvc;
 
-    @Autowired
-    private FirebaseRoleAuthoritiesConverter roles;
-
-    /** A signed-in user; roles are resolved by the application exactly as for a real token. */
-    private RequestPostProcessor as(String email) {
-        return jwt().jwt(j -> j.subject("uid-" + email).claim("email", email)).authorities(roles);
+    /** A signed-in user; the application resolves their roles (mock User Service) exactly as for a real token. */
+    private static RequestPostProcessor as(String email) {
+        return jwt().jwt(j -> j.subject("uid-" + email).claim("email", email));
     }
 
     private static String body(String name) {
