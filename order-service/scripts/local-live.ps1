@@ -233,12 +233,14 @@ function Invoke-LocalLive {
         }
         [void](Invoke-Cloud @('pubsub','topics','add-iam-policy-binding',$names.DeadLetterTopic,'--project',$projectId,'--member',"serviceAccount:$serviceAgent",'--role=roles/pubsub.publisher'))
         Ensure-LocalSubscription $projectId $developerId $names.RecoverySubscription $names.DeadLetterTopic $names
-        $pushEndpoint = "$baseUrl/api/credits/internal/order-events"
-        foreach ($pair in @(@($names.RefundSubscription,$names.RefundTopic),@($names.CompletionSubscription,$names.CompletionTopic))) {
+        foreach ($pair in @(
+            @($names.RefundSubscription,$names.RefundTopic,'open-refund'),
+            @($names.CompletionSubscription,$names.CompletionTopic,'completion'))) {
+            $pushEndpoint = "$baseUrl/api/credits/internal/order-events/$($pair[2])"
             Ensure-LocalSubscription $projectId $developerId $pair[0] $pair[1] $names $pushEndpoint
             [void](Invoke-Cloud @('pubsub','subscriptions','add-iam-policy-binding',$pair[0],'--project',$projectId,'--member',"serviceAccount:$serviceAgent",'--role=roles/pubsub.subscriber'))
         }
-        Write-Host "SETUP: isolated refund/completion push -> $pushEndpoint"
+        Write-Host "SETUP: isolated refund/completion push -> $baseUrl/api/credits/internal/order-events/<type>"
         Write-Host 'Start/build the local-live application stack, then run -Action Check before UI testing.'
         Write-Host 'No Credit subscription created for accepted-cancellation (User penalty only).'
         return
@@ -250,18 +252,22 @@ function Invoke-LocalLive {
         Assert-ManagedResource ($resource | ConvertFrom-Json) $developerId
     }
     [void](Get-OwnedSubscription $projectId $developerId $names.RecoverySubscription $names.DeadLetterTopic)
-    foreach ($pair in @(@($names.RefundSubscription,$names.RefundTopic),@($names.CompletionSubscription,$names.CompletionTopic))) {
+    foreach ($pair in @(
+        @($names.RefundSubscription,$names.RefundTopic,'open-refund'),
+        @($names.CompletionSubscription,$names.CompletionTopic,'completion'))) {
         $sub = Get-OwnedSubscription $projectId $developerId $pair[0] $pair[1]
-        if ($sub.pushConfig.pushEndpoint -ne "$baseUrl/api/credits/internal/order-events" -or
+        if ($sub.pushConfig.pushEndpoint -ne "$baseUrl/api/credits/internal/order-events/$($pair[2])" -or
             $sub.pushConfig.oidcToken.serviceAccountEmail -ne $names.PushAccount -or
             $sub.pushConfig.oidcToken.audience -ne $names.Audience -or
             $sub.deadLetterPolicy.deadLetterTopic -ne "projects/$projectId/topics/$($names.DeadLetterTopic)") {
             throw 'Subscription endpoint/authentication/DLQ mismatch. Rerun Setup after tunnel recreation.'
         }
     }
-    if ((Get-HttpStatus "$baseUrl/api/credits/internal/order-events" 'POST') -ne 401) { throw 'Expected Credit to reject unauthenticated push with 401; do not test with auth bypass.' }
+    foreach ($eventPath in @('open-refund','completion')) {
+        if ((Get-HttpStatus "$baseUrl/api/credits/internal/order-events/$eventPath" 'POST') -ne 401) { throw 'Expected Credit to reject unauthenticated push with 401; do not test with auth bypass.' }
+        if ((Get-HttpStatus "$baseUrl/api/credits/internal/order-events/$eventPath" 'GET') -ne 405) { throw 'Tunnel should reject non-POST event requests.' }
+    }
     if ((Get-HttpStatus "$baseUrl/api/credits/me" 'GET') -ne 404) { throw 'Tunnel unexpectedly exposes general Credit API.' }
-    if ((Get-HttpStatus "$baseUrl/api/credits/internal/order-events" 'GET') -ne 405) { throw 'Tunnel should reject non-POST event requests.' }
     Write-Host 'CHECK PASS: owned cloud push configuration matches tunnel; Credit rejects unauthenticated delivery; other routes/methods blocked.'
     Write-Host 'This is NOT financial verification. Test local UI workflows and confirm local Credit ledger/balances and event IDs.'
 }

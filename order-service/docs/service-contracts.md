@@ -17,11 +17,20 @@ error envelope and identify only actual invalid fields. No peer API/event/schema
 change. Latest user approval supersedes only the historical new-plan timing below.
 
 
+## Credit Order-event push endpoints
+
+Credit uses one authenticated Google Pub/Sub push endpoint per financial stream:
+`/api/credits/internal/order-events/open-refund`,
+`/api/credits/internal/order-events/accepted-cancellation`, and
+`/api/credits/internal/order-events/completion`. Each route invokes its fixed
+handler; the wrapped envelope's subscription and declared event type are checked
+only as routing guardrails. Successful commits and idempotent replays return 204.
+
 ## Local delivery configuration — CHANGE-088 / ADR-029
 
-No endpoint/payload contract changes. Existing wrapped Google push POST to
-`/api/credits/internal/order-events` retains Google OIDC and subscription checks,
-204 after processing. Isolated local financial subscriptions/topic names and a
+The original shared endpoint has been replaced by the three typed paths above.
+Wrapped Google push retains Google OIDC and subscription checks and returns 204
+after processing. Isolated local financial subscriptions/topic names and a
 stable custom audience now match Compose and Setup; HTTPS proxy preserves body
 and bearer. See [runbook](local-live-testing.md). User penalty topic has no Credit
 subscription here; User consumers/delegated authorization still require peers.

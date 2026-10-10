@@ -187,7 +187,6 @@ for env in "${environments[@]}"; do
 
   push_sa=$(environment_value "$env" CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT)
   push_url="https://credit-service-$env-$PROJECT_NUMBER.$REGION.run.app"
-  push_endpoint="$push_url/api/credits/internal/order-events"
   dlq_topic=$(credit_dlq_topic "$env")
   dlq_subscription=$(credit_dlq_subscription "$env")
   pubsub_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
@@ -223,9 +222,15 @@ for env in "${environments[@]}"; do
     "$(environment_value "$env" CREDIT_ORDER_ACCEPTED_CANCELLATION_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
   )
+  push_paths=(
+    "/api/credits/internal/order-events/open-refund"
+    "/api/credits/internal/order-events/accepted-cancellation"
+    "/api/credits/internal/order-events/completion"
+  )
   for index in "${!subscriptions[@]}"; do
     topic=${topics[$index]}
     subscription=${subscriptions[$index]}
+    push_endpoint="$push_url${push_paths[$index]}"
     if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
       problem "order-service: Pub/Sub topic '$topic' does not exist"
       continue

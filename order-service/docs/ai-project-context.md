@@ -386,3 +386,9 @@ regression coverage, preserving the inclusive domain boundary and all repost rul
 Focused 19 tests pass; full result and fixture diagnostic recorded in CHANGE-099.
 No production/frontend/peer/schema/deployment change; live integration/Sprint gates
 remain unchanged.
+
+## Main typed Credit handlers merge - 2026-10-10
+
+Merged main a641836 provides typed Credit routes and matching CI/provisioning paths. Peer feedback now references its decoder/handlers while retaining CHANGE-092 compact payloads and FEEDBACK-009. No consumer compatibility claim. Conflict resolved/staged, all other main index entries untouched. Standard Order verify passed258 tests and coverage; ShellCheck/actionlint pass. Existing restored staging URLs match three typed routes; live recheck result recorded in Yao Xiang active work. Former shared-path repair was based on stale branch state and is superseded. Previous reverted CI helper/-U edits remain reverted.
+
+Final live staging/production infrastructure rerun passed after a transient IAM DNS failure; all typed subscription configurations match merged main. Prior two failures did not reproduce. Merge commit/push and hosted CI remain pending; peer compact consumers remain incompatible.

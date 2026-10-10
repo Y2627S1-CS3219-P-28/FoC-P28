@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 const base = 'http://ingress-test:8080';
-const path = '/api/credits/internal/order-events';
+const paths = [
+  '/api/credits/internal/order-events/open-refund',
+  '/api/credits/internal/order-events/accepted-cancellation',
+  '/api/credits/internal/order-events/completion',
+];
+const path = paths[0];
 let ready = false;
 for (let attempt = 0; attempt < 30; attempt++) {
   try {
@@ -11,14 +16,16 @@ for (let attempt = 0; attempt < 30; attempt++) {
 }
 assert.ok(ready, 'Origin fixture and ingress must become ready');
 let assertions = 1;
-const response = await fetch(base + path, {
-  method: 'POST',
-  headers: { Authorization: 'Bearer routing-test-not-a-token', 'Content-Type': 'application/json', 'X-Request-Id': 'wire-test-request' },
-  body: JSON.stringify({ message: { data: 'synthetic-test' }, subscription: 'synthetic' }),
-});
-assert.equal(response.status, 204, 'Preserve POST path, bearer, content type, request ID and exact JSON body');
-assert.equal(response.headers.get('x-fixture-request-id'), 'wire-test-request');
-assertions += 2;
+for (const eventPath of paths) {
+  const response = await fetch(base + eventPath, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer routing-test-not-a-token', 'Content-Type': 'application/json', 'X-Request-Id': 'wire-test-request' },
+    body: JSON.stringify({ message: { data: 'synthetic-test' }, subscription: 'synthetic' }),
+  });
+  assert.equal(response.status, 204, `Preserve typed POST path ${eventPath}, bearer, content type, request ID and exact JSON body`);
+  assert.equal(response.headers.get('x-fixture-request-id'), 'wire-test-request');
+  assertions += 2;
+}
 for (const method of ['GET', 'PUT', 'DELETE', 'OPTIONS']) {
   assert.equal((await fetch(base + path, { method })).status, 405, `Reject ${method}`);
   assertions++;

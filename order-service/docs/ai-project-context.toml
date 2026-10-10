@@ -386,3 +386,19 @@ implementation_changed = false
 regression = "OrderCreationExpiryApiTest; short/past deadlines return expiry-specific 400 before credit reservation or writes"
 verification = "19 focused tests passed; full result in change record"
 live_deployment_retested = false
+
+[main_typed_credit_merge_verification]
+date = "2026-10-10"
+incoming_commit = "a641836ce8c9d7b1458560099bc079a1fb62b1b0"
+feedback_conflict_resolved = true
+other_staged_changes_preserved = true
+compact_contract_preserved = true
+credit_consumer_migration_pending = true
+order_tests_passed = 258
+order_tests_skipped = 0
+ci_force_update_reintroduced = false
+infrastructure_scripts_preserved_from_main = true
+hosted_ci_rerun_pending = true
+live_staging_production_infrastructure_passed = true
+initial_cloud_run_transient_dns_failure = true
+merge_commit_created = false

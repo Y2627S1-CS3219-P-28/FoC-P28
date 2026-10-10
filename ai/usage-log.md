@@ -1913,3 +1913,15 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Why five location references were missing when Supplier was not changed.
 - **Key response:** Supplier startup logs show21created/0unchanged; creation uses auto-generated IDs and CSV seeding preserves IDs only when existing natural-key records are available. Separate persistent Order/Firebase stores can diverge without source edits; same location names can now have new IDs. Previous missing-reference checks establish the mismatch, not its historical reset/import cause. Emulator import reported but named Supplier restoration unverified. Default mock validation does not check document existence. No application/data/configuration changes, tests, resets, rebuilds or cloud actions.
 - **Author verification:** Human review pending; current branch/profile and scoped context/PDF hashes checked. Exact loss/namespace/export trigger remains unverified and is not attributed to the user or a specific prior command. Earlier frontend-only fix did not recreate Supplier/emulator/data volumes. Existing integration/history-context gates remain.
+
+## 2026-10-10 - Main merge feedback conflict and CI verification
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Mode:** Merge-conflict resolution, provider/config inspection and CI verification.
+- **Exact prompt:**
+
+  > I revert the previous ci fix change and pull main changes now but we have merge conflict at peer service api feedback. Fix that and check that. This new changes won't have the previous ci error again
+
+- **Key response:** Resolved/staged only the feedback conflict, retaining approved seven-key Order contract and current main typed Credit decoder/handlers. Main introduces matching three-path infrastructure checks/provisioning; preserved these and every other staged entry. The earlier shared-route cloud repair used stale branch evidence and was undone; three event-specific staging URLs restored. Standard Maven verify without-U passes258 tests and coverage, ShellCheck/actionlint and index/source/contract checks pass. Full cloud first-run hit IAM DNS failures; the staging/production rerun passed, including all three typed subscriptions. Consumer compatibility and hosted CI remain unverified.
+- **Affected locations:** Order peer feedback/current-developer active work/context/change log; this disclosure. Existing main peer/scripts/config edits preserved, not regenerated; no new application, event, schema or workflow edit. Prior three staging URLs restored to newer deployed/main routes.
+- **Author verification:** Yao Xiang requested the conflict resolution and CI checks after reverting prior fixes/pulling main. AI ran recorded checks; developer review, merge commit and hosted CI confirmation pending. No credentials printed or committed.
