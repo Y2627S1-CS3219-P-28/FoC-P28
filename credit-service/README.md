@@ -56,18 +56,19 @@ There is no gift, withdrawal, top-up, direct balance update, or generic CRUD API
 
 ## Order outcome events
 
-Google Cloud Pub/Sub delivers each finalized Order event stream to the authenticated push endpoint
-`POST /api/credits/internal/order-events`:
+Google Cloud Pub/Sub delivers each finalized Order event stream to its authenticated, typed push
+endpoint:
 
-| Event | Credit action |
-|---|---|
-| `OpenOrderRefundTaskEvent` | Release the requester's reservation after `CANCELLED` or `EXPIRED`. |
-| `AcceptedOrderCancellationTaskEvent` | Release the reservation after the assigned courier aborts at/after expiry. |
-| `OrderCompletionTaskEvent` | Debit the requester's reserved/total balance and credit the recorded courier. |
+| Event | Push endpoint | Credit action |
+|---|---|---|
+| `OpenOrderRefundTaskEvent` | `POST /api/credits/internal/order-events/open-refund` | Release the requester's reservation after `CANCELLED` or `EXPIRED`. |
+| `AcceptedOrderCancellationTaskEvent` | `POST /api/credits/internal/order-events/accepted-cancellation` | Release the reservation after the assigned courier aborts at/after expiry. |
+| `OrderCompletionTaskEvent` | `POST /api/credits/internal/order-events/completion` | Debit the requester's reserved/total balance and credit the recorded courier. |
 
-The endpoint uses a separate Google OIDC security chain from the Firebase-authenticated user API.
-It validates the push service-account email, token issuer and audience, then checks that each event
-type arrived through its designated subscription. The receiver also validates event version 1,
+These endpoints use a separate Google OIDC security chain from the Firebase-authenticated user API.
+It validates the push service-account email, token issuer and audience. Each endpoint invokes its
+designated handler directly, while checking the subscription and declared event type as routing
+guardrails. The receiver also validates event version 1,
 top-level/snapshot identifiers and versions, resulting status, requester, amount, and courier.
 
 The service records `eventId` and a payload hash in the same PostgreSQL transaction as reservation,

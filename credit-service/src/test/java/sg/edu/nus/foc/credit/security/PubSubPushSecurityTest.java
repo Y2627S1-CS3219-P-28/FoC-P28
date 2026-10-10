@@ -8,6 +8,7 @@ package sg.edu.nus.foc.credit.security;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,7 +60,11 @@ import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.credit.CreditService;
 import sg.edu.nus.foc.credit.error.GlobalExceptionHandler;
-import sg.edu.nus.foc.credit.messaging.OrderEventPayloadConsumer;
+import sg.edu.nus.foc.credit.messaging.AcceptedOrderCancellationEventHandler;
+import sg.edu.nus.foc.credit.messaging.OpenOrderRefundEventHandler;
+import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
+import sg.edu.nus.foc.credit.messaging.OrderEventMessage;
+import sg.edu.nus.foc.credit.messaging.OrderEventPayloadDecoder;
 
 @WebMvcTest
 @ContextConfiguration(classes = {CreditController.class, CreditOrderEventController.class, GlobalExceptionHandler.class,
@@ -77,7 +82,10 @@ class PubSubPushSecurityTest {
     @Autowired MockMvc mvc;
     @MockitoBean RoleProvider roles;
     @MockitoBean CreditService credits;
-    @MockitoBean OrderEventPayloadConsumer consumer;
+    @MockitoBean OrderEventPayloadDecoder decoder;
+    @MockitoBean OpenOrderRefundEventHandler openRefundHandler;
+    @MockitoBean AcceptedOrderCancellationEventHandler acceptedCancellationHandler;
+    @MockitoBean OrderCompletionEventHandler completionHandler;
     @MockitoBean(name = "jwtDecoder") JwtDecoder firebaseDecoder;
 
     @BeforeEach
@@ -88,6 +96,12 @@ class PubSubPushSecurityTest {
                 .issuedAt(Instant.now().minusSeconds(10)).expiresAt(Instant.now().plusSeconds(300)).build();
         doReturn(user).when(firebaseDecoder).decode(FIREBASE_TOKEN);
         when(roles.rolesFor(any())).thenReturn(Set.of(Role.COURIER));
+        when(decoder.decode(eq(SUBSCRIPTION), eq(PAYLOAD), eq(SUBSCRIPTION),
+                eq("OpenOrderRefundTaskEvent")))
+                .thenReturn(new OrderEventMessage(
+                        "security-test-event", "OpenOrderRefundTaskEvent", 1,
+                        "order-1", 1, Instant.now(), "requester-1",
+                        null, null, null));
     }
 
     @AfterAll
@@ -96,34 +110,44 @@ class PubSubPushSecurityTest {
     }
 
     @Test
-    void signedPushReachesConsumerEvenWhenUserRoleLookupIsUnavailable() throws Exception {
+    void signedPushReachesTypedHandlerEvenWhenUserRoleLookupIsUnavailable() throws Exception {
         when(roles.rolesFor(any())).thenThrow(new RoleLookupException("User unavailable", null));
 
         push(token("valid")).andExpect(status().isNoContent());
 
-        verify(consumer).consume(SUBSCRIPTION, PAYLOAD);
+        verify(decoder).decode(SUBSCRIPTION, PAYLOAD, SUBSCRIPTION, "OpenOrderRefundTaskEvent");
+        verify(openRefundHandler).handle(any(OrderEventMessage.class));
+        verifyNoInteractions(acceptedCancellationHandler, completionHandler);
         verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"signature", "issuer", "audience", "email", "unverified", "expired", "firebase"})
-    void invalidSignedPushIdentityNeverReachesConsumerOrUserLookup(String invalid) throws Exception {
+    void invalidSignedPushIdentityNeverReachesHandlerOrUserLookup(String invalid) throws Exception {
         push(token(invalid)).andExpect(status().isUnauthorized());
-        verifyNoInteractions(consumer, roles, firebaseDecoder, credits);
+        verifyNoEventInteractions();
+        verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
     @Test
-    void missingPushTokenIsRejected() throws Exception {
-        mvc.perform(post(CreditOrderEventController.PUSH_PATH)
-                .contentType(MediaType.APPLICATION_JSON).content(envelope()))
-                .andExpect(status().isUnauthorized());
-        verifyNoInteractions(consumer, roles, firebaseDecoder, credits);
+    void everyTypedPushPathRejectsAMissingToken() throws Exception {
+        for (String path : List.of(
+                CreditOrderEventController.OPEN_REFUND_PATH,
+                CreditOrderEventController.ACCEPTED_CANCELLATION_PATH,
+                CreditOrderEventController.COMPLETION_PATH)) {
+            mvc.perform(post(path)
+                    .contentType(MediaType.APPLICATION_JSON).content(envelope()))
+                    .andExpect(status().isUnauthorized());
+        }
+        verifyNoEventInteractions();
+        verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
     @Test
     void malformedPushTokenIsRejected() throws Exception {
         push("not-a-jwt").andExpect(status().isUnauthorized());
-        verifyNoInteractions(consumer, roles, firebaseDecoder, credits);
+        verifyNoEventInteractions();
+        verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
     @Test
@@ -134,7 +158,7 @@ class PubSubPushSecurityTest {
         verify(firebaseDecoder).decode(FIREBASE_TOKEN);
         verify(roles).rolesFor(any());
         verify(credits).holdForReopen("order-test", "courier-user");
-        verifyNoInteractions(consumer);
+        verifyNoEventInteractions();
     }
 
     @Test
@@ -144,7 +168,8 @@ class PubSubPushSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + FIREBASE_TOKEN))
                 .andExpect(status().isForbidden());
         verify(roles).rolesFor(any());
-        verifyNoInteractions(credits, consumer);
+        verifyNoInteractions(credits);
+        verifyNoEventInteractions();
     }
 
     @Test
@@ -154,7 +179,8 @@ class PubSubPushSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + FIREBASE_TOKEN))
                 .andExpect(status().isServiceUnavailable());
         verify(roles).rolesFor(any());
-        verifyNoInteractions(credits, consumer);
+        verifyNoInteractions(credits);
+        verifyNoEventInteractions();
     }
 
     @Test
@@ -162,7 +188,8 @@ class PubSubPushSecurityTest {
         mvc.perform(post("/api/credits/orders/order-test/hold-for-reopen")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token("valid")))
                 .andExpect(status().isUnauthorized());
-        verifyNoInteractions(roles, credits, consumer);
+        verifyNoInteractions(roles, credits);
+        verifyNoEventInteractions();
     }
 
     @Test
@@ -171,13 +198,19 @@ class PubSubPushSecurityTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + FIREBASE_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"courierId\":\"other-user\"}"))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(credits, consumer);
+        verifyNoInteractions(credits);
+        verifyNoEventInteractions();
     }
 
     private org.springframework.test.web.servlet.ResultActions push(String token) throws Exception {
-        return mvc.perform(post(CreditOrderEventController.PUSH_PATH)
+        return mvc.perform(post(CreditOrderEventController.OPEN_REFUND_PATH)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(envelope()));
+    }
+
+    private void verifyNoEventInteractions() {
+        verifyNoInteractions(decoder, openRefundHandler, acceptedCancellationHandler,
+                completionHandler);
     }
 
     private static String envelope() {

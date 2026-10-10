@@ -1,11 +1,16 @@
 // Synthetic wire-contract fixture. NOT Credit auth, DB or financial verification.
 import { createServer } from 'node:http';
 const expectedBody = JSON.stringify({ message: { data: 'synthetic-test' }, subscription: 'synthetic' });
+const expectedPaths = new Set([
+  '/api/credits/internal/order-events/open-refund',
+  '/api/credits/internal/order-events/accepted-cancellation',
+  '/api/credits/internal/order-events/completion',
+]);
 createServer((request, response) => {
   const chunks = [];
   request.on('data', (chunk) => chunks.push(chunk));
   request.on('end', () => {
-    if (request.url !== '/api/credits/internal/order-events') {
+    if (!expectedPaths.has(request.url)) {
       response.writeHead(404).end();
       return;
     }

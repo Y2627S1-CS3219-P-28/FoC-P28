@@ -14,7 +14,7 @@ This is a development-only connector, not a production deployment.
   the override does **not** replace the local datasource or Auth emulator.
 - Google Cloud Pub/Sub is real, in your explicitly selected existing project.
   Personal ADC publishes; there is no Pub/Sub emulator or shared service-account key.
-- A temporary cloudflared HTTPS tunnel forwards only the Credit event endpoint,
+- A temporary cloudflared HTTPS tunnel forwards only the three Credit event endpoints,
   through Order-owned nginx. Credit still validates Google's signed push identity.
   The whole Credit API, gateway and database are NOT exposed through the tunnel.
 - Only refund/completion have Credit subscriptions. Accepted-cancellation is
@@ -129,7 +129,7 @@ does not automatically delete topics, subscriptions, service accounts or data.
 | DLQ recovery pull subscription | `order-credit-dlq-recovery-local-vincent-v1` |
 | Push identity | `foc-local-vincent-push@<project>.iam.gserviceaccount.com` |
 | Stable custom audience | `https://foc-local-vincent.invalid/credit-push` (identity, NOT destination) |
-| Destination | Current `https://<temporary>.trycloudflare.com/api/credits/internal/order-events` |
+| Destinations | Current tunnel URL plus `/api/credits/internal/order-events/open-refund` or `/completion` |
 
 Managed topics/subscriptions are labeled `foc-local-test=vincent` and
 `foc-component=order-credit`. Staging/dev/production resources are untouched.
@@ -206,7 +206,7 @@ docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.
 `Check` validates cloud metadata and the public authentication/routing gate; it
 does **not** publish a financial event or prove a real refund/transfer. Tests
 `Test-LocalLive.ps1` (60 configuration/safety assertions) and
-`Test-LocalLiveIngress.ps1` (16 actual nginx/fixture assertions) are reproducible
+`Test-LocalLiveIngress.ps1` (20 actual nginx/fixture assertions) are reproducible
 locally and do not provision GCP. The fixture is synthetic, NOT Credit OIDC or
 financial integration. No new Maven/frontend source changes are part of this setup.
 Generic workflow drift/completion scripts still reject existing manifest/record

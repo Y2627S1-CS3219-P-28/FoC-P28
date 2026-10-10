@@ -60,7 +60,10 @@ class SecurityConfig {
                                                        JsonSecurityHandlers handlers,
                                                        CreditPushProperties properties) throws Exception {
         http
-                .securityMatcher(CreditOrderEventController.PUSH_PATH)
+                .securityMatcher(
+                        CreditOrderEventController.OPEN_REFUND_PATH,
+                        CreditOrderEventController.ACCEPTED_CANCELLATION_PATH,
+                        CreditOrderEventController.COMPLETION_PATH)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
