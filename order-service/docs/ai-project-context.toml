@@ -1,4 +1,7 @@
 schema_version = 1
+pubsub_asyncapi = "docs/asyncapi/asyncapi.yaml"
+pubsub_asyncapi_guide = "docs/asyncapi/README.md"
+pubsub_asyncapi_scope = "CHANGE-103: current outgoing contracts only; no live-integration completion"
 merged_minute_scheduler_decision = "docs/decisions/ADR-034-merged-minute-command-and-lifecycle-job.md"
 merged_minute_scheduler_order = ["eligible command recovery (mock-only)", "OPEN expiry", "DELIVERED >=48h completion"]
 merged_minute_scheduler_cron = "order.lifecycle.cron; default 0 * * * * *; order.commands.cron obsolete"

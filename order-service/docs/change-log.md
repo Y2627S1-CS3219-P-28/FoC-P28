@@ -1,5 +1,10 @@
 # Approved Change Log
 
+- CHANGE-103 (2026-10-10, Vincent): approved documentation-only AsyncAPI for the
+  three current outgoing Pub/Sub contracts, exact schemas/examples, viewing guide
+  and source-parity validator. No runtime or peer change; live gates unchanged.
+  [Record](../changes/CHANGE-103-asyncapi-pubsub-documentation.md).
+
 - CHANGE-102 / ADR-034 / ARCH-EVO-039 (2026-10-10, Vincent): approved shared
   minute recovery -> expiry -> completion orchestration; independent failures,
   existing guards and live recovery gate retained; implemented in `10fd76d`.

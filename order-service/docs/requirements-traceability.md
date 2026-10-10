@@ -1,5 +1,16 @@
 # Order Service Requirements Traceability
 
+## CHANGE-103: AsyncAPI documentation representation
+
+| Requirement / amendment | Documented contract | Verification | Status |
+| --- | --- | --- | --- |
+| F4.1.7, F4.1.8/F10, F11 + ADR-013/025/031 | CANCELLED/EXPIRED refund with old order ID; compact v2 | AsyncAPI parser, DTO/topic parity and refund examples | Documentation verified; live gates unchanged |
+| F4.1.5/F5.1, F11 + ADR-031 | Manual/automatic completion compact v2; no inferred overdue facts | Parser, exact field/version checks and completion example | Documentation verified; financial/User gates open |
+| F11.2 + ADR-025 | Every accepted abort: User-only actor facts, resulting OPEN/EXPIRED snapshot v1 | Parser, snapshot/nested field sets and both outcome examples | Documentation verified; User subscriber unverified |
+| NFR consistency/verification + ADR-013/021/026/034 | Three send-only channels; immediate publication + separate 15-minute recovery; stable IDs | Attribute/topic/cadence parity and negative schema checks | Documentation-only; not live delivery proof |
+
+CHANGE-103 changes no requirements, lifecycle behavior or Sprint completion state.
+
 ## CHANGE-102 / ADR-034: merged minute orchestration
 
 | ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |

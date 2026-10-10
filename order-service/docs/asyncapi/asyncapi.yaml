@@ -1,0 +1,371 @@
+asyncapi: 3.0.0
+id: urn:foc:order-service:pubsub
+info:
+  title: Friend on Campus - Order Service Pub/Sub
+  version: 1.0.0
+  description: |
+    Order Service's existing outgoing Google Cloud Pub/Sub contracts.
+    This document describes the publisher, not a new consumer or infrastructure deployment.
+    Refund/completion use compact schema v2; accepted cancellation retains snapshot v1.
+    Topic suffix v1 is a resource name, NOT the payload schema version.
+    Order state, checkpoint, receipt and outbox intent commit atomically. Publication is
+    attempted immediately after commit, with a separate recovery scan every 15 minutes.
+    Pub/Sub message-ID acknowledgment proves publication, not refund/transfer/penalty completion.
+    At-least-once delivery requires durable consumer deduplication by eventId.
+    No ordering key is set. Deployed subscriptions, retry/dead-letter configuration and
+    live financial/penalty processing are not verified by this documentation.
+defaultContentType: application/json
+servers:
+  googlePubSub:
+    host: pubsub.googleapis.com
+    protocol: googlepubsub
+    description: |
+      Google client transport using Application Default Credentials locally and the
+      attached Cloud Run service identity in deployment. Topic-scoped pubsub.publisher
+      IAM is required. Do not place credentials or Firebase user tokens in message data.
+      Project defaults to protean-vigil-509704-q4 via PUBSUB_PROJECT_ID; topic overrides
+      must be explicitly configured per environment. This is not a browser endpoint.
+channels:
+  openRefund:
+    address: projects/{projectId}/topics/{topicId}
+    title: OPEN cancellation or expiry refund
+    description: |
+      Intended consumer: Credit Service. Refund the old order's held reservation.
+      Trigger: requester cancels OPEN; eligible unassigned OPEN expires; or an
+      ACCEPTED-only abort becomes EXPIRED after synchronous Credit assignment reset.
+      An abort becoming OPEN does NOT publish this event. Repost reserves a NEW
+      order ID; its predecessor's refund retains the OLD order ID.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID; actual deployment may override this default.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_OPEN_REFUND_TOPIC; use isolated local-live or production overrides.
+        default: open-order-refund-dev-v1
+    x-topic-environment-variable: ORDER_OPEN_REFUND_TOPIC
+    x-intended-consumer: Credit Service
+    messages:
+      refund:
+        $ref: '#/components/messages/OpenOrderRefundTaskEvent'
+  completion:
+    address: projects/{projectId}/topics/{topicId}
+    title: Order completion settlement
+    description: |
+      Intended financial consumer: Credit Service. Settle/transfer the stored reservation.
+      Trigger: requester confirms DELIVERED, or scheduler completes a still-DELIVERED
+      order at least 48 hours after its latest delivery. Both use the same message type.
+      This compact body has NO overdue/overdueAt; do not infer User penalty policy from it.
+      User completion/overdue integration still needs an agreed authoritative facts source.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_COMPLETION_TOPIC; explicitly override for the target environment.
+        default: order-completion-dev-v1
+    x-topic-environment-variable: ORDER_COMPLETION_TOPIC
+    x-intended-consumer: Credit Service
+    messages:
+      completed:
+        $ref: '#/components/messages/OrderCompletionTaskEvent'
+  acceptedCancellation:
+    address: projects/{projectId}/topics/{topicId}
+    title: Accepted courier abort facts
+    description: |
+      Intended consumer: User Service ONLY, for its own penalty policy. Not a Credit refund.
+      Trigger: assigned courier aborts while ACCEPTED; synchronous Credit reset succeeds;
+      immutable ABORTED attempt and current OPEN/EXPIRED outcome commit.
+      actorId identifies the aborting courier; the current snapshot courierId is null.
+      Every successful abort publishes this, independent of the remaining deadline.
+      An EXPIRED outcome separately queues the Credit refund message.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_ACCEPTED_CANCELLATION_TOPIC; production/local-live may override.
+        default: accepted-order-cancellation-dev-v1
+    x-topic-environment-variable: ORDER_ACCEPTED_CANCELLATION_TOPIC
+    x-intended-consumer: User Service
+    messages:
+      aborted:
+        $ref: '#/components/messages/AcceptedOrderCancellationTaskEvent'
+operations:
+  publishOpenRefund:
+    action: send
+    title: Publish refund task after cancellation or expiry commits
+    channel:
+      $ref: '#/channels/openRefund'
+    messages:
+      - $ref: '#/channels/openRefund/messages/refund'
+  publishCompletion:
+    action: send
+    title: Publish completion task after completion commits
+    channel:
+      $ref: '#/channels/completion'
+    messages:
+      - $ref: '#/channels/completion/messages/completed'
+  publishAcceptedCancellation:
+    action: send
+    title: Publish abort facts after courier attempt and current outcome commit
+    channel:
+      $ref: '#/channels/acceptedCancellation'
+    messages:
+      - $ref: '#/channels/acceptedCancellation/messages/aborted'
+components:
+  correlationIds:
+    eventIdentity:
+      description: |
+        Stable business event identity for deduplication. Generated by Order as a name-based
+        UUID from UTF-8 eventType + ':' + commandId; not the raw frontend command key,
+        and not Google's transport messageId. Same event retains this ID across retries.
+      location: $message.payload#/eventId
+  messages:
+    OpenOrderRefundTaskEvent:
+      name: OpenOrderRefundTaskEvent
+      title: Refund task - compact schema v2
+      contentType: application/json
+      description: |
+        Payload is UTF-8 JSON in PubsubMessage.data, not Google's HTTP push wrapper.
+        headers here model the three string-valued Pub/Sub attributes.
+        eventVersion and orderVersion are NOT compact JSON body fields.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: OpenOrderRefundTaskEvent}
+          eventVersion: {type: string, const: '2'}
+      payload:
+        $ref: '#/components/schemas/OpenOrderRefundTaskEvent'
+      examples:
+        - name: requesterCancelled
+          summary: OPEN cancelled by requester; release its reservation
+          headers:
+            eventId: 439b595d-c954-3a96-b2b1-008688ba3a80
+            eventType: OpenOrderRefundTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: 439b595d-c954-3a96-b2b1-008688ba3a80
+            eventType: OpenOrderRefundTaskEvent
+            orderId: order-example-old
+            orderStatus: CANCELLED
+            creditAmount: 5
+            occurredAt: '2026-10-10T08:00:00Z'
+            courierId: null
+        - name: expired
+          summary: Deadline reached; same old ID even if a repost is later created
+          headers:
+            eventId: a983f10c-ebbd-3e85-a1c7-bdf20ee9a642
+            eventType: OpenOrderRefundTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: a983f10c-ebbd-3e85-a1c7-bdf20ee9a642
+            eventType: OpenOrderRefundTaskEvent
+            orderId: order-example-old
+            orderStatus: EXPIRED
+            creditAmount: 5
+            occurredAt: '2026-10-10T09:00:00Z'
+            courierId: null
+    OrderCompletionTaskEvent:
+      name: OrderCompletionTaskEvent
+      title: Completion task - compact schema v2
+      contentType: application/json
+      description: |
+        Seven-field body for both on-time and overdue completion; no overdue field.
+        Credit owns financial settlement and validates against its reservation records.
+        Nullable courierId matches the DTO; a valid assigned completion carries its courier.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: OrderCompletionTaskEvent}
+          eventVersion: {type: string, const: '2'}
+      payload:
+        $ref: '#/components/schemas/OrderCompletionTaskEvent'
+      examples:
+        - name: completed
+          summary: Requester or automatic completion of an assigned delivery
+          headers:
+            eventId: fc1fa18f-a82c-3490-a13e-c6daf0572e55
+            eventType: OrderCompletionTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: fc1fa18f-a82c-3490-a13e-c6daf0572e55
+            eventType: OrderCompletionTaskEvent
+            orderId: order-example-delivered
+            orderStatus: COMPLETED
+            creditAmount: 5
+            occurredAt: '2026-10-10T10:00:00Z'
+            courierId: courier-example
+    AcceptedOrderCancellationTaskEvent:
+      name: AcceptedOrderCancellationTaskEvent
+      title: Courier abort facts - snapshot schema v1
+      contentType: application/json
+      description: |
+        Existing v1 envelope retains orderVersion, actorId and Order snapshot.
+        eventVersion is present in BOTH body and Pub/Sub attributes, unlike compact v2.
+        Snapshot status is the resulting OPEN/EXPIRED, not ABORTED history status.
+        The snapshot omits checkpoint/attempt history and internal row UUIDs.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: AcceptedOrderCancellationTaskEvent}
+          eventVersion: {type: string, const: '1'}
+      payload:
+        $ref: '#/components/schemas/AcceptedOrderCancellationTaskEvent'
+      examples:
+        - name: abortBeforeDeadline
+          summary: User penalizes actorId; no Credit refund for this OPEN outcome
+          headers:
+            eventId: 70190646-9371-378d-9aab-b4780d6c9fd9
+            eventType: AcceptedOrderCancellationTaskEvent
+            eventVersion: '1'
+          payload:
+            eventId: 70190646-9371-378d-9aab-b4780d6c9fd9
+            eventType: AcceptedOrderCancellationTaskEvent
+            eventVersion: 1
+            orderId: order-example-aborted
+            orderVersion: 2
+            occurredAt: '2026-10-10T08:30:00Z'
+            actorId: courier-example
+            order:
+              id: order-example-aborted
+              requesterId: requester-example
+              courierId: null
+              itemDescription: Collect printed notes
+              pickupSupplierId: supplier-pickup
+              deliverySupplierId: supplier-delivery
+              offeredCredits: 5
+              status: OPEN
+              createdAt: '2026-10-10T07:00:00Z'
+              expiresAt: '2026-10-10T09:00:00Z'
+              deliveryTimeLimitMinutes: 30
+              version: 2
+              originalOrderId: null
+              repostedOrderId: null
+              repostPlan:
+                enabled: true
+                dueAt: '2026-10-10T09:00:00Z'
+                creditAmount: 6
+                deliveryDurationMinutes: 30
+                used: false
+        - name: abortAfterDeadline
+          summary: Separate Credit refund event also queued for this expired old order
+          headers:
+            eventId: aa9a730f-d93e-360c-884c-22372774d8ba
+            eventType: AcceptedOrderCancellationTaskEvent
+            eventVersion: '1'
+          payload:
+            eventId: aa9a730f-d93e-360c-884c-22372774d8ba
+            eventType: AcceptedOrderCancellationTaskEvent
+            eventVersion: 1
+            orderId: order-example-aborted-expired
+            orderVersion: 2
+            occurredAt: '2026-10-10T09:01:00Z'
+            actorId: courier-example
+            order:
+              id: order-example-aborted-expired
+              requesterId: requester-example
+              courierId: null
+              itemDescription: Collect printed notes
+              pickupSupplierId: supplier-pickup
+              deliverySupplierId: supplier-delivery
+              offeredCredits: 5
+              status: EXPIRED
+              createdAt: '2026-10-10T07:00:00Z'
+              expiresAt: '2026-10-10T09:00:00Z'
+              deliveryTimeLimitMinutes: 30
+              version: 2
+              originalOrderId: null
+              repostedOrderId: null
+              repostPlan: null
+  schemas:
+    OpenOrderRefundTaskEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: OpenOrderRefundTaskEvent}
+        orderId: {type: string, minLength: 1, description: Public business order ID of the reservation to refund.}
+        orderStatus: {type: string, enum: [CANCELLED, EXPIRED]}
+        creditAmount: {type: integer, minimum: 1, description: Order offeredCredits; Credit validates its stored reservation.}
+        occurredAt: {type: string, format: date-time}
+        courierId: {type: [string, 'null']}
+    OrderCompletionTaskEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: OrderCompletionTaskEvent}
+        orderId: {type: string, minLength: 1}
+        orderStatus: {type: string, const: COMPLETED}
+        creditAmount: {type: integer, minimum: 1}
+        occurredAt: {type: string, format: date-time}
+        courierId: {type: [string, 'null'], description: Assigned courier on valid completion.}
+    AcceptedOrderCancellationTaskEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, eventVersion, orderId, orderVersion, occurredAt, actorId, order]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: AcceptedOrderCancellationTaskEvent}
+        eventVersion: {type: integer, const: 1}
+        orderId: {type: string, minLength: 1}
+        orderVersion: {type: integer, minimum: 0, description: Resulting version; equals order.version.}
+        occurredAt: {type: string, format: date-time}
+        actorId: {type: string, minLength: 1, description: Aborting courier even though current assignment is cleared.}
+        order:
+          $ref: '#/components/schemas/OrderEventSnapshot'
+    OrderEventSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, requesterId, courierId, itemDescription, pickupSupplierId, deliverySupplierId, offeredCredits, status, createdAt, expiresAt, deliveryTimeLimitMinutes, version, originalOrderId, repostedOrderId, repostPlan]
+      properties:
+        id: {type: string, minLength: 1, description: Same public business ID as outer orderId.}
+        requesterId: {type: string, minLength: 1}
+        courierId: {type: [string, 'null']}
+        itemDescription: {type: string}
+        pickupSupplierId: {type: string, minLength: 1}
+        deliverySupplierId: {type: string, minLength: 1}
+        offeredCredits: {type: integer, minimum: 1}
+        status: {type: string, enum: [OPEN, EXPIRED]}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        deliveryTimeLimitMinutes: {type: integer, minimum: 15}
+        version: {type: integer, minimum: 0}
+        originalOrderId: {type: [string, 'null']}
+        repostedOrderId: {type: [string, 'null']}
+        repostPlan:
+          $ref: '#/components/schemas/RepostPlanEventSnapshot'
+    RepostPlanEventSnapshot:
+      type: [object, 'null']
+      description: Existing v1 snapshot only; does not include the domain/UI explicit repost expiry field.
+      additionalProperties: false
+      required: [enabled, dueAt, creditAmount, deliveryDurationMinutes, used]
+      properties:
+        enabled: {type: boolean}
+        dueAt: {type: [string, 'null'], format: date-time}
+        creditAmount: {type: integer, description: Enabled plans require at least 1; disabled legacy plans may retain other values.}
+        deliveryDurationMinutes: {type: integer, description: Enabled plans require at least 15; disabled legacy plans are not validated.}
+        used: {type: boolean}

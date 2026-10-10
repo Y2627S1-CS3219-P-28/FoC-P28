@@ -1,5 +1,15 @@
 # Order Service Architecture Evolution
 
+## CHANGE-103: Existing Pub/Sub represented in AsyncAPI
+
+2026-10-10, Vincent explicitly requests AsyncAPI documentation. Classification:
+implementation/documentation detail, not a new architecture or wire-contract
+decision. ADR-013/021/025/026/031/034 remain authoritative. Document three current
+send operations and actual schemas; preserve historical descriptions, existing
+feedback/live gates and Sprint `[~]`. No new broker, consumer, transport, runtime
+schema registry, REST operation or persistence change. Validation proves document
+structure/source parity only; no new ADR or event-candidate decision is implied.
+
 ## ARCH-EVO-039: Recovery-first merged minute orchestration
 
 Vincent approves ADR-034 / CHANGE-102 on 2026-10-10 on the confirmed

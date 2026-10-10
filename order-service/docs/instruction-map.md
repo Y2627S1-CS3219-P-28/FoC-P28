@@ -1,5 +1,9 @@
 # Instruction Map
 
+CHANGE-103 adds [AsyncAPI Pub/Sub contracts](asyncapi/asyncapi.yaml) and a
+[reading/validation guide](asyncapi/README.md). This is documentation of existing
+approved messages, not authority to implement new topics or peer consumers.
+
 Approved foreground recovery slice: ADR-033 / CHANGE-100. Current implementation,
 class/sequence/data contracts and Credit cooperation handoff are in
 `concurrency/concurrency-order-credit.md`; FEEDBACK-010 tracks the live gate.

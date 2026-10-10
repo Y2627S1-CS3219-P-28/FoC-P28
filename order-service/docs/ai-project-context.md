@@ -1,5 +1,11 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-10: Vincent approves CHANGE-103 documentation-only AsyncAPI
+for current Pub/Sub: `docs/asyncapi/asyncapi.yaml` and its reading guide. Three
+send operations; refund/completion compact v2, accepted abort snapshot v1.
+No application, peer, schema, topic/IAM or deployment change. Source/example
+validation does not complete live financial/User integration or Sprint `[~]`.
+
 Effective 2026-10-10: CHANGE-102 / ADR-034 merges command recovery into the
 minute lifecycle scheduler, sequential recovery -> OPEN expiry -> DELIVERED
 >=48-hour completion. Capture lifecycle time after recovery; isolate phase

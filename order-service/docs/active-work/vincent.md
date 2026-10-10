@@ -1,5 +1,31 @@
 # Vincent - Active Work
 
+## CHANGE-103: AsyncAPI Pub/Sub documentation — 2026-10-10/11, locally verified
+
+- Vincent profile/allocation/branch match
+  `sprint-2-3-credit-service-concurrency-update-event-payload`; clean starting tree.
+- User approves documenting current Pub/Sub in AsyncAPI, not changing messages,
+  consumers, application code, frontend, persistence, infrastructure or IAM.
+- Scope: three outgoing channels/operations, exact compact v2 and accepted-abort
+  v1 bodies/attributes/examples, documentation validation and reading guide.
+- Effective authority: ADR-013/021/025/026/031/033/034; latest effective scoped
+  context loading. Older full-snapshot refund/completion descriptions are historical.
+- Current Credit source accepts compact messages; older feedback describing its
+  previous snapshot parser is stale evidence, not a reason to alter wire contracts.
+  Live financial/penalty verification and unresolved peer feedback stay open.
+- Added exact three-channel/send-operation AsyncAPI 3.0 YAML, five examples,
+  browser reading guide and read-only source-parity checker. Index/context/contract
+  pointers, traceability/change/evolution records and local excluded learning updated.
+- Verification: expected missing-file RED, then Python schema/source checks GREEN;
+  official CLI 4.1.1 and final CLI 6.2.0 with temporary Node 24.11.1 both exit 0,
+  zero document errors/warnings and one informational newer-format suggestion.
+  Removed optional Google binding after validator required unconfigured schemaSettings;
+  no runtime cloud schema invented. Tool dependency/host-engine warnings recorded.
+- D1/selected Overall hashes match; TOML parses; no application/frontend/peer/schema/
+  deployment/CI changes. Maven/browser/cloud/ledger tests not rerun for doc-only task.
+- Human review and live peer/financial/penalty gates remain. No Sprint or peer VERIFIED
+  upgrade; HTTP recovery remains disabled. See CHANGE-103 for commands and evidence.
+
 ## Swagger / Pub/Sub documentation audit — 2026-10-10, inspected
 
 - Request: check current generated Order endpoint and published-event/topic

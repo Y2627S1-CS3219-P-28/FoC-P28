@@ -1,5 +1,15 @@
 # Service Contracts
 
+## Current Pub/Sub representation — CHANGE-103 (2026-10-10)
+
+[AsyncAPI](asyncapi/asyncapi.yaml) and its [guide](asyncapi/README.md) document
+the three existing outgoing operations, exact compact v2 / abort snapshot v1
+bodies, attributes, topic overrides and at-least-once outbox behavior.
+No wire contract or receiver implementation is changed. Current Credit source
+now accepts compact bodies with matching v2 attributes; older snapshot-consumer
+claims below are historical, not current implementation evidence. Live
+financial/penalty verification and feedback gates remain open.
+
 ## Effective foreground recovery exception — ADR-033 / CHANGE-100
 
 CREATE/ACCEPT/CANCEL_ACCEPTED get a mock-only command API, committed intent,
