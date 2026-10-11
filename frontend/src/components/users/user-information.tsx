@@ -1,6 +1,5 @@
 "use client" 
 
-import { useState } from "react" 
 import { useAuth } from "@/components/providers/auth-provider" 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert" 
 import { Badge } from "@/components/ui/badge" 
@@ -10,10 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 
 export function UserInformation() {
-  const { user, profile, profileLoading, refreshProfile } = useAuth()
-
-  const [profileError, setProfileError] = useState(false)
-
+  const { user, profile, profileLoading, profileError, refreshProfile } = useAuth()
   
   if (profileLoading) { 
     return (

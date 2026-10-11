@@ -60,7 +60,7 @@ export default function EditProfilePage() {
         }
 
         if (!profile) return
-    }, [loading, user, router])
+    }, [loading, user, profile, profileLoading, router])
 
     async function handleSaveUsername(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()

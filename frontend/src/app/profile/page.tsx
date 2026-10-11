@@ -1,6 +1,5 @@
 "use client" 
 
-<<<<<<< HEAD
 import { useRouter } from "next/navigation" 
 import { TransactionHistory } from "@/components/credits/transaction-history"
 import { useAuth } from "@/components/providers/auth-provider" 

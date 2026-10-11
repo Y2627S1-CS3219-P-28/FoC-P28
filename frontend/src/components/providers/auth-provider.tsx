@@ -20,6 +20,7 @@ type AuthContextValue = {
   loading: boolean
   profile: UserProfile | null
   profileLoading: boolean
+  profileError: string | null
   refreshProfile: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   // Prevent repeated profile loads on ordinary token refreshes.
   const profileUidRef = useRef<string | null>(null)
@@ -53,10 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser || !currentUser.emailVerified) {
       setProfile(null)
       setProfileLoading(false)
+      setProfileError(null)
       return
     }
 
     setProfileLoading(true)
+    setProfileError(null)
 
     try {
       const data = await loadUserProfile(
@@ -77,7 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null)
       }
 
-      throw error
+      setProfileError(
+          error instanceof Error
+              ? error.message
+              : "Failed to load profile."
+      )
     } finally {
       // Prevent another user on the same browser from setting loading false
       // while current user is loading profile
@@ -279,9 +287,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ user, loading, profile, profileLoading, refreshProfile, 
+    () => ({ user, loading, profile, profileLoading, profileError, refreshProfile, 
       signIn, signUp, signOut, getIdToken, resendVerificationEmail }),
-    [user, loading, profile, profileLoading, refreshProfile, 
+    [user, loading, profile, profileLoading, profileError, refreshProfile, 
       signIn, signUp, signOut, getIdToken, resendVerificationEmail],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
