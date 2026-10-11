@@ -1,5 +1,62 @@
 # Vincent - Active Work
 
+## Frontend SPA clarification - 2026-10-11
+
+- Vincent asks whether current frontend uses SPA architecture. Lightweight
+  source inspection on matching branch; earlier uncommitted audit notes preserved.
+- Actual Next16 App Router uses next/link and next/navigation for SPA-style
+  route changes. RootLayout is an async Server Component with connection() and
+  request-time runtime config; Order pages are interactive client components and
+  use gateway API hooks. Accurate description: hybrid server/client rendering
+  with SPA-style navigation, not a pure client-only static SPA.
+- No source/config/contract/design changes or tests/browser measurements; only
+  clarification record and AI disclosure. Existing rollout/Sprint gates unchanged.
+
+
+## Screenshot issue recheck - 2026-10-11, source audit verified
+
+- Vincent requests rechecking historical issues48/49/51/52/53/54/55, not new
+  application changes. Profile/allocation/current branch match; HEAD5bf1a15.
+  Starting worktree clean. Scoped effective-context approval ADR-033 applies.
+- Compared current tracked application/config/test source with e516cfa: unchanged
+  by the requested main-merge revert. CHANGE-104/105/106/107/108 remain effective;
+  automatic repost/delegated credentials remain explicitly deferred.
+- Inspected current controllers, read policy, durable coordinator/store, HTTP
+  gateway/adapters, receipt/event binding, outbox executor/state and Cloud Run
+  deployment files. Re-read actual Credit key/generation/result/compensation code;
+  no new provider behavior assumed. Current D1/Overall source hashes still match.
+- Issue48: security exposure addressed by default-disabled/local-only repost
+  hook and CHANGE-107 expiry HTTP retirement. Public local-lifecycle default
+  remains in local configuration, but is not accepted by the cloud hook. No
+  Secret Manager lifecycle-token claim; automatic delegated repost still deferred.
+- Issue49: deployment uses min-instances1/no-cpu-throttling; deploy script forwards
+  these flags. Configuration verified, not deployed cloud runtime verification.
+- Issues51/52: public create/accept/abort (and manual repost) use durable coordinator;
+  committed intent/candidate before Credit I/O, same-key historical replay, claim
+  fences, unresolved-order guards and atomic local finalization. Invalid possible
+  effects use compensation. Legacy internal helpers/facade still exist; controller
+  does not call their unsafe financial paths. No distributed atomic-commit claim.
+- Issue53: actual HTTP clients use configurable3s-connect/5s-read timeouts and
+  known peer-error mapping. Uncertain financial calls stay PENDING; coordinator
+  does Credit I/O outside the Order-row finalization transaction.
+- Issue54: GET-by-ID applies requester/current-courier/admin relationship policy;
+  eligible couriers may read available OPEN; unrelated callers get404.
+- Issue55: receipts validate order/actor/input (V7); new event identities include
+  order/actor; dead HTTP settlement endpoint call removed (mock helper remains).
+  Bounded after-commit executor,15-minute recovery, retained FAILED after10
+  failures and authorized explicit redrive are present (V6).
+- Fresh Java21/offline wrapper-selected Maven regressions:74 focused tests plus
+  4 OpenAPI/retired-expiry tests,78 total,0 failures/errors/skips; both Maven exits0.
+  Expected negative-path log stack traces are not test failures. Fresh configuration
+  safety assertions29 pass; source-tree comparison and patch whitespace check pass.
+  Prior actual Credit/PostgreSQL/PubSub-emulator integration evidence retained
+  under CHANGE-105/106/108, not rerun or presented as a new live result this turn.
+- Only this active-work record and AI disclosure changed; no application/tests/
+  peer/config/API/schema/diagram changes, commit, image rebuild or cloud deployment.
+  Human/cloud/browser/rollout gates and Sprint[~] unchanged. Rebuild/redeploy the
+  applicable source before treating a running container/revision as containing it.
+
+
 ## Requested main-merge revert — 2026-10-11, Git operation complete
 
 - Vincent explicitly requests reverting935d16d24e91ffa9c9ca292e2d3cf66118731195.

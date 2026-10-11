@@ -2229,3 +2229,23 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Yes I agree proceed
 - **Key response:** Approval recorded before code/tests. Implemented safe owner displayDetails and shared discovery/card binding, same-key Continue, separate submitted summaries, no history hook binding and conditional browser-key cleanup before refresh. Backend source9f2e054/frontend942b790. Observed backend3-failure RED; frontend module/history/cleanup RED, then GREEN. Intermediate repost-label/AbortSignal fixture errors corrected. Final373 backend0failures/errors/skips including16 actual Credit HTTP tests and PostgreSQL/emulator; User/Supplier fixtures not live verification. JaCoCo95.37%line/80.27%branch;103 frontend tests, lint0errors/three existing login warnings, typecheck/build pass. Maven success despite fork shutdown warning; Next external package-lock warning unchanged. No peer/schema/config/financial/event changes; unrelated D3 preserved. Learning updated in existing ignored local file; current design chain synchronized.
 - **Author verification:** Vincent explicitly approved CHANGE-108 option2. Matching profile/allocation/branch and unchanged source fingerprints; scoped context approval applies. Automated evidence recorded, human/browser320–1920/storage-clear/mode/all-peer/cloud rollout and existing strict workflow/manifest gates remain open; Sprint/slice[~], no full-stack completion claim.
+
+## Historical screenshot issue recheck assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only application inspection, regression verification and audit documentation.
+- **Affected locations:** Vincent active-work and this disclosure only; current controllers, durable recovery/store/gateway, actual Credit command handlers, read policy, receipt/event identity, outbox and deployment configuration inspected.
+- **Prompt:** I have told u to fix all these before, u rmb ? Check again if u have fix or use some similar fix to fix the issue
+- **Key response:** Audited issues48/49/51/52/53/54/55 on matching branch HEAD5bf1a15 after merge revert. Application/config/test tree unchanged from e516cfa. Existing CHANGE-104/105/106/107 fixes remain: durable public mutations, stable keys/candidates, compensation/guards, bounded peers, relationship reads, bound receipts/events, no dead HTTP settlement, async bounded outbox with retained FAILED/redrive. Lifecycle default still exists locally but cloud hook is denied and expiry HTTP route removed; automatic repost/delegation deliberately deferred. Cloud min1/always-CPU flags wired, not deployed. Fresh78 focused/OpenAPI tests0failures/errors/skips,29 configuration assertions pass, D1/Overall hashes match and patch check passes. Earlier actual-provider/emulator evidence not rerun or claimed as new live verification.
+- **Author verification:** Vincent requested verification only. No application/peer/schema/config changes or new design approval inferred; no commit/push/image rebuild/cloud deployment. Human review, browser/rollout/cloud gates and Sprint[~] remain open.
+
+## Frontend SPA architecture clarification assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend package/config, root layout, AppShell, Order pages and API hooks inspected.
+- **Prompt:** Is our frontend code using single page application architecture design?
+- **Key response:** Current Next16 React App Router supports SPA-style navigation through Link/router while the async root layout renders at request time on the server; Order forms/lists and API polling run as client components. Classified as hybrid server/client rendering with SPA-style routing, not a pure client-only SPA. No application/config/API/design changes or tests/browser checks run.
+- **Author verification:** Explanation requested, not a design change. Matching Vincent branch/profile and scoped lightweight context; human review pending. Prior uncommitted audit notes and existing Sprint/rollout gates preserved.
