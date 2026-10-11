@@ -115,18 +115,6 @@ public class UserService {
             throw new IllegalArgumentException("Please enter all fields.");
         }
 
-        // Create credit service entry
-        try {
-            UUID eventId = UUID.randomUUID();
-            // Add initial credits
-            creditServiceClient.registerUser(
-                token,
-                userId,
-                eventId);
-        } catch (DuplicateKeyException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
-        }
-
         // Create MongoDB entry
         User user = new User();
 
@@ -139,7 +127,30 @@ public class UserService {
         user.setUsername("");
         user.setRoles(roles);
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Create credit service entry
+        try {
+            UUID eventId = UUID.randomUUID();
+            // Add initial credits
+            creditServiceClient.registerUser(
+                token,
+                userId,
+                eventId);
+        } catch (DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        } catch (Exception e) {
+            // Delete user from MongoDB if it fails due to credit service
+            userRepository.delete(savedUser);
+
+            throw new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Credit account initialization failed. Registration was rolled back.",
+                e
+            );
+        }
+
+        return savedUser;
     }
 
     // Currently, users can only update their username
