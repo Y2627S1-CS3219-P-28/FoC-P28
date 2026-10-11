@@ -1,5 +1,21 @@
 # Vincent - Active Work
 
+## IndexedDB loss and pending polling clarification — 2026-10-11, read-only
+
+- Started/finished inspection on matching Vincent profile/allocation/branch.
+  Key/frozen input commit to IndexedDB BEFORE POST; in-memory intent starts
+  GET-by-key polling every5s while visible, even on ambiguous POST failure.
+  Reload restores locally saved intent; terminal result clears it.
+- My Requests/My Errands pending panel independently discovers backend PENDING
+  commands by authenticated UID, without IndexedDB. Clearing local storage does
+  not delete the backend command/guard. Panel discovery does NOT restore the
+  original create form's pending intent; a new CREATE key is a distinct action,
+  not deduplicated merely by matching input. Stronger server-to-form restoration
+  would need an approved refinement; not implemented in this advisory turn.
+- Source and existing timeout/reload/discovery tests inspected, not rerun; no
+  live storage-clear experiment. Application/contracts/infrastructure unchanged;
+  existing Sprint[~] blockers and unrelated D3 file preserved.
+
 ## CHANGE-107 expiry HTTP retirement — 2026-10-11, automated verified
 
 - Vincent explicitly approves removing only expiry HTTP/docs/Swagger; keep all

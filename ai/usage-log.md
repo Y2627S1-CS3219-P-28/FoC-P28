@@ -2179,3 +2179,13 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Ok. Remove it according to ur suggested move. Remove also from the documentation and swagger ui ... those not currently called by frontend but is repost related we still keep them.
 - **Key response:** Removed only unused expiry HTTP adapter/OpenAPI operation; scheduler/direct expiry/refunds and all five repost paths retained. TDD RED: two expected failures; corrected retained path placeholder assertion, then GREEN: 40 focused tests, zero failures/errors/skips. Generated OpenAPI inspected. D1/Overall source fingerprints match; patch checks pass. Source/test commit 4bbc4fe. No full suite/coverage or live rollout rerun. Historical decisions preserved with current supersession; no frontend/peer/schema/config/D3 edits. PowerShell stderr pipeline exit1 distinguished from Maven BUILD SUCCESS and independently checked Surefire results.
 - **Author verification:** Vincent explicitly approved scoped removal. Automated evidence recorded; human review/rebuilt-runtime Swagger verification pending. Existing overall Sprint[~] and rollout/workflow blockers unchanged.
+
+## IndexedDB loss and pending polling clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend key builders, command hook/storage/polling, pending panel/routes/tests and backend discovery/ownership inspected.
+- **Prompt:** What if the user clears IndexedDB, and how does pending polling know the particular command key?
+- **Key response:** Client key/frozen input saved before POST; hook polls by saved key every5s while visible, including after timeout, restores on reload and clears only on terminal result. My Requests/My Errands independently discover server-owned pending keys by signed-in UID even without local storage. Server command persists, but panel does not rehydrate original create button; different CREATE keys cannot deduplicate identical intentions. No application change, tests rerun or live storage-clear experiment.
+- **Author verification:** Clarification only; matching Vincent profile/allocation/branch. Human review pending. Server-to-form restoration is a possible refinement, not approved/implemented. Existing Sprint[~] blockers retained.
