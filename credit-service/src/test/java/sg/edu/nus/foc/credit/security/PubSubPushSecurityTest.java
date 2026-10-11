@@ -59,6 +59,7 @@ import sg.edu.nus.foc.credit.api.CreditOrderEventController;
 import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.credit.CreditService;
+import sg.edu.nus.foc.credit.credit.CreditCommandService;
 import sg.edu.nus.foc.credit.error.GlobalExceptionHandler;
 import sg.edu.nus.foc.credit.messaging.OpenOrderRefundEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
@@ -81,6 +82,7 @@ class PubSubPushSecurityTest {
     @Autowired MockMvc mvc;
     @MockitoBean RoleProvider roles;
     @MockitoBean CreditService credits;
+    @MockitoBean CreditCommandService commands;
     @MockitoBean OrderEventPayloadDecoder decoder;
     @MockitoBean OpenOrderRefundEventHandler openRefundHandler;
     @MockitoBean OrderCompletionEventHandler completionHandler;

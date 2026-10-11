@@ -22,6 +22,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import sg.edu.nus.foc.credit.credit.CreditAccount;
+import sg.edu.nus.foc.credit.credit.CreditCommandOperation;
+import sg.edu.nus.foc.credit.credit.CreditCommandOutcome;
 import sg.edu.nus.foc.credit.credit.CreditConstants;
 import sg.edu.nus.foc.credit.credit.CreditOutcomeEvent;
 import sg.edu.nus.foc.credit.credit.CreditOutcomeType;
@@ -102,11 +104,16 @@ public class JpaCreditRepository implements CreditRepository {
     @Override
     @Transactional(readOnly = true)
     public CreditTransactionPage findTransactions(String userId, int page, int size) {
-        Page<CreditLedgerEntity> result = ledger.findByUserId(userId, PageRequest.of(
-                page - 1,
-                size,
-                Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("createdAt"),
-                        Sort.Order.desc("entryId"))));
+        Page<CreditLedgerEntity> result = ledger.findUserVisibleByUserId(
+                userId,
+                CreditCommandOperation.RESERVE,
+                CreditCommandOutcome.COMPENSATED,
+                "REVERSED",
+                PageRequest.of(
+                        page - 1,
+                        size,
+                        Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("createdAt"),
+                                Sort.Order.desc("entryId"))));
         return new CreditTransactionPage(
                 result.getContent().stream().map(CreditLedgerEntity::toTransaction).toList(),
                 page,
@@ -127,7 +134,7 @@ public class JpaCreditRepository implements CreditRepository {
         }
 
         Instant now = clock.instant();
-        int created = reservations.insertIfAbsent(orderId, requesterId, amount, now);
+        int created = reservations.insertIfAbsent(orderId, requesterId, amount, null, now);
         CreditReservationEntity reservation = reservations.findById(orderId).orElseThrow();
         if (created == 0) {
             return replayReservation(reservation, orderId, requesterId, amount);

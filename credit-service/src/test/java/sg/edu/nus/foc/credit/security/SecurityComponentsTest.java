@@ -82,7 +82,9 @@ class SecurityComponentsTest {
                 .getCorsConfiguration(new MockHttpServletRequest("GET", "/api/credits"));
         assertThat(cors.getAllowedOrigins()).containsExactly("https://example.com");
         assertThat(cors.getAllowedMethods()).containsExactly("GET", "POST", "PUT", "OPTIONS");
-        assertThat(cors.getAllowedHeaders()).contains("Authorization", "Content-Type", "X-Request-Id");
+        assertThat(cors.getAllowedHeaders()).contains("Authorization", "Content-Type", "X-Request-Id",
+                "Idempotency-Key", "X-Command-Generation");
+        assertThat(cors.getExposedHeaders()).containsExactly("Idempotency-Key", "Command-Outcome");
     }
 
     @Test

@@ -41,6 +41,9 @@ public class CreditLedgerEntity {
     @Column(name = "origin_id", nullable = false, length = 128)
     private String originId;
 
+    @Column(name = "command_id", length = 128)
+    private String commandId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "effect_type", nullable = false, length = 40)
     private LedgerEffectType effectType;
@@ -68,7 +71,7 @@ public class CreditLedgerEntity {
     }
 
     private CreditLedgerEntity(String userId, String orderId, String originType, String originId,
-                               LedgerEffectType effectType, RefundReason refundReason,
+                               String commandId, LedgerEffectType effectType, RefundReason refundReason,
                                long amount, long totalBalanceDelta,
                                long reservedBalanceDelta, Instant occurredAt, Instant createdAt) {
         this.entryId = UUID.randomUUID();
@@ -76,6 +79,7 @@ public class CreditLedgerEntity {
         this.orderId = orderId;
         this.originType = originType;
         this.originId = originId;
+        this.commandId = commandId;
         this.effectType = effectType;
         this.refundReason = refundReason;
         this.amount = amount;
@@ -88,31 +92,47 @@ public class CreditLedgerEntity {
     static CreditLedgerEntity initialAllocation(String userId, String eventId, long amount,
                                                  Instant occurredAt, Instant createdAt) {
         return new CreditLedgerEntity(userId, null, "REGISTRATION_EVENT", eventId,
-                LedgerEffectType.INITIAL_ALLOCATION, null, amount, amount, 0, occurredAt, createdAt);
+                null, LedgerEffectType.INITIAL_ALLOCATION, null,
+                amount, amount, 0, occurredAt, createdAt);
     }
 
     static CreditLedgerEntity reservation(String userId, String orderId, long amount, Instant now) {
         return new CreditLedgerEntity(userId, orderId, "ORDER_RESERVATION", orderId,
-                LedgerEffectType.RESERVATION, null, amount, 0, amount, now, now);
+                null, LedgerEffectType.RESERVATION, null, amount, 0, amount, now, now);
+    }
+
+    static CreditLedgerEntity commandReservation(String userId, String orderId, String commandId,
+                                                  long amount, Instant now) {
+        return new CreditLedgerEntity(userId, orderId, "ORDER_RESERVATION", orderId,
+                commandId, LedgerEffectType.RESERVATION, null, amount, 0, amount, now, now);
     }
 
     static CreditLedgerEntity refund(String userId, String orderId, String eventType,
                                      String eventId, RefundReason reason, long amount,
                                      Instant occurredAt, Instant now) {
         return new CreditLedgerEntity(userId, orderId, eventType, eventId,
-                LedgerEffectType.REFUND, reason, amount, 0, -amount, occurredAt, now);
+                null, LedgerEffectType.REFUND, reason, amount, 0, -amount, occurredAt, now);
+    }
+
+    static CreditLedgerEntity commandCompensation(String userId, String orderId, String commandId,
+                                                   long amount, Instant now) {
+        return new CreditLedgerEntity(userId, orderId, "COMMAND_COMPENSATION", commandId,
+                commandId, LedgerEffectType.REFUND, RefundReason.COMPENSATION,
+                amount, 0, -amount, now, now);
     }
 
     static CreditLedgerEntity paymentSent(String userId, String orderId, String eventId,
                                            long amount, Instant occurredAt, Instant now) {
         return new CreditLedgerEntity(userId, orderId, "ORDER_COMPLETION_EVENT", eventId,
-                LedgerEffectType.PAYMENT_SENT, null, amount, -amount, -amount, occurredAt, now);
+                null, LedgerEffectType.PAYMENT_SENT, null,
+                amount, -amount, -amount, occurredAt, now);
     }
 
     static CreditLedgerEntity paymentReceived(String userId, String orderId, String eventId,
                                                long amount, Instant occurredAt, Instant now) {
         return new CreditLedgerEntity(userId, orderId, "ORDER_COMPLETION_EVENT", eventId,
-                LedgerEffectType.PAYMENT_RECEIVED, null, amount, amount, 0, occurredAt, now);
+                null, LedgerEffectType.PAYMENT_RECEIVED, null,
+                amount, amount, 0, occurredAt, now);
     }
 
     CreditTransaction toTransaction() {
@@ -124,6 +144,7 @@ public class CreditLedgerEntity {
             case REFUND -> switch (refundReason) {
                 case CANCELLATION -> CreditTransactionType.REFUNDED_CANCELLATION;
                 case EXPIRY -> CreditTransactionType.REFUNDED_EXPIRY;
+                case COMPENSATION -> CreditTransactionType.REFUNDED;
                 case null -> CreditTransactionType.REFUNDED;
             };
         };
