@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { DeleteAccountButton } from "@/components/users/delete-account-button"
 
 import { PasswordRequirements } from "../../login/password-requirements"
 
@@ -47,9 +46,6 @@ export default function EditProfilePage() {
     const [passwordError, setPasswordError] = useState<string | null>(null)
     const [passwordValid, setPasswordValid] = useState(true)
     const onPasswordValidity = useCallback((valid: boolean) => setPasswordValid(valid), [])
-
-    // Delete states
-    const [deleteError, setDeleteError] = useState("");
 
     useEffect(() => {
         if (loading || profileLoading) return
@@ -278,11 +274,6 @@ export default function EditProfilePage() {
         }
     }
 
-    function handleDeleteError(message: string) {
-        console.log("Error received:", message)
-        setDeleteError(message);
-    }
-
   if (loading || profileLoading) {
     return <div className="flex min-h-screen items-center justify-center">
               <Card className="w-full max-w-sm">
@@ -475,22 +466,6 @@ export default function EditProfilePage() {
                   Exit
             </Button>
 
-          <div className="w-full border-t pt-4">
-            <p className="mt-1 mb-3 text-sm text-muted-foreground">
-                Permanently delete your account and its associated profile.
-                This action cannot be undone.
-            </p>
-            {deleteError && (
-                <div className="w-full pt-4">
-                    <p className="text-sm text-destructive" role="alert">
-                        {deleteError}
-                    </p>
-                </div>
-            )}
-            <div className="w-full pt-4">
-                <DeleteAccountButton onError={handleDeleteError}/>
-            </div>
-          </div>
         </CardFooter>
       </Card>
     </div>
