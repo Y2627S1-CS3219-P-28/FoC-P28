@@ -1,5 +1,26 @@
 # Vincent - Active Work
 
+## Creation command lookup 404 — 2026-10-11, diagnosis finished
+
+- Start: Vincent/branch match; source/log/database read-only diagnosis requested,
+  not application changes. Unrelated Supplier/D3 edits preserved.
+- useOrderCommand.run saves the browser intent and enables polling before the
+  initial POST settles. useVisiblePolling schedules its first GET at zero delay.
+  This can read before OrderCommandService's registration transaction commits.
+- Reported key 98d8c2b5-01f1-4058-ab35-9a2be39b9fea exists in local order_commands:
+  CREATE, COMPLETED/SUCCESS/SUCCEEDED, attempt_count=1, order_id
+  fd55469c-741c-46c9-8a0c-21b1baaf43f6. Created 06:51:03.993267Z, completed
+  06:51:04.179928Z. Gateway GET returned404 at06:51:03Z; two create POST
+  responses at06:51:04Z were202 and200. Read404 fallback resends frozen same-key
+  input even while initial POST is active; claim protects this from duplicate work.
+- Recommendation only: defer status checks/resends while the submission worker
+  is active, then check saved outcomes or recover ambiguous/lost submission with
+  the same key. Do not hide genuine404 or remove same-key crash recovery.
+- Verification: inspected source, existing tests and actual local command/logs;
+  no tests rerun or data mutated. A guessed migration filename was absent;
+  inspected actual store SQL instead. No frontend/API/financial behavior changed.
+  Next step, if requested: implement focused polling-race regression and fix.
+
 ## Supplier options clarification — 2026-10-11, source audit finished
 
 - Start: Vincent/current branch match; inspect Order creation dropdown and actual
