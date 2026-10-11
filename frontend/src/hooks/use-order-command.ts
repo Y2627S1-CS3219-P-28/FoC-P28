@@ -86,7 +86,9 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
   }, [api, account, scope, receive])
 
   const check = useCallback(async (signal?: AbortSignal) => {
-    if (!current || !intent || !account) return
+    // A browser intent exists before the server commits it. Do not race its
+    // POST (or resume), even if an already-scheduled callback uses old state.
+    if (!current || !intent || !account || active.current === `${account}:${scope}`) return
     try {
       const result = await api<OrderCommandStatus>(`/api/orders/commands/${encodeURIComponent(intent.key)}?userId=${encodeURIComponent(account)}`, { signal })
       await receive(result)
@@ -101,7 +103,7 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
       }
     }
   }, [current, intent, account, scope, api, receive, attempt, enabled])
-  useVisiblePolling(check, current && !!intent, ORDER_POLL_INTERVAL_MS)
+  useVisiblePolling(check, current && !!intent && !submitting, ORDER_POLL_INTERVAL_MS)
 
   async function run(kind: OrderCommandKind, legacyPath: string, body: Record<string, unknown>) {
     if (!current || !account || !ready || active.current === identity || intent || remote || (discovery && !discovery.ready)) return
