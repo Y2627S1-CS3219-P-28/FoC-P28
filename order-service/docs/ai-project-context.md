@@ -1,5 +1,16 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-11, CHANGE-105 / ADR-036 / ARCH-EVO-041: local Docker uses
+emulator-only Pub/Sub (demo-foc-local) and actual HTTP peers; no ADC/tunnel/cloud
+local setup. Cloud retains its injected staging/prod topics and Google OIDC.
+Legacy CREATE/ACCEPT/ABORT now enter durable coordination; pending returns 202.
+GET-by-ID enforces relationships. Receipts bind actor/order/input (V7); new event
+IDs include order/actor. Immediate bounded asynchronous outbox plus 15-minute
+recovery retains FAILED after 10 attempts (V6), ADMIN explicit redrive. Cloud
+Order config min1/always CPU; external lifecycle hooks disabled. No cloud deploy.
+Automatic repost/delegation remains deferred; User consumers missing. This section
+supersedes earlier guarantees only where stated. See CHANGE-105 for exact tests.
+
 Effective 2026-10-11: CHANGE-104 / ADR-035 supersedes the mock-only recovery gate. HTTP mode selects HttpCreditCommandGateway for CREATE/ACCEPT/ABORT, paired key/generation headers, owned historical lookup and conditional compensation against actual Credit 497a8f9. Minimal bodies remain unchanged. Tokenless recovery defers to AUTHORIZATION_REQUIRED; no persisted tokens/service credentials, repost recovery, schema or event change. Earlier stub-only descriptions are historical. Evidence: changes/CHANGE-104-live-credit-command-recovery.md.
 
 Effective 2026-10-10: Vincent approves CHANGE-103 documentation-only AsyncAPI

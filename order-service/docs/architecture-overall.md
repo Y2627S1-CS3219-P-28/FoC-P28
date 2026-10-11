@@ -1,5 +1,14 @@
 # Overall Architecture
 
+## Effective local/runtime refinement — ADR-036 / CHANGE-105
+
+Local Docker uses real HTTP services and an isolated demo Pub/Sub emulator, not
+cloud topics/ADC/tunnels. Staging/prod retain Google publisher/OIDC and injected
+topics. Order min1/always-CPU config supports existing timers; no cloud deployment
+performed. Legacy CREATE/ACCEPT/ABORT use durable coordination; bounded async
+outbox retains FAILED after ten attempts for ADMIN redrive. No financial policy,
+wire schema or service ownership changes. Auto repost/delegation remains deferred.
+
 ## Effective integration amendment — ADR-035 / CHANGE-104
 
 The existing Order-to-Credit synchronous boundary uses Credit's actual command protocol in HTTP deployments. Order owns intent/leases/lifecycle; Credit owns immutable financial results/compensation. Firebase user authorization is forwarded without persistence. Tokenless recovery requires user Continue; delegated identity remains deferred. Topology, minute orchestration and Pub/Sub cadence are unchanged. Earlier mock-only claims are historical.

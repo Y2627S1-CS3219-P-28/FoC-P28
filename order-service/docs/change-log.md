@@ -1,5 +1,12 @@
 # Approved Change Log
 
+- CHANGE-105 (2026-10-11, Vincent): ADR-036 emulator-only local Compose with real
+  HTTP peers; approved local Credit push-auth exception; cloud min1/always-CPU;
+  durable legacy CREATE/ACCEPT/ABORT; relationship-protected reads; bound
+  receipts/scoped event IDs; bounded async outbox, V6 FAILED/redrive, V7 binding.
+  No cloud deploy or automatic-repost implementation. Evidence and handoff:
+  changes/CHANGE-105-local-emulator-and-review-hardening.md.
+
 - CHANGE-104 (2026-10-11, Vincent): ADR-035 actual Credit HTTP command gateway,
   paired key/generation headers, historical lookup/conditional compensation,
   enabled capability, bounded timeouts, real financial-provider tests and

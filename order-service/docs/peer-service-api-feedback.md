@@ -1,5 +1,23 @@
 # Peer Service API Feedback
 
+## Effective verification update — CHANGE-105 / ADR-036 (2026-10-11)
+
+Current Credit command protocol and compact refund/completion implementation are
+locally verified against actual Credit source/container, not the old snapshot-only
+or stub-only descriptions below. Existing FEEDBACK-003/006/009/010 historical
+gaps for the approved three-operation command and compact financial paths are
+superseded by ADR-035/036 evidence in CHANGE-104/105. This does not prove hosted
+IAM/OIDC, manual-repost crash recovery, unrelated legacy callers or User outcomes.
+
+Local emulator publishes three topics; only refund/completion subscribe Credit.
+Real Compose User/Supplier role/location validation and Credit reservation,
+replay, clear/assign/refund/transfer pass the scoped smoke test. No Google cloud
+configuration is altered at runtime. FEEDBACK-002 User penalty/completion consumer
+and separate overdue-facts-source work remain missing/unverified; FEEDBACK-005
+trusted delegation is deferred. No peer penalty endpoint is silently substituted.
+The narrow approved Credit emulator-auth exception and exact changes/tests are
+documented in concurrency/credit-local-emulator-security-interference.md.
+
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].

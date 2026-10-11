@@ -1,5 +1,27 @@
 # Service Contracts
 
+## Effective transport/replay amendment — CHANGE-105 / ADR-036
+
+Local demo-foc-local uses emulator-only three topics and two typed Credit pushes.
+Cloud uses injected *-staging-v1 or *-prod-v1 topics and Google OIDC. Event JSON,
+attributes and Credit mutation bodies/headers are unchanged. Accepted abort
+facts are User-only: no Credit subscription. Actual local financial delivery
+evidence is CHANGE-105; cloud IAM/penalty consumers are separate gates.
+
+Legacy POST /api/orders, /{id}/accept and /{id}/cancel-accepted use the durable
+coordinator: 200 Order JSON after success, 202 CommandView while unresolved,
+ordinary error response on terminal rejection. Never switch keys/input while
+pending. All newly saved receipts bind actor/order/immutable input; unbound
+historical receipt replay fails closed. GET-by-ID allows requester/current
+courier/admin, plus eligible couriers viewing available OPEN; otherwise 404.
+
+ADMIN GET /api/orders/internal/outbox/failed?limit=1..100 returns
+{"eventIds":["uuid"]}. ADMIN POST /api/orders/internal/outbox/{eventId}/redrive
+has no body; 202 {"eventId":"uuid","state":"PENDING"} after committed reset,
+404 absent/409 non-FAILED. It retains event identity/payload. Unauthorized callers
+cannot use it. Immediate after-commit publication is asynchronous/bounded; after
+10 failed attempts retain FAILED, no normal retries until explicit redrive.
+
 ## Effective Credit command contract — CHANGE-104 / ADR-035
 
 The implementation in concurrency/concurrency-order-credit.md replaces the earlier missing-provider/stub-only milestone. Each mutation sends Authorization, Idempotency-Key and positive X-Command-Generation, retaining only requesterId/amount, courierId, or no body. Saved-result GET is owner-authorized; compensation POST has no body. Validate commandId/operation/orderId/outcome/code and mutation response markers. Plain 401/403, timeout, malformed response or unmarked rejection cannot resolve an earlier uncertain effect. Missing results replay only the same immutable key. Provider 497a8f9 is actual code; executed evidence and remaining gates belong to CHANGE-104.

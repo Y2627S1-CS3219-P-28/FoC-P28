@@ -1,5 +1,14 @@
 # Active Sprint
 
+## CHANGE-105 / ADR-036: emulator and review hardening
+
+Approved by Vincent on current branch. Real local HTTP services with local Pub/Sub
+emulator, durable legacy mutation entrypoints, read/replay protections and
+asynchronous retained-failure outbox. V6/V7 handed off together. Cloud timer
+configuration updated only; no cloud rollout/IAM verification. Automatic repost
+and delegated credentials deferred; User event consumers missing. Sprint [~].
+Evidence: changes/CHANGE-105-local-emulator-and-review-hardening.md.
+
 ## CHANGE-104 / ADR-035: actual Credit command integration
 
 Vincent approves HTTP CREATE/ACCEPT/ABORT recovery on the current branch. Same keys, candidate IDs, leases, unresolved guards and deadlines remain. Fresh user authorization is still required for Continue; trusted credentials and repost recovery remain deferred. Sprint [~] until full-stack gates pass. See CHANGE-104 for actual test evidence.

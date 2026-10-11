@@ -1,5 +1,18 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-041 — Local emulator/review hardening (CHANGE-105 / ADR-036)
+
+Vincent approves on 2026-10-11: local-only emulator transport plus narrow Credit
+push-auth exception; cloud Order min1/always-CPU; durable legacy mutation routing;
+bounded asynchronous outbox and retained FAILED/redrive. Classification:
+approved architecture/security/persistence refinement; not a financial policy
+change. Alternatives/trade-offs and exact approvals are ADR-036.
+V6 retains failed events; V7 binds receipt replay. Existing wire schemas, minimal
+Credit bodies, ownership, command leases and deadlines remain. Old local
+ADC/tunnel configuration is superseded, not deleted from historical decisions.
+Automatic repost/delegated credentials and User penalty consumers remain deferred.
+Source/test/migration/deployment evidence and remaining gates: CHANGE-105.
+
 ## ARCH-EVO-040 — Actual HTTP Credit command integration (CHANGE-104)
 
 Vincent explicitly approves ADR-035 on 2026-10-11. Classification: architecture

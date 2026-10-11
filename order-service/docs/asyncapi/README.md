@@ -1,5 +1,12 @@
 # Order Service Pub/Sub documentation
 
+Effective CHANGE-105 / ADR-036: local Docker uses the Pub/Sub emulator with
+demo-foc-local/local-v1 topics, no ADC/tunnel. Cloud keeps injected staging/prod
+topics and authenticated Google push. The same schemas/attributes apply.
+Bounded asynchronous after-commit dispatch plus 15-minute recovery retains FAILED
+after ten attempts; ADMIN redrive preserves event ID/payload. See
+../local-live-testing.md for commands. Earlier local-cloud statements are historical.
+
 Open [asyncapi.yaml](asyncapi.yaml) for the machine-readable **AsyncAPI 3.0.0**
 document. It describes Order Service's **three outgoing operations**, not new
 REST endpoints or consumers. REST remains documented by OpenAPI/Swagger.

@@ -9,7 +9,9 @@ info:
     Refund/completion use compact schema v2; accepted cancellation retains snapshot v1.
     Topic suffix v1 is a resource name, NOT the payload schema version.
     Order state, checkpoint, receipt and outbox intent commit atomically. Publication is
-    attempted immediately after commit, with a separate recovery scan every 15 minutes.
+    attempted on a bounded background executor immediately after commit, with a separate
+    recovery scan every 15 minutes. After ten failed publish attempts, retain FAILED
+    evidence for explicit ADMIN redrive with the same eventId and payload (ADR-036).
     Pub/Sub message-ID acknowledgment proves publication, not refund/transfer/penalty completion.
     At-least-once delivery requires durable consumer deduplication by eventId.
     No ordering key is set. Deployed subscriptions, retry/dead-letter configuration and
@@ -20,11 +22,21 @@ servers:
     host: pubsub.googleapis.com
     protocol: googlepubsub
     description: |
-      Google client transport using Application Default Credentials locally and the
-      attached Cloud Run service identity in deployment. Topic-scoped pubsub.publisher
+      Google client transport using the attached Cloud Run service identity in staging
+      and production. Local Docker instead uses the separate emulator server, never ADC.
+      Topic-scoped pubsub.publisher
       IAM is required. Do not place credentials or Firebase user tokens in message data.
       Project defaults to protean-vigil-509704-q4 via PUBSUB_PROJECT_ID; topic overrides
       must be explicitly configured per environment. This is not a browser endpoint.
+  localEmulator:
+    host: pubsub-emulator:8085
+    protocol: googlepubsub
+    description: |
+      ADR-036 local Docker only: demo-foc-local, plaintext gRPC, NoCredentialsProvider.
+      Topics are open-order-refund-local-v1, order-completion-local-v1 and
+      accepted-order-cancellation-local-v1. Only the first two have Credit typed
+      push subscriptions. Ordinary application APIs still verify Firebase user JWTs.
+      Emulator delivery does not verify cloud IAM/OIDC or User penalty processing.
 channels:
   openRefund:
     address: projects/{projectId}/topics/{topicId}
@@ -37,6 +49,7 @@ channels:
       order ID; its predecessor's refund retains the OLD order ID.
     servers:
       - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
     parameters:
       projectId:
         description: PUBSUB_PROJECT_ID; actual deployment may override this default.
@@ -60,6 +73,7 @@ channels:
       User completion/overdue integration still needs an agreed authoritative facts source.
     servers:
       - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
     parameters:
       projectId:
         description: PUBSUB_PROJECT_ID.
@@ -84,6 +98,7 @@ channels:
       An EXPIRED outcome separately queues the Credit refund message.
     servers:
       - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
     parameters:
       projectId:
         description: PUBSUB_PROJECT_ID.

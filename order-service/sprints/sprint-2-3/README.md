@@ -1,5 +1,15 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+## Current effective transport/recovery — CHANGE-105 / ADR-036
+
+Local Compose uses real HTTP peers and Pub/Sub emulator, never cloud topics/ADC.
+Legacy CREATE/ACCEPT/ABORT now use durable commands too. Minute recovery -> expiry
+-> >=48-hour completion remains; automatic repost/delegation is deferred.
+Outbox uses bounded asynchronous after-commit dispatch plus 15-minute recovery,
+retained FAILED after ten attempts and ADMIN redrive. V6/V7 and class/flow details
+are in docs/architecture-order-service.md; exact tests/handoff in CHANGE-105.
+Cloud min1/always CPU configured, not deployed/verified. Sprint remains [~].
+
 ## Recovery-first shared minute job — CHANGE-102 / ADR-034
 
 The independent command timer is removed. `order.lifecycle.cron` controls one

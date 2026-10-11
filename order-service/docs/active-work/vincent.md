@@ -1,5 +1,41 @@
 # Vincent - Active Work
 
+## CHANGE-105: local emulator and review findings — 2026-10-11, [~] local slice verified
+
+- Vincent/current branch match; unrelated D3 preparation file preserved.
+- User requests emulator-only local Docker, real HTTP peers, cloud staging/prod
+  topic wiring, screenshot findings and actual Credit recovery/event tests.
+- Explicit approvals: local-only Credit push-security exception guarded by both
+  emulator settings; Order minimum one Cloud Run instance and always allocated
+  CPU (configuration only); durable routing of legacy CREATE/ACCEPT/ABORT with
+  pending HTTP 202; bounded asynchronous outbox publication and retained FAILED
+  after ten attempts, with operator redrive. No cloud deployment/provisioning.
+- Automatic repost/delegated credentials remain deferred. Peer databases/source
+  remain read-only except the explicitly approved Credit security/test slice.
+- D1/selected Overall hashes match. At task start the real command path/peer
+  timeouts were present and legacy mutation/read/receipt/outbox gaps confirmed;
+  their implemented corrections and verification follow.
+- Implemented ADR-036 and locally verified: final exact-source Maven verify
+  354 passed, no failures/errors/skips; 94.86% line/80.12% branch coverage.
+  All 192 source/resource/test files match tested snapshot. Twelve actual
+  Credit/PG/emulator recovery/delivery tests; 10 transition-race tests; five
+  migration and five outbox JPA tests pass. Credit security21, frontend83 plus
+  lint/typecheck, real Compose HTTP financial24, configuration29, AsyncAPI/TOML/
+  whitespace/direct source-hash checks pass. Detailed logs/failures: CHANGE-105.
+- Existing local Order DB upgraded V4->V7 via Flyway without resetting volumes.
+  Real stack is running/healthy; fresh local test accounts/orders retained.
+  Early fixture/IDE/clean failures are not passes. Final Maven exits0/BUILD SUCCESS
+  but emits fork shutdown timeout warning; cleanup follow-up remains.
+- Commits: a2bab85 approved Credit exception; f6c44bb emulator; dc9dbb8 shared
+  Compose; 29bfaf6 Order hardening/test/deploy. No push. Supplier SeedCsvReader
+  unrelated 16+/7- edit and D3 file preserved, never staged.
+- Next: human review, consuming-developer V6/V7 handoff, user local UI testing;
+  separately approved cloud rollout/IAM verification. Automatic repost/delegated
+  credentials deferred, manual repost outside durable protocol, User consumers
+  missing. Tokenless HTTP recovery needs same-key owner Continue; no saved JWT.
+  Generic drift/completion helper format failures remain; Sprint [~].
+
+
 ## CHANGE-104: live Credit command recovery — 2026-10-11, locally verified
 
 - Vincent explicitly requests replacing the mock-only recovery integration on

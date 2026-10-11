@@ -1,5 +1,12 @@
 # Instruction Map
 
+CHANGE-105 / [ADR-036](decisions/ADR-036-local-emulator-and-review-hardening.md)
+is effective for local emulator transport, narrow Credit security exception,
+legacy durable routing, replay/read protection, V6/V7 and retained-failure
+outbox. See local-live-testing.md and
+concurrency/credit-local-emulator-security-interference.md. Historical local
+cloud/tunnel instructions are superseded; scripts/local-live.ps1 refuses to run.
+
 CHANGE-104 / [ADR-035](decisions/ADR-035-live-credit-command-recovery.md)
 supersedes the earlier HTTP mock-only gate. Current provider integration,
 verification limits and run instructions are recorded in the existing

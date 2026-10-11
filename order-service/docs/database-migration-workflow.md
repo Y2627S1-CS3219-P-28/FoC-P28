@@ -42,6 +42,24 @@ This document applies to every schema-affecting change, including tables, column
 
 ## Status and technology boundary
 
+### CHANGE-105 / ADR-036 handoff (2026-10-11)
+
+- Migration IDs: V6__retained_failed_outbox.sql and V7__bind_command_receipts.sql.
+- Purpose: retained exhausted publication and secure immutable receipt replay.
+- Objects: outbox state CHECK/FAILED index; receipt actor_id/input_fingerprint.
+- Required command: rebuild/start the matching Order image via root Compose; its
+  Flyway startup migration applies versioned files. Expected schema version: 7.
+- Clean/upgrade verification: OrderOutboxMigrationTest covers clean, V1/V3 and
+  V5-to-V7 with retained payload and intentionally unbound historical receipts;
+  OrderOutboxJpaIntegrationTest covers FAILED/redrive persistence. Exact results
+  are CHANGE-105. Existing local application database upgraded V4->V7 without reset.
+- Historical receipts stay null-bound and fail closed on attempted replay. No
+  existing event ID/payload or business order ID is rewritten by these migrations.
+- Back up before cloud rollout; deploy matching app/schema together. No destructive
+  down migration. Restore a reviewed backup or add a forward corrective migration;
+  do not rewrite V1-V7 or delete FAILED evidence to downgrade. Peer consuming
+  developer still needs to apply/review the same files; no cloud rollout performed.
+
 - This is a workflow rule; ADR-008 approves PostgreSQL on Cloud SQL for Order Service.
 - The parent Firestore convention remains applicable to sibling services and does not replace the Order Service decision.
 - Flyway was approved in CHANGE-017; the configured migration directory is `src/main/resources/db/migration/`. Do not introduce a second migration format.

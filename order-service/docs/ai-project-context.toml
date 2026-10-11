@@ -1,4 +1,10 @@
 schema_version = 1
+local_transport_decision = "docs/decisions/ADR-036-local-emulator-and-review-hardening.md"
+local_pubsub = "emulator-only; demo-foc-local; real HTTP peers; no ADC/tunnel"
+legacy_mutation_protocol = "CREATE/ACCEPT/ABORT durable coordinator; 202 pending"
+outbox_recovery = "bounded async after-commit; 15-minute scan; retained FAILED after 10; ADMIN redrive"
+latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql"]
+cloud_timer_runtime = "config only: min1/no-cpu-throttling; not deployed"
 live_credit_recovery_decision = "docs/decisions/ADR-035-live-credit-command-recovery.md"
 live_credit_recovery_protocol = "credit-command-v1; HTTP gateway; no stored tokens or delegated credentials"
 pubsub_asyncapi = "docs/asyncapi/asyncapi.yaml"

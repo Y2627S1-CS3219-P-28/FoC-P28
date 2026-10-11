@@ -1,5 +1,37 @@
 # Order Service Architecture
 
+## Effective review refinements — CHANGE-105 / ADR-036
+
+Legacy CREATE/ACCEPT/ABORT -> OrderCommandService; no direct Credit/local-commit
+bypass. Existing coordinator validates, leases and guards before remote I/O;
+final Order/history/outbox/result remain atomic. Read policy checks relationships.
+V7 receipts add actor_id/input_fingerprint (SHA-256, length-prefixed fields);
+historical rows remain unbound, so replay conflicts rather than guesses.
+
+```mermaid
+flowchart TD
+  UI["Authenticated UI: legacy or command route"] --> C["Durable coordinator: immutable key/input"]
+  C --> L["DB claim + generation + unresolved guard"]
+  L --> HTTP["Real Credit command/result/compensation HTTP"]
+  HTTP --> F["Atomic Order/result/history/outbox commit"]
+  F --> Q["After-commit bounded executor: 2 workers / queue 50"]
+  Q --> B["Local emulator OR cloud Google Pub/Sub"]
+  R["15-minute recovery scan"] --> Q
+  Q --> E["After 10 failed attempts: retained FAILED"]
+  E --> A["ADMIN redrive same event ID/payload"]
+  A --> Q
+  M["One minute job"] --> RC["Eligible command recovery"]
+  RC --> EX["Eligible OPEN expiry + refund"]
+  EX --> CO["DELIVERED >=48h completion + transfer"]
+```
+
+V6 outbox state includes FAILED; payload/ID preserved, explicit redrive resets
+attempts/lease/due time. No consumer completion inferred from PUBLISHED.
+Local Credit's approved security exception affects only two typed push routes;
+ordinary JWT verification and cloud Google OIDC remain. Cloud Order min1/always
+CPU enables timers while idle; no external shared-token lifecycle trigger needed.
+Automatic repost/delegation and User penalty subscribers remain deferred.
+
 ## Effective HTTP command gateway — CHANGE-104 / ADR-035
 
 OrderCommandController → OrderCommandService → leased OrderCommandStore → HttpCreditCommandGateway → Credit command/result/compensation API → atomic local finalizer. LocalCreditCommandStub is selected only in explicit mock mode. Matching saved results and mutation markers are mandatory; uncertain responses retain PENDING. Bounded peer timeouts apply. The minute job still runs recovery → expiry → completion; tokenless HTTP recovery asks for fresh user authorization before peer I/O. No lifecycle/data-model change. Historical mock-only descriptions below are superseded at this adapter boundary.

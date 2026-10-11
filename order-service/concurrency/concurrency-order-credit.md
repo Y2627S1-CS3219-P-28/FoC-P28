@@ -6,6 +6,14 @@ Authority: ADR-033, ARCH-EVO-038, CHANGE-100. Owner of Credit work: Annablee.
 
 ## Effective implementation update — 2026-10-11
 
+CHANGE-105 / ADR-036 extends durable routing to legacy create/accept/cancel-accepted
+too. Terminal success keeps normal Order JSON; unresolved legacy responses return
+202 CommandView. No new Credit payload fields are added. Local Docker now uses
+the Pub/Sub emulator with actual HTTP services; cloud keeps Google Pub/Sub.
+See docs/local-live-testing.md and credit-local-emulator-security-interference.md.
+Manual repost/automatic repost are not included in this three-operation command
+recovery protocol. No saved user tokens or unattended delegated credentials.
+
 ADR-035 / CHANGE-104 supersedes the earlier contract-stub-only milestone below.
 Actual Credit revision 497a8f9 implements all five command operations. Order
 selects HttpCreditCommandGateway in HTTP mode; the three minimal business bodies,

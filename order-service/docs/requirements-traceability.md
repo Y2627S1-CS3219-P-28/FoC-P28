@@ -1,5 +1,17 @@
 # Order Service Requirements Traceability
 
+## CHANGE-105 / ADR-036 effective verification
+
+| Requirement/amendment | Implementation and test responsibility | Gate |
+| --- | --- | --- |
+| F1/F2/F3/F4/F11 + ADR-033/035/036 | Legacy CREATE/ACCEPT/ABORT coordinator; intent before remote effects, stable keys/candidate, atomic finalization | Controller + real Credit recovery regressions |
+| F4.1.7/F4.1.8/F10/F5.1 + ADR-013/031/036 | Local emulator cancellation/expiry refunds, completion transfer; abort after expiry | Actual Credit/PG/emulator tests + real Compose HTTP smoke |
+| NFR4 + ADR-036 | Relationship reads, receipt binding/key-reuse conflict, scoped event IDs, cloud lifecycle fail-closed | Unit/API/PG/cloud/local security tests |
+| NFR consistency + ADR-036 | Bounded async publication, 15-minute scan, retained FAILED(10), ADMIN redrive | Domain/listener/PG/controller security |
+| NFR3.1.1/3.1.3 | >=80% line/branch; real integration vs fixtures distinguished | Exact counts/coverage recorded in CHANGE-105 |
+
+No automatic-repost/delegation or User penalty completion claim. Sprint [~].
+
 ## CHANGE-104 / ADR-035: actual financial command recovery
 
 | D1 / amendment | Requirement / implementation | Test evidence | Status |
