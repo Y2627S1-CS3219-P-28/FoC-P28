@@ -49,20 +49,6 @@ public class UserController {
         this.authenticationService = authenticationService;
     }
 
-    // Test
-    // @ExceptionHandler(HttpMessageNotReadableException.class)
-    // public ResponseEntity<String> handleHttpMessageNotReadable(
-            // HttpMessageNotReadableException e) {
-
-        // e.printStackTrace();
-
-        // return ResponseEntity.badRequest().body(
-            // e.getMostSpecificCause() != null
-                // ? e.getMostSpecificCause().toString()
-                // : e.toString()
-        // );
-    // }
-
     // GET /api/users
     @Operation(summary = "Get all users")
     @GetMapping
@@ -77,6 +63,16 @@ public class UserController {
     public ResponseEntity<User> getUser(
             @PathVariable String userId,
             @RequestHeader("Authorization") String authorizationHeader) {
+
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String requesterId = token.getUid();
+        User requester = userService.getUserByUserId(requesterId);
+        if (!userService.verifyAdmin(requester)) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "USER_NOT_ADMIN"
+            );
+        }
 
         User user = userService.getUserByUserId(userId);
 
@@ -174,6 +170,21 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
+    // POST /api/users/me/email-sync
+    // Update own email info
+    @Operation(summary = "Synchronise requesting user's email in MongoDB with Firebase")
+    @PostMapping("/me/email-sync")
+    public ResponseEntity<User> updateUser(
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        // Get user from auth token
+        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        String userId = token.getUid();
+        User user = userService.syncVerifiedEmail(userId);
+
+        return ResponseEntity.ok(user);
+    }
+
     // PUT /api/users/me
     // Update own info
     @Operation(summary = "Update requesting user's own info")
@@ -186,21 +197,6 @@ public class UserController {
         FirebaseToken token = authenticationService.authenticate(authorizationHeader);
         String userId = token.getUid();
         User user = userService.updateUser(userId, request);
-
-        return ResponseEntity.ok(user);
-    }
-
-    // POST /api/users/me/email-sync
-    // Update own email info
-    @Operation(summary = "Synchronise requesting user's email in MongoDB with Firebase")
-    @PostMapping("/me/email-sync")
-    public ResponseEntity<User> updateUser(
-            @RequestHeader("Authorization") String authorizationHeader) {
-
-        // Get user from auth token
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
-        User user = userService.syncVerifiedEmail(userId);
 
         return ResponseEntity.ok(user);
     }
@@ -232,6 +228,7 @@ public class UserController {
 
     // PUT /api/users/:userId/user-promotion
     // Only admin can update other users' info
+    @Operation(summary = "Promote a user to admin")
     @PutMapping("/{userId}/user-promotion")
     public ResponseEntity<User> promoteUser(
             @PathVariable String userId,
