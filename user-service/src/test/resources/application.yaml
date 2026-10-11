@@ -9,6 +9,3 @@ springdoc:
     path: /api/users/v3/api-docs
   swagger-ui:
     path: /api/users/docs
-
-credit-service:
-  url: http://localhost:8084

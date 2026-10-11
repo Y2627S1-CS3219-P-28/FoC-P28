@@ -1,11 +1,11 @@
 package com.p28.userservice.logic;
 
-public class CourierEligibility {
+public class CourierElgibility {
     private boolean isCourierEligible;
 
-    public CourierEligibility() {}
+    public CourierElgibility() {}
     
-    public CourierEligibility(boolean isCourierEligible) {
+    public CourierElgibility(boolean isCourierEligible) {
         this.isCourierEligible = isCourierEligible;
     }
 

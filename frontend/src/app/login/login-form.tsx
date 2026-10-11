@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { FirebaseError } from "firebase/app"
 
 import { useAuth } from "@/components/providers/auth-provider"
@@ -16,7 +16,6 @@ import { PasswordRequirements } from "./password-requirements"
 type Mode = "sign-in" | "sign-up"
 
 const FIREBASE_MESSAGES: Record<string, string> = {
-  "auth/wrong-password": "Incorrect password.",
   "auth/invalid-credential": "Incorrect email or password.",
   "auth/invalid-email": "Enter a valid email address.",
   "auth/email-already-in-use": "An account with this email already exists.",
@@ -32,7 +31,7 @@ const FIREBASE_MESSAGES: Record<string, string> = {
 
 function describeError(error: unknown): string {
   if (error instanceof Error && error.message === "EMAIL_NOT_VERIFIED") {
-    return "Email is not verified."
+    return "Please verify your email before signing in."
   }
   if (error instanceof FirebaseError) {
     // Include the code for anything unexpected so it can be diagnosed.
@@ -47,94 +46,46 @@ function safeNext(next: string | null): string {
 }
 
 export function LoginForm() {
-  const { signIn, signUp, resendVerificationEmail } = useAuth()
+  const { user, loading, signIn, signUp } = useAuth()
   const router = useRouter()
   const next = safeNext(useSearchParams().get("next"))
 
   const [mode, setMode] = useState<Mode>("sign-in")
-
-  // Regular field states
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
-
-  // Field state for sign up
-  const [confirmPassword, setConfirmPassword] = useState("")
-
-  // Email verification states
-  const [verificationPending, setVerificationPending] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [verificationMessage, setVerificationMessage] = useState<string | null>(null)
-
   const [submitting, setSubmitting] = useState(false)
   const [passwordValid, setPasswordValid] = useState(true)
   const onPasswordValidity = useCallback((valid: boolean) => setPasswordValid(valid), [])
+
+  // Not needed for now because of email verification
+  // useEffect(() => {
+    // if (!loading && user && mode === "sign-in") {
+      // router.replace(next)
+    // }
+  // }, [loading, user, router, next])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
-    setVerificationMessage(null)
-    setVerificationPending(false)
-
     try {
       if (mode === "sign-in") {
-        try {
-          await signIn(email.trim(), password)
-          router.replace(next)
-        } catch (err) {
-          if (err instanceof Error && err.message === "EMAIL_NOT_VERIFIED") {
-            setVerificationPending(true)
-          } else {
-            throw err
-          }
-        }
+        await signIn(email.trim(), password)
+        router.replace(next)
       } else { 
-        if (password !== confirmPassword) {
-          setError("Passwords do not match.")
-          return
-        }
-
         await signUp(email.trim(), password)
 
         // Change page back to sign in
         setMode("sign-in")
         setPassword("")
-        setConfirmPassword("")
 
-        setVerificationPending(true)
-        setVerificationMessage(
-          `A verification email has been sent to ${email.trim()}.`,
-        )
+        alert(`Please verify your email sent to ${email} before logging in`)
       }
     } catch (err) {
       setError(describeError(err))
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  async function handleResendVerification() {
-    setResending(true)
-    setVerificationMessage(null)
-    setError(null)
-
-    try {
-      await resendVerificationEmail(email.trim(), password)
-      setVerificationMessage(
-        `A new verification email has been sent to ${email.trim()}.`,
-      )
-    } catch (err) {
-      if (err instanceof Error && err.message === "EMAIL_ALREADY_VERIFIED") {
-        setVerificationPending(false)
-        setVerificationMessage(
-          "Your email is already verified. You can sign in now.",
-        )
-      } else {
-        setError(describeError(err))
-      }
-    } finally {
-      setResending(false)
     }
   }
 
@@ -155,31 +106,6 @@ export function LoginForm() {
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
-            )}
-            {verificationMessage && (
-              <Alert>
-                <AlertDescription>{verificationMessage}</AlertDescription>
-              </Alert>
-            )}
-            {verificationPending && isSignIn && (
-              <div className="w-full space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Please verify your email before signing in.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Check your inbox and spam folder, then enter your password and use the button below to resend
-                  the verification email if necessary.
-                </p>
-              <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  disabled={resending || submitting || !email.trim() || !password}
-                  onClick={handleResendVerification}
-                >
-                  {resending ? "Sending email…" : "Resend verification email"}
-                </Button>
-              </div>
             )}
             <Field>
               <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -205,31 +131,10 @@ export function LoginForm() {
               />
               {!isSignIn && <PasswordRequirements password={password} onValidityChange={onPasswordValidity} />}
             </Field>
-            {!isSignIn && (
-              <Field>
-                <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete={"new-password"}
-                  required
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Re-enter your password"
-                />
-                {confirmPassword && password !== confirmPassword && (
-                  <p className="text-sm text-destructive">
-                    Passwords do not match.
-                  </p>
-                )}
-              </Field>
-            )}
           </FieldGroup>
         </CardContent>
         <CardFooter className="mt-6 flex flex-col gap-3">
-          <Button type="submit" 
-            className="w-full" 
-            disabled={submitting || !email || !password || (!isSignIn && !passwordValid && password !== confirmPassword)}>
+          <Button type="submit" className="w-full" disabled={submitting || !email || !password || (!isSignIn && !passwordValid)}>
             {submitting ? "Please wait…" : isSignIn ? "Sign in" : "Create account"}
           </Button>
           <Button
@@ -239,9 +144,6 @@ export function LoginForm() {
             onClick={() => {
               setMode(isSignIn ? "sign-up" : "sign-in")
               setError(null)
-              setVerificationMessage(null)
-              setVerificationPending(false)
-              setPassword("")
               setPasswordValid(true)
             }}
           >
