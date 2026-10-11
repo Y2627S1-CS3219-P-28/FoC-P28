@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 # User Service image: the standard FoC Spring Boot Dockerfile (AGENTS.md section 5).
-# The seed CSV is mounted at runtime (SUPPLIER_SEED_FILE), never baked in (F2.1.1).
 
 # ---- Build: compile and extract the layered jar ------------------------------
 FROM eclipse-temurin:21-jdk AS build

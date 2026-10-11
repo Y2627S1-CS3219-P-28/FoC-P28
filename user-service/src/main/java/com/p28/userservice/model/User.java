@@ -4,7 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.sql.Date;
+import java.time.Instant;
 import java.util.List;
 
 @Document("users")
@@ -24,7 +24,7 @@ public class User {
     private List<String> roles;
     private int penalty = 0;
     private boolean isCourierSuspended = false;
-    private Date suspensionEndDate;
+    private Instant suspensionEndDate;
 
     public User() {
     }
@@ -58,7 +58,7 @@ public class User {
         return this.isCourierSuspended;
     }
 
-    public Date getSuspensionEndDate() {
+    public Instant getSuspensionEndDate() {
         return this.suspensionEndDate;
     }
 
@@ -98,7 +98,7 @@ public class User {
         return;
     }
 
-    public void setSuspensionEndDate(Date newSuspensionEndDate) {
+    public void setSuspensionEndDate(Instant newSuspensionEndDate) {
         this.suspensionEndDate = newSuspensionEndDate;
         return;
     }
