@@ -1,5 +1,24 @@
 # Attached Order flow: approved amendments and implementation gaps
 
+## Latest effective recovery flow — ADR-035/036/037
+
+The historical flow/table below preserves earlier gaps; it is superseded for
+current HTTP recovery, manual repost, emulator transport and retained outbox by
+ADR-035/036/037 and CHANGE-104/105/106. Current visible list/command polling is
+five seconds. Minute recovery runs before expiry and 48-hour completion; HTTP
+recovery needs fresh owner authorization. Outbox publishes asynchronously after
+commit, scans every 15 minutes and retains FAILED after ten attempts for redrive.
+
+Manual `POST /api/orders/commands/{originalId}/repost` (legacy route delegates)
+commits PENDING with ORIGINAL guard + distinct candidate before Credit RESERVE.
+Success atomically creates OPEN, links original and resolves the command. Unknown
+outcome remains pending; confirmed rejection retains EXPIRED with saved message.
+Possible effects invalidated by expiry/state require conditional compensation.
+Refund/history stays OLD-ID. Exact current class/sequence/data and UI branches:
+[ADR-037](../decisions/ADR-037-durable-manual-repost.md); tested provider mapping:
+[Credit handoff](../../concurrency/concurrency-order-credit.md).
+Automatic repost/delegation remains deferred, not silently enabled.
+
 ## Effective minute job — CHANGE-102 / ADR-034
 
 This sequence supersedes the separate command timer. The job itself is not a

@@ -1,5 +1,9 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+ADR-037 / CHANGE-106 extends approved recovery to MANUAL REPOST only. Same-key,
+stable new candidate, original guard, frozen expiry and pending UI; V8. This
+supersedes historical manual deferral; auto/delegation remains deferred. [~].
+
 ## Current effective transport/recovery — CHANGE-105 / ADR-036
 
 Local Compose uses real HTTP peers and Pub/Sub emulator, never cloud topics/ADC.

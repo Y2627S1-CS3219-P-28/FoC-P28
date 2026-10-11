@@ -1,9 +1,11 @@
 schema_version = 1
+manual_repost_recovery = "ADR-037 / CHANGE-106: implemented, source2c021b6; 367 backend/90 frontend; consuming rollout blocked by Docker engine500; strict gate pending"
+manual_repost_migration = "V8__durable_manual_repost.sql"
 local_transport_decision = "docs/decisions/ADR-036-local-emulator-and-review-hardening.md"
 local_pubsub = "emulator-only; demo-foc-local; real HTTP peers; no ADC/tunnel"
-legacy_mutation_protocol = "CREATE/ACCEPT/ABORT durable coordinator; 202 pending"
+legacy_mutation_protocol = "CREATE/ACCEPT/ABORT/manual REPOST durable coordinator; 202 pending"
 outbox_recovery = "bounded async after-commit; 15-minute scan; retained FAILED after 10; ADMIN redrive"
-latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql"]
+latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql", "V8__durable_manual_repost.sql"]
 cloud_timer_runtime = "config only: min1/no-cpu-throttling; not deployed"
 live_credit_recovery_decision = "docs/decisions/ADR-035-live-credit-command-recovery.md"
 live_credit_recovery_protocol = "credit-command-v1; HTTP gateway; no stored tokens or delegated credentials"
@@ -14,7 +16,7 @@ merged_minute_scheduler_decision = "docs/decisions/ADR-034-merged-minute-command
 merged_minute_scheduler_order = ["eligible command recovery (HTTP requires fresh user authorization)", "OPEN expiry", "DELIVERED >=48h completion"]
 merged_minute_scheduler_cron = "order.lifecycle.cron; default 0 * * * * *; order.commands.cron obsolete"
 foreground_command_recovery_decision = "docs/decisions/ADR-033-durable-credit-command-stub.md"
-foreground_command_recovery_scope = "CREATE/ACCEPT/ABORT HTTP and explicit mock selection; no repost recovery"
+foreground_command_recovery_scope = "CREATE/ACCEPT/ABORT/manual REPOST HTTP and explicit mock selection; automatic repost deferred"
 recovery_context_loading = "latest effective and relevant sections approved by Vincent 2026-10-10"
 service = "order-service"
 canonical_context = "docs/ai-project-context.md"

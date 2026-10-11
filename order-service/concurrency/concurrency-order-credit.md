@@ -1,5 +1,59 @@
 # Order–Credit synchronous command recovery handoff
 
+## Effective manual repost extension — ADR-037 / CHANGE-106 (2026-10-11)
+
+Vincent approves this on `sprint-2-3-credit-service-concurrency-update-event-payload`.
+This supersedes only manual-repost exclusions below; automatic repost/delegation
+remain deferred. No Credit source, financial policy or wire schema changed.
+
+Order exposes `POST /api/orders/commands/{originalId}/repost` with existing fields
+(`commandId`, `actorId`, `expectedVersion`, `itemDescription`, `offeredCredits`,
+`deliveryTimeLimitMinutes`, `expiresAt`). CommandView returns 202 PENDING or
+200 COMPLETED/SUCCESS or REJECTED. Legacy `POST /api/orders/{originalId}/repost`
+delegates: normal Order JSON on success, 202 CommandView while unresolved, mapped
+terminal error on rejection. No legacy bypass of the durable intent remains.
+
+V8 keeps `order_commands.order_id` as the ORIGINAL guard and adds
+`candidate_order_id` for the distinct NEW reservation/successor ID. Commit both
+before Credit I/O. K binds requester, original/version, edited fields and
+server-frozen suppliers. Claims/leases/generations prevent duplicate workers;
+the pending-original index prevents competing reposts.
+
+### What Credit receives (no new repost-specific endpoint required)
+
+- `GET /api/credits/commands/{K}`: NO body; owner token. Existing five-field
+  historical result: commandId, operation RESERVE, orderId candidateId, outcome,
+  code. Never use current reservation state alone as historical proof.
+- If no terminal result: `PUT /api/credits/orders/{candidateId}/reservation`
+  with only `{"requesterId":"requester-uid","amount":5}`. Headers remain
+  `Authorization: Bearer <fresh user token>`, `Idempotency-Key: K` and
+  `X-Command-Generation: <claimed generation>`. New 201/replay 200 returns
+  ReservationResponse plus existing command outcome headers. Only an authoritative
+  saved rejection is terminal; transport/authentication failure is not proof.
+- If a possible reservation cannot finalize: existing
+  `POST /api/credits/commands/{K}/compensate`, NO body, same authorization/key/
+  generation. Confirmed 200 COMPENSATED (REVERSED or FENCED_NO_EFFECT) resolves
+  Order rejection; 409 RECONCILIATION_REQUIRED stays pending. K identifies this
+  candidate; never compensate the original expiry refund.
+
+Original ID, suppliers, description, duration, expiry and linking instructions
+stay Order-owned and are NOT added to Credit's payload. Existing Credit atomic
+result/ledger commit, immutable binding, generation fence and conditional
+unassigned-reservation reversal are reused. Old-ID refund/outbox remains separate.
+
+Order atomically commits successor OPEN, original link, checkpoint/receipt and
+COMPLETED SUCCESS after confirmed reservation. Unknown reply/local rollback keeps
+PENDING and the same candidate. Initial expiry must satisfy submission+30min;
+recovery never extends it and only runs while still future. Confirmed rejection
+saves the latest short message on the EXPIRED original. Tokenless HTTP recovery
+does no peer I/O and requests fresh owner Continue.
+
+Four new actual Credit/Order PostgreSQL tests pass: timeout replay, local rollback,
+saved rejection and late-reservation reversal. User/Supplier validation in this
+isolated harness is a fixture, not live provider verification. Full regression/
+rollout evidence is recorded in CHANGE-106. Class/sequence/data diagrams:
+[ADR-037](../docs/decisions/ADR-037-durable-manual-repost.md).
+
 Vincent · `sprint-2-3-credit-service-concurrency` · 2026-10-10
 
 Authority: ADR-033, ARCH-EVO-038, CHANGE-100. Owner of Credit work: Annablee.

@@ -1,5 +1,18 @@
 # Order Service Requirements Traceability
 
+CHANGE-106 / ADR-037 [~]: NTH4 + F10/F10.1.3 override -> immutable REPOST original/
+candidate -> reserve -> atomic OPEN/link/result -> same-key pending UI. ADR-030
+initial30min minimum, ADR-033/035 authorization/lease/compensation; NFR3 test/coverage
+and NFR4 owner binding. Automated backend/real Credit/PG/frontend verification
+passes; local consuming rollout/interactive and strict-record gates remain open.
+
+| Effective requirement | Implementation / approved design | Test and evidence | Status |
+| --- | --- | --- | --- |
+| NTH4 + F10/F10.1.3 visibility override | ADR-037; REPOST original guard/candidate; atomic manualConfirmed/link/result | PG stable candidate/concurrent keys; actual Credit lost reply/rollback; UI successor replacement | Automated passed, rollout pending |
+| ADR-030 manual initial30min window | frozen created_at + explicit expiry, no sliding retry deadline | RepostExpiryTest; actual Credit late compensation and valid late retry | Passed |
+| ADR-033/035 consistency + NFR4 ownership | claim/lease/generation, immutable actor/input; minimal existing RESERVE/history/compensation | owner forgery/API wrong-role; pending blocker; real reservation/replay/reversal | Passed in actual Credit harness; User/Supplier fixtures |
+| NFR3 line/branch/test gate | unchanged Maven coverage and shared frontend regression | 367 backend0skips,94.76%line/80.23%branch;90 frontend; lint/typecheck | Passed; generic workflow helper format gate not passed |
+
 ## CHANGE-105 / ADR-036 effective verification
 
 | Requirement/amendment | Implementation and test responsibility | Gate |

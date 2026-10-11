@@ -5,6 +5,16 @@ Pub/Sub/tunnel setup only. Old cloud resources are not removed.
 
 ## Commands
 
+CHANGE-106 adds durable manual repost/V8. After matching rebuild and healthy
+local services, run from the Compose root:
+`powershell -NoProfile -ExecutionPolicy Bypass -File order-service\scripts\Test-ManualRepostIntegration.ps1`.
+This extends the actual full-stack regression with fresh fixture expiry/refund,
+manual command/legacy replay, new-ID reservation and linked-original list hiding.
+It changes only that newly created fixture's Order expiry via SQL; it does not
+modify peer databases, reset volumes or use cloud resources. Fixtures remain.
+Runtime is pending after the local Docker engine returned500 during this task;
+syntax/isolated real Credit recovery tests passed, not this all-peer smoke.
+
 From the root containing compose.yaml:
 
 ```powershell

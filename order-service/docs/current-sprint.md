@@ -1,5 +1,10 @@
 # Active Sprint
 
+CHANGE-106 / ADR-037 durable manual repost and V8 implemented/automated verified;
+367 backend/90 frontend pass. Local consuming rollout blocked by Docker engine500.
+Current scope extends the earlier three commands only for manual REPOST;
+automatic repost/delegation remains deferred. Sprint remains [~].
+
 ## CHANGE-105 / ADR-036: emulator and review hardening
 
 Approved by Vincent on current branch. Real local HTTP services with local Pub/Sub

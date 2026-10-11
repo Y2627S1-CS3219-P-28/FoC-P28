@@ -1,5 +1,12 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-11 ADR-037 / CHANGE-106: manual REPOST is approved for durable
+coordination, V8 original/candidate IDs, existing minimal RESERVE protocol, atomic
+successor/link/result and same-key pending UI. Automatic/delegation remain deferred.
+Implemented/automated verified:367 backend,90 frontend; coverage94.76%line/
+80.23%branch. Source2c021b6. Local V8 rollout/manual Compose smoke blocked by
+Docker engine500; strict workflow-format/human/browser/cloud gates open. [~].
+
 Effective 2026-10-11, CHANGE-105 / ADR-036 / ARCH-EVO-041: local Docker uses
 emulator-only Pub/Sub (demo-foc-local) and actual HTTP peers; no ADC/tunnel/cloud
 local setup. Cloud retains its injected staging/prod topics and Google OIDC.

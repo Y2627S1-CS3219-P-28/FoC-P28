@@ -1,5 +1,9 @@
 # Instruction Map
 
+Current manual-repost authority: CHANGE-106 / ADR-037, explicit Vincent approval.
+Its class/sequence/data diagrams and protocol supersede earlier manual deferrals
+only; automatic/delegation and peer source remain out of scope.
+
 CHANGE-105 / [ADR-036](decisions/ADR-036-local-emulator-and-review-hardening.md)
 is effective for local emulator transport, narrow Credit security exception,
 legacy durable routing, replay/read protection, V6/V7 and retained-failure

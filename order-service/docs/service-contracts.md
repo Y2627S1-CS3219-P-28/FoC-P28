@@ -1,5 +1,12 @@
 # Service Contracts
 
+Effective ADR-037: POST /api/orders/commands/{originalId}/repost takes the existing
+ManualRepostRequest JSON (commandId, actorId, expectedVersion, itemDescription,
+offeredCredits, deliveryTimeLimitMinutes, expiresAt). Returns202 PENDING or200
+COMPLETED CommandView. Legacy /{originalId}/repost delegates; successful Order JSON,
+pending202, rejected ordinary error. Credit sees only new candidate RESERVE,
+requesterId/amount and unchanged headers. Original ID remains Order guard/history.
+
 ## Effective transport/replay amendment — CHANGE-105 / ADR-036
 
 Local demo-foc-local uses emulator-only three topics and two typed Credit pushes.

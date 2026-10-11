@@ -1,5 +1,11 @@
 # Order Service Architecture
 
+Effective ADR-037 adds durable manual REPOST to the same coordinator. V8 separates
+original guard from candidate reservation. OrderRepostService.manualConfirmed finalizes without
+remote I/O; link/new OPEN/checkpoint/receipt/result commit together. Exact current
+class/sequence/data design: decisions/ADR-037-durable-manual-repost.md. Automatic
+repost remains deferred; no peer/topic/config changes.
+
 ## Effective review refinements — CHANGE-105 / ADR-036
 
 Legacy CREATE/ACCEPT/ABORT -> OrderCommandService; no direct Credit/local-commit

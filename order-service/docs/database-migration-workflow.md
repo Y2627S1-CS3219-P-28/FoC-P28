@@ -1,5 +1,12 @@
 # Order Service Database Migration Workflow
 
+Latest approved handoff: V8__durable_manual_repost.sql. Add nullable candidate_order_id
+and REPOST kind; preserve prior commands/IDs and pending-target index. Expected
+schema8. Normal matching Order startup applies Flyway; six clean/upgrade PG tests
+pass, including V7 preservation/constraints. Source2c021b6. Consuming local rollout
+blocked by Docker engine500; human review pending. No reset/rollback; disable workers,
+retain unresolved evidence, reviewed forward correction if necessary.
+
 ## Latest migration handoff — V5 / CHANGE-100
 
 V5__durable_foreground_commands.sql adds only Order-owned `order_commands`,

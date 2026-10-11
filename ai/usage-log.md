@@ -2110,6 +2110,11 @@ This log records the AI exchanges. The team remains responsible for validating a
 
 ## Durable manual repost design review assistance (Order Service)
 
+Approved implementation follow-up (2026-10-11): Vincent explicitly approves V8
+original/candidate-ID migration and new command repost route. CHANGE-106 / ADR-037
+now authorizes TDD and Order/frontend implementation, not automatic/delegation,
+peer source or deployment changes. Tests and human review pending at start.
+
 - **Tool:** OpenAI Codex (model not recorded)
 - **Date:** 2026-10-11
 - **Mode:** Source inspection and design review; implementation approval gate.
@@ -2117,3 +2122,13 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Yes make repost durable ....manual repost .... clicking button say pending until respot success .... same like how u implement for abort accept and create ... is that ok ? Also, which endpoint will polling call is it the order controller endpoint to get all read ordes ? errands all browse orders whcih endpoint
 - **Key response:** Current command target guard needs original ID while remote reservation needs distinct stable candidate. Proposed new V8 candidate field/kind extension and REPOST endpoint/coordinator/UI reuse, minimal existing Credit RESERVE payload, frozen initial30min expiry rule, pending/reload/authorization behavior, guarded atomic link/success and conditional compensation, with real integration and frontend TDD plan. Confirmed mine requester/courier and available list polling versus separate command reads. D1/Overall hashes match; no code/tests/migration/data writes. Guessed filenames/relative read paths were missing and corrected before final inspection.
 - **Author verification:** Vincent approves the manual durable/pending concept, not yet the detailed schema/API proposal. Mandatory workflow pauses before implementing this material persistence/contract extension. Automatic repost/delegated credentials remain deferred; no provider edit/new broker or stored-token approval. Human review and new tests pending; no implementation/completion claim.
+
+## Durable manual repost implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Approved implementation, test generation, verification and documentation.
+- **Affected locations:** Order REPOST coordinator/store/domain/finalizer/controllers, V8, tests and local smoke script; companion frontend repost/command hook/types/tests; CHANGE-106/ADR-037/context/contracts/diagrams/traceability/active work/migration/Credit handoff, excluded learning and this disclosure. Actual Credit/User/Supplier implementation inspected read-only. No shared Compose, peer source or deployment edits; unrelated D3 file preserved.
+- **Prompt:** Approve the V8 original/candidate-ID migration and the new POST /api/orders/commands/{originalId}/repost route? Approve
+- **Key response:** Implemented original-guard/stable-candidate REPOST intent before Credit, minimal existing RESERVE/history/compensation mapping, atomic successor/link/result, persistent confirmed rejection and same-key frozen pending UI through reload. Initial30min window stays frozen and expired possible reservations are compensated. Observed four backend and four frontend RED cases before implementation. Final isolated exact-source Java21/Maven3.9.16 verify:367 tests, zero failures/errors/skips,94.76%line/80.23%branch; all193 backend files match. Includes16 actual Credit/PG/emulator tests (four new manual),21 command PG and6 clean/upgrade migration tests. Frontend90 tests/24 files, lint0errors/3pre-existing warnings, typecheck, TOML, whitespace and smoke-script syntax pass. Source/test/V8/frontend commit2c021b6. User/Supplier validation is a fixture in isolated recovery tests, not new live provider proof. Local image rebuild/start stalled when Docker engine API returned500; gateway unavailable; stopped only identified task build clients, not Docker/volumes. No local V8 rollout/all-peer manual/browser/cloud/CI pass claim.
+- **Author verification:** Vincent explicitly approved schema/API design before code. AI assisted scoped implementation/testing, not independent architecture/financial approval. Human code/migration and desktop/mobile review pending. Default source manifest missing and generic completion helper rejects historical formats (5 findings); direct D1/Overall hashes match, manual gate distinct. Existing Maven fork shutdown warning remains despite BUILD SUCCESS/exit0. Automatic/delegated repost, initial command-poll timing diagnosis and User consumers unchanged. Strict/Sprint status remains[~]; no push, cloud change, peer modification or volume reset. Resume local smoke after Docker is healthy using Test-ManualRepostIntegration.ps1; learning stays excluded from Git.

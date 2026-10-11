@@ -1,5 +1,13 @@
 # Order Service Architecture Evolution
 
+ARCH-EVO-042: Vincent explicitly approves ADR-037 / CHANGE-106 on 2026-10-11.
+Architecture/persistence/API extension: REPOST guards original and reserves a
+stable distinct candidate. Atomic link/result, original failure persistence,
+initial30min/frozen expiry, pending UI and existing compensation apply. Options
+and diagrams are ADR-037. Source2c021b6;367 backend/90 frontend automated tests
+pass; consuming rollout blocked by Docker engine500, human/strict gates pending.
+Automatic/delegation remains deferred.
+
 ## ARCH-EVO-041 — Local emulator/review hardening (CHANGE-105 / ADR-036)
 
 Vincent approves on 2026-10-11: local-only emulator transport plus narrow Credit

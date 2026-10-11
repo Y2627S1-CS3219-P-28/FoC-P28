@@ -1,5 +1,10 @@
 # Order Service Work Allocation
 
+Vincent approves CHANGE-106 / ADR-037 on 2026-10-11: durable manual repost,
+V8 original/candidate separation, backend/companion frontend/tests and records.
+This supersedes manual-only deferral, not automatic/delegated credentials.
+Peer source, cloud and shared deployment files remain read-only.
+
 ## Vincent live Credit recovery extension — 2026-10-11
 
 Vincent explicitly authorizes CHANGE-104 / ADR-035 on sprint-2-3-credit-service-concurrency-update-event-payload: Order HTTP gateway, capability activation, bounded peer timeouts, actual Credit/PostgreSQL tests, frontend regression and handoff/configuration. Peer source stays read-only. This continues Vincent's ADR-033 slice; it neither reassigns Yao Xiang's work nor approves delegated credentials.

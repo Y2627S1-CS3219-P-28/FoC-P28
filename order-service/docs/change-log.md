@@ -1,5 +1,11 @@
 # Approved Change Log
 
+CHANGE-106 (2026-10-11, Vincent): approved ADR-037 / ARCH-EVO-042 durable manual
+repost, V8 original/candidate identity and command route, backend/UI recovery.
+Source2c021b6;367 backend/90 frontend pass,94.76%line/80.23%branch. Local rollout
+blocked by Docker engine500; strict record/human/browser/cloud gates remain[~].
+No peer, automatic or deployment changes.
+
 - CHANGE-105 (2026-10-11, Vincent): ADR-036 emulator-only local Compose with real
   HTTP peers; approved local Credit push-auth exception; cloud min1/always-CPU;
   durable legacy CREATE/ACCEPT/ABORT; relationship-protected reads; bound

@@ -1,5 +1,9 @@
 # Overall Architecture
 
+ADR-037 / CHANGE-106 adds manual repost to existing synchronous durable commands.
+No topology, broker, peer ownership or financial policy changes. Original/candidate
+identity and UI pending/Continue follow the approved Order-only vertical slice.
+
 ## Effective local/runtime refinement — ADR-036 / CHANGE-105
 
 Local Docker uses real HTTP services and an isolated demo Pub/Sub emulator, not

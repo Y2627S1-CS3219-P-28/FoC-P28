@@ -1,6 +1,42 @@
 # Vincent - Active Work
 
-## CHANGE-106 durable manual repost — 2026-10-11, [~] schema/design approval gate
+## CHANGE-106 durable manual repost — 2026-10-11, [~] implemented/automated verified; rollout blocked
+
+- Vincent explicitly approved V8 original/candidate persistence and the new
+  command route. Identity/branch/allocation match. ADR-037 is effective;
+  synchronize design, observe RED, then implement and verify the vertical slice.
+- No peer/deployment/automatic-repost changes. Background HTTP attempts still
+  require fresh user authorization; tokens are never saved. Preserve D3 file.
+- Effective end-of-turn handoff: source/tests/V8 committed as `2c021b6`;
+  syntax-checked pending runtime smoke helper committed separately as `172ea70`.
+  Intent/candidate precede Credit; same-key leases and original guard; atomic
+  successor/link/result; saved rejection and pending reload UI. New command and
+  legacy repost paths use the same coordinator. Peer payloads unchanged.
+- RED observed before implementation (four PG tests, hook route, three UI cases).
+  Final exact-source Java21/Maven3.9.16 verify: 367 passed, zero failures/errors/
+  skips; JaCoCo 1972/2081 lines (94.76%), 836/1042 branches (80.23%). All193 source/
+  resource/test files match the isolated tested snapshot. Includes16 actual Credit/
+  PG/emulator tests (four new manual),21 command PG tests,6 clean/upgrade migrations.
+  User/Supplier validation in isolated recovery tests remains a fixture.
+- Frontend90 tests/24 files pass; final lint0 errors/3 pre-existing login warnings;
+  typecheck passes. PowerShell smoke script parses; TOML and whitespace checks pass.
+  D1/Overall SHA256 match persistent references. Peer source/D3 file untouched.
+- Local Order/frontend rebuild could not finish: Docker Desktop engine /info and
+  /containers API return500; gateway unavailable. Stopped only the identified task
+  build clients, not Docker Desktop/containers; no volumes reset. Existing local
+  V7->V8 rollout and real all-peer manual smoke are NOT marked passed.
+- Generic drift helper default manifest is absent; gate helper rejects historical
+  traceability/active-work format (5 findings). Direct hashes/manual review are
+  separate evidence, not a generic-check pass. Existing Maven fork shutdown30sec
+  warning persists despite exit0/BUILD SUCCESS; not a failed application test.
+- Next: restore Docker engine, from Compose root run normal matching stack build/up,
+  then scripts/Test-ManualRepostIntegration.ps1. It uses fresh users/orders only,
+  advances one owned fixture's expiry in Order DB, waits for minute scheduler,
+  checks real refund/repost/replay/list hiding and cancels/refunds the successor.
+  Do not use down --volumes. Human migration review, interactive desktop/mobile,
+  cloud/hosted CI and workflow-format repair remain open; Sprint stays[~].
+- Previous proposal-only notes below preserve history; they are superseded by this
+  approved implementation and verification handoff.
 
 - Vincent/current branch match; user approves extending manual repost to durable
   pending flow like creation/accept/abort. Automatic repost/delegation still deferred.

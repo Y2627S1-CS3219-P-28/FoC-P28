@@ -1,5 +1,14 @@
 # Peer Service API Feedback
 
+## Manual repost protocol verification — CHANGE-106 / ADR-037 (2026-10-11)
+
+Manual REPOST reuses implemented Credit RESERVE/result/compensation with a stable
+NEW candidate and ORIGINAL guard. Four actual Credit/PostgreSQL tests pass for
+timeout replay, local rollback, saved rejection and late reversal; no new Credit
+endpoint/payload/topic is requested. Exact contract and full regression/rollout
+evidence: concurrency/concurrency-order-credit.md and CHANGE-106. This supersedes
+only the manual-recovery exclusion below, not hosted IAM/OIDC/User/delegation gaps.
+
 ## Effective verification update — CHANGE-105 / ADR-036 (2026-10-11)
 
 Current Credit command protocol and compact refund/completion implementation are
