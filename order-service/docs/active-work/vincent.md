@@ -2,6 +2,15 @@
 
 ## Command-key persistence clarification — 2026-10-11, read-only
 
+- Follow-up start/end: confirmed UUID per action rather than per login; V5
+  command_id primary key enforces one row, register rejects another actor/input
+  using the key. An unresolved action deliberately retains its key after login.
+  Command polling checks COMPLETED/outcome, not merely order status. Confirmed
+  browser deletion on SUCCESS/REJECTED; actual button label is Continue with
+  authorization, POST same-key resume using useApi current user token. A valid
+  browser session can supply authorization without another password login.
+  Scheduler still has no browser token. No tests rerun or application edits;
+  existing rollout/blockers and next action below remain unchanged.
 - Started and finished current-code clarification; Vincent/profile/allocation and
   branch match. No application, contract, schema, test or deployment change.
 - Frontend generates UUID per new action; IndexedDB foc-order-commands/intents

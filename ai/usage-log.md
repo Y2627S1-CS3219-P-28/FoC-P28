@@ -2141,3 +2141,13 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Is the frontend-generated command key persisted for retries until a terminal outcome, and are timeout/crash retries automatic unless the JWT expires?
 - **Key response:** Confirmed IndexedDB account/action-scoped frozen intent before POST, UUID per fresh action, terminal-only browser removal, five-second status polling, same-key404 resubmission and authorized resume route. Corrected misconception: tokenless live HTTP scheduler execution records AUTHORIZATION_REQUIRED before peer calls, even when browser token remains valid. No stored tokens/delegated credentials or unconditional retry-to-success. Browser disabled controls do not replace backend lease/input/order guards. No application/test/runtime changes or tests rerun; existing rollout blockers preserved.
 - **Author verification:** Vincent requested explanation, not a behavior change. AI inspected actual code; human review pending. Existing Sprint[~] and CHANGE-106 rollout/browser/cloud gaps unchanged; no peer modifications or approval inferred.
+
+## Command uniqueness and authorization-button follow-up assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only clarification and source inspection.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend hook/notice/auth/storage, Order command store/coordinator and V5 inspected read-only.
+- **Prompt:** Clarify UUID uniqueness across clients/logins, browser command storage/deletion, polling outcome and the retry/authorization button for tokenless scheduler recovery.
+- **Key response:** UUID collision is negligible, not mathematically impossible; command primary key enforces one stored row and registration binds actor/input. Saved unresolved key survives another login intentionally. Command polling checks COMPLETED SUCCESS/REJECTED, not just order state; removal happens on that confirmed terminal result. Continue with authorization resumes the same key with current user token; browser-valid authorization is still required because scheduler never saved it. No new behavior or tests; initial mistyped migration read corrected by actual V5 inspection.
+- **Author verification:** User asked for explanation, not implementation. Human review pending; current branch/profile match, unrelated D3 file preserved, application/peer/schema/config unchanged. Existing rollout and Sprint[~] gaps remain.
