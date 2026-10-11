@@ -1,5 +1,27 @@
 # Vincent - Active Work
 
+## Command-key persistence clarification — 2026-10-11, read-only
+
+- Started and finished current-code clarification; Vincent/profile/allocation and
+  branch match. No application, contract, schema, test or deployment change.
+- Frontend generates UUID per new action; IndexedDB foc-order-commands/intents
+  saves account/action-scoped key and frozen input before POST, retaining them
+  across reload until confirmed COMPLETED SUCCESS/REJECTED. Backend retains the
+  committed command history after browser intent removal. Browser clearing is
+  not a backend cancellation; disabled buttons are UX, not server protection.
+- Visible status polling is five seconds. Lookup404 can resend the original
+  frozen POST/key; authorization Continue POSTs commands/{K}/resume with current
+  user token. Same-key claims/input binding protect server execution.
+- Important clarification: recoverDue passes null authorization. Live HTTP
+  execution therefore defers AUTHORIZATION_REQUIRED before peer calls even if
+  the browser token is still valid; it does not auto-retry Credit until expiry.
+  No tokens/service credentials are stored. Permanent rejection/invalid deadline
+  can resolve as rejection or require compensation, not unconditional success.
+- Verification: inspected actual storage/hooks/payload builders/coordinator/store;
+  no tests or live browser/runtime checks rerun. Existing CHANGE-106 Docker500
+  rollout, human/browser/cloud gates and Sprint[~] remain unchanged. Next action
+  remains restore Docker and perform the recorded manual-repost smoke.
+
 ## CHANGE-106 durable manual repost — 2026-10-11, [~] implemented/automated verified; rollout blocked
 
 - Vincent explicitly approved V8 original/candidate persistence and the new
