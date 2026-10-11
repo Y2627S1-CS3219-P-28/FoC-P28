@@ -115,6 +115,19 @@ public class UserService {
             throw new IllegalArgumentException("Please enter all fields.");
         }
 
+        // Create credit service entry
+        try {
+            UUID eventId = UUID.randomUUID();
+            // Add initial credits
+            creditServiceClient.registerUser(
+                token,
+                userId,
+                eventId);
+        } catch (DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+
+        // Create MongoDB entry
         User user = new User();
 
         List<String> roles = new ArrayList<String>();
@@ -126,21 +139,7 @@ public class UserService {
         user.setUsername("");
         user.setRoles(roles);
 
-        try {
-            UUID eventId = UUID.randomUUID();
-
-            User savedUser = userRepository.save(user);
-
-            // Add initial credits
-            creditServiceClient.registerUser(
-                token,
-                savedUser.getUserId(),
-                eventId);
-
-            return savedUser;
-        } catch (DuplicateKeyException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
-        }
+        return userRepository.save(user);
     }
 
     // Currently, users can only update their username
@@ -230,9 +229,10 @@ public class UserService {
         return roles == null || !roles.contains("requester");
     }
 
+    // TODO: Implement this API and demoteAdmin
     // Adds admin role to user
     // Doesn't change role list if already admin
-    public User promoteToAdmin(String userId) {
+    public User promoteUser(String userId) {
         User user = userRepository
                 .findByUserId(userId)
                 .orElseThrow(() -> 

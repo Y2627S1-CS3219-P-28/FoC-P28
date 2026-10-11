@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user = userCredential.user;
             const token = await user.getIdToken();
                     
-            // Create user doc on MongoDB
+            // Create user doc on MongoDB and initialise credits
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {
@@ -193,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               throw error;
             }
 
-            throw new Error("Something went wrong during sign up.");
+            throw new Error("Something went wrong during sign up. Try again later.");
         }
 
         try {

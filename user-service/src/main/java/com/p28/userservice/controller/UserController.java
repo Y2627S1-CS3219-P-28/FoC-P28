@@ -230,10 +230,10 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // PUT /api/users/:userId/admin
+    // PUT /api/users/:userId/user-promotion
     // Only admin can update other users' info
-    @PutMapping("/{userId}/admin")
-    public ResponseEntity<User> promoteToAdmin(
+    @PutMapping("/{userId}/user-promotion")
+    public ResponseEntity<User> promoteUser(
             @PathVariable String userId,
             @RequestHeader("Authorization") String authorizationHeader) {
 
@@ -248,7 +248,7 @@ public class UserController {
             );
         }
 
-        User promotedUser = userService.promoteToAdmin(userId);
+        User promotedUser = userService.promoteUser(userId);
 
         return ResponseEntity.ok(promotedUser);
     }
