@@ -31,7 +31,6 @@ vi.mock("@/components/providers/auth-provider", () => ({
     refreshProfile: vi.fn(),
   }),
 }))
-vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: { uid: "anna" }, loading: false }) }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }))
 vi.mock("@/components/credits/transaction-history", () => ({ TransactionHistory: () => <section>Transaction history</section> }))
 
