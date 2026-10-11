@@ -1,5 +1,18 @@
 # Vincent - Active Work
 
+## Order read/configure/draft route clarification — 2026-10-11, read-only
+
+- Start/end: Vincent/profile/allocation/current branch match. Inspected current
+  frontend call sites and OrderController/OrderRepostService; no behavior edits.
+- GET /orders/{id} is used by RepostControls after confirmed rejection or eligible
+  error to refresh the original version and saved failure; board lists use mine
+  and available. No current frontend call to repost/configure or repost-draft.
+- Legacy configure always conflicts: automatic settings chosen at creation only.
+  Draft returns defaults only for the original requester of unlinked EXPIRED
+  orders; UI currently uses the supplied card Order directly for that form.
+- Source inspection only; no tests/live browser checks rerun. Existing rollout,
+  Docker500, human review and Sprint[~] blockers/next action remain unchanged.
+
 ## Command-key persistence clarification — 2026-10-11, read-only
 
 - Follow-up start/end: confirmed UUID per action rather than per login; V5

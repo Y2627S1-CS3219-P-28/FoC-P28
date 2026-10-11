@@ -2151,3 +2151,12 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Clarify UUID uniqueness across clients/logins, browser command storage/deletion, polling outcome and the retry/authorization button for tokenless scheduler recovery.
 - **Key response:** UUID collision is negligible, not mathematically impossible; command primary key enforces one stored row and registration binds actor/input. Saved unresolved key survives another login intentionally. Command polling checks COMPLETED SUCCESS/REJECTED, not just order state; removal happens on that confirmed terminal result. Continue with authorization resumes the same key with current user token; browser-valid authorization is still required because scheduler never saved it. No new behavior or tests; initial mistyped migration read corrected by actual V5 inspection.
 - **Author verification:** User asked for explanation, not implementation. Human review pending; current branch/profile match, unrelated D3 file preserved, application/peer/schema/config unchanged. Existing rollout and Sprint[~] gaps remain.
+## Order read and legacy repost route clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend call sites/RepostControls and OrderController/OrderRepostService inspected read-only.
+- **Prompt:** Does frontend use GET order by ID, and when are repost/configure and repost-draft triggered?
+- **Key response:** Confirmed direct order GET refresh after manual-repost rejection/error while board polling uses mine/available. No current frontend configure/draft call sites. Legacy configure always conflicts; automatic plan configured at creation. Draft API checks original requester and unlinked EXPIRED eligibility, but UI seeds editable fields from the existing card Order. No application/contracts/tests changes or tests rerun; existing rollout and Sprint blockers unchanged.
+- **Author verification:** User requested clarification only. Actual source independently inspected; human review pending. No implementation approval inferred, peer changes or unrelated D3 edits.
