@@ -1,5 +1,26 @@
 # Vincent - Active Work
 
+## CHANGE-106 durable manual repost — 2026-10-11, [~] schema/design approval gate
+
+- Vincent/current branch match; user approves extending manual repost to durable
+  pending flow like creation/accept/abort. Automatic repost/delegation still deferred.
+- Read actual manual service/UI/domain, command store/coordinator/migration/gateway
+  and current Credit reservation/replay provider. D1/Overall hashes still match.
+  No frontend Git changes; unrelated D3 file preserved. Supplier former edit is no
+  longer dirty; did not modify/discard it. Latest Credit source/security history
+  a2bab85; current RESERVE wire protocol is suitable for candidate reservation.
+- Discovery: existing command.order_id must guard original, but Credit needs NEW
+  candidate. Proposed V8 kind extension + separate candidate UUID; exact inbound
+  route, frozen minimum window, atomic finalization/compensation and UI/test plan
+  are changes/CHANGE-106-durable-manual-repost-proposal.md. Request specific schema/
+  design approval before implementation under mandatory architecture gate.
+- Existing list URLs confirmed: mine requester/courier and available; pending
+  action status/discovery are separate command GETs. Five-second visible polling.
+- Tests not written/run; no application/schema/peer/deployment/data changes. Some
+  guessed filenames/read paths were absent; resolved actual tracked paths before
+  inspection. Next: approve proposal, synchronize ADR/design, then TDD and real
+  Credit/PostgreSQL/clone-safe full frontend/backend verification. Sprint stays[~].
+
 ## Creation command lookup 404 — 2026-10-11, diagnosis finished
 
 - Start: Vincent/branch match; source/log/database read-only diagnosis requested,
