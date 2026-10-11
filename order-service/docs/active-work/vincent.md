@@ -1,5 +1,24 @@
 # Vincent - Active Work
 
+## Supplier options clarification — 2026-10-11, source audit finished
+
+- Start: Vincent/current branch match; inspect Order creation dropdown and actual
+  Supplier catalogue/validation only. No application changes authorized. Existing
+  Supplier SeedCsvReader and D3 preparation changes preserved.
+- Result: requests/new/page.tsx:63 requests status=active, not openNow=true;
+  both selectors map the returned page.items without opening-hours filtering.
+  Supplier list defaults openNow=false; catalogue supports the optional filter
+  using stored opening/closing times and Asia/Singapore clock.
+- Submission: HttpPeerAdapters.validatePair calls /api/suppliers/validate;
+  SupplierService:92 checks existence, active status and differing IDs, not hours.
+  Thus inactive options excluded on fresh load, closed active options remain.
+  Options do not periodically refetch while the form is open; stale inactive
+  selection is rejected by current database validation at submission.
+- Verification: source and existing test inspection only; no tests rerun,
+  browser/cloud calls, data mutations or behavior/contract changes. Scope is
+  advisory; adding closed filtering/revalidation would require a separate task.
+  Existing Sprint [~] and recovery/peer/cloud blockers unchanged.
+
 ## CHANGE-105: local emulator and review findings — 2026-10-11, [~] local slice verified
 
 - Vincent/current branch match; unrelated D3 preparation file preserved.
