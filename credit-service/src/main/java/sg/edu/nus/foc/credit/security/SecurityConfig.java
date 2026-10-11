@@ -13,6 +13,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -58,7 +59,22 @@ class SecurityConfig {
     @Order(1)
     SecurityFilterChain pubSubPushSecurityFilterChain(HttpSecurity http,
                                                        JsonSecurityHandlers handlers,
-                                                       CreditPushProperties properties) throws Exception {
+                                                       CreditPushProperties properties,
+                                                       CreditProperties creditProperties,
+                                                       @Value("${CREDIT_PUBSUB_PUSH_MODE:google}") String pushMode,
+                                                       @Value("${PUBSUB_EMULATOR_HOST:}") String emulatorHost,
+                                                       @Value("${FOC_ENVIRONMENT:local}") String environment) throws Exception {
+        if (emulatorPushEnabled(pushMode, emulatorHost, environment, creditProperties, properties)) {
+            // Local emulator sends unsigned HTTP push; only these two financial
+            // event paths are exempt. Firebase auth on all user APIs is unchanged.
+            http.securityMatcher(CreditOrderEventController.OPEN_REFUND_PATH,
+                            CreditOrderEventController.COMPLETION_PATH)
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            log.warn("Unsigned Pub/Sub push enabled ONLY for explicitly configured local emulators.");
+            return http.build();
+        }
         http
                 .securityMatcher(
                         CreditOrderEventController.OPEN_REFUND_PATH,
@@ -76,6 +92,22 @@ class SecurityConfig {
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers));
         return http.build();
+    }
+
+    boolean emulatorPushEnabled(String mode, String emulatorHost, String environment,
+                                CreditProperties credit, CreditPushProperties push) {
+        if ("google".equals(mode)) {
+            if (!emulatorHost.isBlank()) {
+                throw new IllegalStateException("Google push authentication must not receive emulator settings.");
+            }
+            return false;
+        }
+        if (!"emulator".equals(mode) || !"local".equals(environment)
+                || emulatorHost.isBlank() || !credit.auth().usesEmulator()
+                || !credit.auth().projectId().startsWith("demo-") || !push.projectId().startsWith("demo-")) {
+            throw new IllegalStateException("Unsigned push requires explicit local mode and both demo emulators.");
+        }
+        return true;
     }
 
     @Bean

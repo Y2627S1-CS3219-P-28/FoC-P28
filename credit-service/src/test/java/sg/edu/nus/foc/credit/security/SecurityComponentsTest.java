@@ -34,6 +34,25 @@ class SecurityComponentsTest {
     private final SecurityConfig config = new SecurityConfig();
 
     @Test
+    void emulatorPushExceptionRequiresExplicitLocalAndBothEmulators() {
+        CreditProperties local = new CreditProperties(
+                new CreditProperties.AuthSettings("demo-foc", "firebase-emulator:9099"), null, null);
+        CreditProperties cloud = new CreditProperties(
+                new CreditProperties.AuthSettings("real-project", ""), null, null);
+        CreditPushProperties push = new CreditPushProperties("demo-foc", null, null, null, null);
+        assertThat(config.emulatorPushEnabled("emulator", "pubsub-emulator:8085", "local", local, push)).isTrue();
+        assertThat(config.emulatorPushEnabled("google", "", "staging", cloud, push)).isFalse();
+        assertThatThrownBy(() -> config.emulatorPushEnabled("emulator", "pubsub-emulator:8085", "production", local, push))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.emulatorPushEnabled("emulator", "", "local", local, push))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.emulatorPushEnabled("emulator", "pubsub-emulator:8085", "local", cloud, push))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.emulatorPushEnabled("google", "pubsub-emulator:8085", "staging", local, push))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void selectsConfiguredJwtDecoder() {
         CreditProperties emulator = new CreditProperties(
                 new CreditProperties.AuthSettings("p", "localhost:9099"), null, List.of());
