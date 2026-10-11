@@ -16,7 +16,21 @@ const mocks = vi.hoisted(() => ({
     roles: ["requester", "courier"], penalty: 2, isCourierSuspended: false }),
   replace: vi.fn(),
 }))
-vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
+vi.mock("@/components/providers/auth-provider", () => ({
+  useAuth: () => ({
+    user: { uid: "anna" },
+    loading: false,
+    profile: {
+      email: "anna@example.com",
+      roles: ["requester", "courier"],
+      penalty: 2,
+      isCourierSuspended: false,
+    },
+    profileLoading: false,
+    profileError: null,
+    refreshProfile: vi.fn(),
+  }),
+}))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: { uid: "anna" }, loading: false }) }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }))
 vi.mock("@/components/credits/transaction-history", () => ({ TransactionHistory: () => <section>Transaction history</section> }))
@@ -25,7 +39,6 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 it("renders the responsive profile summary alongside transaction history", async () => {
   render(<ProfilePage />)
-  await waitFor(() => expect(mocks.api).toHaveBeenCalledWith("/api/users/me", expect.anything()))
   expect(screen.queryByText("Username")).not.toBeInTheDocument()
   expect(await screen.findByText("anna@example.com")).toBeInTheDocument()
   expect(screen.getByText("requester")).toBeInTheDocument()
