@@ -5,16 +5,25 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import sg.edu.nus.foc.order.application.recovery.OrderCommandService;
 
-/** Runs both lifecycle checks without coupling their database transactions or failures. */
+/** Runs recovery before lifecycle checks without coupling their transactions or failures. */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class OrderLifecycleScheduler {
     private final LifecycleProcessingService lifecycle;
+    private final OrderCommandService commands;
 
     @Scheduled(cron = "${order.lifecycle.cron:0 * * * * *}")
     public void processDueOrders() {
+        try {
+            commands.recoverDue();
+        } catch (RuntimeException exception) {
+            log.error("Order command recovery pass failed; lifecycle checks will continue and the next pass will retry.",
+                    exception);
+        }
+
         Instant now = Instant.now();
         try {
             int expired = lifecycle.expireDue(now);

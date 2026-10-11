@@ -111,7 +111,6 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
                 reservation.getRequesterId(), reservation.getAmount(), ReservationState.RESERVED, courierId));
     }
 
-    @Override
     public synchronized void settle(
             String commandId,
             String orderId,
@@ -176,6 +175,17 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
     public synchronized CreditSnapshot creditSnapshot(String userId) {
         Account value = account(userId);
         return new CreditSnapshot(value.total, value.reserved, value.available());
+    }
+
+    /** ADR-033 local stub compensation ONLY. Never used by an HTTP adapter. */
+    public synchronized void compensateCreation(String orderId) {
+        Reservation reservation = reservations.get(orderId);
+        if (reservation == null) return;
+        if (reservation.getState() == ReservationState.SETTLED || reservation.getCourierId() != null) {
+            throw new IllegalStateException("Stub reservation cannot be safely reversed.");
+        }
+        account(reservation.getRequesterId()).reserved -= reservation.getAmount();
+        reservations.remove(orderId);
     }
 
     /** Test/support view; not a production Credit API. */

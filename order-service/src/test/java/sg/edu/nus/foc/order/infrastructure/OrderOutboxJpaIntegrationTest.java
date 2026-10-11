@@ -36,6 +36,32 @@ import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 })
 @Testcontainers(disabledWithoutDocker = true)
 class OrderOutboxJpaIntegrationTest {
+    @Test void exhaustedEventsRemainDurableAndOnlyExplicitRedriveReleasesThem() {
+        Instant now = Instant.now();
+        Order order = Order.open("redrive-owner", "item", "p", "d", 1, 15, now, now.plusSeconds(3600));
+        orders.saveAndFlush(order);
+        OrderCompletionTaskEvent event = new OrderCompletionTaskEvent();
+        event.setEventId(UUID.randomUUID().toString());
+        event.setOrderId(order.getId());
+        event.setEventType("OrderCompletionTaskEvent");
+        event.setEventVersion(2);
+        event.setOccurredAt(now);
+        outbox.enqueue(event);
+        String payload = jpaOutbox.findById(event.getEventId()).orElseThrow().getPayload();
+        for (int i = 0; i < 10; i++) {
+            outbox.claim(event.getEventId(), now.plusSeconds(1), now.plusSeconds(30)).orElseThrow();
+            outbox.scheduleRetry(event.getEventId(), now, "failed publish");
+        }
+        assertEquals(OutboxState.FAILED, jpaOutbox.findById(event.getEventId()).orElseThrow().getState());
+        assertEquals(List.of(event.getEventId()), outbox.failedIds(100));
+        assertFalse(outbox.claim(event.getEventId(), now.plusSeconds(60), now.plusSeconds(90)).isPresent());
+        outbox.redrive(event.getEventId(), now);
+        assertEquals(payload, jpaOutbox.findById(event.getEventId()).orElseThrow().getPayload());
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> outbox.redrive(event.getEventId(), now));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class, () -> outbox.redrive("missing", now));
+        outbox.claim(event.getEventId(), now.plusSeconds(1), now.plusSeconds(30)).orElseThrow();
+        outbox.markPublished(event.getEventId(), now.plusSeconds(2));
+    }
     @Container
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("order_outbox_jpa_test")

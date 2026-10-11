@@ -12,6 +12,18 @@ import org.springframework.web.client.RestClient;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 class HttpPeerAdaptersTest {
+    @Test void mapsSupplierOutageAndCreditAssignmentConflictWithoutGeneric500() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPeerAdapters adapters = new HttpPeerAdapters(builder.build(), builder.build(), builder.build());
+        server.expect(requestTo("/api/suppliers/validate")).andRespond(withServerError());
+        server.expect(requestTo("/api/credits/orders/order/courier-assignment")).andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT));
+        server.expect(requestTo("/api/credits/orders/order/hold-for-reopen")).andRespond(withException(new java.io.IOException("timeout")));
+        assertEquals("SERVICE_UNAVAILABLE", assertThrows(OrderProblem.class, () -> adapters.validatePair("p", "d", null)).getCode());
+        assertEquals("CONFLICT", assertThrows(OrderProblem.class, () -> adapters.assignCourier("order", "courier", null)).getCode());
+        assertEquals("SERVICE_UNAVAILABLE", assertThrows(OrderProblem.class, () -> adapters.holdForReopen("order", null)).getCode());
+        server.verify();
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "400, VALIDATION_ERROR", "401, UNAUTHENTICATED", "404, NOT_FOUND",
@@ -208,15 +220,10 @@ class HttpPeerAdaptersTest {
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(MockRestRequestMatchers.content().string(""))
                 .andRespond(withSuccess());
-        creditServer.expect(requestTo("/api/credits/orders/order/settlement"))
-            .andExpect(method(org.springframework.http.HttpMethod.POST))
-            .andExpect(MockRestRequestMatchers.jsonPath("$.expectedOrderVersion").doesNotExist())
-            .andRespond(withSuccess());
 
         adapters.validatePair("p", "d", null);
         adapters.reserve("order", "requester", 2, null);
         adapters.holdForReopen("order", null);
-        adapters.settle("settle", "order", "requester", "courier", 2, null);
         supplierServer.verify();
         creditServer.verify();
     }
@@ -252,7 +259,7 @@ class HttpPeerAdaptersTest {
         creditServer.expect(requestTo("/api/credits/orders/order-1/courier-assignment"))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.ACCEPTED));
 
-        assertThrows(IllegalStateException.class, () -> adapters.assignCourier(
+        assertThrows(OrderProblem.class, () -> adapters.assignCourier(
                 "order-1", "courier-1", "Bearer courier-token"));
 
         creditServer.verify();
@@ -270,7 +277,7 @@ class HttpPeerAdaptersTest {
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.ACCEPTED));
 
-        assertThrows(IllegalStateException.class, () -> adapters.holdForReopen(
+        assertThrows(OrderProblem.class, () -> adapters.holdForReopen(
                 "order", "Bearer token"));
 
         creditServer.verify();
@@ -303,9 +310,9 @@ class HttpPeerAdaptersTest {
         server.expect(requestTo("/api/suppliers/validate"))
                 .andRespond(withSuccess("{\"problems\":[]}", MediaType.APPLICATION_JSON));
 
-        assertEquals("DEPENDENCY_UNAVAILABLE", assertThrows(OrderProblem.class,
+        assertEquals("SERVICE_UNAVAILABLE", assertThrows(OrderProblem.class,
                 () -> adapters.validatePair("p", "d", null)).getCode());
-        assertEquals("DEPENDENCY_UNAVAILABLE", assertThrows(OrderProblem.class,
+        assertEquals("SERVICE_UNAVAILABLE", assertThrows(OrderProblem.class,
                 () -> adapters.validatePair("p", "d", null)).getCode());
         server.verify();
     }

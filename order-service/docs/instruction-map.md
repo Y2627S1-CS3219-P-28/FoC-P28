@@ -1,5 +1,35 @@
 # Instruction Map
 
+Current pending-display authority: [ADR-038](decisions/ADR-038-server-discovered-pending-card-recovery.md),
+CHANGE-108 and ARCH-EVO-044. Vincent approved owner-only command display details,
+shared discovery/card binding and separate creation/repost summaries. No schema,
+general read-access, Credit/financial/event/infrastructure change.
+
+Current manual-repost authority: CHANGE-106 / ADR-037, explicit Vincent approval.
+Its class/sequence/data diagrams and protocol supersede earlier manual deferrals
+only; automatic/delegation and peer source remain out of scope.
+
+CHANGE-105 / [ADR-036](decisions/ADR-036-local-emulator-and-review-hardening.md)
+is effective for local emulator transport, narrow Credit security exception,
+legacy durable routing, replay/read protection, V6/V7 and retained-failure
+outbox. See local-live-testing.md and
+concurrency/credit-local-emulator-security-interference.md. Historical local
+cloud/tunnel instructions are superseded; scripts/local-live.ps1 refuses to run.
+
+CHANGE-104 / [ADR-035](decisions/ADR-035-live-credit-command-recovery.md)
+supersedes the earlier HTTP mock-only gate. Current provider integration,
+verification limits and run instructions are recorded in the existing
+concurrency handoff and local-live-testing.md. Historical records are retained.
+
+CHANGE-103 adds [AsyncAPI Pub/Sub contracts](asyncapi/asyncapi.yaml) and a
+[reading/validation guide](asyncapi/README.md). This is documentation of existing
+approved messages, not authority to implement new topics or peer consumers.
+
+Approved foreground recovery slice: ADR-033 / CHANGE-100. Current implementation,
+class/sequence/data contracts and Credit cooperation handoff are in
+`concurrency/concurrency-order-credit.md`; FEEDBACK-010 tracks the live gate.
+Scoped context loading applies only to this slice and preserves historical records.
+
 | Path | Scope | Notes |
 |---|---|---|
 | `../AGENTS.md` | Parent multi-service repository, including Order Service | Repository-wide stack, API, security, testing, deployment, Git, and service conventions; applies together with the service instructions |

@@ -92,6 +92,28 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.VALIDATION_ERROR, exception.getMessage(), request, List.of());
     }
 
+    @ExceptionHandler(InvalidCommandHeaderException.class)
+    ResponseEntity<ApiError> invalidCommandHeader(InvalidCommandHeaderException exception,
+                                                   HttpServletRequest request) {
+        return respond(ErrorCode.VALIDATION_ERROR, "Request validation failed.", request,
+                List.of(new FieldProblem(exception.field(), exception.getMessage())));
+    }
+
+    @ExceptionHandler(CreditCommandException.class)
+    ResponseEntity<ApiError> commandFailure(CreditCommandException exception,
+                                             HttpServletRequest request) {
+        ResponseEntity<ApiError> response = respond(
+                exception.errorCode(), exception.getMessage(), request, List.of());
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(response.getStatusCode());
+        if (exception.commandId() != null) {
+            builder.header("Idempotency-Key", exception.commandId());
+        }
+        if (exception.outcome() != null) {
+            builder.header("Command-Outcome", exception.outcome().name());
+        }
+        return builder.body(response.getBody());
+    }
+
     @ExceptionHandler(AccountNotFoundException.class)
     ResponseEntity<ApiError> accountNotFound(AccountNotFoundException exception, HttpServletRequest request) {
         return respond(ErrorCode.ACCOUNT_NOT_FOUND, exception.getMessage(), request, List.of());

@@ -1,5 +1,9 @@
 # ADR-026: Shared minute lifecycle scheduler and 15-minute outbox recovery
 
+Timer-ownership follow-up: ADR-034 / CHANGE-102 adds eligible command recovery
+as the first phase of this minute job. Capture lifecycle time after that phase;
+expiry/completion and independent 15-minute outbox rules below remain unchanged.
+
 - Date: 2026-10-08.
 - Owner/approver: Vincent, explicit latest diagram amendments.
 - Status: accepted for the cadence slice; implementation/verification in CHANGE-083.

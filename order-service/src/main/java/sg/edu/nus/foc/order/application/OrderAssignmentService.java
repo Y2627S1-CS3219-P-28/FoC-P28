@@ -30,18 +30,29 @@ public class OrderAssignmentService {
             String courier,
             long version,
             String authorization) {
+        return acceptInternal(commandId, id, courier, version, authorization, false);
+    }
+
+    @Transactional
+    public Order acceptConfirmed(String commandId, String id, String courier, long version, String authorization) {
+        return acceptInternal(commandId, id, courier, version, authorization, true);
+    }
+
+    private Order acceptInternal(String commandId, String id, String courier, long version,
+                                 String authorization, boolean confirmed) {
         String authenticatedCourier = users.verifyCourier(courier, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "ACCEPT",
                 commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, authenticatedCourier, CommandReceipt.fingerprint("ACCEPT", id, authenticatedCourier, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
         Order order = findForUpdate(id);
         Instant acceptedAt = Instant.now();
         order.validateAcceptance(authenticatedCourier, version, acceptedAt);
-        credits.assignCourier(
+        if (!confirmed) credits.assignCourier(
                 order.getId(),
                 authenticatedCourier,
                 authorization);
@@ -57,7 +68,8 @@ public class OrderAssignmentService {
                 null));
 
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt("ACCEPT", commandId, saved.getId(), Instant.now()));
+        receipts.save(new CommandReceipt("ACCEPT", commandId, saved.getId(), Instant.now())
+                .bind(authenticatedCourier, CommandReceipt.fingerprint("ACCEPT", id, authenticatedCourier, version)));
         audit.action("ACCEPT", saved.getId(), authenticatedCourier, commandId, "accepted");
         return saved;
     }

@@ -7,12 +7,17 @@ public class UpdateUserRequest {
 
     public UpdateUserRequest() {}
 
-    public UpdateUserRequest(String email, String username) {
+    public UpdateUserRequest(String userId, String email, String username) {
+        this.userId = userId;
         this.email = email;
         this.username = username;
     }
 
     // Getter
+    public String getUserId() {
+        return this.userId;
+    }
+
     public String getEmail() {
         return this.email;
     }
@@ -22,6 +27,11 @@ public class UpdateUserRequest {
     }
 
     // Setter
+    public void setUserId(String newUserId) {
+        this.userId = newUserId;
+        return;
+    }
+
     public void setEmail(String email) {
         this.email = email;
         return;

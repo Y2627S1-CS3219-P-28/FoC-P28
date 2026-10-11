@@ -67,4 +67,21 @@ public class OrderEventOutboxPersistenceAdapter implements OrderEventOutboxRepos
         OrderEventOutbox outbox = repository.findById(eventId).orElseThrow();
         outbox.scheduleRetry(nextAttemptAt, error);
     }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void redrive(String eventId, Instant now) {
+        OrderEventOutbox entry = repository.findForRedrive(eventId)
+                .orElseThrow(() -> sg.edu.nus.foc.order.domain.OrderProblem.notFound("Failed event not found."));
+        if (entry.getState() != sg.edu.nus.foc.order.domain.OutboxState.FAILED) {
+            throw sg.edu.nus.foc.order.domain.OrderProblem.conflict("Only FAILED events may be redriven.");
+        }
+        entry.redrive(now);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> failedIds(int limit) {
+        return repository.findFailedIds(limit);
+    }
 }

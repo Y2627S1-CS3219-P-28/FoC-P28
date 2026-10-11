@@ -50,6 +50,12 @@ public class CreditReservationEntity {
     @Column(name = "paid_at")
     private Instant paidAt;
 
+    @Column(name = "reserve_command_id", length = 128)
+    private String reserveCommandId;
+
+    @Column(name = "courier_assignment_command_id", length = 128)
+    private String courierAssignmentCommandId;
+
     protected CreditReservationEntity() {
     }
 
@@ -74,13 +80,27 @@ public class CreditReservationEntity {
         return status;
     }
 
+    String reserveCommandId() {
+        return reserveCommandId;
+    }
+
+    String courierAssignmentCommandId() {
+        return courierAssignmentCommandId;
+    }
+
     void assignCourier(String courierId, Instant now) {
+        assignCourier(courierId, null, now);
+    }
+
+    void assignCourier(String courierId, String commandId, Instant now) {
         this.courierId = courierId;
+        courierAssignmentCommandId = commandId;
         updatedAt = now;
     }
 
     void clearCourier(Instant now) {
         courierId = null;
+        courierAssignmentCommandId = null;
         updatedAt = now;
     }
 

@@ -1,5 +1,96 @@
 # Peer Service API Feedback
 
+## FEEDBACK-011: User merge authorization and recovery safety
+
+Rollback note (2026-10-11): Vincent explicitly requested reverting merge935d16d.
+Commit834bb0d restores first-parent e516cfa exactly. Findings below are retained
+for peer coordination against that reviewed main revision, not asserted to be
+the current branch implementation. No peer fix or new contract was implemented.
+
+- Date/revision:2026-10-11, merge935d16d versus Order first parent e516cfa.
+- Status:OPEN. Classification:INCOMPLETE_OR_INCOMPATIBLE for trusted role
+  administration and account/eligibility lifecycle during unresolved work.
+  Owner:User Service; shared signup/focus frontend needs its owner's coordination.
+- Expected existing boundary: User owns trusted role changes/eligibility and
+  identity; Order owns active orders/commands and Credit owns financial effects.
+  Identity removal or authority changes must not strand unresolved financial
+  effects. Historical outcomes are not permission for a new courier action.
+- Actual implemented lookup contracts remain MATCHES_APPROVED_CONTRACT at the
+  wire boundary: authenticated GET /api/users/role-context returns userId/roles;
+  GET /api/users/courier-eligibility returns isCourierEligible. This review is
+  source/config inspection, not new real-user contract execution.
+
+### Findings and required owner action
+
+1. UserService.verifyAdmin returns roles==null || !roles.contains("admin"),
+   whereas controllers reject only when !verifyAdmin. Ordinary users therefore
+   pass GET /api/users/{userId}, PUT /api/users/{userId},
+   PUT /api/users/{userId}/user-promotion and DELETE /api/users/{userId}; real
+   admins are rejected. Promotion can inject admin into the role-context Order
+   trusts for administrative reads/redrive. Correct and test positive membership,
+   missing roles and ordinary-user denial before treating admin facts as safe.
+   verifyRequester has the same inverse predicate in the new eligibility API,
+   but Order still uses role-context, not requester-eligibility.
+2. DELETE /api/users/me and administrative deletion remove Firebase then Mongo
+   without checking active orders, pending commands or Credit obligations. A
+   pending command's original owner can become unable to authorize reconciliation;
+   Order's unresolved guard then still blocks competing expiry/cancellation.
+   Agree a safe account-deletion/reconciliation policy across owners. This review
+   does not invent a new peer endpoint or approve bypassing Order guards.
+3. POST /api/users now saves Mongo then calls Credit registration-facts, while
+   frontend AuthProvider still posts another registration fact afterward. Credit
+   insert-if-absent prevents a second initial allocation for the same UID; do NOT
+   claim double credits. However, an unknown Credit outcome leads User to delete
+   its profile, or a failed second frontend call deletes Firebase after User has
+   succeeded. Credit may already have committed. Choose one provisioning owner
+   and durable outcome/reconciliation; never infer rollback from a timeout.
+4. User adjustPenalty removes courier from roles; refreshSuspensionStatus is
+   declared but never called. After the month ends, eligibility can return true
+   while role-context still lacks courier. Order annotations and mutation/resume
+   checks deny acceptance/abort, potentially leaving an assigned or pending abort
+   unresolved. Agree and test restoration and existing-task/historical-recovery
+   authorization; do not silently grant fresh courier operations to a suspension.
+
+### Verification and stopping point
+
+103 existing frontend tests pass; typecheck passes; lint has no errors/one
+profile-test warning. Both Compose configurations validate and preserve HTTP/
+local emulator selection. These tests mock shared auth and do not prove the new
+User admin/signup/deletion/suspension semantics. No financial/identity mutation,
+backend test rerun, merged image rebuild or cloud rollout performed. User/Credit/
+Order/frontend application source, contracts and database schema remain unchanged
+by this review. Required next action: owner fixes/agreement, then isolated actual
+provider regression/contract tests. FEEDBACK-002 penalty consumers and FEEDBACK-005
+delegation remain separate existing gaps; generic unauthenticated PUT penalty is
+not an approved substitute for User's factual Pub/Sub consumers.
+
+## Manual repost protocol verification — CHANGE-106 / ADR-037 (2026-10-11)
+
+Manual REPOST reuses implemented Credit RESERVE/result/compensation with a stable
+NEW candidate and ORIGINAL guard. Four actual Credit/PostgreSQL tests pass for
+timeout replay, local rollback, saved rejection and late reversal; no new Credit
+endpoint/payload/topic is requested. Exact contract and full regression/rollout
+evidence: concurrency/concurrency-order-credit.md and CHANGE-106. This supersedes
+only the manual-recovery exclusion below, not hosted IAM/OIDC/User/delegation gaps.
+
+## Effective verification update — CHANGE-105 / ADR-036 (2026-10-11)
+
+Current Credit command protocol and compact refund/completion implementation are
+locally verified against actual Credit source/container, not the old snapshot-only
+or stub-only descriptions below. Existing FEEDBACK-003/006/009/010 historical
+gaps for the approved three-operation command and compact financial paths are
+superseded by ADR-035/036 evidence in CHANGE-104/105. This does not prove hosted
+IAM/OIDC, manual-repost crash recovery, unrelated legacy callers or User outcomes.
+
+Local emulator publishes three topics; only refund/completion subscribe Credit.
+Real Compose User/Supplier role/location validation and Credit reservation,
+replay, clear/assign/refund/transfer pass the scoped smoke test. No Google cloud
+configuration is altered at runtime. FEEDBACK-002 User penalty/completion consumer
+and separate overdue-facts-source work remain missing/unverified; FEEDBACK-005
+trusted delegation is deferred. No peer penalty endpoint is silently substituted.
+The narrow approved Credit emulator-auth exception and exact changes/tests are
+documented in concurrency/credit-local-emulator-security-interference.md.
+
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
@@ -227,6 +318,104 @@ No new CreditsRefunded event or refund-confirmation gate is approved here.
 
 GET /api/credits/me already serves balance polling; no new API is required for
 this UI. Missing accounts require the existing signup registration-facts flow.
+
+#### 2026-10-10 proposed creation-recovery extension (ARCH-EVO-034)
+
+Documentation/discussion only; not an approved wire contract or implementation.
+Existing PUT/GET can support same-ID reservation reconciliation with valid caller
+authorization. Order still needs to persist the intent before the write and
+interpret the response's matching requester/amount/order ID and RESERVED state.
+Current adapter discards that body. Neither service's local transaction makes
+these two commits atomic.
+
+Credit owner discussion required for compensation when a reservation succeeds but
+OPEN cannot subsequently be committed, including expiry or permanent rejection:
+
+- Agree an idempotent authorized cancellation/refund operation for a creation
+  intent that never became an Order. Exact route/event, fields and responses are
+  UNRESOLVED; do not fabricate a CANCELLED Order snapshot on the existing topic.
+- The operation must resolve the same reservation identity, release at most once,
+  and return or expose authoritative terminal state. A PAID reservation must not
+  be blindly refunded or reactivated by creation recovery.
+- Agree terminal fencing for cancellation before/alongside a delayed reservation
+  write. GET 404 alone cannot establish that the write will never commit. A
+  delayed original PUT must not create a hold after compensation was finalized.
+  Any operation ID/fencing token and its retention are contract decisions, not
+  assumed existing fields. Order worker leases alone cannot fence remote writes.
+- Test lost successful replies, matching/terminal replay, concurrent duplicate
+  requests, local failure after remote commit, compensation replay and delayed PUT
+  versus cancellation. Existing matching PUT/GET routes are not called missing;
+  this additional recovery protocol remains INCOMPLETE_OR_INCOMPATIBLE.
+
+Unattended authorization is separately FEEDBACK-005 and remains paused. No
+browser token persistence, authorization bypass, new endpoint/topic or Credit
+source change is authorized by this proposal. Durable creation recovery is
+PROPOSED, not a verified financial integration.
+
+#### Proposed operation-key replay for foreground commands and recovery
+
+Vincent asks for a review of one frontend command key carried through Order to
+Credit for reservation, assignment and reset. This is a proposal under ARCH-EVO-034,
+NOT an approved addition to ADR-018's current no-command-field peer contracts.
+
+- Existing routes remain PUT reservation, PUT courier-assignment and POST
+  hold-for-reopen as above. Order's inbound commandId is currently not forwarded.
+  Reservation uses business ID/requester/amount replay; assignment/reset inspect
+  current state. Historical activity identity/result replay for all three is
+  INCOMPLETE_OR_INCOMPATIBLE for the proposed recovery requirement, not another
+  missing copy of the existing business endpoint.
+- Discuss an authenticated operation key scoped by operation/caller, immutable
+  target/actor/payload binding, atomic financial effect + deduplication/result,
+  equivalent success/rejection replay and concurrent duplicate behavior. Exact key
+  header/body, request DTO additions, response/status-query format and retention
+  are UNRESOLVED; do not silently change the current request contracts.
+- A separate committed Credit PENDING record is optional for single-DB synchronous
+  work. If used, agree stale-claim recovery. Do not mark a command completed before
+  its financial effect commits or only in a later unrelated success transaction.
+  Rejection replay must follow rollback/no-effect guarantees; transient/auth errors
+  are not immutable business rejection. Validate caller on every replay.
+- Same business order can have repeated courier attempts; stale historical reset
+  or assignment must not affect a newer attempt. Coordinate FEEDBACK-003 for any
+  operation/generation amendment; actor/order ID alone is not an agreed solution.
+- Agree recovery authorization (005), late-write/compensation protocol (006) and
+  lost reply, changed payload, simultaneous duplicates, concurrent UI/worker,
+  restart and stale-reset tests before implementing or claiming compatibility.
+
+#### Proposed three-command implementation plan: agreement needed before code
+
+2026-10-10, PROPOSED under ARCH-EVO-034. Existing routes and business bodies are
+not missing; their historical command replay/recovery is classified
+INCOMPLETE_OR_INCOMPATIBLE for the new requirement. No peer change authorized.
+
+- Candidate transport: `Idempotency-Key: <frontend commandId>` on the three
+  existing reservation/assignment/hold calls, with existing Firebase bearer and
+  unchanged JSON/no-body shapes. Header name/protocol NOT agreed yet. Different
+  operations/actors require separate keys and server scope/input binding.
+- Credit must atomically commit the financial mutation with its durable historical
+  operation key and safe equivalent result, serialize concurrent duplicates and
+  validate caller/ownership on every replay. A historical success must not mutate
+  a newer courier attempt; current nullable-courier checks alone are insufficient.
+- Agree whether existing bodyless 200 replies remain usable or whether a result
+  query/operation receipt is needed. Reservation success must include/read matching
+  ACTIVE RESERVED state; terminal refunded/paid replay is not a fresh reservation.
+  Operation lookup must support the authorized courier for assignment/reset;
+  existing requester-only GET is not assumed suitable for that role.
+- Agree definitive no-effect rejection versus ambiguous/unresolved response;
+  retention, wrong-input key conflict, old/new attempt fencing, late writes and
+  reconciliation/compensation when local acceptance/creation is now invalid.
+  Exact additional endpoint/path/request/response is pending owner agreement;
+  no unsafe use of existing full-Order refund event for an absent Order is selected.
+- Interim authorization proposal: persist NO Firebase token; scheduler identifies
+  recovery but financial replay waits for user-authenticated same-key resume.
+  Fully unattended delegation remains FEEDBACK-005 and paused. Expired-token 401
+  cannot erase an earlier ambiguous financial operation. Credit must never accept
+  an activity key/requesterId alone as authority.
+- Required tests after agreement: all three lost-response/commit-replay paths,
+  same-key changed-input/caller rejection, concurrent duplicates, expired-token
+  then refreshed-token replay, reset versus later acceptance/late worker, terminal
+  reservation replay and agreed compensation. Tests must use actual provider;
+  mocks cannot close 003/006. Owner Annablee; next step contract discussion and
+  reinspection, not Order-only assumption or provider source edit.
 
 ## 2. User Service
 
@@ -776,3 +965,108 @@ Compact body (both event types, exactly seven keys):
 ```
 
 Completion uses eventType OrderCompletionTaskEvent, orderStatus COMPLETED and its assigned courierId. Refund uses CANCELLED or EXPIRED; courierId is the saved resulting Order value, including null. creditAmount is the integer offeredCredits. No requester, snapshot, actor, history, versions or overdue fields appear in either body. AcceptedOrderCancellationTaskEvent contract is unchanged.
+
+## FEEDBACK-010: Credit historical command recovery protocol (2026-10-10)
+
+### Effective provider integration update — 2026-10-11 (ADR-035 / CHANGE-104)
+
+- Current classification: MATCHES_APPROVED_CONTRACT for the implemented five
+  synchronous operations. Credit 497a8f9 supplies paired headers, immutable
+  replay, owner-scoped result lookup, generations and conditional compensation.
+  Order now has an actual HTTP gateway; the former mock-only gate is superseded.
+- Executed provider evidence: eight isolated actual Credit/PostgreSQL recovery
+  tests pass (lost response, local rollback, provider restart, acceptance reversal,
+  abort history/reset without clearing a later assignment, same-key concurrent
+  claim, replay and insufficient credits). Financial Credit is not mocked; User
+  and Supplier validation fixtures are isolated-test scope, not live verification.
+- Final evidence: ninth real socket-timeout-after-Credit-commit case also passes;
+  externally isolated final full verify has 335 passes, no failures/errors/skips,
+  95.53% lines / 80.73% branches. Early runs could publish synthetic dev-topic
+  events; final tests mock only external dispatch, never Credit financial calls.
+  No live delivery/effect claim from those early publications (CHANGE-104).
+- Runtime rollout remains READY_FOR_VERIFICATION for the authenticated full
+  local-live stack and cloud/browser gates. No request to recreate existing APIs;
+  preserve the original proposal below as history. Broader provider security and
+  cross-replica/chaos tests are not claimed solely by these eight scenarios.
+- HTTP recovery without fresh user authorization remains pending for Continue.
+  No saved tokens/delegated credentials or background repost recovery introduced.
+  Existing event/User penalty findings remain separate; no Credit source changed.
+
+- Owner: Annablee / Credit Service; requester: Vincent, branch
+  `sprint-2-3-credit-service-concurrency`.
+- Classification: **INCOMPLETE_OR_INCOMPATIBLE**. Existing reservation,
+  courier-assignment and hold-for-reopen routes exist. Historical per-command
+  replay/result retrieval, generation fencing and conditional reversal do not.
+  This extends 003/006; it does not mark those entries verified or request that
+  existing business routes be implemented again.
+- Approval: ADR-033 / CHANGE-100 authorizes Order/frontend contract-stub tests
+  only. **Live HTTP recovery remains disabled** until provider agreement and
+  executed contract/integration tests. No Credit implementation was changed.
+- Exact request bodies stay `{"requesterId":"uid","amount":5}`,
+  `{"courierId":"uid"}`, and no body for reset. Proposed key/generation
+  headers, authorized historical GET result, conditional POST compensation,
+  expected result JSON/statuses and provider transactional algorithm are fully
+  specified in [concurrency-order-credit.md](../concurrency/concurrency-order-credit.md).
+- Required behavior: bind one key to immutable actor/operation/order/input;
+  commit the financial effect and terminal record together; replay historical
+  results without touching a newer assignment; fence stale workers and reversal;
+  retain uncertainty after an earlier timeout followed by 401/403; allow owned
+  past-result reads without requiring eligibility for a new courier task.
+- Order stopping point: new coordinator/store/V5/UI run against the explicit
+  process-local Credit stub only. Existing HTTP adapter is untouched. A live
+  adapter and activation await approved response/header compatibility, real
+  provider crash/restart tests and safe compensation tests.
+- Unchanged: Credit/User/Supplier/Admin source, financial databases, event
+  topics/payloads and existing 002/005/007/009 findings. No token storage or
+  delegated credentials are introduced; repost background recovery is not resumed.
+- Next verification: Annablee implements/agrees this protocol; re-inspect actual
+  handlers, DTOs, migrations and tests; run same-key/different-key, lost response,
+  provider/Order commit failures, stale reset/compensation and authorization
+  contract tests. Only then assess READY_FOR_VERIFICATION / VERIFIED and remove
+  Order's HTTP hard gate through a separately approved integration change.
+
+## FEEDBACK-012: Post-revert main merge has incomplete profile frontend dependencies
+
+### Effective follow-up - CHANGE-109, 2026-10-11
+
+Status:READY_FOR_VERIFICATION. Vincent authorizes narrow frontend repair. Source/
+testd7f72a8 replaces missing auth-profile context with account-keyed local loading
+through existing useApi GET/me; username-only PUT and Firebase-verified email-only
+PUT after token refresh. Save failure retains retry, stale account continuation
+is blocked; password reauthentication and deletion-UI removal retained. No User
+backend/AuthProvider/Order recovery/contract/config change.116 frontend tests,
+typecheck/build pass; lint0errors/3 existing login warnings. Automated frontend
+tests mock actual inspected shapes, not real peer execution. Isolated own-profile
+username/email/password + desktop/mobile/browser/email-delivery smoke still needed.
+The dated OPEN findings below are preserved history, not current compile status.
+
+- Date/revision:2026-10-11, c2fe90c compared with first parent5bf1a15 and main
+  second parentcd41186. Status:OPEN. Classification:INCOMPLETE_OR_INCOMPATIBLE
+  for the merged profile client/shared-auth integration. Owner:shared frontend /
+  User-feature owner. This is not a new backend endpoint request.
+- Expected: profile/edit consumes a provider with profile, profileLoading and
+  refreshProfile; User/Firebase profile data must stay aligned after email changes.
+  Actual: current AuthContextValue supplies only user/loading/signIn/signUp/signOut/
+  getIdToken. The newly added page references the three absent members on line20.
+  They exist on main but earlier auth-provider changes remained reverted.
+- Actual merge adds only frontend/src/app/profile/edit/page.tsx and two audit
+  records. User/Credit/Supplier/Admin/Order backend, Compose and gateway trees are
+  byte-identical to this merge's first parent. Existing authenticated role-context /
+  courier-eligibility wire contracts and own username PUT/me body {username}
+  are unchanged; no new actual-provider execution claim.
+- Fresh npm run typecheck exits1 with three TS2339 errors. Existing103 frontend
+  regressions in26 files pass without any edit-route test. Fresh29 configuration
+  assertions pass. Shared frontend release is blocked despite unaffected backend
+  diffs. Current ProfilePage also lacks the main version's edit navigation.
+- Secondary source gap: new route changes email using Firebase and then refreshes
+  profile, but current User GET/me only reads Mongo's saved email. Refresh alone
+  cannot persist the new Firebase email. No live account mutation was performed.
+- Required action: coordinate a narrow compatible profile/auth integration and
+  authoritative email-sync policy, or explicitly defer/remove the unsupported
+  route. Do not blindly restore the entire old merge: FEEDBACK-011 findings are
+  historical owner-review context, not current newly introduced backend findings.
+  Review-only request does not authorize a fix or reintegration.
+- Next verification: add actual edit-route tests, ensure no token/UID/role or
+  Order-command recovery weakening, typecheck/build pass, then isolated real-user
+  username/email/password smoke checks. No peer/application/config/schema edits
+  or new security/API design implemented; stopping point recorded in Vincent work.

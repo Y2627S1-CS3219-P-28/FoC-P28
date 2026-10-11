@@ -84,4 +84,22 @@ class OpenApiDocumentationTest {
     void swaggerUiIsServedUnderTheCreditPrefix() throws Exception {
         mvc.perform(get(PREFIX + "/docs")).andExpect(status().is3xxRedirection());
     }
+
+    @Test
+    void commandRecoveryContractDocumentsHeadersAndEndpoints() throws Exception {
+        JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("paths");
+
+        assertThat(paths.has(PREFIX + "/commands/{key}")).isTrue();
+        assertThat(paths.has(PREFIX + "/commands/{key}/compensate")).isTrue();
+        JsonNode compensate = paths.path(PREFIX + "/commands/{key}/compensate").path("post");
+        assertThat(compensate.path("requestBody").isMissingNode()).isTrue();
+        assertThat(compensate.path("parameters").toString())
+                .contains("Idempotency-Key")
+                .contains("X-Command-Generation");
+        assertThat(compensate.path("responses").path("200").path("headers").toString())
+                .contains("Idempotency-Key")
+                .contains("Command-Outcome");
+    }
 }

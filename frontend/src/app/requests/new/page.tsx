@@ -15,8 +15,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApi } from "@/hooks/use-api"
+import { useOrderCommand } from "@/hooks/use-order-command"
+import { OrderCommandNotice } from "@/components/orders/order-command-notice"
 import { ApiError } from "@/lib/api"
-import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, validateCreateOrderFields, type CreateOrderForm, type Order, type OrderFieldErrors } from "@/lib/orders"
+import { buildCreateOrderPayload, minOrderExpiryDateTimeLocal, quarterHourDateTimeLocal, validateCreateOrderFields, type CreateOrderForm, type OrderFieldErrors } from "@/lib/orders"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { supplierOptionLabel, type Page, type Supplier } from "@/lib/suppliers"
 
@@ -48,6 +50,11 @@ export default function NewRequestPage() {
   const [suppliersError, setSuppliersError] = useState<string | null>(null)
   const [postError, setPostError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<OrderFieldErrors>({})
+  const command = useOrderCommand("create", () => {
+    invalidateCreditBalance()
+    toast.success("Order posted")
+    router.push("/my-requests")
+  }, (message) => { setPostError(message); toast.error(message) })
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -94,7 +101,7 @@ export default function NewRequestPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!user) return
+    if (!user || command.pending || !command.ready) return
     const errors = validateCreateOrderFields(form)
     setFieldErrors(errors)
     if (Object.keys(errors).length) {
@@ -105,10 +112,7 @@ export default function NewRequestPage() {
     setPostError(null)
     setBusy(true)
     try {
-      await api<Order>("/api/orders", { method: "POST", body: buildCreateOrderPayload(form, user.uid) })
-      invalidateCreditBalance()
-      toast.success("Order posted")
-      router.push("/my-requests")
+      await command.run("CREATE", "/api/orders", buildCreateOrderPayload(form, user.uid))
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not post this request."
       const details: OrderFieldErrors = {}
@@ -132,6 +136,7 @@ export default function NewRequestPage() {
         <div><p className="text-sm text-muted-foreground">Request service</p><h1 className="text-2xl font-semibold tracking-tight">Post a campus request</h1><p className="mt-1 text-muted-foreground">Describe the errand and reserve credits before it becomes available.</p></div>
         {(postError || Object.keys(fieldErrors).length > 0) && <Alert variant="destructive" role="alert"><AlertTitle>Request could not be posted</AlertTitle><AlertDescription>{postError && <p>{postError}</p>}{Object.values(fieldErrors).length > 0 && <ul className="list-disc pl-4">{Object.entries(fieldErrors).map(([field, message]) => <li key={field}><a href={`#${field}-error`}>{message}</a></li>)}</ul>}</AlertDescription></Alert>}
         <form noValidate onSubmit={(event) => void submit(event)} className="space-y-6" aria-label="Post request form">
+          <fieldset disabled={busy || command.pending || !command.ready} className="contents">
           <Card><CardHeader><CardTitle>Request details</CardTitle><CardDescription>Select suppliers from the active Supplier Service catalogue.</CardDescription></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm sm:col-span-2"><Label htmlFor="item-description">What do you need?</Label><Input id="item-description" {...fieldProps("itemDescription")} required maxLength={100} className={inputClass} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} placeholder="Pick up a parcel from the campus store" />{fieldError("itemDescription")}</label>
             {suppliersError && <Alert variant="destructive" className="sm:col-span-2"><AlertTitle>Suppliers unavailable</AlertTitle><AlertDescription>{suppliersError} Refresh and try again.</AlertDescription></Alert>}
@@ -154,8 +159,10 @@ export default function NewRequestPage() {
               <label className="space-y-1 text-sm"><Label htmlFor="repost-duration">Repost delivery minutes</Label><Input id="repost-duration" {...fieldProps("repostDeliveryDurationMinutes")} type="number" min="15" disabled={!form.automaticRepost} className={inputClass} value={form.repostDeliveryDurationMinutes} onChange={(event) => update("repostDeliveryDurationMinutes", Number(event.target.value))} />{fieldError("repostDeliveryDurationMinutes")}</label>
             </div>
           </CardContent></Card>
-          <Button type="submit" disabled={busy || suppliersLoading || suppliers.length === 0 || !form.pickupSupplierId || !form.deliverySupplierId}>{busy ? "Posting…" : "Post request"}</Button>
+          <Button type="submit" disabled={busy || command.pending || !command.ready || suppliersLoading || suppliers.length === 0 || !form.pickupSupplierId || !form.deliverySupplierId}>{busy || command.pending ? "Request pending…" : "Post request"}</Button>
+          </fieldset>
         </form>
+        <OrderCommandNotice {...command} />
       </div>
     </RequireAuth>
   )

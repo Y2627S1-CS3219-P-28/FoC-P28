@@ -15,6 +15,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class RepostConfigurationRequest {
     @NotBlank
+    @jakarta.validation.constraints.Size(max = 128, message = "Command ID must be at most 128 characters.")
     private String commandId;
 
     @NotBlank

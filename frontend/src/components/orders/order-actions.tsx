@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { useApi } from "@/hooks/use-api"
+import { useOrderCommand } from "@/hooks/use-order-command"
+import { OrderCommandNotice } from "@/components/orders/order-command-notice"
 import { invalidateCreditBalance } from "@/lib/credit-balance-events"
 import { buildOrderActionPayload, type Order, type OrderMode } from "@/lib/orders"
 
@@ -27,14 +29,27 @@ const ACTIONS = {
 } as const
 
 export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: OrderMode; onUpdated: (order: Order) => void }) {
+  if (order.attemptId || order.status === "ABORTED") return null
+  return <LiveOrderActions order={order} mode={mode} onUpdated={onUpdated} />
+}
+
+function LiveOrderActions({ order, mode, onUpdated }: { order: Order; mode: OrderMode; onUpdated: (order: Order) => void }) {
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
+  const abort = useOrderCommand(`abort:${order.id}`, (updated) => {
+    onUpdated(updated)
+    toast.success(updated.status === "OPEN" ? "Errand reopened for other couriers" : "Expired errand aborted")
+  }, (message) => toast.error(message))
 
   async function perform(path: string, success: string) {
     if (!user) return
     setBusy(true)
     try {
+      if (path === "cancel-accepted") {
+        await abort.run("ABORT", `/api/orders/${order.id}/${path}`, buildOrderActionPayload(user.uid, order.version))
+        return
+      }
       const updated = await api<Order>(`/api/orders/${order.id}/${path}`, {
         method: "POST",
         body: buildOrderActionPayload(user.uid, order.version),
@@ -60,14 +75,14 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
     return (
       <>
         {action && (
-          <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy}>
+          <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy || abort.pending || !abort.ready}>
             {busy ? "Saving…" : action.label}
           </Button>
         )}
         {order.status === "ACCEPTED" && (
           <AlertDialog>
-            <AlertDialogTrigger render={<Button size="sm" variant="destructive" disabled={busy} />}>
-              Abort errand
+            <AlertDialogTrigger render={<Button size="sm" variant="destructive" disabled={busy || abort.pending || !abort.ready} />}>
+              {abort.pending ? "Abort pending…" : "Abort errand"}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -89,6 +104,7 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
             </AlertDialogContent>
           </AlertDialog>
         )}
+        <OrderCommandNotice {...abort} />
       </>
     )
   }

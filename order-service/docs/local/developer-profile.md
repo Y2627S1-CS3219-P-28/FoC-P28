@@ -1,5 +1,28 @@
 # Current Developer Profile
 
+## Effective current profile — Vincent, 2026-10-10
+
+- Name: Vincent
+- Developer number: Developer 2
+- Branch: `sprint-2-3-credit-service-concurrency-update-event-payload`
+- Sprint: Sprint 2 and Sprint 3, approved durable command recovery contract-stub slice.
+- Assigned scope: Order Service and its shared frontend for CREATE, ACCEPT and
+  ACCEPTED-only abort recovery; Order-owned migration, tests and cooperation
+  handoff under `concurrency/concurrency-order-credit.md`. Sibling services remain
+  read-only. No cloud/deployment changes or service credentials.
+- Approval: Vincent explicitly confirmed identity/branch and approved the updated
+  plan on 2026-10-10. Separately approved a documented contract-stub milestone with
+  live HTTP recovery disabled until Credit implements and verifies the contract.
+- UI: pending/disabled until terminal outcome; an explicit recovery control only
+  when user authorization is needed. No persisted bearer/refresh tokens.
+
+Current authorization (2026-10-10): Vincent confirms this branch and approves
+CHANGE-101 JWT learning and CHANGE-102 merging command recovery into the
+minute lifecycle job, recovery -> expiry -> completion. Order-only scheduler,
+tests and records; no peer, frontend, schema or live-recovery activation.
+
+## Historical Yao Xiang profile from the integrated checkout
+
 - Name: Yao Xiang
 - Developer number: Developer 1
 - Sprint: Sprint 2 and Sprint 3, approved compact-event slice and lifecycle failure-isolation fix
@@ -13,11 +36,19 @@
 - Name: Vincent
 - Developer number: Developer 2
 - Sprint: Sprint 2 and Sprint 3 (planning; implementation decisions pending)
-- Branch: `sprint-2-3-credit`
+- Branch: `sprint-2-3-credit-service-concurrency`
 - Assigned scope: Order-owned Sprint 2-3 behavior from D1 and Order Service Overall Doc.pdf, with user-directed lifecycle/history amendments; sibling services remain read-only
 - Approval: Explicit user confirmation on 2026-10-08; CHANGE-081
 
-Current task authorization: Vincent explicitly approved the one-time Credit
+Current task authorization: Vincent explicitly approves the fifth PostgreSQL race,
+courier acceptance versus requester OPEN cancellation (2026-10-09, CHANGE-093).
+Same test-only scope and harness; both winner orderings, no production/peer edits.
+
+Previous task authorization: Vincent explicitly approves real PostgreSQL four-race
+tests on the current concurrency branch (2026-10-09, CHANGE-092). Order test-only
+scope; cross-service recovery deferred. No peer/schema/production behavior edits.
+
+Historical task authorization: Vincent explicitly approved the one-time Credit
 push-security converter fix and regression tests on 2026-10-09, CHANGE-090,
 with an interference Markdown handoff. No other peer/source/cloud changes.
 The stable Order-owned allocation above remains unchanged after this exception.

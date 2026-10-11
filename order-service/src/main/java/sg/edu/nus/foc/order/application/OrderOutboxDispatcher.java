@@ -64,6 +64,11 @@ public class OrderOutboxDispatcher {
         } catch (RuntimeException exception) {
             Instant retryAt = Instant.now().plus(retryDelay(message.getAttemptCount()));
             outbox.scheduleRetry(message.getEventId(), retryAt, exception.getMessage());
+            if (message.getAttemptCount() >= 10) {
+                log.error("Order event {} exhausted 10 publication attempts; retained FAILED for operator redrive.",
+                        message.getEventId());
+                return;
+            }
             log.warn("Order event {} publication failed; retry scheduled for {}", message.getEventId(), retryAt, exception);
         }
     }

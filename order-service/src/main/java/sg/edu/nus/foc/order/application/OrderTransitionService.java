@@ -55,6 +55,7 @@ public class OrderTransitionService {
         String authenticatedActor = users.verifyRequester(actor, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting("COMPLETE", commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, authenticatedActor, CommandReceipt.fingerprint("COMPLETE", id, authenticatedActor, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
@@ -103,6 +104,7 @@ public class OrderTransitionService {
         String authenticatedActor = users.verifyRequester(actor, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting("CANCEL", commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, authenticatedActor, CommandReceipt.fingerprint("CANCEL", id, authenticatedActor, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
@@ -117,7 +119,8 @@ public class OrderTransitionService {
                 authenticatedActor,
                 null));
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt("CANCEL", commandId, saved.getId(), cancelledAt));
+        receipts.save(new CommandReceipt("CANCEL", commandId, saved.getId(), cancelledAt)
+                .bind(authenticatedActor, CommandReceipt.fingerprint("CANCEL", id, authenticatedActor, version)));
         OpenOrderRefundTaskEvent event = eventFactory.openRefund(
                 commandId, saved, authenticatedActor, cancelledAt);
         outbox.enqueue(event);
@@ -128,15 +131,26 @@ public class OrderTransitionService {
 
     @Transactional
     public Order cancelAccepted(String commandId, String id, String actor, long version, String authorization) {
+        return cancelAcceptedInternal(commandId, id, actor, version, authorization, false);
+    }
+
+    @Transactional
+    public Order abortConfirmed(String commandId, String id, String actor, long version, String authorization) {
+        return cancelAcceptedInternal(commandId, id, actor, version, authorization, true);
+    }
+
+    private Order cancelAcceptedInternal(String commandId, String id, String actor, long version,
+                                         String authorization, boolean confirmed) {
         String authenticatedActor = users.verifyCourier(actor, authorization);
         Optional<CommandReceipt> previous = receipts.findExisting("CANCEL_ACCEPTED", commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, authenticatedActor, CommandReceipt.fingerprint("CANCEL_ACCEPTED", id, authenticatedActor, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
         Order order = findForUpdate(id);
         order.validateAcceptedCancellation(authenticatedActor, version);
-        credits.holdForReopen(order.getId(), authorization);
+        if (!confirmed) credits.holdForReopen(order.getId(), authorization);
         Instant cancelledAt = Instant.now();
         orders.saveAbortedAttempt(new OrderCourierAttempt(order, authenticatedActor, version, cancelledAt));
         checkpoints.save(new OrderCheckpoint(
@@ -152,7 +166,8 @@ public class OrderTransitionService {
         }
         checkpoints.save(new OrderCheckpoint(order.getId(), order.getStatus(), cancelledAt, authenticatedActor, null));
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), cancelledAt));
+        receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), cancelledAt)
+                .bind(authenticatedActor, CommandReceipt.fingerprint("CANCEL_ACCEPTED", id, authenticatedActor, version)));
         AcceptedOrderCancellationTaskEvent event = eventFactory.acceptedCancellation(
                 commandId, saved, authenticatedActor, cancelledAt);
         outbox.enqueue(event);
@@ -188,6 +203,7 @@ public class OrderTransitionService {
             boolean checkpointRequired) {
         Optional<CommandReceipt> previous = receipts.findExisting(operation, commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, actor, CommandReceipt.fingerprint(operation, id, actor, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
@@ -204,7 +220,8 @@ public class OrderTransitionService {
         }
 
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), Instant.now()));
+        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), Instant.now())
+                .bind(actor, CommandReceipt.fingerprint(operation, id, actor, version)));
         return saved;
     }
 
@@ -243,7 +260,8 @@ public class OrderTransitionService {
                 actorId,
                 null));
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), completedAt));
+        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), completedAt)
+                .bind(actorId, CommandReceipt.fingerprint(operation, order.getId(), actorId, expectedVersion)));
 
         OrderCompletionTaskEvent event = eventFactory.completion(
                 commandId,

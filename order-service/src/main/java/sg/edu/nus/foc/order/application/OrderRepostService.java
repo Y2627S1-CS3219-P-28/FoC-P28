@@ -67,7 +67,8 @@ public class OrderRepostService {
                 now,
                 plan.getExpiresAt(), authorization, false);
 
-        return saveRepost("AUTO_REPOST", commandId, original, repost, now, authorization);
+        return saveRepost("AUTO_REPOST", commandId, original, repost, now, authorization,
+                CommandReceipt.fingerprint("AUTO_REPOST", id));
     }
 
     @Transactional
@@ -82,6 +83,8 @@ public class OrderRepostService {
             Instant expiresAt,
             String authorization) {
         String authenticatedActor = users.verifyRequester(actor, authorization);
+        String fingerprint = CommandReceipt.fingerprint("MANUAL_REPOST", id, authenticatedActor, version,
+                description, creditsAmount, duration, expiresAt);
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "MANUAL_REPOST",
                 commandId);
@@ -93,6 +96,7 @@ public class OrderRepostService {
             if (!id.equals(repost.getOriginalOrderId())) {
                 throw OrderProblem.conflict("Command ID was already used for a different original order.");
             }
+            previous.get().requireBinding(repost.getId(), authenticatedActor, fingerprint);
             return repost;
         }
 
@@ -120,7 +124,25 @@ public class OrderRepostService {
                 original,
                 repost,
                 createdAt,
-                authorization);
+                authorization,
+                fingerprint);
+    }
+
+    /** Called only after the durable coordinator confirmed candidate reservation. No peer I/O. */
+    @Transactional
+    public Order manualConfirmed(String commandId, String id, String candidateId, String actor, long version,
+            String description, long amount, int duration, Instant submittedAt, Instant expiresAt) {
+        Order original = findForUpdate(id);
+        original.requireVersion(version);
+        if (!original.getRequesterId().equals(actor)) {
+            throw OrderProblem.forbidden("Only the requester may repost.");
+        }
+        Instant now = Instant.now();
+        Order repost = original.createManualRepostWithId(candidateId, description, amount, duration,
+                submittedAt, now, expiresAt);
+        String fingerprint = CommandReceipt.fingerprint("MANUAL_REPOST", id, actor, version,
+                description, amount, duration, expiresAt);
+        return saveRepost("MANUAL_REPOST", commandId, original, repost, now, null, fingerprint);
     }
 
     private Order saveRepost(
@@ -129,7 +151,8 @@ public class OrderRepostService {
             Order original,
             Order repost,
             Instant createdAt,
-            String authorization) {
+            String authorization,
+            String fingerprint) {
         original.linkRepost(repost.getId());
         orders.save(original);
         Order saved = orders.save(repost);
@@ -140,7 +163,8 @@ public class OrderRepostService {
                 createdAt,
                 saved.getRequesterId(),
                 null));
-        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), Instant.now()));
+        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), Instant.now())
+                .bind(saved.getRequesterId(), fingerprint));
         audit.dependency("credit-service", "reserve", saved.getId(), "accepted");
         audit.action(operation, saved.getId(), saved.getRequesterId(), commandId, "accepted");
         return saved;

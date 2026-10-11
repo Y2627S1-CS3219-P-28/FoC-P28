@@ -1,5 +1,81 @@
 # Order Service Permanent Project Context
 
+CHANGE-109 (2026-10-11, Vincent): narrow merged profile frontend compatibility
+repaird7f72a8; current AuthProvider/backend retained, useApi GET/PUT/me, verified
+email save with fresh token, safe account-keyed local form and Edit navigation.
+116 frontend tests/typecheck/build pass, lint0errors/3 existing login warnings.
+No Order recovery/role/schema/config changes; live/browser/strict gates[~].
+
+CHANGE-108 / ADR-038 approved by Vincent 2026-10-11: owned pending displayDetails,
+shared discovery and existing accept/abort card recovery without IndexedDB;
+create/repost submitted-detail summaries. Source9f2e054/942b790;373 backend/103
+frontend tests pass, lint/typecheck/build pass. Browser/rollout/strict gates open[~].
+
+Effective CHANGE-107 / ARCH-EVO-043 (Vincent, 2026-10-11): unused expiry HTTP
+trigger removed from controller and OpenAPI. Minute scheduler/direct expiry and
+refunds unchanged. Retain every repost route; automatic peer work still deferred.
+
+Effective 2026-10-11 ADR-037 / CHANGE-106: manual REPOST is approved for durable
+coordination, V8 original/candidate IDs, existing minimal RESERVE protocol, atomic
+successor/link/result and same-key pending UI. Automatic/delegation remain deferred.
+Implemented/automated verified:367 backend,90 frontend; coverage94.76%line/
+80.23%branch. Source2c021b6. Local V8 rollout/manual Compose smoke blocked by
+Docker engine500; strict workflow-format/human/browser/cloud gates open. [~].
+
+Effective 2026-10-11, CHANGE-105 / ADR-036 / ARCH-EVO-041: local Docker uses
+emulator-only Pub/Sub (demo-foc-local) and actual HTTP peers; no ADC/tunnel/cloud
+local setup. Cloud retains its injected staging/prod topics and Google OIDC.
+Legacy CREATE/ACCEPT/ABORT now enter durable coordination; pending returns 202.
+GET-by-ID enforces relationships. Receipts bind actor/order/input (V7); new event
+IDs include order/actor. Immediate bounded asynchronous outbox plus 15-minute
+recovery retains FAILED after 10 attempts (V6), ADMIN explicit redrive. Cloud
+Order config min1/always CPU; external lifecycle hooks disabled. No cloud deploy.
+Automatic repost/delegation remains deferred; User consumers missing. This section
+supersedes earlier guarantees only where stated. See CHANGE-105 for exact tests.
+
+Effective 2026-10-11: CHANGE-104 / ADR-035 supersedes the mock-only recovery gate. HTTP mode selects HttpCreditCommandGateway for CREATE/ACCEPT/ABORT, paired key/generation headers, owned historical lookup and conditional compensation against actual Credit 497a8f9. Minimal bodies remain unchanged. Tokenless recovery defers to AUTHORIZATION_REQUIRED; no persisted tokens/service credentials, repost recovery, schema or event change. Earlier stub-only descriptions are historical. Evidence: changes/CHANGE-104-live-credit-command-recovery.md.
+
+Effective 2026-10-10: Vincent approves CHANGE-103 documentation-only AsyncAPI
+for current Pub/Sub: `docs/asyncapi/asyncapi.yaml` and its reading guide. Three
+send operations; refund/completion compact v2, accepted abort snapshot v1.
+No application, peer, schema, topic/IAM or deployment change. Source/example
+validation does not complete live financial/User integration or Sprint `[~]`.
+
+Effective 2026-10-10: CHANGE-102 / ADR-034 merges command recovery into the
+minute lifecycle scheduler, sequential recovery -> OPEN expiry -> DELIVERED
+>=48-hour completion. Capture lifecycle time after recovery; isolate phase
+errors and retain item locks/guards/leases. No independent command timer;
+`order.lifecycle.cron` controls the merged job. Outbox remains immediate plus
+15-minute recovery. Vincent confirms branch
+`sprint-2-3-credit-service-concurrency-update-event-payload`. HTTP command
+recovery remains disabled; no repost/peer/frontend/schema scope extension.
+CHANGE-101 documents JWT signing locally in excluded learning, not a security
+implementation change. Older timer descriptions are superseded by ADR-034.
+
+Effective 2026-10-10: Vincent approves CHANGE-100 / ADR-033 foreground
+CREATE/ACCEPT/CANCEL_ACCEPTED durable command recovery against a documented
+contract stub. Live HTTP recovery remains disabled pending Credit historical
+key/result/fencing/compensation verification. No peer source changes or stored
+credentials. Scoped latest-effective context loading is approved for this slice.
+Historical recovery-deferred statements below are superseded only within this
+boundary; paused repost recovery is not resumed.
+
+CHANGE-093 extends the approved Order database concurrency verification with
+courier acceptance versus requester OPEN cancellation, both winner orderings.
+New pair 2/2 and full five-race class 10/10 pass; combined acceptance/service
+run 23/23 passes; actual domain/transition follow-up 36/36 passes, no failures/
+errors/skips. Test commit 827844b; results and workflow limitations in CHANGE-093.
+Existing locking/source/contracts unchanged; peers/dispatch mocked, no fresh
+full-suite coverage or live financial verification claim. Sprint remains [~].
+
+Current verification branch: Vincent explicitly requests four real PostgreSQL
+race tests on sprint-2-3-credit-service-concurrency (CHANGE-092, 2026-10-09).
+Order test-only scope; no new lifecycle policy, peer or schema changes.
+Cross-service recovery remains deferred. Eight real PG race cases and full
+215-test verify pass with no failures/errors/skips; fresh JaCoCo 95.67% lines /
+84.70% branches. Peers/delivery mocked; no production/schema/frontend change or
+live financial verification. Historical branch references below are dated
+context, not current allocation. Full Sprint remains [~].
 ## Mode-specific status options — CHANGE-095 (2026-10-09)
 
 Requester dropdown excludes ABORTED. Courier dropdown excludes OPEN, EXPIRED and CANCELLED; it retains ABORTED immutable-attempt history. All statuses remains the default. OrderStatusFilter requires an explicit requester/courier mode, supplied by each existing page. This is a UI-only refinement of ADR-032: existing API enum/query, authentication, ownership, pagination and five-second polling remain unchanged.

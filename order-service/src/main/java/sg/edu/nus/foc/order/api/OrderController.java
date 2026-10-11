@@ -11,6 +11,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import sg.edu.nus.foc.order.application.recovery.CommandRequest;
+import sg.edu.nus.foc.order.application.recovery.CommandView;
+import sg.edu.nus.foc.order.application.recovery.OrderCommandService;
+import sg.edu.nus.foc.order.security.OrderReadAccessPolicy;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,40 +69,34 @@ public class OrderController {
     @Setter
     private String lifecycleToken;
 
+    @Autowired @Setter private OrderCommandService commands;
+    @Autowired @Setter private OrderReadAccessPolicy readAccess;
+    @Value("${FOC_ENVIRONMENT:local}") @Setter private String lifecycleEnvironment = "local";
+    @Value("${order.lifecycle.external-enabled:false}") @Setter private boolean lifecycleExternalEnabled;
+
     @Operation(summary = "Create an order and reserve credits")
     @PostMapping
     @RequireRequesterRole
-    public OrderResponse create(
+    @ApiResponse(responseCode = "202", description = "Saved pending command; keep the same command ID")
+    public ResponseEntity<?> create(
             @Valid @RequestBody CreateOrderRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        RepostPlan repostPlan = request.isAutomaticRepost()
-                ? new RepostPlan(
-                        true,
-                        request.getRepostDueAt(),
-                        request.getRepostCreditAmount(),
-                        request.getRepostDeliveryDurationMinutes(),
-                        request.getRepostExpiresAt())
-                : null;
-
-        Order order = creation.create(
-                request.getCommandId(),
-                request.getRequesterId(),
-                request.getItemDescription(),
-                request.getPickupSupplierId(),
-                request.getDeliverySupplierId(),
-                request.getOfferedCredits(),
-                request.getDeliveryTimeLimitMinutes(),
-                request.getExpiresAt(),
-                repostPlan,
-                authorization);
-        return orderMapper.toResponse(order);
+        CommandRequest.Creation fields = new CommandRequest.Creation(request.getItemDescription(),
+                request.getPickupSupplierId(), request.getDeliverySupplierId(), request.getOfferedCredits(),
+                request.getDeliveryTimeLimitMinutes(), request.getExpiresAt(), request.isAutomaticRepost(),
+                request.getRepostDueAt(), request.getRepostCreditAmount(), request.getRepostDeliveryDurationMinutes(),
+                request.getRepostExpiresAt());
+        return legacyResponse(commands.submit(request.getCommandId(),
+                new CommandRequest("CREATE", request.getRequesterId(), null, 0, fields), authorization));
     }
 
     @Operation(summary = "Get an order by ID")
     @GetMapping("/{id}")
     @RequireOrderRole
     public OrderResponse get(@PathVariable String id) {
-        return orderMapper.toResponse(queries.get(id));
+        Order order = queries.get(id);
+        readAccess.check(order);
+        return orderMapper.toResponse(order);
     }
 
     @Operation(summary = "List available open orders")
@@ -142,16 +142,13 @@ public class OrderController {
     @Operation(summary = "Accept an available order as a courier")
     @PostMapping("/{id}/accept")
     @RequireCourierRole
-    public OrderResponse accept(
+    @ApiResponse(responseCode = "202", description = "Saved pending command; keep the same command ID")
+    public ResponseEntity<?> accept(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return orderMapper.toResponse(assignment.accept(
-                request.getCommandId(),
-                id,
-                request.getActorId(),
-                request.getExpectedVersion(),
-                authorization));
+        return legacyResponse(commands.submit(request.getCommandId(),
+                new CommandRequest("ACCEPT", request.getActorId(), id, request.getExpectedVersion(), null), authorization));
     }
 
     @Operation(summary = "Start an accepted order")
@@ -232,16 +229,13 @@ public class OrderController {
     @Operation(summary = "Abort an accepted errand; retain courier history, reopen or expire, and queue outcome events")
     @PostMapping("/{id}/cancel-accepted")
     @RequireCourierRole
-    public OrderResponse cancelAccepted(
+    @ApiResponse(responseCode = "202", description = "Saved pending command; keep the same command ID")
+    public ResponseEntity<?> cancelAccepted(
             @PathVariable String id,
             @Valid @RequestBody OrderActorRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return orderMapper.toResponse(transitions.cancelAccepted(
-                request.getCommandId(),
-                id,
-                request.getActorId(),
-                request.getExpectedVersion(),
-                authorization));
+        return legacyResponse(commands.submit(request.getCommandId(),
+                new CommandRequest("ABORT", request.getActorId(), id, request.getExpectedVersion(), null), authorization));
     }
 
     @Operation(summary = "Reject legacy post-creation repost configuration")
@@ -290,27 +284,13 @@ public class OrderController {
     @Operation(summary = "Create a requester-reviewed repost")
     @PostMapping("/{id}/repost")
     @RequireRequesterRole
-    public OrderResponse repost(
+    @ApiResponse(responseCode = "202", description = "Saved pending repost; retain the same command ID")
+    public ResponseEntity<?> repost(
             @PathVariable String id,
             @Valid @RequestBody ManualRepostRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return orderMapper.toResponse(reposts.manual(
-                request.getCommandId(),
-                id,
-                request.getActorId(),
-                request.getExpectedVersion(),
-                request.getItemDescription(),
-                request.getOfferedCredits(),
-                request.getDeliveryTimeLimitMinutes(),
-                request.getExpiresAt(),
-                authorization));
-    }
-
-    @Operation(summary = "Expire due unaccepted orders using the lifecycle token")
-    @PostMapping("/internal/lifecycle/expire")
-    public Map<String, Integer> expire(@RequestHeader("X-Lifecycle-Token") String token) {
-        checkToken(token);
-        return Map.of("expired", lifecycle.expireDue(Instant.now()));
+        return legacyResponse(commands.submit(request.getCommandId(),
+                OrderCommandController.repostInput(id, request), authorization));
     }
 
     @Operation(summary = "Create due automatic reposts using the lifecycle token")
@@ -322,8 +302,17 @@ public class OrderController {
     }
 
     private void checkToken(String token) {
+        if (!lifecycleExternalEnabled || !"local".equals(lifecycleEnvironment)) {
+            throw OrderProblem.forbidden("External lifecycle triggers are disabled.");
+        }
         if (token == null || !token.equals(lifecycleToken)) {
             throw OrderProblem.forbidden("Invalid lifecycle token.");
         }
+    }
+
+    private ResponseEntity<?> legacyResponse(CommandView view) {
+        if ("PENDING".equals(view.status())) return ResponseEntity.accepted().body(view);
+        if ("SUCCESS".equals(view.outcome())) return ResponseEntity.ok(view.result());
+        throw new OrderProblem(view.reason(), view.message());
     }
 }

@@ -1,5 +1,71 @@
 # Service Contracts
 
+Effective ADR-038/CHANGE-108: owned CommandView adds nullable displayDetails with
+itemDescription, pickupSupplierId, deliverySupplierId, offeredCredits,
+deliveryTimeLimitMinutes, expiresAt; existing ACCEPT/ABORT also orderStatus/version.
+CREATE/REPOST use frozen input; no candidate Order card. Existing target projection
+is command-owner only, not a general Order-read grant. All routes/status/resume,
+Credit bodies/headers and event contracts unchanged. See ADR-038 for null/terminal
+and storage-loss semantics.
+
+## Effective expiry API retirement — CHANGE-107
+
+Expiry is scheduler-only, called directly after command recovery and before
+48-hour completion each minute. There is no HTTP expiry trigger. Existing
+locking, pending guards and refund outbox/event contracts are unchanged. All
+repost routes, including the optional local internal repost trigger, remain.
+
+Effective ADR-037: POST /api/orders/commands/{originalId}/repost takes the existing
+ManualRepostRequest JSON (commandId, actorId, expectedVersion, itemDescription,
+offeredCredits, deliveryTimeLimitMinutes, expiresAt). Returns202 PENDING or200
+COMPLETED CommandView. Legacy /{originalId}/repost delegates; successful Order JSON,
+pending202, rejected ordinary error. Credit sees only new candidate RESERVE,
+requesterId/amount and unchanged headers. Original ID remains Order guard/history.
+
+## Effective transport/replay amendment — CHANGE-105 / ADR-036
+
+Local demo-foc-local uses emulator-only three topics and two typed Credit pushes.
+Cloud uses injected *-staging-v1 or *-prod-v1 topics and Google OIDC. Event JSON,
+attributes and Credit mutation bodies/headers are unchanged. Accepted abort
+facts are User-only: no Credit subscription. Actual local financial delivery
+evidence is CHANGE-105; cloud IAM/penalty consumers are separate gates.
+
+Legacy POST /api/orders, /{id}/accept and /{id}/cancel-accepted use the durable
+coordinator: 200 Order JSON after success, 202 CommandView while unresolved,
+ordinary error response on terminal rejection. Never switch keys/input while
+pending. All newly saved receipts bind actor/order/immutable input; unbound
+historical receipt replay fails closed. GET-by-ID allows requester/current
+courier/admin, plus eligible couriers viewing available OPEN; otherwise 404.
+
+ADMIN GET /api/orders/internal/outbox/failed?limit=1..100 returns
+{"eventIds":["uuid"]}. ADMIN POST /api/orders/internal/outbox/{eventId}/redrive
+has no body; 202 {"eventId":"uuid","state":"PENDING"} after committed reset,
+404 absent/409 non-FAILED. It retains event identity/payload. Unauthorized callers
+cannot use it. Immediate after-commit publication is asynchronous/bounded; after
+10 failed attempts retain FAILED, no normal retries until explicit redrive.
+
+## Effective Credit command contract — CHANGE-104 / ADR-035
+
+The implementation in concurrency/concurrency-order-credit.md replaces the earlier missing-provider/stub-only milestone. Each mutation sends Authorization, Idempotency-Key and positive X-Command-Generation, retaining only requesterId/amount, courierId, or no body. Saved-result GET is owner-authorized; compensation POST has no body. Validate commandId/operation/orderId/outcome/code and mutation response markers. Plain 401/403, timeout, malformed response or unmarked rejection cannot resolve an earlier uncertain effect. Missing results replay only the same immutable key. Provider 497a8f9 is actual code; executed evidence and remaining gates belong to CHANGE-104.
+
+## Current Pub/Sub representation — CHANGE-103 (2026-10-10)
+
+[AsyncAPI](asyncapi/asyncapi.yaml) and its [guide](asyncapi/README.md) document
+the three existing outgoing operations, exact compact v2 / abort snapshot v1
+bodies, attributes, topic overrides and at-least-once outbox behavior.
+No wire contract or receiver implementation is changed. Current Credit source
+now accepts compact bodies with matching v2 attributes; older snapshot-consumer
+claims below are historical, not current implementation evidence. Live
+financial/penalty verification and feedback gates remain open.
+
+## Effective foreground recovery exception — ADR-033 / CHANGE-100
+
+CREATE/ACCEPT/CANCEL_ACCEPTED get a mock-only command API, committed intent,
+immutable key/result and claim fencing. Actual Credit bodies are unchanged.
+Historical operation-result and compensation are contract-stub assumptions in
+`../concurrency/concurrency-order-credit.md`, NOT implemented/verified peer APIs.
+HTTP recovery remains hard disabled.
+
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
@@ -151,7 +217,7 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
 - Reposting: creation-time automatic plan, `getManualRepostDraft`, and
   `requestManualRepost`. The legacy `configureReposting` route is retained for
   compatibility but rejects post-creation mutation.
-- Lifecycle: `processExpiry`, `processAutoRepost`, and `autoCompleteDue`. Spring scheduler selects `DELIVERED` orders with a delivered checkpoint at or before `now - 48 hours`; the transition rechecks under lock and commits the ordinary completion checkpoint/receipt and `OrderCompletionTaskEvent` outbox row atomically.
+- Internal lifecycle services: `processExpiry`, `processAutoRepost`, and `autoCompleteDue`; expiry has no HTTP trigger (CHANGE-107). Spring scheduler selects `DELIVERED` orders with a delivered checkpoint at or before `now - 48 hours`; the transition rechecks under lock and commits the ordinary completion checkpoint/receipt and `OrderCompletionTaskEvent` outbox row atomically.
 - Admin integration: `placeCompletionHold`, `releaseCompletionHold`, `applyAdministrativeResolution`.
 - Facts: `subscribeToOrderOutcomes`, including typed completion, shared OPEN-refund, and accepted cancellation event contracts.
 
@@ -181,7 +247,7 @@ retained. These are defaults, not runtime SLAs, especially with idle Cloud Run C
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
 
-CHANGE-093 changes only internal lifecycle processing boundaries: due-ID query and per-order transaction/lock/recheck, caught failures and successful-transition counts. Existing internal expiry-trigger API path/body/authentication remains unchanged; its expired count now excludes skipped/failed candidates. No foreign API or event body change.
+Historical CHANGE-093 changed only internal lifecycle processing boundaries: due-ID query and per-order transaction/lock/recheck, caught failures and successful-transition counts. Its then-retained expiry HTTP shortcut is retired by CHANGE-107. Internal successful-transition counts still exclude skipped/failed candidates. No foreign API or event body change.
 
 ## Personal Order status filter — CHANGE-094 / ADR-032
 

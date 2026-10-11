@@ -25,12 +25,13 @@ interface CreditReservationJpaRepository extends JpaRepository<CreditReservation
     @Modifying
     @Query(value = """
             insert into credit_reservations
-                (order_id, requester_id, amount, status, created_at, updated_at)
-            values (:orderId, :requesterId, :amount, 'RESERVED', :createdAt, :createdAt)
+                (order_id, requester_id, amount, status, created_at, updated_at, reserve_command_id)
+            values (:orderId, :requesterId, :amount, 'RESERVED', :createdAt, :createdAt, :commandId)
             on conflict (order_id) do nothing
             """, nativeQuery = true)
     int insertIfAbsent(@Param("orderId") String orderId,
                        @Param("requesterId") String requesterId,
                        @Param("amount") long amount,
+                       @Param("commandId") String commandId,
                        @Param("createdAt") Instant createdAt);
 }

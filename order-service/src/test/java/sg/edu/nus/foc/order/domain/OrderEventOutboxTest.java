@@ -52,4 +52,22 @@ class OrderEventOutboxTest {
     private OrderEventOutbox pending() {
         return OrderEventOutbox.pending("event-1", "order-1", "OrderCompletionTaskEvent", 1, 2, "{}", NOW);
     }
+
+    @Test
+    void exhaustedFailuresAreRetainedUntilExplicitRedrive() {
+        OrderEventOutbox entry = pending();
+        for (int attempt = 0; attempt < 10; attempt++) {
+            entry.claim(NOW, NOW.plusSeconds(30));
+            entry.scheduleRetry(NOW.plusSeconds(1), "broker unavailable");
+        }
+        assertEquals(OutboxState.FAILED, entry.getState());
+        assertEquals(10, entry.getAttemptCount());
+        assertThrows(IllegalStateException.class, () -> entry.claim(NOW, NOW.plusSeconds(30)));
+        entry.redrive(NOW);
+        assertEquals(OutboxState.PENDING, entry.getState());
+        assertEquals(0, entry.getAttemptCount());
+        assertEquals("event-1", entry.getEventId());
+        assertEquals("{}", entry.getPayload());
+        assertThrows(IllegalStateException.class, () -> entry.redrive(NOW));
+    }
 }

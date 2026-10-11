@@ -51,9 +51,31 @@ Order-to-Credit service calls is separate work.
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
 | `PUT` | `/api/credits/orders/{orderId}/courier-assignment` | Idempotently associate the authenticated courier before Order persists acceptance. |
 | `POST` | `/api/credits/orders/{orderId}/hold-for-reopen` | Clear the assigned courier without releasing the requester's held credits. |
+| `GET` | `/api/credits/commands/{key}` | Return an owned durable command result, including a committed `PENDING` result. |
+| `POST` | `/api/credits/commands/{key}/compensate` | Fence an unfinished command or conditionally reverse its own applied effect. |
 
 Reservations use `RESERVED`, `REFUNDED` and `PAID`.
 There is no gift, withdrawal, top-up, direct balance update, or generic CRUD API.
+
+Reservation, courier-assignment, and hold-for-reopen mutations opt into synchronous recovery only
+when both `Idempotency-Key` and a positive `X-Command-Generation` are supplied. Supplying neither
+preserves the legacy contract; supplying only one is a validation error. Recovery-aware responses
+include `Idempotency-Key` and `Command-Outcome`. A key is bound permanently to its authenticated
+actor, operation, order, and canonical input, so it cannot be repurposed by increasing its
+generation.
+
+Credit commits a `PENDING` command record before attempting its financial or assignment effect.
+The effect and terminal `APPLIED` or `REJECTED` result then commit atomically in a second
+transaction. A retry resumes a committed pending command and returns a saved terminal response
+without repeating the effect. Compensation uses the same command lock and generation fence. It can
+release only the reservation created by that command or clear only the assignment carrying that
+command's identity; unsafe reversals return `RECONCILIATION_REQUIRED`. `CLEAR_COURIER` is never
+compensated by reconstructing a courier assignment.
+
+Reservation reversals remain fully recorded in the immutable ledger, including their
+`COMPENSATION` reason and command identity. The authenticated user's transaction-history projection
+suppresses both the compensated reservation and its reversal because the corresponding Order was
+never created. Genuine cancellation and expiry refunds remain visible.
 
 ## Order outcome events
 
@@ -100,11 +122,14 @@ validates the schema at application startup:
 |---|---|---|
 | `credit_accounts` | `user_id` | Authoritative total and reserved balances. Usable balance is derived. |
 | `credit_reservations` | `order_id` | One idempotent reservation per order. |
-| `credit_idempotency_records` | `(operation, idempotency_key)` | Event/command source, payload hash, resource, and replay protection. |
+| `credit_idempotency_records` | `(operation, idempotency_key)` | Registration/Pub/Sub source, payload hash, resource, and replay protection. |
+| `credit_command_records` | `command_id` | Durable synchronous recovery result and generation fence. |
 | `credit_ledger` | `entry_id` | Immutable evidence of every successful balance change. |
 
-Refund ledger rows persist `CANCELLATION` or `EXPIRY`. Historical rows without a reason are exposed
-as a generic refund. Transaction history is ordered by occurrence time, creation time, then entry ID.
+The existing idempotency table remains dedicated to registration and Pub/Sub event deduplication.
+Refund ledger rows persist `CANCELLATION`, `EXPIRY`, or `COMPENSATION`. Historical rows without a
+reason are exposed as a generic refund. Transaction history is ordered by occurrence time, creation
+time, then entry ID.
 
 Account, reservation/idempotency, and ledger writes commit in one PostgreSQL transaction.
 Account rows are locked during balance mutations so concurrent reservations cannot overdraw an account.
@@ -116,4 +141,7 @@ Account rows are locked during balance mutations so concurrent reservations cann
 ```
 
 Integration tests use a Testcontainers PostgreSQL instance. The build enforces at least 80%
-line and branch coverage and writes `target/openapi.json`.
+line and branch coverage and writes `target/openapi.json`. `CreditCommandRecoveryIntegrationTest`
+contains a test-only Order-contract harness for response loss, status recovery, same-key replay,
+compensation, concurrency, and crash boundaries. It does not enable or modify Order Service's
+production HTTP recovery adapter.

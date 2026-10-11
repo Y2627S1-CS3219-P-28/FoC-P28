@@ -37,4 +37,25 @@ class RepostExpiryTest {
         assertThrows(OrderProblem.class, () -> Order.open("owner", "item", "pickup", "delivery", 1, 15,
                 START, ORIGINAL_EXPIRY, plan(ORIGINAL_EXPIRY, ORIGINAL_EXPIRY)));
     }
+
+    @Test
+    void durableManualCandidateMustBeDistinctAndKeepsTheInitialWindow() {
+        Order original = Order.open("owner", "item", "pickup", "delivery", 1, 15,
+                START, ORIGINAL_EXPIRY, null);
+        original.expire(0, ORIGINAL_EXPIRY);
+        Instant deadline = ORIGINAL_EXPIRY.plusSeconds(1800);
+        for (String invalidId : new String[] { null, "", " ", original.getId() }) {
+            assertThrows(OrderProblem.class, () -> original.createManualRepostWithId(invalidId,
+                    "edited", 2, 15, ORIGINAL_EXPIRY, ORIGINAL_EXPIRY, deadline));
+        }
+        Order successor = original.createManualRepostWithId("candidate", "edited", 2, 15,
+                ORIGINAL_EXPIRY, deadline.minusSeconds(1), deadline);
+        assertEquals("candidate", successor.getId());
+        assertEquals(original.getId(), successor.getOriginalOrderId());
+        assertEquals(deadline, successor.getExpiresAt());
+        assertEquals(OrderStatus.OPEN, successor.getStatus());
+        assertThrows(OrderProblem.class, () -> original.createManualRepostWithId("candidate",
+                "edited", 2, 15, ORIGINAL_EXPIRY, deadline, deadline));
+        assertNull(original.getRepostedOrderId(), "Constructing a candidate must not link before commit");
+    }
 }

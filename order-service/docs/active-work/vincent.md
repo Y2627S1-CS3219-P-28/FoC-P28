@@ -1,5 +1,1027 @@
 # Vincent - Active Work
 
+## Profile merge compatibility repair - CHANGE-109, 2026-10-11, [~]
+
+- Vincent authorizes the narrow shared frontend repair and exact cd41186 review.
+  Branch/profile match; three existing dirty audit files are preserved. The prior
+  scoped context approval applies; sibling backends/configuration remain read-only.
+- Exact cd41186 first-parent delta removes25 lines from profile/edit: delete button
+  import/state/callback/UI only. No new API or cross-service coordination requirement.
+  This does not certify inherited main or remove the existing backend delete API.
+- Existing current User GET/PUT /api/users/me authenticate the Firebase UID. GET
+  reads Mongo only; PUT accepts optional username/email and returns the saved User.
+  Use existing useApi, local profile state and Firebase verification before email
+  PUT; retain current AuthProvider, roles, signup and Order command behaviour.
+- Classification: frontend compatibility implementation detail under the requested
+  repair, not a new service contract or architecture. New route tests must fail
+  first, then focused/full frontend tests, lint, typecheck and production build.
+- No live account mutation, email delivery, cloud deployment or backend change
+  authorized/performed. Strict/browser gates and Sprint remain incomplete.
+- Implemented source/test commitd7f72a8: local profile load/prefill, gateway-only
+  username/email PUT, verified email + refreshed token before save, failure retry,
+  account-keyed drafts/read abort and account-switch async guard, existing Firebase
+  password flow and Profile Edit button. Delete UI stays absent.
+- TDD: initial13 focused tests ->11 expected failures/2 passes; then13/13 pass.
+  Added switch-during-verification regression ->1 expected failure/11 passes;
+  mounted-form guard fixes it. Final116/116 tests in27 files pass, no skips;
+  typecheck/build pass. Lint0errors/3 existing login warnings; external lockfile
+  build warning unchanged. Whitespace/scope checks pass; D1/Overall hashes match.
+- Backend/AuthProvider/Order recovery/config/schema unchanged. Private D3 stays
+  ignored/untracked. FEEDBACK-012 READY_FOR_VERIFICATION, not live peer proof.
+  Source commit excludes pre-existing audit edits; overlapping handoff/feedback/
+  disclosure records remain uncommitted. Next: frontend image rebuild and isolated
+  username/email/password desktop/mobile smoke. Strict gate not rerun; Sprint[~].
+- Separate task record commit1aca823 contains only CHANGE-109/context/evolution/
+  traceability/change-log/allocation updates. Final uncommitted paths are exactly
+  ai/usage-log.md, docs/active-work/vincent.md and docs/peer-service-api-feedback.md
+  (the latter two under order-service); these contain preserved earlier audit
+  edits plus this turn's follow-up. Ignored learning update remains local. No push.
+
+## Latest main merge compatibility recheck - 2026-10-11, [!]
+
+- Vincent requests review only of mergec2fe90c against first parent5bf1a15.
+  Matching developer/allocation/branch; starting worktree clean. Scoped context
+  approval applies. No application/peer/shared configuration mutation authorized.
+- Merge tree changes only profile/edit/page.tsx and two historical audit records;
+  no User/backend/Compose/gateway changes entered relative to first parent.
+  Earlier reverted main changes are not automatically reapplied by another merge.
+- New edit route requires profile/profileLoading/refreshProfile from useAuth,
+  but current AuthContextValue/provider lacks them. Existing own username PUT API
+  is present; auth-context dependency is missing (FEEDBACK-012).
+- Fresh npm typecheck exits1 with exactly three TS2339 errors at edit/page.tsx:20:
+  profile, profileLoading, refreshProfile absent on AuthContextValue. This blocks
+  the shared frontend typecheck gate; production build not rerun or claimed.
+  Fresh103 existing frontend tests/26 files pass, but none covers profile/edit.
+  Fresh29 local/cloud configuration assertions pass; patch whitespace check passes.
+- Git first-parent diff verifies zero backend/Compose/gateway changes. Main's
+  auth-provider and profile navigation dependencies are absent in the current
+  tree after prior revert;935d16d remains an ancestor. No claim the reverted
+  FEEDBACK-011 backend bugs were reintroduced by this three-file merge.
+- Secondary source finding: edit email verifies in Firebase then refreshes profile;
+  current User GET/me only reads saved Mongo user, so a profile refresh alone cannot
+  synchronize that email. Own username PUT/me matches the existing JSON contract.
+  Current ProfilePage also has no link to the added edit route. No live account
+  mutation or email-delivery test performed; missing context already blocks route.
+- Only audit/handoff/disclosure and existing ignored learning note updated.
+  No source/peer/contract/schema/config changes, commit, revert/remerge, images,
+  backend tests or deployment. Next: owner-safe narrow frontend/dependency fix
+  with approval, tests for edit/email sync, then typecheck/build/browser verification.
+
+
+
+## Frontend SPA clarification - 2026-10-11
+
+- Vincent asks whether current frontend uses SPA architecture. Lightweight
+  source inspection on matching branch; earlier uncommitted audit notes preserved.
+- Actual Next16 App Router uses next/link and next/navigation for SPA-style
+  route changes. RootLayout is an async Server Component with connection() and
+  request-time runtime config; Order pages are interactive client components and
+  use gateway API hooks. Accurate description: hybrid server/client rendering
+  with SPA-style navigation, not a pure client-only static SPA.
+- No source/config/contract/design changes or tests/browser measurements; only
+  clarification record and AI disclosure. Existing rollout/Sprint gates unchanged.
+
+
+## Screenshot issue recheck - 2026-10-11, source audit verified
+
+- Vincent requests rechecking historical issues48/49/51/52/53/54/55, not new
+  application changes. Profile/allocation/current branch match; HEAD5bf1a15.
+  Starting worktree clean. Scoped effective-context approval ADR-033 applies.
+- Compared current tracked application/config/test source with e516cfa: unchanged
+  by the requested main-merge revert. CHANGE-104/105/106/107/108 remain effective;
+  automatic repost/delegated credentials remain explicitly deferred.
+- Inspected current controllers, read policy, durable coordinator/store, HTTP
+  gateway/adapters, receipt/event binding, outbox executor/state and Cloud Run
+  deployment files. Re-read actual Credit key/generation/result/compensation code;
+  no new provider behavior assumed. Current D1/Overall source hashes still match.
+- Issue48: security exposure addressed by default-disabled/local-only repost
+  hook and CHANGE-107 expiry HTTP retirement. Public local-lifecycle default
+  remains in local configuration, but is not accepted by the cloud hook. No
+  Secret Manager lifecycle-token claim; automatic delegated repost still deferred.
+- Issue49: deployment uses min-instances1/no-cpu-throttling; deploy script forwards
+  these flags. Configuration verified, not deployed cloud runtime verification.
+- Issues51/52: public create/accept/abort (and manual repost) use durable coordinator;
+  committed intent/candidate before Credit I/O, same-key historical replay, claim
+  fences, unresolved-order guards and atomic local finalization. Invalid possible
+  effects use compensation. Legacy internal helpers/facade still exist; controller
+  does not call their unsafe financial paths. No distributed atomic-commit claim.
+- Issue53: actual HTTP clients use configurable3s-connect/5s-read timeouts and
+  known peer-error mapping. Uncertain financial calls stay PENDING; coordinator
+  does Credit I/O outside the Order-row finalization transaction.
+- Issue54: GET-by-ID applies requester/current-courier/admin relationship policy;
+  eligible couriers may read available OPEN; unrelated callers get404.
+- Issue55: receipts validate order/actor/input (V7); new event identities include
+  order/actor; dead HTTP settlement endpoint call removed (mock helper remains).
+  Bounded after-commit executor,15-minute recovery, retained FAILED after10
+  failures and authorized explicit redrive are present (V6).
+- Fresh Java21/offline wrapper-selected Maven regressions:74 focused tests plus
+  4 OpenAPI/retired-expiry tests,78 total,0 failures/errors/skips; both Maven exits0.
+  Expected negative-path log stack traces are not test failures. Fresh configuration
+  safety assertions29 pass; source-tree comparison and patch whitespace check pass.
+  Prior actual Credit/PostgreSQL/PubSub-emulator integration evidence retained
+  under CHANGE-105/106/108, not rerun or presented as a new live result this turn.
+- Only this active-work record and AI disclosure changed; no application/tests/
+  peer/config/API/schema/diagram changes, commit, image rebuild or cloud deployment.
+  Human/cloud/browser/rollout gates and Sprint[~] unchanged. Rebuild/redeploy the
+  applicable source before treating a running container/revision as containing it.
+
+
+## Requested main-merge revert — 2026-10-11, Git operation complete
+
+- Vincent explicitly requests reverting935d16d24e91ffa9c9ca292e2d3cf66118731195.
+  Checked matching identity/branch, clean index and only three unrelated dirty
+  review-note files; none overlap the33 merge paths. Applied inverse with -m1.
+- Revert commit834bb0d restores the tracked tree exactly to first parent
+  e516cfaf9774e5826045332f54c1d9597a34c3bf; no history reset or remote push.
+  Prior Order/Credit work remains. D3 private ignored file/local exclusions kept.
+- git diff --cached --check reported four whitespace lines restored from the
+  pre-merge source; intentionally preserved rather than adding unrelated edits.
+  Exact index/committed-tree comparison passed; no merge conflicts. Tests, image
+  rebuild, runtime database changes and cloud deployment were not performed.
+- Review findings below concern the now-reverted935d16d implementation, not the
+  current source. Three review/handoff/disclosure files stay uncommitted and are
+  not included in834bb0d. Existing Sprint/browser/rollout gates remain unchanged.
+  Next: rebuild locally if running images contain the reverted merge; coordinate
+  safe peer fixes before reintegration. Reverting does not uninstall live images.
+
+## Main merge compatibility review — 2026-10-11, [!]
+
+- Requested inspection only; reviewed merge935d16d against first parent e516cfa
+  on the matching Vincent profile/allocation/branch. Began with a clean tree.
+  No unresolved Git entries or source/Compose conflict markers. Order/Credit
+  source and HTTP/local-live overrides are byte-identical to the pre-merge tree.
+- User role-context userId/roles and courier-eligibility isCourierEligible wire
+  shapes remain compatible. Real HTTP peers, emulator-only local topics, cloud
+  staging/prod topics, paired Credit headers and pending-card UI are preserved.
+  New User Credit URL resolves internally in Compose and is dynamically exported
+  by the existing cloud deploy script. No cloud deployment was performed.
+- Findings: inverted User verifyAdmin permits non-admin protected actions;
+  Firebase/Mongo account deletion ignores active Order/pending commands; signup
+  now invokes Credit twice and cleanup can delete identity/profile after an
+  uncertain financial result; suspension removes courier authority and the
+  expiry restoration helper has no caller, blocking existing abort/recovery.
+  FEEDBACK-011 records owner action and review evidence, not approved fixes.
+- Lower-priority shared frontend issue: profile focus refresh never sets its
+  in-progress flag before await, permitting overlapping focus/visibility reads.
+  Requester eligibility helper is also inverted; Order does not call that API.
+- Initially suspected admin bootstrap YAML/env alias mismatch was disproved:
+  Spring7.0.9 SystemEnvironmentPropertySource resolves ADMIN_BOOTSTRAP_EMAIL to
+  admin.bootstrap-email. Do not record it as a confirmed startup defect.
+- Executed:103 frontend tests/26 files pass, typecheck exit0, lint0 errors/one
+  merged profile-test unused-import warning; base and combined local-live Compose
+  config exit0; existing11 stack services healthy (not a merged-image proof).
+  D1/Overall hashes unchanged; git diff --check passes. No backend suite rerun,
+  signup/admin/deletion mutation, browser smoke, image rebuild or cloud tests.
+- Stopping point: application/peer/shared configuration unchanged. Inspect-only
+  handoff/feedback/disclosure remain uncommitted; no implementation approval.
+  Next: User owner corrects security/consistency behavior or Vincent authorizes a
+  narrow peer task, then test genuine admin/normal-user, pending deletion,
+  uncertain signup and suspended-courier recovery with isolated real peers.
+  Existing Sprint/browser/rollout/strict gates remain [~].
+
+## CHANGE-108 pending-card implementation — 2026-10-11, [~]
+
+- Vincent approves full option2 response/UI/access projection. ADR-038 records
+  effective class/sequence/contract. Implemented Order projection and shared
+  frontend discovery/cards/summaries with same-key Continue and conditional
+  terminal browser-key cleanup. Source commits: backend 9f2e054; frontend 942b790.
+- TDD: three backend projection failures before implementation; frontend module
+  RED followed by meaningful history-hook and conditional-cleanup RED assertions,
+  then GREEN. Intermediate repost-label/AbortSignal fixture errors were corrected,
+  not bypassed. Final Java21 offline Maven verify:373 tests,0 failures/errors/skips;
+  includes saved PostgreSQL projection and16 actual Credit HTTP/emulator tests.
+  User/Supplier in that harness remain fixtures, not live all-peer verification.
+  JaCoCo report95.37% lines/80.27% branches; coverage gate passes. Four older XML
+  report files excluded from current execution totals. Surefire reported a fork
+  shutdown timeout after tests; Maven still exited0 with BUILD SUCCESS.
+- Final frontend:103 tests/26 files pass,0 unhandled errors; lint0 errors/three
+  pre-existing login warnings; typecheck and production build pass. Next reports
+  ignored external user-home package-lock warning; configuration unchanged.
+- Approval/context/ADR/class/sequence/contracts/traceability/evolution/sprint/
+  disclosure synchronized. Existing learning/order-frontend-integration.md updated
+  locally (ignored policy retained). Peers/schema/financial/events/config unchanged;
+  unrelated untracked D3-preparation-answers.md untouched.
+- Remaining: authenticated storage-clear/Continue/browser viewport320–1920 and
+  ADMIN/USER mode smoke, local consuming container rebuild and cloud rollout;
+  existing strict workflow-format/manifest/human gates remain. Sprint and slice[~],
+  not a full-stack completion claim. Next: rebuild Order/frontend using existing
+  local emulator configuration and exercise stored pending cards after site reset.
+
+### Historical proposal checkpoint (superseded by approval/implementation above)
+
+- Started/finished actual backend/frontend inspection, matching branch/profile/
+  allocation; no source drift in D1/Overall fingerprints. Shared frontend clean;
+  unrelated D3 file untouched. Order/frontend vertical slice only, peers read-only.
+- User requests recovered pending ACCEPT/ABORT on normal existing cards and
+  CREATE/REPOST detail summaries without fake Order cards. Existing API returns
+  key/target but no pending details. Pending acceptance isn't courier /mine yet;
+  normal GET read policy can deny access after expiry. Do not invent peer API or
+  weaken general authorization.
+- PROPOSED ARCH-EVO-044/CHANGE-108 owner-only displayDetails + shared account
+  discovery/card binding, same-key resume, retain local intent, terminal lookup
+  when known pending disappears. Expected fields/options/test matrix in proposal.
+  API/access projection needs explicit detailed approval before source/tests.
+- No tests run or application/frontend/schema/peer/config changes. Existing
+  Sprint[~]/rollout/strict-format gates unchanged. Next: obtain approval, then
+  synchronize approved contract/design and implement test-first vertical slice.
+
+## IndexedDB loss and pending polling clarification — 2026-10-11, read-only
+
+- Started/finished inspection on matching Vincent profile/allocation/branch.
+  Key/frozen input commit to IndexedDB BEFORE POST; in-memory intent starts
+  GET-by-key polling every5s while visible, even on ambiguous POST failure.
+  Reload restores locally saved intent; terminal result clears it.
+- My Requests/My Errands pending panel independently discovers backend PENDING
+  commands by authenticated UID, without IndexedDB. Clearing local storage does
+  not delete the backend command/guard. Panel discovery does NOT restore the
+  original create form's pending intent; a new CREATE key is a distinct action,
+  not deduplicated merely by matching input. Stronger server-to-form restoration
+  would need an approved refinement; not implemented in this advisory turn.
+- Source and existing timeout/reload/discovery tests inspected, not rerun; no
+  live storage-clear experiment. Application/contracts/infrastructure unchanged;
+  existing Sprint[~] blockers and unrelated D3 file preserved.
+
+## CHANGE-107 expiry HTTP retirement — 2026-10-11, automated verified
+
+- Vincent explicitly approves removing only expiry HTTP/docs/Swagger; keep all
+  repost routes, direct minute expiry/refund processing, schema and peers intact.
+  Profile/allocation/current branch match; unrelated D3 file preserved.
+- Test-first plan: OpenAPI absence + removed HTTP routing, retained repost APIs,
+  controller token guards and direct scheduler/expiry/refund regressions.
+- Current API/evolution refinement approved; no frontend/runtime consumer found.
+  Existing manifest-format/Docker/rollout/Sprint blockers remain separate.
+- RED observed: 4 OpenAPI tests, 2 expected failures before removing the handler.
+  GREEN: 40 focused tests, 0 failures/errors/skips; generated OpenAPI absence and
+  all five retained repost paths verified. Full suite/coverage/live rollout not
+  rerun; existing Sprint[~] blockers unchanged. D1/Overall hashes match, no drift.
+- Source/current docs synchronized; Swagger update on rebuilt/redeployed runtime.
+  Existing ignored learning note updated. No unrelated D3 edit or peer/UI change.
+  Exact evidence/rollback: changes/CHANGE-107-retire-expiry-http-trigger.md.
+- Source/test commit: 4bbc4fe. Documentation handoff committed separately.
+
+## Internal lifecycle route clarification — 2026-10-11, read-only
+
+- Started/finished source inspection; no frontend internal/lifecycle call sites.
+  Minute scheduler invokes recoverDue, expireDue and autoCompleteDue directly,
+  not the HTTP controller; no scheduler automatic repost invocation.
+- expire/repost HTTP routes are optional local operator/test triggers: default
+  external-enabled=false, environment must be local, matching lifecycle token.
+  UI creation saves an automatic plan only; it does not call either route.
+  Repost route forwards lifecycle token as bearer to peers, which is not approved
+  delegated Firebase authentication. Live automatic repost remains deferred.
+- No application/contracts/config/tests edits, tests/runtime not rerun. Existing
+  rollout and Sprint[~] blockers/next action unchanged; peer source untouched.
+
+## Order read/configure/draft route clarification — 2026-10-11, read-only
+
+- Start/end: Vincent/profile/allocation/current branch match. Inspected current
+  frontend call sites and OrderController/OrderRepostService; no behavior edits.
+- GET /orders/{id} is used by RepostControls after confirmed rejection or eligible
+  error to refresh the original version and saved failure; board lists use mine
+  and available. No current frontend call to repost/configure or repost-draft.
+- Legacy configure always conflicts: automatic settings chosen at creation only.
+  Draft returns defaults only for the original requester of unlinked EXPIRED
+  orders; UI currently uses the supplied card Order directly for that form.
+- Source inspection only; no tests/live browser checks rerun. Existing rollout,
+  Docker500, human review and Sprint[~] blockers/next action remain unchanged.
+
+## Command-key persistence clarification — 2026-10-11, read-only
+
+- Follow-up start/end: confirmed UUID per action rather than per login; V5
+  command_id primary key enforces one row, register rejects another actor/input
+  using the key. An unresolved action deliberately retains its key after login.
+  Command polling checks COMPLETED/outcome, not merely order status. Confirmed
+  browser deletion on SUCCESS/REJECTED; actual button label is Continue with
+  authorization, POST same-key resume using useApi current user token. A valid
+  browser session can supply authorization without another password login.
+  Scheduler still has no browser token. No tests rerun or application edits;
+  existing rollout/blockers and next action below remain unchanged.
+- Started and finished current-code clarification; Vincent/profile/allocation and
+  branch match. No application, contract, schema, test or deployment change.
+- Frontend generates UUID per new action; IndexedDB foc-order-commands/intents
+  saves account/action-scoped key and frozen input before POST, retaining them
+  across reload until confirmed COMPLETED SUCCESS/REJECTED. Backend retains the
+  committed command history after browser intent removal. Browser clearing is
+  not a backend cancellation; disabled buttons are UX, not server protection.
+- Visible status polling is five seconds. Lookup404 can resend the original
+  frozen POST/key; authorization Continue POSTs commands/{K}/resume with current
+  user token. Same-key claims/input binding protect server execution.
+- Important clarification: recoverDue passes null authorization. Live HTTP
+  execution therefore defers AUTHORIZATION_REQUIRED before peer calls even if
+  the browser token is still valid; it does not auto-retry Credit until expiry.
+  No tokens/service credentials are stored. Permanent rejection/invalid deadline
+  can resolve as rejection or require compensation, not unconditional success.
+- Verification: inspected actual storage/hooks/payload builders/coordinator/store;
+  no tests or live browser/runtime checks rerun. Existing CHANGE-106 Docker500
+  rollout, human/browser/cloud gates and Sprint[~] remain unchanged. Next action
+  remains restore Docker and perform the recorded manual-repost smoke.
+
+## CHANGE-106 durable manual repost — 2026-10-11, [~] implemented/automated verified; rollout blocked
+
+- Vincent explicitly approved V8 original/candidate persistence and the new
+  command route. Identity/branch/allocation match. ADR-037 is effective;
+  synchronize design, observe RED, then implement and verify the vertical slice.
+- No peer/deployment/automatic-repost changes. Background HTTP attempts still
+  require fresh user authorization; tokens are never saved. Preserve D3 file.
+- Effective end-of-turn handoff: source/tests/V8 committed as `2c021b6`;
+  syntax-checked pending runtime smoke helper committed separately as `172ea70`.
+  Intent/candidate precede Credit; same-key leases and original guard; atomic
+  successor/link/result; saved rejection and pending reload UI. New command and
+  legacy repost paths use the same coordinator. Peer payloads unchanged.
+- RED observed before implementation (four PG tests, hook route, three UI cases).
+  Final exact-source Java21/Maven3.9.16 verify: 367 passed, zero failures/errors/
+  skips; JaCoCo 1972/2081 lines (94.76%), 836/1042 branches (80.23%). All193 source/
+  resource/test files match the isolated tested snapshot. Includes16 actual Credit/
+  PG/emulator tests (four new manual),21 command PG tests,6 clean/upgrade migrations.
+  User/Supplier validation in isolated recovery tests remains a fixture.
+- Frontend90 tests/24 files pass; final lint0 errors/3 pre-existing login warnings;
+  typecheck passes. PowerShell smoke script parses; TOML and whitespace checks pass.
+  D1/Overall SHA256 match persistent references. Peer source/D3 file untouched.
+- Local Order/frontend rebuild could not finish: Docker Desktop engine /info and
+  /containers API return500; gateway unavailable. Stopped only the identified task
+  build clients, not Docker Desktop/containers; no volumes reset. Existing local
+  V7->V8 rollout and real all-peer manual smoke are NOT marked passed.
+- Generic drift helper default manifest is absent; gate helper rejects historical
+  traceability/active-work format (5 findings). Direct hashes/manual review are
+  separate evidence, not a generic-check pass. Existing Maven fork shutdown30sec
+  warning persists despite exit0/BUILD SUCCESS; not a failed application test.
+- Next: restore Docker engine, from Compose root run normal matching stack build/up,
+  then scripts/Test-ManualRepostIntegration.ps1. It uses fresh users/orders only,
+  advances one owned fixture's expiry in Order DB, waits for minute scheduler,
+  checks real refund/repost/replay/list hiding and cancels/refunds the successor.
+  Do not use down --volumes. Human migration review, interactive desktop/mobile,
+  cloud/hosted CI and workflow-format repair remain open; Sprint stays[~].
+- Previous proposal-only notes below preserve history; they are superseded by this
+  approved implementation and verification handoff.
+
+- Vincent/current branch match; user approves extending manual repost to durable
+  pending flow like creation/accept/abort. Automatic repost/delegation still deferred.
+- Read actual manual service/UI/domain, command store/coordinator/migration/gateway
+  and current Credit reservation/replay provider. D1/Overall hashes still match.
+  No frontend Git changes; unrelated D3 file preserved. Supplier former edit is no
+  longer dirty; did not modify/discard it. Latest Credit source/security history
+  a2bab85; current RESERVE wire protocol is suitable for candidate reservation.
+- Discovery: existing command.order_id must guard original, but Credit needs NEW
+  candidate. Proposed V8 kind extension + separate candidate UUID; exact inbound
+  route, frozen minimum window, atomic finalization/compensation and UI/test plan
+  are changes/CHANGE-106-durable-manual-repost-proposal.md. Request specific schema/
+  design approval before implementation under mandatory architecture gate.
+- Existing list URLs confirmed: mine requester/courier and available; pending
+  action status/discovery are separate command GETs. Five-second visible polling.
+- Tests not written/run; no application/schema/peer/deployment/data changes. Some
+  guessed filenames/read paths were absent; resolved actual tracked paths before
+  inspection. Next: approve proposal, synchronize ADR/design, then TDD and real
+  Credit/PostgreSQL/clone-safe full frontend/backend verification. Sprint stays[~].
+
+## Creation command lookup 404 — 2026-10-11, diagnosis finished
+
+- Start: Vincent/branch match; source/log/database read-only diagnosis requested,
+  not application changes. Unrelated Supplier/D3 edits preserved.
+- useOrderCommand.run saves the browser intent and enables polling before the
+  initial POST settles. useVisiblePolling schedules its first GET at zero delay.
+  This can read before OrderCommandService's registration transaction commits.
+- Reported key 98d8c2b5-01f1-4058-ab35-9a2be39b9fea exists in local order_commands:
+  CREATE, COMPLETED/SUCCESS/SUCCEEDED, attempt_count=1, order_id
+  fd55469c-741c-46c9-8a0c-21b1baaf43f6. Created 06:51:03.993267Z, completed
+  06:51:04.179928Z. Gateway GET returned404 at06:51:03Z; two create POST
+  responses at06:51:04Z were202 and200. Read404 fallback resends frozen same-key
+  input even while initial POST is active; claim protects this from duplicate work.
+- Recommendation only: defer status checks/resends while the submission worker
+  is active, then check saved outcomes or recover ambiguous/lost submission with
+  the same key. Do not hide genuine404 or remove same-key crash recovery.
+- Verification: inspected source, existing tests and actual local command/logs;
+  no tests rerun or data mutated. A guessed migration filename was absent;
+  inspected actual store SQL instead. No frontend/API/financial behavior changed.
+  Next step, if requested: implement focused polling-race regression and fix.
+
+## Supplier options clarification — 2026-10-11, source audit finished
+
+- Start: Vincent/current branch match; inspect Order creation dropdown and actual
+  Supplier catalogue/validation only. No application changes authorized. Existing
+  Supplier SeedCsvReader and D3 preparation changes preserved.
+- Result: requests/new/page.tsx:63 requests status=active, not openNow=true;
+  both selectors map the returned page.items without opening-hours filtering.
+  Supplier list defaults openNow=false; catalogue supports the optional filter
+  using stored opening/closing times and Asia/Singapore clock.
+- Submission: HttpPeerAdapters.validatePair calls /api/suppliers/validate;
+  SupplierService:92 checks existence, active status and differing IDs, not hours.
+  Thus inactive options excluded on fresh load, closed active options remain.
+  Options do not periodically refetch while the form is open; stale inactive
+  selection is rejected by current database validation at submission.
+- Verification: source and existing test inspection only; no tests rerun,
+  browser/cloud calls, data mutations or behavior/contract changes. Scope is
+  advisory; adding closed filtering/revalidation would require a separate task.
+  Existing Sprint [~] and recovery/peer/cloud blockers unchanged.
+
+## CHANGE-105: local emulator and review findings — 2026-10-11, [~] local slice verified
+
+- Vincent/current branch match; unrelated D3 preparation file preserved.
+- User requests emulator-only local Docker, real HTTP peers, cloud staging/prod
+  topic wiring, screenshot findings and actual Credit recovery/event tests.
+- Explicit approvals: local-only Credit push-security exception guarded by both
+  emulator settings; Order minimum one Cloud Run instance and always allocated
+  CPU (configuration only); durable routing of legacy CREATE/ACCEPT/ABORT with
+  pending HTTP 202; bounded asynchronous outbox publication and retained FAILED
+  after ten attempts, with operator redrive. No cloud deployment/provisioning.
+- Automatic repost/delegated credentials remain deferred. Peer databases/source
+  remain read-only except the explicitly approved Credit security/test slice.
+- D1/selected Overall hashes match. At task start the real command path/peer
+  timeouts were present and legacy mutation/read/receipt/outbox gaps confirmed;
+  their implemented corrections and verification follow.
+- Implemented ADR-036 and locally verified: final exact-source Maven verify
+  354 passed, no failures/errors/skips; 94.86% line/80.12% branch coverage.
+  All 192 source/resource/test files match tested snapshot. Twelve actual
+  Credit/PG/emulator recovery/delivery tests; 10 transition-race tests; five
+  migration and five outbox JPA tests pass. Credit security21, frontend83 plus
+  lint/typecheck, real Compose HTTP financial24, configuration29, AsyncAPI/TOML/
+  whitespace/direct source-hash checks pass. Detailed logs/failures: CHANGE-105.
+- Existing local Order DB upgraded V4->V7 via Flyway without resetting volumes.
+  Real stack is running/healthy; fresh local test accounts/orders retained.
+  Early fixture/IDE/clean failures are not passes. Final Maven exits0/BUILD SUCCESS
+  but emits fork shutdown timeout warning; cleanup follow-up remains.
+- Commits: a2bab85 approved Credit exception; f6c44bb emulator; dc9dbb8 shared
+  Compose; 29bfaf6 Order hardening/test/deploy. No push. Supplier SeedCsvReader
+  unrelated 16+/7- edit and D3 file preserved, never staged.
+- Next: human review, consuming-developer V6/V7 handoff, user local UI testing;
+  separately approved cloud rollout/IAM verification. Automatic repost/delegated
+  credentials deferred, manual repost outside durable protocol, User consumers
+  missing. Tokenless HTTP recovery needs same-key owner Continue; no saved JWT.
+  Generic drift/completion helper format failures remain; Sprint [~].
+
+
+## CHANGE-104: live Credit command recovery — 2026-10-11, locally verified
+
+- Vincent explicitly requests replacing the mock-only recovery integration on
+  `sprint-2-3-credit-service-concurrency-update-event-payload`. Profile/allocation
+  match; starting tree contains only the unrelated untracked D3 preparation file.
+- Scope: Order HTTP command gateway, coordinator/capability activation, bounded
+  peer timeouts, real Credit/PostgreSQL contract and recovery tests, existing
+  frontend regression, records/runbook. Credit/User/Supplier remain read-only.
+- Credit revision 497a8f9 supplies the paired key/generation headers, immutable
+  historical replay, owned GET result and conditional POST compensation. Actual
+  controllers/store/security/tests inspected. Financial bodies remain unchanged.
+- ADR-035 extends ADR-033's stub boundary only for CREATE/ACCEPT/ABORT. No schema,
+  topic, delegated identity, persisted token or background repost change.
+- D1 and selected Overall fingerprints match. Scoped effective context loaded;
+  historical absent-provider statements are superseded, not erased. Existing
+  historical workflow-format issues are not evidence of a passed completion gate.
+- TDD RED: missing new gateway prevented test compilation; 25 HTTP protocol
+  tests then pass after correcting two fixture issues. Real provider Dockerfile
+  required standard BuildKit; fixed restart host-port allocation in the fixture.
+- Final fresh Java21/Maven3.9.16 verify: 335 tests, zero failures/errors/skips;
+  nine actual Credit/PostgreSQL scenarios including socket timeout after financial
+  commit, local rollback, provider restart, same-key simultaneous claims,
+  acceptance compensation/pending guard and historical abort replay. Financial
+  Credit is real; User/Supplier validation and external dispatch are fixtures.
+- Coverage: lines 95.53% (1815/1900), branches 80.73% (712/882); unchanged >=80%
+  gates pass. All 183 current POM/source/resource/test files match the fresh tested
+  copy. Logs/reports: target/change104-isolated-final.log and
+  target/change104-isolated-final-check/target/. Earlier runs remain diagnostic.
+- Frontend: 83 tests pass, lint passes with three existing login warnings,
+  typecheck passes. Credit/Order/frontend Docker builds pass. Local-live Compose
+  config, OpenAPI CI structural guard/generated documentation, AsyncAPI parity,
+  TOML parsing and whitespace checks pass. Peer source unchanged; D3 file untouched.
+- Operational caveat: early real-financial tests did not isolate after-commit
+  Pub/Sub dispatch. Personal ADC was present; synthetic events may have reached
+  default dev topics. Delivery/effects were not audited. Final fixture prevents
+  external dispatch. No cloud provisioning/IAM/app-volume reset was performed;
+  any synthetic-message review/cleanup requires a separately scoped action.
+- Keep Sprint `[~]`: authenticated full-stack User/Supplier/browser/PubSub/IAM
+  verification is separate. HTTP tokenless recovery needs fresh user Continue;
+  no stored tokens/trusted credentials or repost recovery added. Atomic commits
+  and final handoff are recorded below; no push or application-stack restart.
+- Atomic commits: fbbce54 implementation/tests/frontend regression; 4e7cc77
+  only Order-owned Compose/.env.example settings. Documentation/disclosure is a
+  separate concern. Do not send an unresolved durable K to legacy direct routes;
+  legacy/repost APIs do not acquire the new crash-recovery guarantees.
+
+## CHANGE-103: AsyncAPI Pub/Sub documentation — 2026-10-10/11, locally verified
+- Vincent profile/allocation/branch match
+  `sprint-2-3-credit-service-concurrency-update-event-payload`; clean starting tree.
+- User approves documenting current Pub/Sub in AsyncAPI, not changing messages,
+  consumers, application code, frontend, persistence, infrastructure or IAM.
+- Scope: three outgoing channels/operations, exact compact v2 and accepted-abort
+  v1 bodies/attributes/examples, documentation validation and reading guide.
+- Effective authority: ADR-013/021/025/026/031/033/034; latest effective scoped
+  context loading. Older full-snapshot refund/completion descriptions are historical.
+- Current Credit source accepts compact messages; older feedback describing its
+  previous snapshot parser is stale evidence, not a reason to alter wire contracts.
+  Live financial/penalty verification and unresolved peer feedback stay open.
+- Added exact three-channel/send-operation AsyncAPI 3.0 YAML, five examples,
+  browser reading guide and read-only source-parity checker. Index/context/contract
+  pointers, traceability/change/evolution records and local excluded learning updated.
+- Verification: expected missing-file RED, then Python schema/source checks GREEN;
+  official CLI 4.1.1 and final CLI 6.2.0 with temporary Node 24.11.1 both exit 0,
+  zero document errors/warnings and one informational newer-format suggestion.
+  Removed optional Google binding after validator required unconfigured schemaSettings;
+  no runtime cloud schema invented. Tool dependency/host-engine warnings recorded.
+- D1/selected Overall hashes match; TOML parses; no application/frontend/peer/schema/
+  deployment/CI changes. Maven/browser/cloud/ledger tests not rerun for doc-only task.
+- Human review and live peer/financial/penalty gates remain. No Sprint or peer VERIFIED
+  upgrade; HTTP recovery remains disabled. See CHANGE-103 for commands and evidence.
+- Documentation/validator commit: `5556eb9`; local only, not pushed. Final guide
+  relative links (7) and whitespace checks pass. AI disclosure recorded separately;
+  learning remains excluded and no application/sibling edits were included.
+
+## Swagger / Pub/Sub documentation audit — 2026-10-10, inspected
+
+- Request: check current generated Order endpoint and published-event/topic
+  documentation; no application or contract changes requested.
+- Vincent profile/allocation/current branch match
+  `sprint-2-3-credit-service-concurrency-update-event-payload`.
+- Scope: inspect controllers, OpenAPI configuration/generated JSON/test and
+  publisher schemas/topics; preserve existing local profile changes. Live HTTP
+  recovery remains disabled. No application/contract/schema/UI/cloud edits.
+- Result: 24 controller operation mappings match the generated 24 HTTP
+  operations / 23 paths, including seven command routes, status filter,
+  lifecycle routes and explicit repostExpiresAt. bearerAuth schema exists.
+  Generated doc has no three event schemas, topic names or Pub/Sub extensions.
+- Current configured defaults: order-completion-dev-v1, open-order-refund-dev-v1,
+  accepted-order-cancellation-dev-v1. Event DTOs/publishers and service-contract
+  documentation inspected; deployed topic overrides/Swagger not checked.
+- Gaps: most HTTP routes document only success, no full error/validation examples;
+  legacy /{id}/repost/configure advertises inferred 200 although application always
+  conflicts. Relative expiry constraints lack schema descriptions. Existing test
+  validates emitted operations and two named command paths, not exhaustive
+  controller-vs-document parity or event contracts.
+- Verification: fresh rerun OpenApiDocumentationTest in matching source copy:
+  2 tests pass, zero failures/errors/skips. Log target/change103-openapi-audit.log;
+  generated JSON in target/change102-verification/target/openapi.json. No new tests
+  or live HTTP/business integration run; no all-documentation-complete claim.
+- Next: user decision on documentation-only enhancement for complete errors,
+  constraints/examples and Pub/Sub contract reference (no invented HTTP publish
+  routes). Sprint/live recovery gates unchanged. Audit records/disclosure only.
+
+## CHANGE-101/102: JWT learning and merged minute orchestration - locally verified
+
+- Started: 2026-10-10. Vincent confirms current branch
+  `sprint-2-3-credit-service-concurrency-update-event-payload` and the merge.
+- Approved: JWT learning; one minute job runs eligible recovery -> OPEN expiry
+  -> >=48-hour DELIVERED completion, with independent catches and existing guards.
+- Scope: Order scheduler/tests/context/diagram/disclosure; no peer/frontend/
+  schema/config/deployment changes or live HTTP recovery activation.
+- Context: scoped effective loading under ADR-033; initially clean worktree.
+  D1/Overall/Sprint-1 fingerprints match. Generic drift helper fails on existing
+  manifest columns; not source drift. No nested Order instructions.
+- Implemented source/tests commit `10fd76d`: removed independent command timer;
+  recovery -> expiry -> completion, lifecycle time captured after recovery;
+  per-phase catches, existing command HTTP gate and item locks/guards retained.
+- TDD: ownership RED observed; intermediate focused failure was a test-fixture
+  verification before its second tick, corrected. Final focused 28 pass (16
+  real PostgreSQL recovery cases). Fresh-source Java 21 Maven offline verify
+  passes 301 tests, zero failures/errors/skips; 95.60% lines / 81.95% branches.
+  Source-copy hashes identical. New acceptance recovery/compensation/expiry
+  guard tests use Credit stub; no live Credit crash/HTTP recovery claim.
+- Logs: target/change102-red.log, change102-focused.log, change102-verify.log;
+  reports in target/change102-verification/target. Cron disabled in test contexts
+  only; timer ownership/cadences directly asserted. Existing workflow helper
+  manifest/table/status/history format failures remain separately recorded.
+- Learning: excluded JWT note and appended shared-minute lesson in existing
+  cross-service recovery note. ADR-034/class/sequence/context/sprint/traceability
+  and AI disclosure synchronized. No peer/frontend/schema/config/cloud changes.
+- Next: human review/rebuild Order when ready; Annablee's real replay/result/
+  fencing/compensation contract still required before enabling HTTP recovery.
+  Sprint `[~]`; live recovery `[!]`. Personal local profile remains unstaged;
+  learning remains excluded. Documentation/disclosure commit: `7914810`.
+  Source/test commit: `10fd76d`; no push performed. Final deterministic helper
+  still reports 173 historical-format blockers; none concern SCH-* rows.
+
+## Durable command recovery contract-stub slice — locally verified 2026-10-10
+
+- Vincent explicitly confirms `sprint-2-3-credit-service-concurrency` and approves
+  the updated Order/frontend plan: PENDING/COMPLETED outcomes, immutable same-key
+  actions, candidate-ID reuse, claims/leases plus existing row locks, user-assisted
+  authorization, pending UI and expiry-preserving reconciliation. Credit remains
+  read-only; its existing business request bodies must not grow.
+- Additional explicit approval: implement and test against a documented contract
+  stub; keep live HTTP recovery disabled until Annablee provides and verifies
+  historical key replay, result retrieval, fencing and scoped compensation.
+- Started: clean worktree and branch inspected; local identity reconciled without
+  deleting Yao Xiang's historical profile. Relevant actual Credit routes and
+  transactional replay rechecked: base routes exist, recovery protocol is
+  INCOMPLETE_OR_INCOMPATIBLE (existing FEEDBACK-003/006), not live verification.
+- Implemented: ADR-033 / ARCH-EVO-038 / CHANGE-100; durable V5 intent/lease/
+  generation/target guard, safe atomic finalizers, same-key stub historical replay
+  and conditional reversal; owner-only API/discovery; pending/account-scoped
+  IndexedDB UI and auth-only Continue. Requested Credit cooperation handoff is
+  concurrency/concurrency-order-credit.md; FEEDBACK-010 extends 003/006.
+- Backend verification: final Java 21 Maven verify **298 passed, 0 failures/errors/
+  skips**, including real PostgreSQL command recovery/migrations and ten legacy
+  race cases. Fresh coverage **95.76% lines / 81.82% branches**. No gate reduction.
+  TDD red/green details and timer-isolation commands are in CHANGE-100.
+- Frontend final: **73/73 tests**, lint **0 errors / 12 pre-existing unrelated
+  warnings**, Next route generation/typecheck and production build passed.
+  No native authenticated browser/IndexedDB QA claim.
+- Local atomic commits: `2e2b263` approved design/contract-stub handoff and
+  disclosure; `3dd1bf8` backend recovery/migration/tests; `5dea2ee` shared
+  frontend pending-command recovery/tests. No push performed. Only the personal
+  `docs/local/developer-profile.md` identity reconciliation is left uncommitted;
+  learning remains excluded. Final verification handoff records these hashes.
+- Source drift: approved PDF SHA256 values match. Generic format/drift helpers
+  do not accept historical local table/text formats and FAIL separately; existing
+  committed AI log merge markers preserved, no false all-workflow-passed claim.
+- Blocking dependency: actual Credit historical key replay/result/fencing/safe
+  compensation missing (INCOMPLETE_OR_INCOMPATIBLE). Credit and all sibling/
+  infrastructure code unchanged; HTTP recovery hard disabled. Required action:
+  Annablee agrees/implements handoff; re-inspect and run real contract/crash/restart
+  tests before live enablement. Stub financial state is not durable across restart.
+- Next: peer implementation, approved real HTTP adapter, native IndexedDB/
+  authenticated desktop/mobile browser QA and operational/scale-to-zero review.
+  Repost background retries and delegated credentials remain deferred. Learning
+  updated but excluded; local profile is personal and not staged. Sprint [~].
+
+## Automatic retry versus optional retry control clarification - 2026-10-10
+
+- Started/finished: Vincent asks why a Retry/Check-status button is needed when
+  recovery should be automatic. Clarification of the proposal only: retry button
+  is not required for authorized automatic recovery; status polling is automatic.
+  Fresh user authorization/sign-in may require an explicit Continue control.
+- Current no-stored-token/deferred-service-identity proposal cannot promise
+  financial background replay after a crash/logout. Same-key optional retry is
+  not a substitute for a scheduler, and missing authorization does not become
+  terminal failure. No UI decision, peer contract or implementation selected.
+- Verification: workflow/profile/proposal summary and Git branch/state inspected;
+  no runtime/source re-verification or tests required/run for this clarification.
+  Existing plan, 003/005/006 and full pre-coding gate remain pending; Sprint [~].
+  Only this active-work clarification changed; prior dirty records preserved.
+  Next: approve/modify the existing plan and agree peer recovery/auth contracts.
+
+## Three-Credit-command recovery implementation plan - 2026-10-10
+
+- Started: Vincent requests a plan first for durable frontend keys, Order/Credit
+  replay, lease-safe minute recovery and user-assisted authorization renewal for
+  reservation, assignment and abort reset. This is NOT permission to implement,
+  alter Credit, resume deferred background credentials or deploy infrastructure.
+- Identity/allocation/branch match sprint-2-3-credit-service-concurrency; Sprint
+  remains [~]. Preserve existing uncommitted advisory records; peers read-only.
+- Rechecked actual frontend key builders/useApi, creation/assignment/transition
+  services, CreditServicePort/HttpPeerAdapters, receipt and row-lock implementation,
+  Credit controller/transactional reservation/assignment/reset and relevant test
+  source. Credit's endpoints exist, but historical command-key result/recovery
+  and attempt-fencing semantics remain INCOMPLETE_OR_INCOMPATIBLE (003/006).
+- Working proposal: PENDING/COMPLETED plus outcome, ownership lease/generation,
+  retry timing and separate safe reason metadata; immutable key/input binding,
+  per-command and per-order claims, user-authenticated resume after crash rather
+  than persisted tokens or auth bypass, existing synchronous/outbox boundaries.
+- Gate: required broad historical rehydration is not complete; some large reads
+  truncated. No full source-drift/workflow/implementation-ready claim. Complete
+  that gate and resolve pending detailed design/provider approvals before coding.
+- Finished: appended the candidate schema/classes/sequence/locking/auth/UI/API/
+  test plan to PROPOSED ARCH-EVO-034, existing FEEDBACK-006 and excluded learning,
+  plus AI disclosure. Two-state representation is proposed with safe reason
+  metadata; no selected wire contract, migration number, storage or source added.
+- Verification: git diff --check passed (existing CRLF normalization warning),
+  learning local links/fences passed, learning remains Git-excluded. Manual D1
+  and selected Overall SHA256 match recorded values. Git shows only the four
+  pre-existing tracked advisory paths changed; no source/peer/frontend/test/schema
+  changes. No tests/live calls/full workflow audit claimed; no commit or push.
+- Blocked implementation: actual Credit's historical operation replay, authorized
+  result retrieval, stale-attempt fencing and compensation require Annablee's
+  agreement (003/006); unattended auth remains paused (005). User-assisted recovery
+  may be a separately approved interim milestone, not falsely automatic finance.
+  Current effective application files and peer routes remain unchanged.
+- Next: Vincent approves/modifies the plan and UI/key/storage/claim/guard scope;
+  peer agrees provider contract and missed-deadline recovery; finish full context/
+  traceability/source-drift gate, synchronize approved ADR/change/diagrams/contracts,
+  then TDD. Uncommitted docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md preserve earlier advisory edits;
+  withheld commit because proposal/human review pending and prior edits overlap.
+
+## UI-to-Credit durable command flow review - 2026-10-10
+
+- Started: Vincent requests a step-by-step rationality review of PENDING/
+  RETRYABLE/COMPLETED activities and frontend-generated keys shared with Credit.
+  Design discussion only, no application, peer or migration approval. Profile,
+  allocation and sprint-2-3-credit-service-concurrency match; Sprint [~].
+- Rechecked frontend payload builders, CreateOrder/OrderActor DTOs, Order adapter,
+  Credit controller and transactional replay/assignment/reset code, current
+  ADR-018/027, proposal 034 and feedback 006. Existing frontend generates UUID
+  commandId on each payload build; Order does not forward an activity key in the
+  three active HTTP mutations. Current peer historical-key replay not established.
+- Finished requested design review: extended the existing excluded learning,
+  PROPOSED ARCH-EVO-034 follow-up and existing FEEDBACK-006 plus disclosure.
+  Records explicit transaction boundaries and client key lifecycle, optional peer
+  PENDING versus atomic effect/result, timeout handling, leases/concurrent UI retries
+  and authoritative terminal outcomes. No implemented protocol or contract selected.
+- Verification: git diff --check, learning local links and balanced fences pass;
+  learning remains Git-excluded. No runtime calls, tests, cloud/DB mutations or
+  application/peer/frontend/test/schema/infra edits. Full historical workflow audit
+  not claimed; some broad record reads truncated. No source-drift completion claim.
+- Next: user reviews proposed flow; Annablee agrees 003/006 scoped historical
+  operation identity/result/retention and compensation; 005 auth remains paused.
+  Detailed source/schema/API/UI/TDD approval still required before implementation.
+  Current docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md stay uncommitted pending human
+  proposal review, preserving prior advisory edits; learning excluded. No push.
+
+## Two-state whole-handler replay clarification - 2026-10-10
+
+- Started: Vincent challenges whether explicit recovery phases are necessary
+  when peer deduplication permits whole-function replay. Explanation-only follow-up,
+  not worker/schema/peer-contract approval. Vincent/profile/branch match; scope
+  remains Order-owned, peers read-only, Sprint [~], background retries paused.
+- Inspected current creation/receipt and Credit reservation/assignment/reset
+  replay code plus existing ARCH-EVO-034 and ADR-018. Explained that PENDING/
+  COMPLETED is viable if COMPLETED stores success/rejection outcome and the
+  handler is idempotent end to end. Explicit phases are optional, not mandatory.
+- Updated the existing excluded learning note and disclosure only. Required
+  pre-I/O durable inputs/IDs, peer atomic effect/deduplication/equivalent result,
+  local atomic effects/completion, concurrency/deadline/current-state checks and
+  compensation. Current peer calls do not all have historical activity-ID replay.
+- Finished: git diff --check and learning links/fences pass; learning still
+  Git-excluded. No tests or runtime calls,
+  full historical workflow audit not claimed (partial/truncated context reads).
+  No code/design/contract implementation selected. Next: human review and explicit
+  detailed design/peer agreement before any implementation. Existing dirty proposal
+  records preserved, new advisory docs uncommitted; no commit/push.
+
+## Durable pending-activity scheduler clarification - 2026-10-10
+
+- Started: Vincent asks whether pending-before-HTTP plus minute-based recovery
+  can make unsafe outbound operations consistent. Advisory evaluation only,
+  not application/worker/contract approval. Profile/allocation/current branch
+  match sprint-2-3-credit-service-concurrency; peers read-only and Sprint [~].
+- Current context/ADR-027/018, proposal ARCH-EVO-034, outbound adapter/creation
+  and Credit reserve/replay/assignment/reset rechecked. Broad historical reads
+  partly truncated; full workflow audit not claimed. Initial guessed ADR-027
+  filename failed; actual listed ADR file subsequently read successfully.
+- Finished advisory clarification; updated the existing excluded crash-recovery
+  learning and AI disclosure. Explain independent committed intent, atomic local
+  finalization, terminal success versus rejection, ambiguity reconciliation, safe
+  idempotency, attempt-aware stale replay prevention and worker claims.
+- Verification: git diff --check and learning links/fences pass; learning remains
+  Git-excluded. No runtime requests, application/peer/tests/schema edits or tests
+  run. No full source-drift/completion audit claimed for this advisory follow-up.
+- Next: review the proposal, then approve operation-specific designs and agree
+  FEEDBACK-005/006/003 before implementation. Background retry pause unchanged;
+  a minute scan is recommended, not selected/implemented as a new schedule.
+  Current-turn active-work/AI/learning edits uncommitted; previous proposal edits
+  in architecture-evolution/peer feedback preserved. Human review pending, no push.
+
+## Creation/credit crash recovery learning and proposal - 2026-10-10
+
+- Started: Vincent asks for outcome classification, a solution proposal and
+  general learning documentation, not implementation. Profile/allocation/branch
+  match sprint-2-3-credit-service-concurrency; Sprint 2-3 remains [~]. Peers read-only.
+  Existing active-work/AI notes preserved. Cross-service recovery previously
+  deferred; this turn authorizes investigation/documentation only, not a worker.
+- Inspected current CREATE transaction, ignored reservation response, actual
+  Credit PUT/GET/replay/transaction/error paths and existing tests/FEEDBACK-006.
+  D1/selected Overall SHA-256 match. Current outbox covers committed outcomes,
+  not creation intent. Broad historical context batches partly truncated; full
+  workflow completion audit not claimed. No application/peer/runtime/cloud edits.
+- Finished the requested proposal/learning task: added excluded learning/
+  cross-service-state-change-crash-recovery.md (349 lines); registered PROPOSED
+  ARCH-EVO-034; appended discussion to existing FEEDBACK-006; added AI disclosure.
+  Covers outcome classification versus retryability, durable intent before remote
+  write, stable candidate/command binding, active-state confirmation, crash matrix,
+  forward recovery/compensation, late-write fencing, alternatives and future tests.
+- Verification: git diff --check passes (existing CRLF normalization warning);
+  learning has four balanced fence markers and all local Markdown links exist.
+  git check-ignore confirms learning remains excluded. Exact change scope is
+  documentation/disclosure only; no application/peer/test/schema/infra edits.
+  No unit, distributed recovery, browser or live peer tests run for this proposal.
+- Remaining: explicit detailed-design approval, agreed pre-creation compensation/
+  late-write terminal protocol (FEEDBACK-006), delegated authorization (005),
+  versioned migration/worker/UI contracts and actual fault-injection integration.
+  Background retries remain paused. No effective ADR/contract/design superseded.
+- Uncommitted paths: docs/architecture-evolution.md, docs/peer-service-api-feedback.md,
+  docs/active-work/vincent.md and ../ai/usage-log.md; local learning file excluded.
+  Proposal awaits human review; mixed pre-existing advisory notes in active-work/
+  disclosure preserved and not staged. No commit/push. Next: review proposal and
+  agree provider recovery/auth before any implementation; Sprint remains [~].
+
+## Credit synchronous response-code clarification - 2026-10-10
+
+- Follow-up: explained identical replay as same business orderId, requesterId
+  and amount. Existing Credit replayReservation compares requester/amount and
+  returns existing reservation/current account without reserving again; mismatch
+  returns 409. Replay does not require RESERVED status, so 200 alone is not proof
+  of an active hold. Existing terminal replay/recovery feedback remains; no fix,
+  runtime request, tests or application/peer change. Advisory clarification done.
+- Started/finished: same Vincent/branch/scope, advisory source inspection only.
+  Re-read CreditController, ErrorCode, GlobalExceptionHandler, JsonSecurityHandlers,
+  reservation/assignment/reset persistence branches and Order adapter/error advice.
+- Provider success: reservation 201 new / 200 identical replay with reservation
+  JSON; assignment and reset exactly 200 without body, including accepted replay.
+  Provider errors: 400 validation, 401 authentication, 403 permission/self/assignment,
+  404 missing account or reservation, 409 insufficient credits/reservation conflict,
+  503 role lookup/persistence failure, 500 unexpected errors. Reset 404 is reservation;
+  insufficient credits applies to reservation, not assignment/reset. Routing/media
+  failures are separate from business outcomes; transport failures have no HTTP code.
+- Order reservation translates peer errors; assignment/reset propagate RestClient
+  errors with no equivalent advice mapping, so client-facing results can be generic
+  500 rather than the original peer status. Report this existing gap, no fix selected.
+  Timeout/lost acknowledgement may follow remote success; existing recovery deferral
+  unchanged. Tests/runtime requests not run; no source/contract/schema/peer edits.
+- Next: developer review. Static findings do not verify live integration or close
+  Sprint gates. Existing uncommitted records retained; no commit/push.
+
+## Outbound state-modifying interaction audit - 2026-10-10
+
+- Started: Vincent requests an existing-source inventory, not implementation or
+  a new contract. Profile/allocation/branch agree on
+  sprint-2-3-credit-service-concurrency. Order-owned advisory scope; all peers
+  read-only. Preserve prior records; no runtime API, database or cloud mutations.
+- Inspection scope: HTTP adapters/ports and production callers, security role
+  client, transition/lifecycle/repost services, outbox dispatch, event DTOs and
+  topic settings; relevant actual User/Supplier/Credit providers and current
+  contracts/ADR-025/026/feedback. No architecture change or approval proposed.
+- Result: three active HTTP mutations to Credit: PUT reservation (creation and
+  both repost paths), PUT courier-assignment (acceptance), POST hold-for-reopen
+  (every ACCEPTED-only abort). Three event streams: OpenOrderRefundTaskEvent for
+  CANCELLED/EXPIRED to Credit, OrderCompletionTaskEvent for requester/scheduled
+  completion to Credit and intended User facts, AcceptedOrderCancellationTaskEvent
+  for every abort to User only. Topics are environment-configured, not necessarily
+  the default dev names. User subscriber/live processing remains unverified.
+- Supplier POST validate performs repository reads only; User role-context and
+  courier-eligibility GET implementations only read user data. Start/pickup/deliver
+  have no additional peer business mutation. Legacy settle HTTP method exists but
+  has no production caller; completion uses its event, not that missing route.
+- Audit finished: response inventory ready. Non-safe means intended business
+  mutation, not insecure or non-idempotent. Publication ACK is not financial
+  completion. Next action: developer review; deferred cross-service consistency
+  and peer consumer gates unchanged. No source/tests/contracts/schema changed.
+- Verification limitations: static inspection only; no test run or live consumer
+  verification. Larger historical workflow-context output was partly truncated;
+  no full context/gate/source-drift audit or Sprint completion claimed.
+
+## CHANGE-093: Courier acceptance versus requester cancellation - 2026-10-09
+
+- Test slice locally verified. Vincent explicitly approves the fifth real PostgreSQL race on
+  sprint-2-3-credit-service-concurrency. Profile/allocation match; preserve prior
+  uncommitted advisory/disclosure notes. Scope: Order test only, both winner
+  orderings, actual row contention, one outcome/version/checkpoint/receipt,
+  no losing Credit assignment and refund only for winning cancellation.
+- Effective references: F3/F13, F4.1.7, NFR3; existing ADR-017/018/019 and
+  CHANGE-092 test harness. Existing source locks both paths; this characterizes
+  already-implemented behavior, not a new production feature or API assumption.
+  User approval covers test design described in the preceding status turn.
+- D1 and selected Overall PDF SHA-256 match recorded fingerprints. Java 21 and
+  Docker 27.5.1 available. Broader historical context batches partly truncated;
+  no full workflow audit, new peer contract verification or Sprint completion
+  claimed. Existing generic workflow-format and live integration gates remain.
+- New parameterized test added before any production edit; existing behavior
+  passed first execution unchanged, not an invented red/green claim. Focused pair
+  2/2; full concurrency class 10/10 + 13 service regressions = 23/23; separate
+  actual domain/transition regressions 36/36. Zero failures/errors/skips in each
+  Java 21 offline Maven test run. No fresh full verify/JaCoCo/frontend/live test.
+- Generic drift checker exits 2 (manifest headers incompatible), while manual
+  PDF fingerprints match. verify_gate exits 1 with five format/history issues;
+  no unrelated workflow repair or full Sprint completion. Patch check passes.
+- Atomic test commit 827844b and separate verification-record commit 0f50886;
+  no push. New traceability/change/context records
+  and ignored learning updated. Prior uncommitted advisory/disclosure changes
+  preserved; active-work/AI disclosure remain unstaged so unrelated prior notes
+  are not mixed into the verified test commit. Next: developer review and existing
+  live integration/cross-service recovery work; no additional lock needed.
+- Final checks: learning links/fences, TOML parsing and staged diff checks pass.
+  Only pre-existing/mixed advisory files docs/active-work/vincent.md and
+  ../ai/usage-log.md remain tracked/uncommitted; learning stays Git-excluded.
+
+## Acceptance/cancellation lock confirmation - 2026-10-09
+
+- Follow-up test inventory inspection confirms exactly four parameterized race
+  methods/eight cases; no dedicated accept-versus-cancel test has been added.
+  Saved report: eight cases, zero failures/errors/skips, not a fresh execution.
+  To verify this fifth pair, test both winner orderings and assert one state,
+  no losing Credit assignment and refund intent only when cancellation wins.
+  User asked status only; no tests/source added on their behalf.
+- Lightweight source confirmation, Vincent on matching concurrency branch.
+  accept, cancel and cancelAccepted are transactional and call findForUpdate
+  before domain mutation; adapter delegates to PESSIMISTIC_WRITE JPA query.
+  Acceptance holds the lock during Credit assignment; abort during Credit reset.
+- Same-order accept versus requester cancel is serialized by this existing path;
+  loser must revalidate state/version. That exact pair is not one of CHANGE-092's
+  four dedicated race tests. No new runtime tests, implementation or design change.
+  Existing notes/disclosure preserved; this active-work note is uncommitted for
+  review. No further implementation is needed merely to add a redundant lock.
+
+## Concurrent locking learning document - 2026-10-09
+
+- User requested a separate learning Markdown explaining SQL locks and flow.
+  Vincent/profile/allocation match sprint-2-3-credit-service-concurrency;
+  documentation-only scope, no new architecture or implementation approval needed.
+- Created ignored learning/concurrent-order-locking-sql-and-flow.md: Java/JPQL
+  to observed Hibernate FOR NO KEY UPDATE SQL, commit/rollback/outer-transaction
+  lifetime, four transition races, completion NOWAIT, batch scheduler locks,
+  versions/receipts/outbox, safe SQL diagnostics, alternatives and remote Credit
+  partial-success limitation. Prior learning and existing uncommitted notes preserved.
+- Inspected actual assignment/transition/lifecycle/domain/repositories/tests,
+  V1/V3 migrations, AFTER_COMMIT listener and saved SQL/test reports. Existing
+  eight-case report remains zero failures/errors/skips; no new Maven/Docker/SQL
+  execution or live peer verification. Parent/nested context batch was truncated;
+  no complete historical workflow audit or full completion gate claimed.
+- Documentation validation passed: 26 balanced fence markers, 12 local links
+  resolve, git diff --check passes (existing CRLF notice only), and git
+  check-ignore confirms the new learning file is excluded. Source/contracts/schema/diagrams,
+  deployment and peer files unchanged. AI disclosure appended separately.
+  Learning remains Git-excluded; active-work/disclosure left uncommitted for review,
+  not mixed into prior user changes. Next: user reads guide; existing Sprint and
+  deferred integration/recovery blockers remain unchanged.
+
+## Staging Swagger URL clarification - 2026-10-09
+
+- Lightweight read-only workflow; Vincent/profile/allocation/current branch match.
+  application.yaml configures /api/orders/docs and /api/orders/v3/api-docs;
+  gateway forwards /api/orders to Order. No source/configuration change needed.
+- Live browser lookup could not access the staging docs URL; deployed page is
+  not independently verified. User can open the configured route in their browser.
+  No tests rerun; existing blockers unchanged. This active-work note remains
+  uncommitted for review alongside prior advisory notes.
+
+## Acceptance lock lifetime clarification - 2026-10-09
+
+- Advisory-only task, Vincent on sprint-2-3-credit-service-concurrency. Inspected
+  OrderAssignmentService.accept and controller call site: default @Transactional,
+  getForUpdate before Credit assignment, repository save and method return.
+- PostgreSQL releases the row lock at physical transaction commit/rollback,
+  not repository save or Java method-body return. Spring normally commits after
+  that return and before handing the result to the controller; an existing outer
+  REQUIRED transaction keeps the lock until the outer transaction ends.
+- No source, test, contract, schema or architecture change; no tests rerun.
+  Existing sprint/integration blockers remain unchanged. Learning clarification
+  recorded in the existing ignored learning document. Active-work update remains
+  uncommitted for review; prior status notes preserved. No implementation next
+  step is required for this terminology question.
+
+## Staging ACCOUNT_NOT_FOUND diagnosis - 2026-10-09
+
+- Follow-up clarification: missing migration/provisioning is a suspicion, not
+  a proven live root cause. Firebase login and Credit account lookup are separate.
+  User's pasted chat confirms previous discussion only, not database evidence.
+  No new cloud/database tests or repair; existing documentation remains pending
+  review and uncommitted. Next: Credit owner checks deployed database/UID/history.
+
+- Read-only diagnostic task, Vincent on sprint-2-3-credit-service-concurrency;
+  profile/allocation match, clean worktree at start. User asks why an existing
+  login has no Credit account. No approval to provision cloud funds, reset data,
+  change signup/login behavior or edit peer source.
+- Source inspection completed: AuthProvider.signIn calls Firebase and email
+  verification only, not Credit provisioning. signUp calls User creation then
+  POST /api/credits/registration-facts with self bearer token and eventId/userId/
+  occurredAt. Credit GET /me selects caller UID; getAccount throws the supplied
+  ACCOUNT_NOT_FOUND when JpaCreditRepository cannot find credit_accounts.user_id.
+- Local staging configuration selects credit_staging via Cloud SQL. Credit
+  history includes 53db4ec replacing Firestore with PostgreSQL; current V1 creates
+  schema, not old-user backfill. Old signup without provisioning, missing data
+  migration or a wrong deployed datasource are plausible, not proven causes.
+- Existing initialization endpoint inserts a missing account with 50 credits
+  and an initial-allocation ledger entry; it does not restore previous balance/
+  reservations/ledger. Credit owner must check existing historical funds and
+  correct staging datasource before choosing migration or authorized provisioning.
+- No cloud/SQL/API calls, tests, production/peer/frontend changes or financial
+  writes. Local source diagnosis only; live cause remains unverified. Learning
+  updated in ignored existing directory. Next: owner inspects deployed datasource
+  and UID row/history; no delete/re-signup/reset recommendation. Sprint unchanged.
+
+## Real PostgreSQL concurrency verification - 2026-10-09 / CHANGE-092
+
+- Status follow-up: re-read saved Surefire/JaCoCo reports at HEAD 3d26ff8;
+  all eight named races pass with zero failures/errors/skips; recorded Maven
+  full-run result is 215 tests. The directory-wide XML sum is 219 because older
+  reports remain, so it is not a fresh-run total. Coverage is 95.67% lines /
+  84.70% branches. Production and race-test
+  source unchanged since 1906afb. No new execution or live peer verification
+  performed; this confirmation note left uncommitted for review.
+
+- VERIFIED test unit: user confirms branch sprint-2-3-credit-service-concurrency for
+  the four Order races. Clean worktree at start; profile/allocation reconciled.
+- Test-only design: actual Spring services, independent threads/transactions,
+  isolated PostgreSQL 15/Flyway. Gate winner after real lock; verify competitor
+  blocked via pg_stat_activity/pg_blocking_pids. Both winner orderings; assert
+  state, actor, version, checkpoint, receipt and outbox counts.
+- User/Credit and external dispatch mocked. No application DB/cloud changes.
+  Cross-service recovery explicitly deferred; Docker engine reachable.
+- Relevant D1: F3/F13, F4.1.5/F5.1, F4.1.7, F4.1.8/F10; NFR3.
+  ADR-018/020/025/026 retained. No requirements/design/migration change.
+- D1/selected Overall hashes match. Historical context output partly truncated;
+  no complete historical audit or Sprint completion claimed.
+- Initial focused execution: 8 tests, 1 fixture-precision failure (nanoseconds
+  versus PostgreSQL microseconds); persisted-deadline read-back correction.
+  Focused rerun: 8 passed, zero failures/errors/skips. No production edit.
+- Full Java 21 command: mvnw.cmd -o -B -ntp -Djacoco.append=false verify.
+  BUILD SUCCESS: 215 tests, zero failures/errors/skips; includes the eight races
+  again. Fresh coverage: 1392/1455 lines (95.67%), 465/549 branches (84.70%);
+  both configured 80% gates pass. All required race tests ran against real PG15.
+- Completion scheduler loser returns SQLSTATE 55P03 under existing NOWAIT policy;
+  its next pass returns zero. Seven other cases prove waiting via PostgreSQL
+  blocking PIDs, then correct state revalidation and single committed outcome.
+- No full-stack/browser/live Credit ledger or real Pub/Sub delivery claim. No
+  frontend, production source, migrations or peer files changed. Learning updated
+  in existing ignored directory, not staged. Full Sprint remains [~].
+- Follow-up races: manual/auto repost; abort/start; same-command duplicate replay;
+  duplicate lifecycle replicas; dispatch/recovery lease overlap. Recommendations
+  only, not implementation approval or verified coverage of those other races.
+- Cross-service partial-success recovery remains user-deferred to next branch.
+  Earlier UI abort-label request remains separate pending work.
+- Test-only atomic commit: 1906afb, reviewed staged patch/diff check; no push.
+- Supplied generic workflow scripts do NOT pass: drift exit 2 requires different
+  manifest column names; record-gate exit 1 reports 3 existing-format/history
+  issues (traceability columns/ID and historical active-work requirement ID).
+  Manual SHA256 matches approved D1/Overall. This is not business/test failure,
+  but full workflow completion remains blocked; no historical records rewritten.
+
 ## Simultaneous acceptance inspection - 2026-10-09
 
 - Vincent asks whether concurrent courier acceptance is protected and requests

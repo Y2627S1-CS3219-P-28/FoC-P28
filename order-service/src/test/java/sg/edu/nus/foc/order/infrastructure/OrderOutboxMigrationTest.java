@@ -34,7 +34,8 @@ class OrderOutboxMigrationTest {
 
         flyway.migrate();
 
-        assertEquals("4", latestVersion("outbox_clean"));
+        assertEquals("8", latestVersion("outbox_clean"));
+        assertTrue(tableExists("outbox_clean", "order_commands"));
         assertTrue(tableExists("outbox_clean", "order_event_outbox"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_due"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_expired_lease"));
@@ -47,8 +48,41 @@ class OrderOutboxMigrationTest {
 
         flyway("outbox_upgrade").migrate();
 
-        assertEquals("4", latestVersion("outbox_upgrade"));
+        assertEquals("8", latestVersion("outbox_upgrade"));
         assertTrue(tableExists("outbox_upgrade", "order_event_outbox"));
+    }
+
+    @Test
+    void upgradesVersionFivePreservingPendingPayloadAndUnboundHistoricalReceipts() throws Exception {
+        String schema = "review_upgrade";
+        flyway(schema, MigrationVersion.fromVersion("5")).migrate();
+        insertPendingOutboxEntry(schema);
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            statement.execute("insert into " + schema + ".command_receipts "
+                    + "(id,operation,command_id,order_id,recorded_at) values "
+                    + "('00000000-0000-0000-0000-000000000105','COMPLETE','historical','order-claim',now())");
+        }
+        flyway(schema).migrate();
+        assertEquals("8", latestVersion(schema));
+        assertTrue(indexExists(schema, "ix_order_event_outbox_failed"));
+        try (Connection connection = connection(); Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery("select event_id,payload,state from " + schema + ".order_event_outbox")) {
+            assertTrue(result.next());
+            assertEquals("event-claim", result.getString("event_id"));
+            assertEquals("{}", result.getString("payload"));
+            assertEquals("PENDING", result.getString("state"));
+            assertFalse(result.next());
+        }
+        try (Connection connection = connection(); Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery("select actor_id,input_fingerprint,command_id from " + schema + ".command_receipts")) {
+            assertTrue(result.next());
+            assertEquals(null, result.getString("actor_id"));
+            assertEquals(null, result.getString("input_fingerprint"));
+            assertEquals("historical", result.getString("command_id"));
+        }
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            assertEquals(1, statement.executeUpdate("update " + schema + ".order_event_outbox set state='FAILED',attempt_count=10 where event_id='event-claim'"));
+        }
     }
 
     @Test
@@ -64,7 +98,7 @@ class OrderOutboxMigrationTest {
                     + "now(),now()+interval '1 hour',15,true,now()+interval '2 hours',2,15,false)");
         }
         flyway(schema).migrate();
-        assertEquals("4", latestVersion(schema));
+        assertEquals("8", latestVersion(schema));
         try (Connection connection = connection(); Statement statement = connection.createStatement();
                 ResultSet result = statement.executeQuery("select enabled,repost_expires_at,status,id from "
                         + schema + ".orders where id='legacy'")) {
@@ -101,6 +135,34 @@ class OrderOutboxMigrationTest {
             firstWorker.commit();
             assertTrue(claimable(secondWorker, claimSql, now));
             secondWorker.rollback();
+        }
+    }
+
+    @Test
+    void upgradesVersionSevenPreservingCommandsAndGuardingDistinctRepostCandidate() throws Exception {
+        String schema = "manual_repost_upgrade";
+        flyway(schema, MigrationVersion.fromVersion("7")).migrate();
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            statement.execute("insert into " + schema + ".order_commands(command_id,actor_id,kind,order_id,input_hash,payload) "
+                    + "values ('old','owner','CREATE','existing-id','hash','{}')");
+        }
+        flyway(schema).migrate();
+        assertEquals("8", latestVersion(schema));
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            try (ResultSet saved = statement.executeQuery("select order_id,payload,status,candidate_order_id from " + schema + ".order_commands where command_id='old'")) {
+                assertTrue(saved.next());
+                assertEquals("existing-id", saved.getString("order_id"));
+                assertEquals("{}", saved.getString("payload"));
+                assertEquals("PENDING", saved.getString("status"));
+                assertEquals(null, saved.getString("candidate_order_id"));
+            }
+            String insert = "insert into " + schema + ".order_commands(command_id,actor_id,kind,order_id,input_hash,payload,candidate_order_id) values ";
+            assertThrows(java.sql.SQLException.class, () -> statement.execute(insert + "('bad','owner','REPOST','orig','hash','{}',null)"));
+            assertThrows(java.sql.SQLException.class, () -> statement.execute(insert + "('bad','owner','REPOST','orig','hash','{}','orig')"));
+            statement.execute(insert + "('repost','owner','REPOST','orig','hash','{}','candidate')");
+            assertThrows(java.sql.SQLException.class, () -> statement.execute(insert + "('competitor','owner','REPOST','orig','hash','{}','candidate2')"));
+            assertThrows(java.sql.SQLException.class, () -> statement.execute(insert + "('reuse','owner','REPOST','orig2','hash','{}','candidate')"));
+            assertTrue(indexExists(schema, "ux_order_command_pending_target"));
         }
     }
 

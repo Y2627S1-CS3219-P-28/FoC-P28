@@ -1,4 +1,25 @@
 schema_version = 1
+pending_card_recovery = "CHANGE-108 / ADR-038: source9f2e054/942b790; owner displayDetails/shared cards;373 backend/103 frontend pass; browser/rollout/strict gates open"
+expiry_http_trigger = "CHANGE-107 / ARCH-EVO-043: retired; scheduler-only expiry; all repost routes retained"
+manual_repost_recovery = "ADR-037 / CHANGE-106: implemented, source2c021b6; 367 backend/90 frontend; consuming rollout blocked by Docker engine500; strict gate pending"
+manual_repost_migration = "V8__durable_manual_repost.sql"
+local_transport_decision = "docs/decisions/ADR-036-local-emulator-and-review-hardening.md"
+local_pubsub = "emulator-only; demo-foc-local; real HTTP peers; no ADC/tunnel"
+legacy_mutation_protocol = "CREATE/ACCEPT/ABORT/manual REPOST durable coordinator; 202 pending"
+outbox_recovery = "bounded async after-commit; 15-minute scan; retained FAILED after 10; ADMIN redrive"
+latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql", "V8__durable_manual_repost.sql"]
+cloud_timer_runtime = "config only: min1/no-cpu-throttling; not deployed"
+live_credit_recovery_decision = "docs/decisions/ADR-035-live-credit-command-recovery.md"
+live_credit_recovery_protocol = "credit-command-v1; HTTP gateway; no stored tokens or delegated credentials"
+pubsub_asyncapi = "docs/asyncapi/asyncapi.yaml"
+pubsub_asyncapi_guide = "docs/asyncapi/README.md"
+pubsub_asyncapi_scope = "CHANGE-103: current outgoing contracts only; no live-integration completion"
+merged_minute_scheduler_decision = "docs/decisions/ADR-034-merged-minute-command-and-lifecycle-job.md"
+merged_minute_scheduler_order = ["eligible command recovery (HTTP requires fresh user authorization)", "OPEN expiry", "DELIVERED >=48h completion"]
+merged_minute_scheduler_cron = "order.lifecycle.cron; default 0 * * * * *; order.commands.cron obsolete"
+foreground_command_recovery_decision = "docs/decisions/ADR-033-durable-credit-command-stub.md"
+foreground_command_recovery_scope = "CREATE/ACCEPT/ABORT/manual REPOST HTTP and explicit mock selection; automatic repost deferred"
+recovery_context_loading = "latest effective and relevant sections approved by Vincent 2026-10-10"
 service = "order-service"
 canonical_context = "docs/ai-project-context.md"
 active_sprint_pointer = "docs/current-sprint.md"
@@ -58,11 +79,12 @@ pre_push_ci_rehearsal_default = "explicit-trigger-only"
 pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
 
 [current_workstream]
+concurrency_verification_extension = "CHANGE-093: accept versus requester cancel, both winner orderings; new pair 2/2 and full class 10/10 passed; Order test-only, peers mocked"
 validation_amendment = "CHANGE-091 / ADR-030: field-only errors; new auto expiry >= due+30min; manual expiry >= submit+30min"
 saved_explicit_expiry_plans = "grandfather unchanged; no migration; late execution allowed while expiry future"
 decision_record = "changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md"
 developer = "Vincent"
-branch = "sprint-2-3-credit"
+branch = "sprint-2-3-credit-service-concurrency-update-event-payload"
 sprints = [2, 3]
 scope = "Order-owned parts only; sibling backend services read-only"
 stage = "approved Order lifecycle/history slice implemented and locally verified; live peer/browser/cloud gates pending"
@@ -127,6 +149,9 @@ credit_consequence_processing = "transactional-outbox-with-after-commit-dispatch
 credit_courier_assignment_before_acceptance = true
 credit_courier_assignment_order_stub_implemented = true
 credit_courier_assignment_peer_api_verified = false
+credit_command_http_adapter_implemented = true
+credit_command_financial_provider_tests = "CHANGE-104: real Credit/PostgreSQL replay, timeout, restart, rollback, compensation, same-key claim; User/Supplier fixtures; final dispatch isolated"
+credit_command_full_stack_verified = false
 synchronous_credit_requests_include_order_version = false
 published_order_events_include_order_version = true
 credit_assignment_request_fields = ["orderId (path)", "courierId (body)"]

@@ -93,7 +93,8 @@ public class OrderEventOutbox {
     }
 
     public void claim(Instant now, Instant leaseExpiry) {
-        if (state == OutboxState.PUBLISHED || leaseExpiry == null || !leaseExpiry.isAfter(now)) {
+        if (state == OutboxState.PUBLISHED || state == OutboxState.FAILED
+                || leaseExpiry == null || !leaseExpiry.isAfter(now)) {
             throw new IllegalStateException("Outbox entry cannot be claimed.");
         }
         state = OutboxState.IN_PROGRESS;
@@ -115,10 +116,20 @@ public class OrderEventOutbox {
         if (state != OutboxState.IN_PROGRESS || nextAttemptAt == null) {
             throw new IllegalStateException("Only a claimed outbox entry can be retried.");
         }
-        state = OutboxState.PENDING;
+        state = attemptCount >= 10 ? OutboxState.FAILED : OutboxState.PENDING;
         this.nextAttemptAt = nextAttemptAt;
         leaseUntil = null;
         lastError = truncate(error);
+    }
+
+    public void redrive(Instant now) {
+        if (state != OutboxState.FAILED || now == null) {
+            throw new IllegalStateException("Only a retained failed event can be redriven.");
+        }
+        state = OutboxState.PENDING;
+        attemptCount = 0;
+        nextAttemptAt = now;
+        leaseUntil = null;
     }
 
     private String truncate(String error) {

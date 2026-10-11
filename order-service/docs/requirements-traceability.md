@@ -1,5 +1,144 @@
 # Order Service Requirements Traceability
 
+## CHANGE-109 profile merge compatibility [~]
+
+| Requirement/convention | Contract -> frontend implementation | Verification |
+| --- | --- | --- |
+| User-approved repair; authenticated gateway convention | Current AuthProvider -> local account-keyed profile GET via useApi | Load/auth restoration/signed-out/failure/account-switch tests |
+| Existing own-profile edit; no new Order FR/role/sequence | Username-only PUT; Firebase verified email + refreshed token then email-only PUT | Minimal payload, rejected saves, unverified no-write, sync retry, stale-account tests |
+| Existing Firebase password flow; NFR3.1.3 | Reauthenticate before updatePassword; no password to User Service | Success/rejected reauthentication; no unintended peer calls |
+| NFR2.1 responsive UI; NFR3.1.3 | Existing primitives/cards with mobile padding; Edit control |116 tests/27 files, typecheck/build pass, lint0errors; actual320-1920px browser/email checks pending |
+
+Source/testd7f72a8; CHANGE-109. User implementation inspected, not real-user
+integration verified. Order financial command recovery unchanged.
+
+## CHANGE-108 / ADR-038 pending display recovery [~]
+
+| Effective requirement | Design -> implementation | Verification | Status |
+| --- | --- | --- | --- |
+| F1/F3/F4.1.1/F4.1.9/F11.2 + ADR-033/035 | ADR-038 safe display -> CommandView/OrderCommandService | Owner projection/source/expired-target/null tests; saved PostgreSQL discovery | Automated passed |
+| F2/F8/F9 + NFR2/NFR4 | Shared page/account discovery -> pending existing cards, no history binding | Storage loss, same-key resume, account isolation, dedup and real page filter/pagination tests | Automated passed; browser pending |
+| NTH4 + F10/F10.1.3 + ADR-037 | Frozen REPOST details separate; original EXPIRED form blocked | Submitted summaries, actual abort/repost controls, terminal confirmation and conditional key cleanup | Automated passed |
+| NFR3/4 | No new Credit payload, schema, general read permission or workflow handler |373 backend0skips/103 frontend, lint/typecheck/build/OpenAPI pass;95.37%line/80.27%branch | Browser/human/rollout/strict gates remain |
+
+CHANGE-107 / ARCH-EVO-043: F4.1.8/F10 expiry and NFR3/NFR4 -> retire only unused
+HTTP adapter -> OpenApiDocumentationTest proves no expiry operation/routing and
+retains all repost paths; OrderLifecycleSchedulerTest and expiry regressions
+preserve direct expiry/refund behavior. No new product requirement or peer API.
+
+CHANGE-106 / ADR-037 [~]: NTH4 + F10/F10.1.3 override -> immutable REPOST original/
+candidate -> reserve -> atomic OPEN/link/result -> same-key pending UI. ADR-030
+initial30min minimum, ADR-033/035 authorization/lease/compensation; NFR3 test/coverage
+and NFR4 owner binding. Automated backend/real Credit/PG/frontend verification
+passes; local consuming rollout/interactive and strict-record gates remain open.
+
+| Effective requirement | Implementation / approved design | Test and evidence | Status |
+| --- | --- | --- | --- |
+| NTH4 + F10/F10.1.3 visibility override | ADR-037; REPOST original guard/candidate; atomic manualConfirmed/link/result | PG stable candidate/concurrent keys; actual Credit lost reply/rollback; UI successor replacement | Automated passed, rollout pending |
+| ADR-030 manual initial30min window | frozen created_at + explicit expiry, no sliding retry deadline | RepostExpiryTest; actual Credit late compensation and valid late retry | Passed |
+| ADR-033/035 consistency + NFR4 ownership | claim/lease/generation, immutable actor/input; minimal existing RESERVE/history/compensation | owner forgery/API wrong-role; pending blocker; real reservation/replay/reversal | Passed in actual Credit harness; User/Supplier fixtures |
+| NFR3 line/branch/test gate | unchanged Maven coverage and shared frontend regression | 367 backend0skips,94.76%line/80.23%branch;90 frontend; lint/typecheck | Passed; generic workflow helper format gate not passed |
+
+## CHANGE-105 / ADR-036 effective verification
+
+| Requirement/amendment | Implementation and test responsibility | Gate |
+| --- | --- | --- |
+| F1/F2/F3/F4/F11 + ADR-033/035/036 | Legacy CREATE/ACCEPT/ABORT coordinator; intent before remote effects, stable keys/candidate, atomic finalization | Controller + real Credit recovery regressions |
+| F4.1.7/F4.1.8/F10/F5.1 + ADR-013/031/036 | Local emulator cancellation/expiry refunds, completion transfer; abort after expiry | Actual Credit/PG/emulator tests + real Compose HTTP smoke |
+| NFR4 + ADR-036 | Relationship reads, receipt binding/key-reuse conflict, scoped event IDs, cloud lifecycle fail-closed | Unit/API/PG/cloud/local security tests |
+| NFR consistency + ADR-036 | Bounded async publication, 15-minute scan, retained FAILED(10), ADMIN redrive | Domain/listener/PG/controller security |
+| NFR3.1.1/3.1.3 | >=80% line/branch; real integration vs fixtures distinguished | Exact counts/coverage recorded in CHANGE-105 |
+
+No automatic-repost/delegation or User penalty completion claim. Sprint [~].
+
+## CHANGE-104 / ADR-035: actual financial command recovery
+
+| D1 / amendment | Requirement / implementation | Test evidence | Status |
+| --- | --- | --- | --- |
+| F1/F2 + ADR-033/035 | Reserve before OPEN; durable intent/candidate; atomic local outcome | Actual Credit replay/lost response/local rollback/restart | Real eight-scenario suite passes; full-stack gates separate |
+| F3/F4.1.1/F13 + ADR-033/035 | One worker; pending guard; reverse specific assignment after deadline | Simultaneous same-key claim; cancellation blocked; compensation then expiry intent | Actual Credit/PostgreSQL passes |
+| F11.2 + ADR-025/033/035 | Confirm clear before accepted abort history/reopen | Lost clear, history once, replay cannot clear newer assignment | Actual Credit/PostgreSQL passes |
+| NFR3.1.1/NFR3.1.3 | >=80% line/branch gate; positive/negative contracts | 25 HTTP fixture tests; eight real-provider tests; full verify evidence in CHANGE-104 | Recorded at handoff |
+| ADR-033 security/UI + NFR4 | No saved tokens; pending UI; same-key Continue | 83 frontend tests, including eight recovery hook tests; lint/typecheck | Passing; no live browser/User/Supplier/IAM claim |
+
+Legacy routes remain compatible; enabled browser recovery uses /api/orders/commands.
+Repost recovery remains outside this slice. Sprint remains [~].
+
+## CHANGE-103: AsyncAPI documentation representation
+
+| Requirement / amendment | Documented contract | Verification | Status |
+| --- | --- | --- | --- |
+| F4.1.7, F4.1.8/F10, F11 + ADR-013/025/031 | CANCELLED/EXPIRED refund with old order ID; compact v2 | AsyncAPI parser, DTO/topic parity and refund examples | Documentation verified; live gates unchanged |
+| F4.1.5/F5.1, F11 + ADR-031 | Manual/automatic completion compact v2; no inferred overdue facts | Parser, exact field/version checks and completion example | Documentation verified; financial/User gates open |
+| F11.2 + ADR-025 | Every accepted abort: User-only actor facts, resulting OPEN/EXPIRED snapshot v1 | Parser, snapshot/nested field sets and both outcome examples | Documentation verified; User subscriber unverified |
+| NFR consistency/verification + ADR-013/021/026/034 | Three send-only channels; immediate publication + separate 15-minute recovery; stable IDs | Attribute/topic/cadence parity and negative schema checks | Documentation-only; not live delivery proof |
+
+CHANGE-103 changes no requirements, lifecycle behavior or Sprint completion state.
+
+## CHANGE-102 / ADR-034: merged minute orchestration
+
+| ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SCH-REC | F3/F4.1.1/F13; approved orchestration amendment | Recover eligible pending commands before expiry; never bypass acceptance deadline or unresolved guard | ADR-033/034; effective minute sequence | OrderLifecycleScheduler -> OrderCommandService -> existing lifecycle workers | OrderCommandSchedulerTest; OrderCommandRecoveryIntegrationTest (valid, compensated, unresolved acceptance) | IN_PROGRESS |
+| SCH-EXP | F4.1.8/F10; OPEN expiry | Still OPEN, unassigned, deadline reached: expiry follows recovery and queues one refund | ADR-026/034 | processDueOrders -> expireDue; unchanged locks/outbox | Recovery integration; existing expiry/concurrency regressions | IN_PROGRESS |
+| SCH-COMP | F4.1.5/F5.1; automatic completion | Still DELIVERED, latest delivery >=48h: completion follows expiry | ADR-020/026/034 | processDueOrders -> autoCompleteDue; unchanged item transactions | OrderLifecycleSchedulerTest; existing completion/concurrency regressions | IN_PROGRESS |
+| SCH-ISO | NFR3/NFR4; scheduling isolation | Single minute owner, lifecycle timestamp after recovery, error logging/isolation; outbox remains 15min | ADR-034 | OrderLifecycleScheduler; independent OrderOutboxScheduler | Scheduler ownership/order/time/failure tests; OrderSchedulerCadenceTest | IN_PROGRESS |
+
+Local evidence: 28 focused and 301 full backend tests pass with no failures,
+errors or skips; 95.60% line / 81.95% branch coverage. PostgreSQL is real; Credit
+is stubbed. Status remains IN_PROGRESS until broader workflow/live gates pass.
+The scheduler amendment changes orchestration only. No new financial/auth/API,
+frontend, migration, topic or infrastructure contract; Sprint remains `[~]`.
+
+## CHANGE-100 / ADR-033: foreground command recovery stub
+
+| ID | Requirement | Acceptance criteria | Design reference | Implementation reference | Test reference | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| REC-CREATE | F1/F2 + ADR-033 | Commit immutable intent/candidate before reservation; one OPEN and saved terminal result after confirmed success | ADR-033; concurrency/concurrency-order-credit.md | OrderCommandService; OrderCommandStore; OrderCreationService.createConfirmed | OrderCommandRecoveryIntegrationTest: intent barrier, lost response, local rollback, insufficient funds | TESTED_STUB; live blocked |
+| REC-ACCEPT | F3/F4.1.1/F13 + ADR-033 | Same/different-key competitors cannot produce multiple assignments; preserve deadline and reverse invalid remote success | ADR-033; existing Order acceptance rules | Command claims/guard; OrderAssignmentService.acceptConfirmed; LocalCreditCommandStub | Recovery integration: concurrent claim, expiry compensation, competing cancel/expiry | TESTED_STUB; live blocked |
+| REC-ABORT | F11.2 + ADR-025/033 | Accepted-only reset confirmed before one immutable attempt + same-ID OPEN/EXPIRED + approved outbox | ADR-025; ADR-033 | OrderTransitionService.abortConfirmed; existing history/outbox | Recovery integration: successful three-action flow, unknown abort blocks start; CreditCommandStubTest old reset replay | TESTED_STUB; live blocked |
+| REC-AUTH | ADR-010/033 | Owner/immutable input binding; unknown then 401 stays pending; no stored token; owned past read does not require new-task eligibility | ADR-033 / handoff authorization | OrderCommandService; OrderCommandController; existing JWT security | OrderCommandGateTest; OrderCommandSecurityTest; recovery authorization test | TESTED_STUB; real peer auth blocked |
+| REC-LEASE | NFR3 + ADR-033/034 | Only due, unclaimed/expired-lease work is recovered; stale generation cannot finalize/compensate | ADR-033/034; V5 constraints | OrderCommandStore; first shared minute phase; protocol stub | Recovery PG claims/generation tests; stub fencing test; OrderCommandSchedulerTest | TESTED_STUB; provider fence blocked |
+| REC-UI | ADR-033 + NFR3 | Persist frozen key before POST, retain on timeout/reload, disable pending action, Continue only for authorization, account isolation | ADR-033; frontend integration/style guide | useOrderCommand; IndexedDB storage; PendingOrderCommands; existing routes/actions | Hook 7 cases; pending panel 3 cases; full frontend regression | RTL/build tested; browser gate open |
+| REC-DB | ADR-008/016/033 + NFR3 | Versioned V5 migration, clean/upgrade, preserved previous orders/history/outbox | Database migration workflow; V5 handoff | V5__durable_foreground_commands.sql | OrderOutboxMigrationTest; real PostgreSQL recovery suite | PostgreSQL tested; consuming DB handoff pending |
+
+Full backend verification: 298 tests, 0 failures/errors/skips; JaCoCo 95.76%
+lines and 81.82% branches. This is executed Order/contract-stub evidence, not
+verified Credit historical persistence, live broker delivery or hosted-browser
+completion. FEEDBACK-010 extends 003/006; Sprint remains `[~]`.
+Earlier concurrency tests now prove caught NOWAIT 55P03 and isolate per-case
+state, preserving current per-order lifecycle isolation rather than requiring
+an obsolete blocking lifecycle batch. All ten legacy race cases pass.
+
+## CHANGE-093: Courier acceptance versus requester OPEN cancellation
+
+| D1 / approved invariant | Existing implementation | Simultaneous verification |
+| --- | --- | --- |
+| F3/F13 + F4.1.7: one valid OPEN transition | OrderAssignmentService.accept / OrderTransitionService.cancel / same getForUpdate row lock | acceptanceAndRequesterCancellationCommitOnlyOneOutcome, both winner orderings |
+| NFR3: genuine contention and no duplicate consequences | Actual Spring services, PostgreSQL 15/Flyway; peers/dispatcher mocked | Blocking PID required; loser CONFLICT; one version/checkpoint/winning receipt; Credit assigned only for ACCEPTED; refund/dispatch only for CANCELLED |
+
+Focused new pair: 2 passed; full five-race class: 10 passed; acceptance/service
+regression selection: 13 passed (combined run 23, zero failures/errors/skips).
+Separate actual domain/transition regression: 36 passed, zero failures/errors/
+skips. Total regression evidence is 10 race cases plus 49 related tests, not a
+fresh full-suite/coverage claim. CHANGE-093/test commit 827844b; no production/
+peer/schema/frontend change. Generic workflow-format and live integration gates
+remain open; overall Sprint [~].
+
+## CHANGE-092: Real PostgreSQL concurrent transitions
+
+| D1 / approved invariant | Existing implementation | New simultaneous test |
+| --- | --- | --- |
+| F3/F13: one courier can accept; row lock before Credit | OrderAssignmentService.accept / getForUpdate | Two couriers, each winner ordering; loser conflict and no Credit assignment |
+| F4.1.7, F4.1.8/F10: cancellation or expiry, not both | OrderTransitionService.cancel / LifecycleProcessingService.expireDue | Each winner ordering; exactly one terminal checkpoint and refund intent |
+| F3, F4.1.8/F10: acceptance excludes expiry | Assignment / due-unassigned pessimistic query | Each winner ordering; no expired assigned row or duplicate outcome |
+| F4.1.5/F5.1, ADR-020: one completion at requester or 48-hour tick | Complete / autoCompleteDue | Each winner ordering; one completion receipt/checkpoint/event; safe next tick |
+| NFR3: genuine persistence verification | PostgreSQL 15, Flyway V1-V4, independent transactions | OrderConcurrencyPostgresIntegrationTest; pg blocking evidence / explicit NOWAIT 55P03 |
+
+Eight focused cases pass, zero skips; full verification reruns all eight and
+passes 215 tests/no failures/errors/skips. Fresh coverage: 95.67% lines/84.70%
+branches. Peers/delivery mocked, results in CHANGE-092; no live ledger/broker/
+Sprint completion claim. Production/contract/schema/frontend behavior unchanged.
 ## Lifecycle per-order failure isolation — CHANGE-093 (2026-10-09)
 
 Yao Xiang explicitly requests failed scheduled tasks be skipped while later successes continue. Due selection returns IDs filtered in the DB (latest delivery cutoff for completion), without locking a whole batch. Nontransactional lifecycle coordinator calls fresh NOWAIT-locking per-order transactions (expiry worker / existing autoComplete with REQUIRES_NEW), catches each RuntimeException including commit failures, logs order ID, counts only successful transitions, then continues. Scheduler retains independent whole-pass catches. Failed orders remain eligible next normal lifecycle pass; no new repost retry mechanism or cron/contract/schema/peer change. Previous batch transaction description is superseded by this refinement; CHANGE-092 compact payloads and FEEDBACK-009 remain unchanged.

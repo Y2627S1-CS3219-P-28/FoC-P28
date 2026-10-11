@@ -3,6 +3,9 @@
 [CmdletBinding()]
 param([ValidateSet('Setup','Check','Pause')][string] $Action = 'Check')
 
+# ADR-036: retained historical helper, disabled before any cloud/network action.
+throw 'Cloud-local Setup/Check/Pause is retired. Use docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.yaml up -d --build. Topics/subscriptions are initialized locally by pubsub-init; see order-service/docs/local-live-testing.md. No cloud resources changed.'
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 

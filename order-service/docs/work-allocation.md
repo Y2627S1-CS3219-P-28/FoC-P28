@@ -1,5 +1,50 @@
 # Order Service Work Allocation
 
+Vincent authorizes CHANGE-109 on2026-10-11: one narrow shared profile frontend
+compatibility repair afterc2fe90c, existing User/Firebase APIs only. No backend,
+AuthProvider, Order recovery, schema or shared infrastructure change/reassignment.
+
+Vincent approves CHANGE-108 / ADR-038 on 2026-10-11: owner-safe command display
+projection and shared frontend discovery/card recovery, tests and records.
+This extends his existing Order/frontend recovery slice only; peers read-only.
+
+Vincent approves CHANGE-106 / ADR-037 on 2026-10-11: durable manual repost,
+V8 original/candidate separation, backend/companion frontend/tests and records.
+This supersedes manual-only deferral, not automatic/delegated credentials.
+Peer source, cloud and shared deployment files remain read-only.
+
+## Vincent live Credit recovery extension — 2026-10-11
+
+Vincent explicitly authorizes CHANGE-104 / ADR-035 on sprint-2-3-credit-service-concurrency-update-event-payload: Order HTTP gateway, capability activation, bounded peer timeouts, actual Credit/PostgreSQL tests, frontend regression and handoff/configuration. Peer source stays read-only. This continues Vincent's ADR-033 slice; it neither reassigns Yao Xiang's work nor approves delegated credentials.
+
+## Vincent scheduler orchestration extension - 2026-10-10
+
+Vincent confirms `sprint-2-3-credit-service-concurrency-update-event-payload`
+and approves CHANGE-102: one every-minute scheduler executes command recovery,
+OPEN expiry, then 48-hour DELIVERED completion. Preserve transactions, row locks,
+pending guards and the live HTTP recovery gate. Narrow Order-only extension;
+no reassignment of peer/frontend implementation. CHANGE-101 documents JWT signing
+locally in the existing excluded learning folder.
+
+## Current Vincent implementation extension — 2026-10-10
+
+Vincent explicitly approves CREATE/ACCEPT/CANCEL_ACCEPTED recovery across Order
+and companion frontend on sprint-2-3-credit-service-concurrency, including the
+shared foundation/schema/interface refinements in ADR-033. Stub-only milestone;
+no peer edits, live recovery or repost recovery. Historical allocations remain.
+
+## Current concurrency verification branch (2026-10-09)
+
+Vincent additionally approves the fifth pair, courier acceptance versus requester
+OPEN cancellation, in CHANGE-093: same isolated PostgreSQL harness and both
+winner orderings. Order test-only scope and all peer/recovery boundaries retained.
+
+Vincent explicitly authorizes Order-only real PostgreSQL race tests on
+`sprint-2-3-credit-service-concurrency` (CHANGE-092): two acceptances,
+cancellation/expiry, acceptance/expiry and manual/automatic completion.
+Preserve existing lifecycle/deadline rules; peer calls are test doubles.
+Cross-service recovery is deferred. No peer/source/schema/UI design changes.
+
 ## One-time approved Credit security exception (2026-10-09)
 
 Vincent explicitly authorizes CHANGE-090 on sprint-2-3-credit: isolate Credit's

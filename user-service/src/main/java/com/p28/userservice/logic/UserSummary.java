@@ -1,7 +1,7 @@
 package com.p28.userservice.logic;
 
 import java.util.List;
-import java.time.Instant;
+import java.util.Date;
 
 public class UserSummary {
     private String username;
@@ -10,7 +10,7 @@ public class UserSummary {
     private List<String> roles;
     private int penalty;
     private boolean isCourierSuspended = false;
-    private Instant suspensionEndDate;
+    private Date suspensionEndDate;
 
     public UserSummary() {}
 
@@ -21,7 +21,7 @@ public class UserSummary {
         List<String> roles,
         int penalty,
         boolean isCourierSuspended,
-        Instant suspensionEndDate) {
+        Date suspensionEndDate) {
 
         this.username = username;
         this.userId = userId;
@@ -57,7 +57,7 @@ public class UserSummary {
         return this.isCourierSuspended;
     }
 
-    public Instant getSuspensionEndDate() {
+    public Date getSuspensionEndDate() {
         return this.suspensionEndDate;
     }
 
@@ -92,7 +92,7 @@ public class UserSummary {
         return;
     }
 
-    public void setSuspensionEndDate(Instant newSuspensionEndDate) {
+    public void setSuspensionEndDate(Date newSuspensionEndDate) {
         this.suspensionEndDate = newSuspensionEndDate;
         return;
     }

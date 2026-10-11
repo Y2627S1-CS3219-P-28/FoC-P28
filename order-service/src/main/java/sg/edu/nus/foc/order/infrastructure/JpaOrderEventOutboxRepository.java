@@ -11,6 +11,12 @@ import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 
 @Repository
 public interface JpaOrderEventOutboxRepository extends JpaRepository<OrderEventOutbox, String> {
+    @Query(value = "select * from order_event_outbox where event_id=:eventId for update", nativeQuery = true)
+    Optional<OrderEventOutbox> findForRedrive(@Param("eventId") String eventId);
+
+    @Query(value = "select event_id from order_event_outbox where state='FAILED' order by created_at,event_id limit :limit", nativeQuery = true)
+    List<String> findFailedIds(@Param("limit") int limit);
+
     @Query(value = """
             select event_id from order_event_outbox
             where (state = 'PENDING' and next_attempt_at <= :now)

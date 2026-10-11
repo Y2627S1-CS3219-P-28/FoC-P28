@@ -8,6 +8,36 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Profile merge compatibility repair assistance (Order Service shared frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** User-authorized frontend implementation, test generation, verification and commit review.
+- **Affected locations:** frontend/src/app/profile and tests; Order CHANGE-109/context/traceability/evolution/allocation/feedback/active-work and this log; existing ignored learning note.
+- **Prompt:** Can you fix that forntend accoridngly? Review cd411865573982168b7fb91c3878eebd949b3df3 for functions requiring peer coordination; otherwise flag it safe.
+- **Key response:** Exact cd41186 first-parent delta only removes25 lines of DeleteAccountButton import/state/callback/UI; no new service requirement. Repaired current merged tree without restoring older main: current AuthProvider, authenticated gateway profile load/save, verified Firebase email + fresh token before email-only User PUT, retry/error and account-switch protection, Edit navigation. Test-first13 tests:11 expected failures then13 pass; additional account-switch test failed then fixed. Final116/116 frontend tests, typecheck/build pass; lint0errors/3 existing login warnings. Source commitd7f72a8 contains only four frontend source/test paths. D1/Overall hashes match; backend/config/auth-provider/Order recovery unchanged. Existing overlapping audit edits preserved, private D3 remains ignored. No push, deployment, real account/email mutation or browser/mobile verification. FEEDBACK-012 READY_FOR_VERIFICATION, Sprint[~].
+- **Author verification:** Vincent authorizes the narrow fix and exact commit review. Automated/source checks reported accurately; human review and real own-profile/email/browser/runtime verification pending. No claim that UI deletion fixes backend delete authorization or that all inherited main is safe.
+
+## Requested merge revert assistance (Order Service and integrated shared/peer files)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** User-authorized Git rollback and verification.
+- **Affected locations:** Only the33 paths introduced/changed by merge935d16d in revert commit834bb0d; existing uncommitted review/handoff/disclosure notes preserved and annotated afterward.
+- **Prompt:** Can u revert this merge ? (935d16d24e91ffa9c9ca292e2d3cf66118731195)
+- **Key response:** Reverted with first parent using git revert --no-commit -m1, verified the staged tree exactly matches e516cfa, then committed834bb0d. Final committed tree equals the pre-merge tree; Order/Credit work and ignored private D3 file preserved. Four whitespace warnings are restored pre-existing content, intentionally not reformatted. No reset, push, test rerun, image rebuild, database mutation or cloud deployment.
+- **Author verification:** Vincent explicitly authorized the whole merge rollback. Deterministic Git tree/index equality and no-conflict checks passed. Existing Sprint/runtime verification gates remain; review findings now explicitly apply to the reverted revision.
+
+## Main merge compatibility review assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only application review, existing regression/config verification and handoff.
+- **Affected locations:** Order Vincent active-work, appended FEEDBACK-011 and this disclosure. User/shared frontend/Docker/deployment source inspected only.
+- **Prompt:** I have integrated some changes just now from main, see if any conflict with my order service ? mainly it is from user service and some change to docker
+- **Key response:** Compared merge935d16d with e516cfa; no unresolved merge or Order/Credit source overwrite. User role wire shapes and local/cloud URL/messaging wiring remain compatible. Identified inverted admin checks, identity deletion without unresolved-work guards, uncertain signup cleanup/double provisioning requests and unrestored courier authority. Disproved suspected bootstrap alias defect with Spring7.0.9 non-mutating environment check. Existing103 frontend tests/26 files, typecheck and both Compose configs pass; lint0errors/one profile-test warning. Existing11 containers healthy, not proof of rebuilt merged images; no backend suite/cloud/browser/financial mutation performed. D1/Overall fingerprints unchanged.
+- **Author verification:** Vincent requested inspection only; no fixes or new design approved. Findings are source-based and require User owner review and isolated actual-provider tests. No application/config/schema edits or commit; Sprint remains incomplete and FEEDBACK-011 OPEN.
+
 ## Peer-service API feedback contract rewrite assistance (Order Service)
 
 - **Tool:** OpenAI Codex (GPT-6)
@@ -1758,6 +1788,118 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Existing transactional acceptance obtains a PostgreSQL pessimistic row lock before validation and synchronous Credit assignment; no redundant lock added. Current code checks deadline both before and after Credit confirmation, not the earlier chat-only recommendation to check before only. Documented existing FEEDBACK-006 cross-service partial-success risk and absence of a real two-transaction race test. Java 21 offline focused run passed 33 tests with zero failures/errors/skips. No application source, implementation tests, peer contracts, deadline policy, schema or infrastructure changed.
 - **Author verification:** Automated evidence is unit/mock regression only, not real PostgreSQL simultaneous acceptance, live Credit, browser, coverage or Sprint completion. Full historical context reads were truncated; no completed workflow gate claimed. Developer review pending; Sprint remains [~]. No application database, cloud or Git history changes; documentation left for review.
 
+<<<<<<< HEAD
+## Real PostgreSQL concurrent-transition tests assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Test implementation, database verification and documentation
+- **Affected locations:** OrderConcurrencyPostgresIntegrationTest; CHANGE-092; Order Vincent active-work, allocation/profile, context, traceability/change index; existing excluded learning document; this disclosure. No production, frontend, peer, migration or infrastructure edits.
+- **Prompt:** "For this current branch make sure u implelent enoguh test to test the concurrency of this 4 scenarios .........But they are not yet fully verified by real simultaneous PostgreSQL tests. are there any other concurrency event that i forget to consider ?" Cross-service recovery explicitly deferred by Vincent to another branch.
+- **Key response:** Eight cases invoke actual Spring services/PG15/Flyway in separate transactions, both winner orderings for accept/accept, cancel/expiry, accept/expiry and requester/scheduled completion. Gates plus pg_blocking_pids prove waiting; existing completion NOWAIT loser is checked via SQLSTATE 55P03 and safe next tick. Assert one final state/version, checkpoint/receipt/intent and at-most-one Credit assignment. Initial 7/8 run exposed fixture timestamp precision; persisted-deadline read-back corrected it without business changes. Focused 8/8 and full 215-test verify pass, zero failures/errors/skips. Fresh JaCoCo append=false: 95.67% lines, 84.70% branches, both 80% gates met. Other races identified but not claimed tested.
+- **Author verification:** Vincent approved current-branch test scope, not new business/peer behavior. Peers and after-commit dispatcher mocked; persisted Order/outbox and locks real. No application database/cloud changes or live ledger/broker/browser claims; full historical context reads partly truncated. Generic workflow checks remain failing (drift manifest columns, record gate 3 format/history issues); manual document hashes match. Sprint remains [~], human patch review pending; learning not staged, no push. Reviewed passing test commit 1906afb and separate workflow commit 15869ee; disclosure committed independently.
+
+## Staging missing Credit account diagnosis assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Read-only source diagnosis and learning
+- **Affected locations:** Vincent active-work and existing excluded Sequence 1 learning; this disclosure. Frontend and Credit source/deployment references inspected, not changed.
+- **Prompt:** "I deploy to staging server and i log back to my previous account which is still in the db this occurs .. it sats no credit account exist for user .. why so .. my user account is still there tho if not how could i log in"
+- **Key response:** Login authenticates Firebase only; signup, not login, calls Credit registration. GET /me selects caller UID in Credit's own PostgreSQL credit_accounts and throws ACCOUNT_NOT_FOUND if absent. Local staging config selects credit_staging; history records a Firestore-to-PostgreSQL change. Old provisioning/migration or deployed datasource mismatch are hypotheses, not live-confirmed causes. Initializing a missing account allocates 50; it does not restore old balances/reservations/ledger. Owner must inspect historical funds before choosing authorized initialization versus migration.
+- **Author verification:** No application/peer/frontend/contract changes, cloud reads/writes, tests, balance grants, reset, re-registration or API calls. Local source inspection only; runtime cause remains unverified and repair requires direction/owner coordination. Workflow invoked in lightweight diagnostic mode; historical full-context audit not claimed. Learning excluded; no push or Sprint status upgrade.
+
+## Concurrent Order locking SQL learning assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Source inspection and learning documentation
+- **Affected locations:** Ignored order-service/learning/concurrent-order-locking-sql-and-flow.md; Vincent active-work; this disclosure. Existing production/test/schema/SQL reports inspected read-only.
+- **Prompt:** "document the locking of concurrent section via the sql comamnd and flow in my learning as another md file"
+- **Key response:** Documented actual PESSIMISTIC_WRITE to Hibernate FOR NO KEY UPDATE SQL, transactional acceptance/class flow and Credit call, physical commit/rollback versus method return/save, REQUIRED outer transactions, four races, scheduler NOWAIT/batch locking, version/idempotency/outbox boundaries, isolated SQL demonstrations and diagnostic commands. Referenced recorded eight-case PostgreSQL verification without claiming a rerun. No new architecture/business behavior; cross-service recovery remains deferred.
+- **Author verification:** Actual source, V1/V3 migration columns, saved locking SQL and eight-case test report inspected; no application SQL or new runtime tests executed. Learning intentionally excluded from Git. Documentation link/fence/patch validation recorded in active work; developer content review pending. Full historical workflow-context batch was truncated; no complete audit, live peer financial verification or Sprint completion claimed. No peer/source/schema/deployment/cloud changes or push.
+
+## Acceptance versus requester cancellation concurrency assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-09
+- **Mode:** Approved test implementation, isolated PostgreSQL verification and documentation
+- **Affected locations:** OrderConcurrencyPostgresIntegrationTest; CHANGE-093; Order traceability/change/context/allocation/profile/current-sprint/active-work records; existing excluded concurrency learning; this disclosure. Production/frontend/peer/schema/deployment source unchanged.
+- **Prompt:** "yes implement that concurrency check and make sure it passes" for courier acceptance versus requester OPEN cancellation as the fifth race.
+- **Key response:** Added both winner orderings using existing actual Spring services/PG15/Flyway, separate transactions and blocking-PID proof. Exactly one version/checkpoint/winning receipt; losing request conflicts; Credit assignment only when accept wins, refund intent/after-commit dispatch only when cancel wins. Focused pair 2/2; combined all five races (10) and service regressions (13) 23/23; actual domain/transition regression 36/36. Zero failures/errors/skips. Characterization passed existing locks unchanged; no fabricated failing-test claim. Test commit 827844b, no push.
+- **Key response follow-up:** Task-specific verification records committed separately as 0f50886; staged diff, TOML parse and learning link/fence checks pass. Mixed prior active-work/disclosure notes remain uncommitted rather than being included in the test/record commits.
+- **Author verification:** Vincent explicitly approved the test scope/design; no new business/API decision. Peers and dispatcher mocked, Order database real; no live financial/broker/browser or fresh full-suite/coverage claim. Initial combined selector included nonexistent OrderDomainTest (no cases ran under that name); actual named domain classes ran in the successful separate regression. Manual D1/Overall hashes match. Generic drift checker exits 2 for manifest headers; verify_gate exits 1 with five format/history findings; full historical reads partly truncated. Gates/Sprint [~] and deferred recovery retained. Learning excluded; prior uncommitted advisory records preserved and not staged with the test; human review pending.
+
+## Outbound state-modifying interaction audit assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Read-only source inspection and explanation
+- **Affected locations:** Order Vincent active-work and this disclosure only. Order outbound HTTP/ports/callers/outbox/events/configuration and relevant User/Supplier/Credit provider code inspected unchanged.
+- **Prompt:** "I would like to check are there any non-safe request (state modifying whther in db or what, which means instead of read it causes changes) that order service will send to other service.... If yes what are there, list out here"
+- **Key response:** Found three active HTTP mutations to Credit (reservation, courier assignment, hold/reset), refund/completion events for financial changes and abort/completion facts intended for User-owned consequences. Query-only Supplier validation uses POST but performs no business write; User role/eligibility queries read data. Legacy settlement HTTP method has no production call site. Topic names are configurable. No new contract, cleanup or business implementation selected; static source evidence is not live financial/consumer verification.
+- **Author verification:** Developer review pending. No runtime requests, cloud/database writes, tests or live delivery verification. Peer source remains read-only; only required audit records updated. Full historical workflow context output partly truncated; no complete workflow/source-drift audit or Sprint completion claim. Existing peer consumer/auth/recovery gates retained; no push.
+
+## Credit synchronous response-code clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Read-only source inspection
+- **Affected locations:** Vincent active-work and this disclosure only; Credit controller/error/security/persistence and Order adapter/error advice inspected unchanged.
+- **Prompt:** "For this 3 synchronous request, what are the code it can return ?"
+- **Key response:** Reservation returns 201 new/200 replay with JSON; assignment/reset return bodyless 200. Listed implemented 400/401/403/404/409/503/500 outcomes and operation-specific causes. Distinguished Credit responses from Order translations: reservation maps errors, assignment/reset can expose generic 500 because RestClient failures lack matching advice. A timeout has no HTTP response and does not prove no remote mutation.
+- **Author verification:** Source inspection only, no test or live request, no new contract/behavior/security decision, no peer/application edits. Developer review pending; existing cross-service recovery and Sprint gates unchanged. Audit records uncommitted, no push.
+
+## Cross-service creation crash-recovery proposal assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Source inspection, architecture proposal and learning documentation only
+- **Affected locations:** Excluded Order learning/cross-service-state-change-crash-recovery.md; ARCH-EVO-034 in architecture-evolution; proposed extension of existing FEEDBACK-006; Vincent active-work; this disclosure. Application, peer, test, schema and deployment files unchanged.
+- **Prompt:** Classify known success/rejection/unknown reservation outcomes, explain Credit success followed by Order crash or code failure, propose consistent recovery and document the general engineering framework in learning.
+- **Key response:** Recommended a durable creation intent committed before the remote write, stable candidate ID and command/payload binding, authoritative active-state confirmation, same-ID reconciliation, atomic local completion, and durable compensation when forward completion becomes invalid. Explained that HTTP errors can be ambiguous, terminal replay 200 is not an active hold, GET 404 cannot fence an in-flight PUT, and local row locks/outcome outboxes do not close the creation crash window. Compensation, late-write fencing, pending UI/API and worker authorization are proposals, not silently selected contracts. Primary references: AWS Builders' Library idempotent APIs, Microsoft Saga and Compensating Transaction patterns.
+- **Author verification:** Developer approval/review pending. Actual source inspected; no runtime calls, database/cloud changes, application implementation or recovery tests. Broad historical context reads partly truncated; full workflow audit not claimed. Manual D1/Overall hashes match. Background retry and delegated credentials remain paused; Sprint remains [~]. Documentation checks recorded in Vincent active-work; no commit/push and pre-existing advisory edits preserved.
+
+## Durable pending-activity scheduler clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Advisory source review and learning documentation
+- **Affected locations:** Existing excluded cross-service-state-change-crash-recovery learning, Vincent active-work and this disclosure only; application/peer/test/schema/contract/infra files unchanged.
+- **Prompt:** Can Order save a pending activity before unsafe outbound HTTP, mark it completed on a resolved outcome/local commit, and run a minute scheduler to redo pending work after timeout or crash?
+- **Key response:** Yes as a durable-workflow foundation, not a generic blind retry. Intent must commit before I/O; local effects and success marker commit atomically; known permanent rejection is terminal failure, not eventual success; ambiguous prior attempts need reconciliation. Resume the missing phase with immutable identity, idempotent provider behavior, claims/leases, per-order coordination, deadlines/backoff and compensation. Current assignment/reset replay lacks an attempt identity for future stale background requests; no new field approved. AWS idempotent API and Microsoft Saga primary references consulted.
+- **Author verification:** Human review pending; advisory request does not approve a worker. Branch/profile/allocation match; existing ADR-027 pause and FEEDBACK-005/006 remain. No tests/live requests/cloud writes or completion claim; broad historical reads partly truncated, full workflow audit not claimed. A guessed ADR path failed then the actual file was read. Final documentation checks recorded in active-work. Existing uncommitted changes preserved; no commit/push.
+
+## Two-state whole-handler replay clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Advisory clarification and learning documentation
+- **Affected locations:** Existing excluded cross-service-state-change-crash-recovery learning, Vincent active-work and this disclosure only; no application, peer, schema, test or contract change.
+- **Prompt:** Can PENDING/COMPLETED alone suffice if recovery replays the whole function with the same ID and peers recognize previously executed operations?
+- **Key response:** Agreed conditionally and corrected the earlier overly categorical phase-resumption statement: explicit phases are optional when whole-handler replay is idempotent. Durable immutable intent, atomic peer effect/deduplication with equivalent prior result, atomic local effects/completion, final success/rejection outcome, per-order coordination and expiry/compensation/auth rules remain necessary. Current reservation uses business ID/requester/amount; assignment/reset have no per-activity historical result identity. No new field or peer contract approved. AWS Builders' Library idempotent API guidance consulted.
+- **Author verification:** Human review pending. Actual code inspected, no tests/live requests or full historical workflow audit claimed; some context output truncated. Existing pause/approval gates retained; advisory clarification is not architecture selection or implementation. Documentation checks in active-work; previous dirty records preserved, no commit/push.
+
+## UI-to-Credit durable command flow review assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Design review, source inspection and proposal/learning documentation
+- **Affected locations:** Existing excluded crash-recovery learning; proposed ARCH-EVO-034 follow-up; existing FEEDBACK-006 extension; Vincent active-work and this disclosure. No frontend/application/peer/test/migration/infra source edited.
+- **Prompt:** Review step-by-step pending-before-call, peer pending/completion timing, timeout RETRYABLE recovery and frontend-generated idempotency keys retained until terminal success/failure, for creation, acceptance and abort.
+- **Key response:** Recommended committed immutable intent before I/O; optional peer pending but atomic effect/deduplication/result; atomic Order effects/completion before HTTP terminal success; resolved rejection separate from unknown outcome; lease-safe foreground/background replay and per-order coordination; original key/payload retained after uncertainty, backend evidence retained after browser clearing. Current UI generates fresh command IDs per payload build and Credit calls do not carry them. Proposed scoped key/response/retention amendments require agreement; no wire DTO or schema selected. Spring transaction and AWS idempotent API primary sources consulted.
+- **Author verification:** Developer/peer approval pending; review is not implementation authorization. Current branch/profile/allocation match, background retries and delegated auth remain paused. Actual code inspected; no runtime/tests/cloud actions or full historical workflow audit claimed; some broad context reads truncated. Documentation checks in active-work; prior dirty records preserved and no commit/push.
+
+## Three foreground Credit command recovery plan assistance (Order Service)
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-10
+- **Mode:** Source inspection, proposed implementation plan and learning documentation
+- **Affected locations:** Existing ARCH-EVO-034 proposal, FEEDBACK-006 discussion, Vincent active-work, excluded crash-recovery learning and this disclosure. No application, peer, test, migration, frontend, runtime or cloud files changed.
+- **Prompt:** Propose a plan first for frontend-to-Credit consistency across reservation, assignment and abort reset; coordinate user/scheduler retries, show safe retry-attempt messages after timeout/crash, and ask the frontend for renewed authorization when unavailable.
+- **Key response:** Proposed PENDING/COMPLETED commands with immutable actor/input binding, initial committed lease before I/O, fenced claims, per-order unresolved-command guards, atomic peer/local effects plus results, proposed key header/status/resume/discovery contracts, client key persistence and same-key Retry/Check-status. Minute recovery without saved tokens/delegated credentials must wait for user authorization; crash UI reflects durable observation, not an impossible crash reply. Historical Credit replay and compensation remain 003/006 gaps; 005 stays deferred. Source inspection distinguishes existing routes from missing recovery semantics. Primary PostgreSQL/Firebase/AWS docs consulted; no broker or effective contract selected.
+- **Author verification:** Vincent and peer review pending; plan-first request does not approve implementation or resume paused workers. Branch/profile/allocation match. D1/selected Overall manual hashes match; full historical mandatory rehydration incomplete/truncated, full pre-coding gate not claimed. No tests/live calls or cloud writes; final documentation checks in active-work. Existing dirty records preserved; no commit/push.
+=======
 ## Compact Order event contract assistance
 
 - **Tool:** OpenAI Codex
@@ -1926,43 +2068,204 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Affected locations:** Order peer feedback/current-developer active work/context/change log; this disclosure. Existing main peer/scripts/config edits preserved, not regenerated; no new application, event, schema or workflow edit. Prior three staging URLs restored to newer deployed/main routes.
 - **Author verification:** Yao Xiang requested the conflict resolution and CI checks after reverting prior fixes/pulling main. AI ran recorded checks; developer review, merge commit and hosted CI confirmation pending. No credentials printed or committed.
 
-# Order event credit handlers migration to separate handlers
+## JWT learning and merged minute scheduler assistance (Order Service)
 
-- **Tool:** OpenAI Codex
-- **Date:** 2026-10-09
-- **Mode:** Code generation
-- **Affected locations:** Credit service event handlers
-- **Prompt:** update the event handler of credit service to 3 separate endpoints for the 3 different event subscriptions. Instead of current implementation of 1 endpoint for 3 subscriptions then relying on event type from order service to handle them, split it to 3 different endpoints to reduce coupling. Remain the implementation of cross checking event type, amount, and supplier service but shouldn't rely on event type to determine how to handle. 
-- **Key response:** Migrated credit service event handler endpoint from one endpoint to 3 separate ones, one for each event subscriber.
-- **Author verification:** I have verified that the code fits the implementation requirements provided
-
-# Order event payload update and credit history implementation
-
-- **Tool:** OpenAI Codex
+- **Tool:** OpenAI Codex (model not recorded)
 - **Date:** 2026-10-10
-- **Mode:** Code generation
-- **Affected locations:** Credit service event handlers, frontend
-- **Prompt:** - Credit will expose two internal Pub/Sub push endpoints with two subscriptions:
-  - `OrderCompletionTaskEvent` for settlement.
-  - `OpenOrderRefundTaskEvent` for cancellation and expiry refunds.
-- Credit will no longer consume `AcceptedOrderCancellationTaskEvent`. Remove its Credit endpoint, handler, subscription configuration, infrastructure provisioning, and documentation while preserving legacy database records and enum values.
-- Replace the legacy DTO with the compact v2 body:
-  - `eventId`
-  - `eventType`
-  - `orderId`
-  - `orderStatus`
-  - `creditAmount`
-  - `occurredAt`
-  - nullable `courierId
--  Add `GET /api/credits/me/transactions?page=1&size=20
-- Add credit transaction history to the user profile page
-- Show desktop table and narrow-screen stacked rows with:
-  - locally formatted date and time from `occurredAt`
-  - colour-coded type badge
-  - order ID or an em dash
-  - signed amount such as `+50 credits` or `−10 credits`
-- Use green for additions, red for paid deductions, and amber for reservations; retain text and signs so meaning never relies on colour alone.
-- Add loading skeletons, empty state, independent error/retry state, a Refresh button, and 20-item pagination.
-- **Key response:** Removed the redundant event handler, updated order event DTO, added credit history in frontend
-- **Author verification:** I have verified that the code fits the implementation requirements provided
+- **Mode:** Documentation, approved orchestration implementation, test generation and verification.
+- **Affected locations:** Order scheduler and its unit/PostgreSQL tests; CHANGE-101/102, ADR-034, architecture/context/sprint/traceability/diagrams/current-developer records; excluded Order learning; this disclosure. No peer, frontend, schema, Compose or cloud change.
+- **Prompt:** Vincent requested JWT-signature learning and merging the minute jobs into recovery -> OPEN expiry -> >=48-hour DELIVERED completion; explicitly confirmed sprint-2-3-credit-service-concurrency-update-event-payload.
+- **Key response:** Removed the independent command timer, retained mock-only HTTP recovery gate and durable per-item guards, captured lifecycle time after recovery, isolated phase failures and kept immediate/15-minute outbox publication. Observed ownership-test RED; corrected one test-fixture verification-order mistake; 28 focused tests and full fresh-source Java 21 Maven verify (301 tests, zero failures/errors/skips) passed. JaCoCo 95.60% lines / 81.95% branches. Real PostgreSQL tests use Credit contract stubs, not live peer recovery. Existing source-manifest/workflow table-format helper failures are recorded separately, not passed.
+- **Author verification:** Vincent explicitly chose the merge and confirmed identity/branch. AI ran the recorded checks; human code review and hosted CI remain pending. No credentials logged/stored or live HTTP recovery enabled; Sprint remains incomplete. Learning remains excluded from Git.
 
+## Swagger endpoint and Pub/Sub documentation audit assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-10
+- **Mode:** Read-only source/generated-document inspection and existing test verification.
+- **Affected locations:** Order controllers/configuration/event DTOs/publishers/service contracts/generated OpenAPI inspected; Vincent active-work and this disclosure updated only.
+- **Prompt:** Have we updated Swagger endpoints and Pub/Sub events/topics based on all current Order endpoints and topics?
+- **Key response:** Found 24 HTTP operations across 23 paths matching 24 controller mappings, including command recovery and explicit automatic-repost expiry. Generated document has no three Pub/Sub event schemas/topic names. Most error responses and relative expiry explanations are incomplete; deprecated configure route misleadingly advertises 200 despite always conflicting. Reran existing OpenApiDocumentationTest: 2 tests pass, zero failures/errors/skips; test does not verify event contracts or exhaustive route parity. No application, contract, frontend, schema, peer or infrastructure change; no deployed Swagger/topic verification.
+- **Author verification:** Vincent requested the audit. AI inspected current branch/source and regenerated test document; human review and any documentation-enhancement approval remain pending. Live HTTP recovery remains disabled, not made functional by its appearance in Swagger.
+
+## AsyncAPI Pub/Sub documentation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11 (task approved and started 2026-10-10)
+- **Mode:** Documentation, source inspection and documentation validation.
+- **Affected locations:** Order docs/asyncapi YAML/guide, read-only scripts/validate-asyncapi-contract.py, CHANGE-103 and documentation/context/traceability/current-developer indexes; excluded learning; this disclosure. Actual Order publishers/DTOs/mapper/outbox and relevant Credit/User source were inspected read-only. No Java, frontend, peer source, schema, CI, IAM or cloud change.
+- **Prompt:** OK document my pubsub in async api now
+- **Key response:** Documented three current outgoing Google Pub/Sub channels/operations, compact refund/completion v2 and accepted-abort snapshot v1, exact attributes, five examples, triggers and publication versus financial acknowledgment. Expected missing-file checker RED then GREEN; official CLI 4.1.1 and final CLI 6.2.0 with temporary Node 24.11.1 validate with zero document errors/warnings and one informational newer-format suggestion. Removed optional binding requiring unconfigured schemaSettings rather than inventing cloud configuration. Python schema/source/negative checks, TOML parse, seven relative links and whitespace/scope checks pass. npm emitted host-engine/deprecation notices; no project dependency or installed Node change. Documentation commit 5556eb9; no push, runtime/Maven/browser/cloud/ledger test or live-integration claim.
+- **Author verification:** Vincent explicitly chose AsyncAPI; AI supported inspection and documentation, not independent architecture approval. Human review remains pending. Existing contracts, peer feedback and Sprint/live recovery gates are unchanged; current Credit compact parser source is described without setting integration VERIFIED. Learning remains excluded from Git.
+
+## Live Credit command recovery assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Approved implementation, test generation, verification and documentation.
+- **Affected locations:** Order HTTP gateway/DTO/coordinator/capability/config/tests, frontend recovery hook test, Order-owned Compose/.env.example additions, CHANGE-104/ADR-035/context/contracts/traceability/active work/learning and this disclosure. Credit/User/Supplier source inspected read-only.
+- **Prompt:** Fix it. I wanan test real idempotency/crash-recovery workflow ... i do not wanna mock anymore
+- **Key response:** Replaced HTTP mock-only gate with actual Credit 497a8f9 command protocol, same-key/generation minimal mutations, historical lookup and conditional compensation. Nine isolated actual Credit/PostgreSQL tests cover replay, lost response, actual socket timeout after commit, local rollback, restart, compensation, abort replay and concurrent claims. Tests-first missing gateway RED; fixture JSON/expectation, BuildKit and restart-port failures corrected. Final fresh Java21/Maven3.9.16 verify: 335 passed, no failures/errors/skips, 95.53% line and 80.73% branch coverage; 183 current files match tested snapshot. 83 frontend tests, lint/typecheck, three image builds, Compose config, OpenAPI structural/generated docs, AsyncAPI parity and TOML checks pass. Early financial tests could publish synthetic events through default after-commit hooks with personal ADC present; final fixture blocks external dispatch. No cloud provisioning/IAM or application-volume reset; early delivery/effects not audited. User/Supplier fixtures are not live integration. Tokenless HTTP recovery requires same-key user Continue; delegated credentials/repost recovery remain deferred.
+- **Author verification:** Vincent explicitly approved real integration; AI supported scoped implementation and tests, not independent product/financial policy approval. Human code review and authenticated full-stack/browser/cloud checks remain pending. Sprint remains [~]. Implementation/test commit fbbce54 and Order-only shared config commit 4e7cc77 are separate. Peer source and unrelated D3 answer file unchanged; no push. Learning remains excluded from Git. Legacy direct/repost endpoints retain their prior guarantees; never switch an unresolved durable key between protocols.
+
+## Local emulator and review hardening assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Approved implementation, test generation, local integration verification and documentation.
+- **Affected locations:** Order emulator publisher, durable legacy routes, read authorization, receipt/event binding, asynchronous retained outbox, V6/V7 migrations, tests, deployment configuration and local test scripts; four shared Compose/example configuration files; explicitly approved Credit SecurityConfig and SecurityComponentsTest only; CHANGE-105/ADR-036/context/contracts/diagrams/traceability/active work/runbook/AsyncAPI, excluded learning and this disclosure. Unrelated Supplier SeedCsvReader edit and D3 answer file preserved and never staged. Frontend application source unchanged.
+- **Prompt:** Replace local Google Pub/Sub with its emulator, retain staging/production cloud topic wiring, address attached review findings, and test actual Order-Credit idempotency/crash recovery and financial event workflows. User approved the narrow local Credit push-authentication exception, deployment-file-only minimum one instance/always allocated CPU, legacy durable routing with pending202, and bounded asynchronous outbox with retained FAILED after ten attempts. Automatic repost/delegated credentials explicitly deferred.
+- **Key response:** Local Compose uses actual User/Supplier/Order/Credit HTTP and databases, demo Auth/PubSub emulators, isolated local topics and typed Credit subscriptions without ADC/tunnel. Cloud topic/authentication boundaries retained. Legacy CREATE/ACCEPT/ABORT cannot bypass durable recovery; relationship reads fail closed; receipts bind actor/order/input; event identities include order/actor; slow publication leaves the request thread; exhausted evidence retained with ADMIN redrive. Final exact-source isolated Java21/Maven3.9.16 verify: 354 tests, zero failures/errors/skips, 94.86% line/80.12% branch coverage; all192 source/resource/test files match tested snapshot. Includes12 actual Credit/PostgreSQL/emulator tests, ten transition races, five migration and five outbox JPA tests. Credit security21, frontend83 plus lint/typecheck, actual full Compose financial24 assertions, configuration29, AsyncAPI/TOML/whitespace and direct D1/Overall hash checks pass. Existing local Order DB upgraded V4->V7 with volumes retained; fresh smoke accounts/orders retained. No cloud provisioning/deployment or application-volume deletion. Commits a2bab85/f6c44bb/dc9dbb8/29bfaf6 separate approved Credit, transport, shared configuration and Order hardening concerns; no push.
+- **Author verification:** Human code and migration handoff review pending. Early Windows clean/IDE-target and test-fixture failures corrected or isolated, not counted as passes. Final Maven returns BUILD SUCCESS/exit0 but emits fork shutdown timeout after tests; cause remains a diagnostic follow-up. Generic drift/completion helpers reject historical record formats and did not pass; direct hashes/manual gate recorded separately. Actual Compose smoke uses real User/Supplier, while isolated Java recovery harness fixtures their validation. First event traverses emulator; duplicate wrapped push replay is checked directly against the actual Credit consumer. Interactive browser, deployed cloud/IAM/OIDC and hosted CI not verified. Tokenless HTTP recovery requires same-key owner Continue with fresh authorization; no token storage/service credential implementation. Manual repost is outside the three-command recovery slice; User penalty/completion consumers remain peer work. Overall Sprint stays [~].
+
+## Supplier option filtering clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and clarification.
+- **Affected locations:** Order Vincent active-work and this disclosure only. Shared frontend creation page/Supplier types, actual Supplier catalogue/controller/hours/validation and existing tests, and Order HTTP adapter inspected read-only.
+- **Prompt:** Has deactivated supplier/ those and closed supplier(based on hardcoded operation time) wont show up in the options of supplier be it pick up or delivery loction when creating the order request in the first place based on current implementation ?
+- **Key response:** Both creation selectors use the same status=active catalogue page without openNow=true or a frontend hours filter. Inactive suppliers are excluded on fresh load; closed active suppliers remain selectable. Supplier optionally computes openNow using stored hours and Asia/Singapore, but pair validation only checks existence/activity/different IDs. An already-open form does not periodically refetch options; submission validates current activity. No application, contract, test, cloud or data changes and no tests rerun.
+- **Author verification:** Vincent requested current-code clarification, not implementation. AI inspected the actual code and recorded evidence; human review pending. Existing Supplier/D3 edits preserved. No new behavior/architecture approval inferred and existing Sprint blockers unchanged.
+
+## Creation command lookup timing diagnosis assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only diagnosis and audit documentation.
+- **Affected locations:** Order Vincent active-work and this disclosure only; frontend command/visible-polling hooks/tests, Order command controller/service/store, local command database and matching gateway logs inspected read-only.
+- **Prompt:** Why upon creating order request, even order has been successfully created ... this still appear in browser console (GET /api/orders/commands/98d8c2b5-01f1-4058-ab35-9a2be39b9fea returns404).
+- **Key response:** Frontend enables immediate status polling before its initial POST finishes; a GET can precede the intent registration commit. Reported local command is COMPLETED/SUCCESS with one claimed attempt. Logs show read404 at06:51:03Z then create202/200 at06:51:04Z, consistent with current404 fallback resending the same key during the active original POST. Browser reports failed HTTP status despite application catch. Recommend preventing premature polls/resends without removing genuine uncertain-submission recovery. No source/API/schema/data changes or tests rerun; guessed migration filename absent, actual store SQL inspected instead.
+- **Author verification:** Vincent requested diagnosis, not a fix. Database/log checks independently confirm the saved successful command; exact browser request-start order was not captured. Human review pending; no implementation approval inferred. Existing unrelated edits and Sprint blockers preserved.
+
+## Durable manual repost design review assistance (Order Service)
+
+Approved implementation follow-up (2026-10-11): Vincent explicitly approves V8
+original/candidate-ID migration and new command repost route. CHANGE-106 / ADR-037
+now authorizes TDD and Order/frontend implementation, not automatic/delegation,
+peer source or deployment changes. Tests and human review pending at start.
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Source inspection and design review; implementation approval gate.
+- **Affected locations:** CHANGE-106 proposal, Vincent active-work and this disclosure only. Actual Order repost/command/domain/migration/gateway, frontend repost/list/hooks and Credit reservation/replay/compensation source inspected read-only.
+- **Prompt:** Yes make repost durable ....manual repost .... clicking button say pending until respot success .... same like how u implement for abort accept and create ... is that ok ? Also, which endpoint will polling call is it the order controller endpoint to get all read ordes ? errands all browse orders whcih endpoint
+- **Key response:** Current command target guard needs original ID while remote reservation needs distinct stable candidate. Proposed new V8 candidate field/kind extension and REPOST endpoint/coordinator/UI reuse, minimal existing Credit RESERVE payload, frozen initial30min expiry rule, pending/reload/authorization behavior, guarded atomic link/success and conditional compensation, with real integration and frontend TDD plan. Confirmed mine requester/courier and available list polling versus separate command reads. D1/Overall hashes match; no code/tests/migration/data writes. Guessed filenames/relative read paths were missing and corrected before final inspection.
+- **Author verification:** Vincent approves the manual durable/pending concept, not yet the detailed schema/API proposal. Mandatory workflow pauses before implementing this material persistence/contract extension. Automatic repost/delegated credentials remain deferred; no provider edit/new broker or stored-token approval. Human review and new tests pending; no implementation/completion claim.
+
+## Durable manual repost implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Approved implementation, test generation, verification and documentation.
+- **Affected locations:** Order REPOST coordinator/store/domain/finalizer/controllers, V8, tests and local smoke script; companion frontend repost/command hook/types/tests; CHANGE-106/ADR-037/context/contracts/diagrams/traceability/active work/migration/Credit handoff, excluded learning and this disclosure. Actual Credit/User/Supplier implementation inspected read-only. No shared Compose, peer source or deployment edits; unrelated D3 file preserved.
+- **Prompt:** Approve the V8 original/candidate-ID migration and the new POST /api/orders/commands/{originalId}/repost route? Approve
+- **Key response:** Implemented original-guard/stable-candidate REPOST intent before Credit, minimal existing RESERVE/history/compensation mapping, atomic successor/link/result, persistent confirmed rejection and same-key frozen pending UI through reload. Initial30min window stays frozen and expired possible reservations are compensated. Observed four backend and four frontend RED cases before implementation. Final isolated exact-source Java21/Maven3.9.16 verify:367 tests, zero failures/errors/skips,94.76%line/80.23%branch; all193 backend files match. Includes16 actual Credit/PG/emulator tests (four new manual),21 command PG and6 clean/upgrade migration tests. Frontend90 tests/24 files, lint0errors/3pre-existing warnings, typecheck, TOML, whitespace and smoke-script syntax pass. Source/test/V8/frontend commit2c021b6. User/Supplier validation is a fixture in isolated recovery tests, not new live provider proof. Local image rebuild/start stalled when Docker engine API returned500; gateway unavailable; stopped only identified task build clients, not Docker/volumes. No local V8 rollout/all-peer manual/browser/cloud/CI pass claim.
+- **Author verification:** Vincent explicitly approved schema/API design before code. AI assisted scoped implementation/testing, not independent architecture/financial approval. Human code/migration and desktop/mobile review pending. Default source manifest missing and generic completion helper rejects historical formats (5 findings); direct D1/Overall hashes match, manual gate distinct. Existing Maven fork shutdown warning remains despite BUILD SUCCESS/exit0. Automatic/delegated repost, initial command-poll timing diagnosis and User consumers unchanged. Strict/Sprint status remains[~]; no push, cloud change, peer modification or volume reset. Resume local smoke after Docker is healthy using Test-ManualRepostIntegration.ps1; learning stays excluded from Git.
+## Command-key persistence clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and clarification.
+- **Affected locations:** Order Vincent active-work and this disclosure only; browser command storage/hooks/payload builders and Order command coordinator/store inspected read-only.
+- **Prompt:** Is the frontend-generated command key persisted for retries until a terminal outcome, and are timeout/crash retries automatic unless the JWT expires?
+- **Key response:** Confirmed IndexedDB account/action-scoped frozen intent before POST, UUID per fresh action, terminal-only browser removal, five-second status polling, same-key404 resubmission and authorized resume route. Corrected misconception: tokenless live HTTP scheduler execution records AUTHORIZATION_REQUIRED before peer calls, even when browser token remains valid. No stored tokens/delegated credentials or unconditional retry-to-success. Browser disabled controls do not replace backend lease/input/order guards. No application/test/runtime changes or tests rerun; existing rollout blockers preserved.
+- **Author verification:** Vincent requested explanation, not a behavior change. AI inspected actual code; human review pending. Existing Sprint[~] and CHANGE-106 rollout/browser/cloud gaps unchanged; no peer modifications or approval inferred.
+
+## Command uniqueness and authorization-button follow-up assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only clarification and source inspection.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend hook/notice/auth/storage, Order command store/coordinator and V5 inspected read-only.
+- **Prompt:** Clarify UUID uniqueness across clients/logins, browser command storage/deletion, polling outcome and the retry/authorization button for tokenless scheduler recovery.
+- **Key response:** UUID collision is negligible, not mathematically impossible; command primary key enforces one stored row and registration binds actor/input. Saved unresolved key survives another login intentionally. Command polling checks COMPLETED SUCCESS/REJECTED, not just order state; removal happens on that confirmed terminal result. Continue with authorization resumes the same key with current user token; browser-valid authorization is still required because scheduler never saved it. No new behavior or tests; initial mistyped migration read corrected by actual V5 inspection.
+- **Author verification:** User asked for explanation, not implementation. Human review pending; current branch/profile match, unrelated D3 file preserved, application/peer/schema/config unchanged. Existing rollout and Sprint[~] gaps remain.
+## Order read and legacy repost route clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend call sites/RepostControls and OrderController/OrderRepostService inspected read-only.
+- **Prompt:** Does frontend use GET order by ID, and when are repost/configure and repost-draft triggered?
+- **Key response:** Confirmed direct order GET refresh after manual-repost rejection/error while board polling uses mine/available. No current frontend configure/draft call sites. Legacy configure always conflicts; automatic plan configured at creation. Draft API checks original requester and unlinked EXPIRED eligibility, but UI seeds editable fields from the existing card Order. No application/contracts/tests changes or tests rerun; existing rollout and Sprint blockers unchanged.
+- **Author verification:** User requested clarification only. Actual source independently inspected; human review pending. No implementation approval inferred, peer changes or unrelated D3 edits.
+## Internal lifecycle controller clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend call sites, OrderController, OrderLifecycleScheduler and LifecycleProcessingService inspected read-only.
+- **Prompt:** What are the internal lifecycle expire/repost endpoints for, and what UI flow triggers them?
+- **Key response:** Neither has a frontend caller. Expiry scheduler invokes the service directly each minute; HTTP endpoints are local-only explicitly enabled token-gated operator/test triggers, disabled by default. Repost route invokes legacy batch repost with a lifecycle bearer value; live automatic/delegated repost remains deferred and minute scheduler does not call it. UI configures a plan at creation but does not call these routes. No tests or live runtime checks rerun; application/config/peer files unchanged.
+- **Author verification:** Clarification requested, not implementation or authorization to activate automatic repost. Human review pending; existing Sprint[~] and rollout blockers retained.
+
+## Retire unused expiry HTTP trigger assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Implementation, tests, verification and documentation.
+- **Affected locations:** OrderController, OpenApiDocumentationTest, OrderControllerCoverageTest; CHANGE-107, ARCH-EVO-043, current contracts/architecture/context/traceability/sprint/README, Vincent active-work, existing local learning note and this log.
+- **Prompt:** Ok. Remove it according to ur suggested move. Remove also from the documentation and swagger ui ... those not currently called by frontend but is repost related we still keep them.
+- **Key response:** Removed only unused expiry HTTP adapter/OpenAPI operation; scheduler/direct expiry/refunds and all five repost paths retained. TDD RED: two expected failures; corrected retained path placeholder assertion, then GREEN: 40 focused tests, zero failures/errors/skips. Generated OpenAPI inspected. D1/Overall source fingerprints match; patch checks pass. Source/test commit 4bbc4fe. No full suite/coverage or live rollout rerun. Historical decisions preserved with current supersession; no frontend/peer/schema/config/D3 edits. PowerShell stderr pipeline exit1 distinguished from Maven BUILD SUCCESS and independently checked Surefire results.
+- **Author verification:** Vincent explicitly approved scoped removal. Automated evidence recorded; human review/rebuilt-runtime Swagger verification pending. Existing overall Sprint[~] and rollout/workflow blockers unchanged.
+
+## IndexedDB loss and pending polling clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend key builders, command hook/storage/polling, pending panel/routes/tests and backend discovery/ownership inspected.
+- **Prompt:** What if the user clears IndexedDB, and how does pending polling know the particular command key?
+- **Key response:** Client key/frozen input saved before POST; hook polls by saved key every5s while visible, including after timeout, restores on reload and clears only on terminal result. My Requests/My Errands independently discover server-owned pending keys by signed-in UID even without local storage. Server command persists, but panel does not rehydrate original create button; different CREATE keys cannot deduplicate identical intentions. No application change, tests rerun or live storage-clear experiment.
+- **Author verification:** Clarification only; matching Vincent profile/allocation/branch. Human review pending. Server-to-form restoration is a possible refinement, not approved/implemented. Existing Sprint[~] blockers retained.
+
+## Pending command card recovery proposal assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Inspection and feature-level design proposal, no implementation.
+- **Affected locations:** CHANGE-108 proposed record, ARCH-EVO-044, Vincent active-work and this disclosure. Actual Order command/read policy/store and frontend hooks/panel/cards/routes/auth/tests inspected read-only.
+- **Prompt:** Can we implement recovered pending accept/abort as normal order cards with Pending/Continue, and pending creation/repost separately with respective details; is that a good idea?
+- **Key response:** Recommended owner-only displayDetails extension plus shared account-scoped discovery/card binding. Current command API lacks pending display fields; normal order GET can deny expired pending acceptance, and courier mine does not include uncommitted acceptance. Proposed safe projection avoids general read permission relaxation, fake CREATE/REPOST order cards, duplicated commands, arbitrary new-key replay, terminal inference from list disappearance and history-card binding. Same-key resume/5s visible polling and all existing Credit/lease/deadline rules remain. No peer/schema/config change proposed. Approval required before response/access implementation and tests; test matrix and trade-offs recorded. D1/Overall fingerprints unchanged; patch check passes, no tests run.
+- **Author verification:** Vincent requested the UI direction; the discovered API/access extension remains PROPOSED pending explicit detailed approval. Human review and existing Sprint/rollout gates remain open. Application code and unrelated D3 file unchanged.
+
+## Approved pending-card recovery implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Implementation, test-first verification and documentation.
+- **Affected locations:** CHANGE-108/ADR-038, command display projection and companion shared frontend discovery/cards/tests; current design/traceability/active-work and this disclosure.
+- **Prompt:** Yes I agree proceed
+- **Key response:** Approval recorded before code/tests. Implemented safe owner displayDetails and shared discovery/card binding, same-key Continue, separate submitted summaries, no history hook binding and conditional browser-key cleanup before refresh. Backend source9f2e054/frontend942b790. Observed backend3-failure RED; frontend module/history/cleanup RED, then GREEN. Intermediate repost-label/AbortSignal fixture errors corrected. Final373 backend0failures/errors/skips including16 actual Credit HTTP tests and PostgreSQL/emulator; User/Supplier fixtures not live verification. JaCoCo95.37%line/80.27%branch;103 frontend tests, lint0errors/three existing login warnings, typecheck/build pass. Maven success despite fork shutdown warning; Next external package-lock warning unchanged. No peer/schema/config/financial/event changes; unrelated D3 preserved. Learning updated in existing ignored local file; current design chain synchronized.
+- **Author verification:** Vincent explicitly approved CHANGE-108 option2. Matching profile/allocation/branch and unchanged source fingerprints; scoped context approval applies. Automated evidence recorded, human/browser320–1920/storage-clear/mode/all-peer/cloud rollout and existing strict workflow/manifest gates remain open; Sprint/slice[~], no full-stack completion claim.
+
+## Historical screenshot issue recheck assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only application inspection, regression verification and audit documentation.
+- **Affected locations:** Vincent active-work and this disclosure only; current controllers, durable recovery/store/gateway, actual Credit command handlers, read policy, receipt/event identity, outbox and deployment configuration inspected.
+- **Prompt:** I have told u to fix all these before, u rmb ? Check again if u have fix or use some similar fix to fix the issue
+- **Key response:** Audited issues48/49/51/52/53/54/55 on matching branch HEAD5bf1a15 after merge revert. Application/config/test tree unchanged from e516cfa. Existing CHANGE-104/105/106/107 fixes remain: durable public mutations, stable keys/candidates, compensation/guards, bounded peers, relationship reads, bound receipts/events, no dead HTTP settlement, async bounded outbox with retained FAILED/redrive. Lifecycle default still exists locally but cloud hook is denied and expiry HTTP route removed; automatic repost/delegation deliberately deferred. Cloud min1/always-CPU flags wired, not deployed. Fresh78 focused/OpenAPI tests0failures/errors/skips,29 configuration assertions pass, D1/Overall hashes match and patch check passes. Earlier actual-provider/emulator evidence not rerun or claimed as new live verification.
+- **Author verification:** Vincent requested verification only. No application/peer/schema/config changes or new design approval inferred; no commit/push/image rebuild/cloud deployment. Human review, browser/rollout/cloud gates and Sprint[~] remain open.
+
+## Frontend SPA architecture clarification assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend package/config, root layout, AppShell, Order pages and API hooks inspected.
+- **Prompt:** Is our frontend code using single page application architecture design?
+- **Key response:** Current Next16 React App Router supports SPA-style navigation through Link/router while the async root layout renders at request time on the server; Order forms/lists and API polling run as client components. Classified as hybrid server/client rendering with SPA-style routing, not a pure client-only SPA. No application/config/API/design changes or tests/browser checks run.
+- **Author verification:** Explanation requested, not a design change. Matching Vincent branch/profile and scoped lightweight context; human review pending. Prior uncommitted audit notes and existing Sprint/rollout gates preserved.
+
+## Latest post-revert main merge compatibility review assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Source review, deterministic verification and dependency handoff.
+- **Affected locations:** Vincent active-work, FEEDBACK-012, existing ignored frontend learning note and this disclosure only. Merge/current/main frontend, actual User controller/DTO/service and downstream lookup callers inspected read-only.
+- **Prompt:** Check if this merge with main the user service only bring changes that wont affect other services
+- **Key response:** c2fe90c adds one profile edit route and two historical records; all backend/Compose/gateway files equal first parent5bf1a15. Earlier reverted main auth-provider dependencies were not automatically reintroduced. Typecheck fails3 TS2339 errors for missing profile/profileLoading/refreshProfile at edit/page.tsx:20; existing103 frontend tests/26 files and29 configuration assertions pass but do not cover new route. Username PUT/me matches existing provider; Firebase email change plus current Mongo-only GET/me has no email-sync guarantee. Documented FEEDBACK-012 and Git revert/remerge lesson. No claim prior FEEDBACK-011 backend defects reentered this merge. Patch check passes; build/backend/live-user/cloud checks not rerun.
+- **Author verification:** Vincent requested inspection only. Matching profile/workstream/branch and scoped context approval; no application/peer/config/schema changes, commit/push/revert/remerge or deployment. Owner-compatible narrow integration and human review required before release.

@@ -1,7 +1,66 @@
 # Approved Change Log
 
+CHANGE-109 (Vincent, 2026-10-11): approved narrow profile merge frontend repair;
+source/testd7f72a8. Current AuthProvider retained; account-keyed profile GET/PUT
+through useApi, verified email sync/token refresh, failure retry, account-switch
+guard and Edit navigation.116 frontend tests/typecheck/build pass; lint0errors/
+3 existing login warnings. No backend/schema/infra/API changes. Exactcd41186
+removes delete UI only: no new peer requirements. Browser/email/mobile/runtime/
+strict gates[~]; CHANGE-109 and FEEDBACK-012.
+
+CHANGE-108 (Vincent, 2026-10-11): approved ADR-038/ARCH-EVO-044 pending card recovery
+and owner-only command display projection. Source9f2e054/942b790;373 backend/103
+frontend pass; lint/typecheck/build pass; browser/rollout/strict gates[~].
+Credit, financial policy, schema and general read permissions unchanged.
+
+CHANGE-107 (2026-10-11, Vincent): approved ARCH-EVO-043 removal of the unused
+expiry HTTP trigger and OpenAPI/docs operation; direct minute expiry/refund and
+all repost-related routes retained. RED observed then 40 focused tests passed;
+generated OpenAPI removal verified, runtime rebuild remains:
+[record](../changes/CHANGE-107-retire-expiry-http-trigger.md).
+
+CHANGE-106 (2026-10-11, Vincent): approved ADR-037 / ARCH-EVO-042 durable manual
+repost, V8 original/candidate identity and command route, backend/UI recovery.
+Source2c021b6;367 backend/90 frontend pass,94.76%line/80.23%branch. Local rollout
+blocked by Docker engine500; strict record/human/browser/cloud gates remain[~].
+No peer, automatic or deployment changes.
+
+- CHANGE-105 (2026-10-11, Vincent): ADR-036 emulator-only local Compose with real
+  HTTP peers; approved local Credit push-auth exception; cloud min1/always-CPU;
+  durable legacy CREATE/ACCEPT/ABORT; relationship-protected reads; bound
+  receipts/scoped event IDs; bounded async outbox, V6 FAILED/redrive, V7 binding.
+  No cloud deploy or automatic-repost implementation. Evidence and handoff:
+  changes/CHANGE-105-local-emulator-and-review-hardening.md.
+
+- CHANGE-104 (2026-10-11, Vincent): ADR-035 actual Credit HTTP command gateway,
+  paired key/generation headers, historical lookup/conditional compensation,
+  enabled capability, bounded timeouts, real financial-provider tests and
+  frontend regression. See changes/CHANGE-104-live-credit-command-recovery.md.
+  No peer source/schema/event changes; tokenless recovery needs user Continue.
+
+- CHANGE-103 (2026-10-10, Vincent): approved documentation-only AsyncAPI for the
+  three current outgoing Pub/Sub contracts, exact schemas/examples, viewing guide
+  and source-parity validator. No runtime or peer change; live gates unchanged.
+  [Record](../changes/CHANGE-103-asyncapi-pubsub-documentation.md).
+
+- CHANGE-102 / ADR-034 / ARCH-EVO-039 (2026-10-10, Vincent): approved shared
+  minute recovery -> expiry -> completion orchestration; independent failures,
+  existing guards and live recovery gate retained; implemented in `10fd76d`.
+  28 focused / 301 full backend pass; 95.60% line / 81.95% branch coverage.
+  Workflow-format and live peer gates remain; Sprint `[~]`.
+  [Record](../changes/CHANGE-102-merged-minute-scheduler.md).
+
+- CHANGE-101 (2026-10-10, Vincent): local excluded JWT signing learning note;
+  [record](../changes/CHANGE-101-jwt-signature-learning.md). No security/source change.
+
+- CHANGE-100 / ADR-033 / ARCH-EVO-038 (2026-10-10, Vincent): approved durable
+  foreground Credit-command contract-stub slice; live HTTP recovery disabled;
+  Order/frontend tests and V5 migration in progress.
+
 | Change ID | Date | Status | Summary |
 |---|---|---|---|
+| [CHANGE-093](../changes/CHANGE-093-accept-cancel-concurrency-verification.md) | 2026-10-09 | Test slice locally verified; workflow/live gates remain | New pair 2/2; all five PG races 10/10 plus 49 related regressions, zero failures/errors/skips; test commit 827844b; no production/schema/peer changes |
+| [CHANGE-092](../changes/CHANGE-092-postgresql-concurrency-verification.md) | 2026-10-09 | Order database race test unit verified; live recovery deferred | 8 real PostgreSQL races, both winner orderings; 215 tests/no skips; fresh 95.67% line/84.70% branch coverage; no production/peer/schema changes |
 | [CHANGE-099](../changes/CHANGE-099-backend-expiry-api-regression.md) | 2026-10-10 | Verified locally: 19 focused / 258 full pass; no skips | Existing server-side 30-minute expiry rule verified through direct API; no production change |
 | [CHANGE-091](../changes/CHANGE-091-field-errors-and-repost-window.md) | 2026-10-09 | Implemented; local tests recorded; live/browser gates open | Field-specific creation errors; new auto/manual min30, saved explicit plans grandfathered; no peer/schema/retry changes |
 | [CHANGE-090](../changes/CHANGE-090-credit-push-security-interference.md) | 2026-10-09 | Narrow Credit repair verified locally; owner/live gates open | Push converter isolated from Firebase roles; 15 new bearer regressions, 80 clean Credit tests, 95.48% line/85.56% branch coverage; exact interference handoff; source commit 198cd7c |

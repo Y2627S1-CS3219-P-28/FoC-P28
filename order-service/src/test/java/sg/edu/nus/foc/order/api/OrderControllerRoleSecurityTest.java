@@ -76,6 +76,9 @@ class OrderControllerRoleSecurityTest {
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
+    @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCommandService commands;
+    @MockitoBean private sg.edu.nus.foc.order.security.OrderReadAccessPolicy readAccess;
+
     @Test
     void productionDefaultsToHttpRolesIndependentlyOfSharedMockMode() {
         org.junit.jupiter.api.Assertions.assertEquals("http",
@@ -115,8 +118,9 @@ class OrderControllerRoleSecurityTest {
         Jwt caller = Jwt.withTokenValue("token").header("alg", "RS256").subject("u1").build();
         when(jwtDecoder.decode("token")).thenReturn(caller);
         when(roleProvider.rolesFor(caller)).thenReturn(Set.of(Role.REQUESTER, Role.COURIER));
-        when(assignment.accept(anyString(), anyString(), anyString(), anyLong(), anyString()))
-                .thenReturn(order());
+        when(commands.submit(anyString(), any(), anyString())).thenReturn(new sg.edu.nus.foc.order.application.recovery.CommandView(
+                "command", "ACCEPT", "COMPLETED", "SUCCESS", "SUCCEEDED", "Done", "order", 1, null,
+                new OrderMapperImpl().toResponse(order())));
 
         mockMvc.perform(post("/api/orders/order/accept")
                         .header("Authorization", "Bearer token")
@@ -125,7 +129,7 @@ class OrderControllerRoleSecurityTest {
                 .andExpect(status().isOk());
 
         verify(roleProvider).rolesFor(caller);
-        verify(assignment).accept("command", "order", "u1", 0, "Bearer token");
+        verify(commands).submit("command", new sg.edu.nus.foc.order.application.recovery.CommandRequest("ACCEPT", "u1", "order", 0, null), "Bearer token");
     }
 
     @Test

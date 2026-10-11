@@ -2,6 +2,7 @@ package sg.edu.nus.foc.order.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Files;
@@ -43,7 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class},
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class, OrderOutboxAdminController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -71,9 +72,36 @@ class OpenApiDocumentationTest {
     @MockitoBean private OrderRepostService reposts;
     @MockitoBean private LifecycleProcessingService lifecycle;
     @MockitoBean private UserServicePort users;
+    @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCommandService commands;
+    @MockitoBean private sg.edu.nus.foc.order.security.OrderReadAccessPolicy readAccess;
+    @MockitoBean private sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository outbox;
+    @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;
+
+    @Test
+    void expiryHttpTriggerIsRetiredWhileRepostRoutesRemainDocumented() throws Exception {
+        String json = mvc.perform(get(PREFIX + "/v3/api-docs"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        JsonNode paths = mapper.readTree(json).path("paths");
+
+        assertThat(paths.has(PREFIX + "/internal/lifecycle/expire")).isFalse();
+        assertThat(paths.path(PREFIX + "/internal/lifecycle/repost").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost/configure").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost-draft").has("get")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/commands/{id}/repost").has("post")).isTrue();
+    }
+
+    @Test
+    void retiredExpiryHttpRequestDoesNotRunLifecycleProcessing() throws Exception {
+        mvc.perform(post(PREFIX + "/internal/lifecycle/expire")
+                .header("X-Lifecycle-Token", "test-lifecycle-token"))
+            .andExpect(status().isNotFound());
+        org.mockito.Mockito.verifyNoInteractions(lifecycle);
+    }
 
     @Test
     void swaggerUsesTheCurrentOriginInsteadOfAnInternalBackendUrl() throws Exception {
@@ -98,6 +126,8 @@ class OpenApiDocumentationTest {
         Files.writeString(Path.of("target/openapi.json"), json);
 
         JsonNode paths = mapper.readTree(json).path("paths");
+        assertThat(paths.has("/api/orders/commands/create")).isTrue();
+        assertThat(paths.has("/api/orders/commands/{key}/resume")).isTrue();
         assertThat(paths.isEmpty()).as("OpenAPI document lists no paths").isFalse();
 
         List<String> problems = new ArrayList<>();
@@ -124,5 +154,10 @@ class OpenApiDocumentationTest {
         JsonNode personal = paths.path("/api/orders/mine").path("get");
         assertThat(personal.path("parameters").toString()).contains("status", "COMPLETED", "ABORTED");
         assertThat(personal.path("responses").has("400")).isTrue();
+        JsonNode schemas = mapper.readTree(json).path("components").path("schemas");
+        assertThat(schemas.path("CommandView").path("properties").has("displayDetails")).isTrue();
+        assertThat(schemas.path("DisplayDetails").path("properties").propertyNames()).containsExactlyInAnyOrder(
+                "itemDescription", "pickupSupplierId", "deliverySupplierId", "offeredCredits",
+                "deliveryTimeLimitMinutes", "expiresAt", "orderStatus", "version");
     }
 }

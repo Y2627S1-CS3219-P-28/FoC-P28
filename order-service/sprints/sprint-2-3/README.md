@@ -1,5 +1,41 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+CHANGE-107: expiry is a direct minute-scheduler phase, without an HTTP adapter.
+Recovery/expiry/completion sequence and all repost APIs remain unchanged.
+
+ADR-037 / CHANGE-106 extends approved recovery to MANUAL REPOST only. Same-key,
+stable new candidate, original guard, frozen expiry and pending UI; V8. This
+supersedes historical manual deferral; auto/delegation remains deferred. [~].
+
+## Current effective transport/recovery — CHANGE-105 / ADR-036
+
+Local Compose uses real HTTP peers and Pub/Sub emulator, never cloud topics/ADC.
+Legacy CREATE/ACCEPT/ABORT now use durable commands too. Minute recovery -> expiry
+-> >=48-hour completion remains; automatic repost/delegation is deferred.
+Outbox uses bounded asynchronous after-commit dispatch plus 15-minute recovery,
+retained FAILED after ten attempts and ADMIN redrive. V6/V7 and class/flow details
+are in docs/architecture-order-service.md; exact tests/handoff in CHANGE-105.
+Cloud min1/always CPU configured, not deployed/verified. Sprint remains [~].
+
+## Recovery-first shared minute job — CHANGE-102 / ADR-034
+
+The independent command timer is removed. `order.lifecycle.cron` controls one
+minute tick: eligible recovery -> OPEN expiry -> >=48-hour completion. Lifecycle
+time is captured after recovery; failures do not suppress subsequent phases.
+Existing HTTP recovery hard gate, locks/leases/unresolved guards and all item
+transactions remain. Outbox remains immediate plus every 15 minutes. This
+supersedes only timer ownership in ADR-026/033; Sprint stays `[~]`.
+
+## Foreground recovery stub slice — CHANGE-100 / ADR-033
+
+Vincent approves durable CREATE/ACCEPT/CANCEL_ACCEPTED recovery with same-key
+browser persistence, Order-owned V5 intent/lease/result records and companion
+pending UI. The effective feature class/sequence/data contracts and Credit
+handoff are [concurrency-order-credit.md](../../concurrency/concurrency-order-credit.md).
+Only the contract stub is implemented/verified here; HTTP recovery is hard
+disabled and real peer/browser/crash gates remain open. Repost recovery and
+delegated credentials remain deferred. Sprint `[~]`; FEEDBACK-010/003/006 `[!]`.
+
 ## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
 
 Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.
@@ -67,7 +103,8 @@ flowchart LR
   Controller --> Assignment[OrderAssignmentService]
   Controller --> Repost[OrderRepostService]
   Controller --> Query[OrderQueryService]
-  Tick[OrderLifecycleScheduler: every minute] --> Lifecycle[LifecycleProcessingService]
+  Tick[OrderLifecycleScheduler: every minute] --> Recovery[OrderCommandService: eligible recovery first / mock-only]
+  Recovery --> Lifecycle[LifecycleProcessingService: expiry then completion]
   Lifecycle --> Transition
   Lifecycle --> Outbox
   Transition --> Domain[Order: one current state / ownership / version]

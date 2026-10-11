@@ -1,5 +1,25 @@
 # Order Service Database Migration Workflow
 
+Latest approved handoff: V8__durable_manual_repost.sql. Add nullable candidate_order_id
+and REPOST kind; preserve prior commands/IDs and pending-target index. Expected
+schema8. Normal matching Order startup applies Flyway; six clean/upgrade PG tests
+pass, including V7 preservation/constraints. Source2c021b6. Consuming local rollout
+blocked by Docker engine500; human review pending. No reset/rollback; disable workers,
+retain unresolved evidence, reviewed forward correction if necessary.
+
+## Latest migration handoff — V5 / CHANGE-100
+
+V5__durable_foreground_commands.sql adds only Order-owned `order_commands`,
+immutable input/result JSON, owner/lease/generation/retry metadata and the
+unique unresolved-target/due/owner indexes. Expected Flyway version: **5**.
+Pull matching source+migration and rebuild/start Order normally; Flyway applies
+it. Clean and V1/V3-to-latest PostgreSQL upgrade tests verify prior data and
+V4 legacy-plan rules survive. Never edit applied V1–V4 or use ORM auto-update.
+Recovery is disable workers, preserve unresolved records and reconcile; no
+destructive rollback or deletion of pending financial evidence. Full handoff:
+[concurrency-order-credit.md](../concurrency/concurrency-order-credit.md).
+Historical V4 commands below are superseded only as the latest version pointer.
+
 ## Latest migration handoff — V4 / CHANGE-086
 
 - Purpose: NTH4 explicit automatic expiry and latest safe failure code/message/time.
@@ -28,6 +48,24 @@ This workflow keeps independent local Order Service databases at the same approv
 This document applies to every schema-affecting change, including tables, columns, indexes, constraints, identifiers, timestamps, version fields, relationships, persistence mappings that require a schema change, and approved seed/reference data.
 
 ## Status and technology boundary
+
+### CHANGE-105 / ADR-036 handoff (2026-10-11)
+
+- Migration IDs: V6__retained_failed_outbox.sql and V7__bind_command_receipts.sql.
+- Purpose: retained exhausted publication and secure immutable receipt replay.
+- Objects: outbox state CHECK/FAILED index; receipt actor_id/input_fingerprint.
+- Required command: rebuild/start the matching Order image via root Compose; its
+  Flyway startup migration applies versioned files. Expected schema version: 7.
+- Clean/upgrade verification: OrderOutboxMigrationTest covers clean, V1/V3 and
+  V5-to-V7 with retained payload and intentionally unbound historical receipts;
+  OrderOutboxJpaIntegrationTest covers FAILED/redrive persistence. Exact results
+  are CHANGE-105. Existing local application database upgraded V4->V7 without reset.
+- Historical receipts stay null-bound and fail closed on attempted replay. No
+  existing event ID/payload or business order ID is rewritten by these migrations.
+- Back up before cloud rollout; deploy matching app/schema together. No destructive
+  down migration. Restore a reviewed backup or add a forward corrective migration;
+  do not rewrite V1-V7 or delete FAILED evidence to downgrade. Peer consuming
+  developer still needs to apply/review the same files; no cloud rollout performed.
 
 - This is a workflow rule; ADR-008 approves PostgreSQL on Cloud SQL for Order Service.
 - The parent Firestore convention remains applicable to sibling services and does not replace the Order Service decision.

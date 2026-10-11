@@ -1,5 +1,55 @@
 # Active Sprint
 
+CHANGE-108 / ADR-038 is the approved display-only recovery extension: owned
+pending command details, shared discovery and existing-order pending cards;
+creation/repost summaries stay separate. Financial/peer/schema behavior unchanged.
+Source9f2e054/942b790 automated verified:373 backend/103 frontend tests pass,
+lint/typecheck/build pass. Browser/rollout/strict completion gates remain[~].
+
+CHANGE-107 retires only the unused expiry HTTP/Swagger operation. Scheduled
+expiry/refunds and every repost API remain; no Sprint scope expansion.
+
+CHANGE-106 / ADR-037 durable manual repost and V8 implemented/automated verified;
+367 backend/90 frontend pass. Local consuming rollout blocked by Docker engine500.
+Current scope extends the earlier three commands only for manual REPOST;
+automatic repost/delegation remains deferred. Sprint remains [~].
+
+## CHANGE-105 / ADR-036: emulator and review hardening
+
+Approved by Vincent on current branch. Real local HTTP services with local Pub/Sub
+emulator, durable legacy mutation entrypoints, read/replay protections and
+asynchronous retained-failure outbox. V6/V7 handed off together. Cloud timer
+configuration updated only; no cloud rollout/IAM verification. Automatic repost
+and delegated credentials deferred; User event consumers missing. Sprint [~].
+Evidence: changes/CHANGE-105-local-emulator-and-review-hardening.md.
+
+## CHANGE-104 / ADR-035: actual Credit command integration
+
+Vincent approves HTTP CREATE/ACCEPT/ABORT recovery on the current branch. Same keys, candidate IDs, leases, unresolved guards and deadlines remain. Fresh user authorization is still required for Continue; trusted credentials and repost recovery remain deferred. Sprint [~] until full-stack gates pass. See CHANGE-104 for actual test evidence.
+
+## CHANGE-102 / ADR-034: recovery-first minute scheduler
+
+Vincent confirms `sprint-2-3-credit-service-concurrency-update-event-payload`.
+One minute job runs eligible command recovery, OPEN expiry, then >=48-hour
+DELIVERED completion, sequentially with independent phase failures. HTTP command
+recovery remains disabled; no new repost retry or peer integration. Outbox
+retains immediate publication and a separate 15-minute scan. Sprint `[~]`.
+
+## CHANGE-100 / ADR-033: foreground command recovery stub milestone
+
+Vincent's approved Sprint 2–3 slice on sprint-2-3-credit-service-concurrency
+adds durable CREATE/ACCEPT/CANCEL_ACCEPTED recovery and companion frontend.
+Local contract-stub tests only; live HTTP recovery disabled. Repost background
+retries and delegated credentials remain paused. Sprint `[~]`.
+
+## CHANGE-093 concurrency verification extension
+
+Vincent approves the fifth real PostgreSQL race: courier acceptance versus
+requester OPEN cancellation, both winner orderings, using existing unchanged
+transactional locking. New pair 2/2 and all five races 10/10 pass, no skips;
+49 related service/domain/transition regressions also pass, zero failures/errors/
+skips (test commit 827844b). No new lifecycle/peer/schema/UI
+design or overall Sprint completion; peer calls/dispatch remain mocked.
 ## Mode-specific status options — CHANGE-095 (2026-10-09)
 
 Requester dropdown excludes ABORTED. Courier dropdown excludes OPEN, EXPIRED and CANCELLED; it retains ABORTED immutable-attempt history. All statuses remains the default. OrderStatusFilter requires an explicit requester/courier mode, supplied by each existing page. This is a UI-only refinement of ADR-032: existing API enum/query, authentication, ownership, pagination and five-second polling remain unchanged.

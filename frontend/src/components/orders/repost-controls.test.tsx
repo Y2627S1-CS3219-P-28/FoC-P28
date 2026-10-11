@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({ api: vi.fn(), error: vi.fn(), user: { uid: "re
 vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: mocks.user }) }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: mocks.error } }))
+// Retain coverage for explicitly disabled-recovery deployments using the hook's legacy branch.
+vi.mock("@/hooks/use-order-command", () => ({ useOrderCommand: (_scope: string, success: (order: Order) => void) => ({
+  ready: true, pending: false, message: null, needsAuthorization: false, continueRecovery: vi.fn(),
+  run: async (_kind: string, path: string, body: Record<string, unknown>) => success(await mocks.api(path, { method: "POST", body })),
+}) }))
 
 const expiredOrder: Order = {
   id: "old-order", requesterId: "requester-1", courierId: null, itemDescription: "Pick up a parcel",

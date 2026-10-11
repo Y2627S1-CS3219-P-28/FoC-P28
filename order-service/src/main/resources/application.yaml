@@ -46,8 +46,17 @@ order:
     user-url: ${USER_SERVICE_URL:http://localhost:8081}
     supplier-url: ${SUPPLIER_SERVICE_URL:http://localhost:8082}
     credit-url: ${CREDIT_SERVICE_URL:http://localhost:8084}
+    connect-timeout: ${ORDER_PEER_CONNECT_TIMEOUT:3s}
+    read-timeout: ${ORDER_PEER_READ_TIMEOUT:5s}
+  commands:
+    enabled: ${ORDER_COMMANDS_ENABLED:true}
+    lease-seconds: ${ORDER_COMMAND_LEASE_SECONDS:120}
+    retry-seconds: ${ORDER_COMMAND_RETRY_SECONDS:15}
+    batch-size: ${ORDER_COMMAND_BATCH_SIZE:20}
   lifecycle-token: ${ORDER_LIFECYCLE_TOKEN:local-lifecycle}
   messaging:
+    mode: ${ORDER_MESSAGING_MODE:cloud}
+    emulator-host: ${PUBSUB_EMULATOR_HOST:}
     project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
     publish-timeout: 10s
     outbox:
@@ -58,4 +67,5 @@ order:
       open-order-refund: ${ORDER_OPEN_REFUND_TOPIC:open-order-refund-dev-v1}
       accepted-order-cancellation: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:accepted-order-cancellation-dev-v1}
   lifecycle:
+    external-enabled: ${ORDER_LIFECYCLE_EXTERNAL_ENABLED:false}
     cron: ${ORDER_LIFECYCLE_CRON:0 * * * * *}

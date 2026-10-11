@@ -1,5 +1,61 @@
 # Attached Order flow: approved amendments and implementation gaps
 
+## Effective pending display extension — ADR-038
+
+Owned pending command responses include allow-listed displayDetails. The shared
+page/account discovery provider polls all pending pages every five visible
+seconds. Existing ACCEPT/ABORT targets show committed state plus Pending/Continue;
+CREATE/REPOST remain submitted-detail summaries. Never attach commands to ABORTED
+history, fabricate candidate Orders, or infer success from list disappearance.
+Read the known key's terminal result before clearing and refreshing normal lists.
+Resume is the same-key POST with current user token and no invented input/body.
+Class/sequence: [ADR-038](../decisions/ADR-038-server-discovered-pending-card-recovery.md).
+Credit payloads, locks, leases, unresolved guards and expiry rules are unchanged.
+
+## Latest effective recovery flow — ADR-035/036/037
+
+The historical flow/table below preserves earlier gaps; it is superseded for
+current HTTP recovery, manual repost, emulator transport and retained outbox by
+ADR-035/036/037 and CHANGE-104/105/106. Current visible list/command polling is
+five seconds. Minute recovery runs before expiry and 48-hour completion; HTTP
+recovery needs fresh owner authorization. Outbox publishes asynchronously after
+commit, scans every 15 minutes and retains FAILED after ten attempts for redrive.
+
+Manual `POST /api/orders/commands/{originalId}/repost` (legacy route delegates)
+commits PENDING with ORIGINAL guard + distinct candidate before Credit RESERVE.
+Success atomically creates OPEN, links original and resolves the command. Unknown
+outcome remains pending; confirmed rejection retains EXPIRED with saved message.
+Possible effects invalidated by expiry/state require conditional compensation.
+Refund/history stays OLD-ID. Exact current class/sequence/data and UI branches:
+[ADR-037](../decisions/ADR-037-durable-manual-repost.md); tested provider mapping:
+[Credit handoff](../../concurrency/concurrency-order-credit.md).
+Automatic repost/delegation remains deferred, not silently enabled.
+
+## Effective minute job — CHANGE-102 / ADR-034
+
+This sequence supersedes the separate command timer. The job itself is not a
+single database transaction. Every phase has an independent catch; existing
+per-order transactions, locks, pending guards and leases remain authoritative.
+Automatic-repost/background retry scope is unchanged.
+
+```mermaid
+sequenceDiagram
+    participant Tick as OrderLifecycleScheduler (every minute)
+    participant Commands as OrderCommandService
+    participant Lifecycle as LifecycleProcessingService
+    Tick->>Commands: recoverDue() (existing mock-only gate)
+    Commands-->>Tick: resolved / still pending / caught failure
+    Note over Tick: Capture lifecycle time AFTER recovery
+    Tick->>Lifecycle: expireDue(now): OPEN + unassigned + due + no unresolved command
+    Lifecycle-->>Tick: successful expiries queue refunds; failures remain eligible
+    Tick->>Lifecycle: autoCompleteDue(now): DELIVERED + latest delivery at least 48h ago
+    Lifecycle-->>Tick: successful completions queue completion events
+    Note over Tick,Lifecycle: Continue later phases after errors; no deadline bypass
+```
+
+Outbox publication is still immediate after commit; a separate every-15-minute
+scan recovers pending/failed refund, completion and accepted-cancellation events.
+
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
@@ -23,7 +79,7 @@ implementation explicitly deferred pending peer agreement.
 
 | Requirement | Current implementation |
 | --- | --- |
-| Shared every-minute OPEN expiry / >=48h latest-DELIVERED completion | Implemented; same captured time, independent transactional passes/failure isolation. |
+| One every-minute recovery -> OPEN expiry -> >=48h latest-DELIVERED completion | ADR-034: sequential; mock-only command recovery; lifecycle time captured afterward and shared by the two checks. Independent item transactions and phase failures. |
 | All-three-event outbox recovery every 15min, immediate dispatch retained | Implemented; publication acknowledgement is not refund completion. |
 | Creation-time automatic choice only | Implemented; post-creation configuration rejected. |
 | NEW automatic expiry >= due +30min; due >= original expiry; run late only before NEW expiry | CHANGE-091 / ADR-030; saved explicit-expiry plans grandfathered unchanged. Exact saved deadline used; prior V4 disable-without-expiry remains. |
@@ -51,10 +107,10 @@ flowchart TD
     RESERVE -->|Failure| NOOPEN
     RESERVE -->|Confirmed matching RESERVED| OPEN["OPEN; persist Order/checkpoint/receipt"]
 
-    TICK["ONE lifecycle scheduler every 1 minute<br/>Independent expiry/completion checks"] --> EXPIRY{"Still OPEN, courier null,<br/>expiresAt reached?"}
+    TICK["ONE scheduler every minute<br/>1: eligible command recovery (mock-only)<br/>then 2: expiry; then 3: completion<br/>Independent phase catches / item transactions"] -->|Phase 2: after recovery| EXPIRY{"Still OPEN, courier null,<br/>expiresAt reached; no unresolved command?"}
     OPEN --> EXPIRY
     EXPIRY -->|Yes| EXPIRED["EXPIRED; keep original business ID"]
-    TICK --> COMPLETECHECK{"Still DELIVERED;<br/>latest delivery at least 48 hours ago?"}
+    TICK -->|Phase 3: after expiry pass| COMPLETECHECK{"Still DELIVERED;<br/>latest delivery at least 48 hours ago?"}
     COMPLETECHECK -->|Yes| COMPLETED
     OPEN --> CANCEL["Requester POST /api/orders/ID/cancel"]
     CANCEL --> CANCELLED["CANCELLED"]

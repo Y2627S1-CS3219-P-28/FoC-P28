@@ -1,5 +1,77 @@
 # Order Service Architecture
 
+ADR-038 / CHANGE-108 adds an owner-only CommandView display projection and a
+shared frontend discovery provider. ACCEPT/ABORT show actual committed target
+details; CREATE/REPOST show immutable submitted details without fake Orders.
+Owned command checks precede projection, including after acceptance deadline.
+General Order read policy, provider APIs, data model and financial flow unchanged.
+Effective display class/sequence: decisions/ADR-038-server-discovered-pending-card-recovery.md.
+
+CHANGE-107 / ARCH-EVO-043 retires the unused expiry HTTP adapter only. The minute
+job still invokes recovery -> expiry -> completion directly; lifecycle workers,
+locks, transactions and refund publication are unchanged. All repost adapters stay.
+
+Effective ADR-037 adds durable manual REPOST to the same coordinator. V8 separates
+original guard from candidate reservation. OrderRepostService.manualConfirmed finalizes without
+remote I/O; link/new OPEN/checkpoint/receipt/result commit together. Exact current
+class/sequence/data design: decisions/ADR-037-durable-manual-repost.md. Automatic
+repost remains deferred; no peer/topic/config changes.
+
+## Effective review refinements — CHANGE-105 / ADR-036
+
+Legacy CREATE/ACCEPT/ABORT -> OrderCommandService; no direct Credit/local-commit
+bypass. Existing coordinator validates, leases and guards before remote I/O;
+final Order/history/outbox/result remain atomic. Read policy checks relationships.
+V7 receipts add actor_id/input_fingerprint (SHA-256, length-prefixed fields);
+historical rows remain unbound, so replay conflicts rather than guesses.
+
+```mermaid
+flowchart TD
+  UI["Authenticated UI: legacy or command route"] --> C["Durable coordinator: immutable key/input"]
+  C --> L["DB claim + generation + unresolved guard"]
+  L --> HTTP["Real Credit command/result/compensation HTTP"]
+  HTTP --> F["Atomic Order/result/history/outbox commit"]
+  F --> Q["After-commit bounded executor: 2 workers / queue 50"]
+  Q --> B["Local emulator OR cloud Google Pub/Sub"]
+  R["15-minute recovery scan"] --> Q
+  Q --> E["After 10 failed attempts: retained FAILED"]
+  E --> A["ADMIN redrive same event ID/payload"]
+  A --> Q
+  M["One minute job"] --> RC["Eligible command recovery"]
+  RC --> EX["Eligible OPEN expiry + refund"]
+  EX --> CO["DELIVERED >=48h completion + transfer"]
+```
+
+V6 outbox state includes FAILED; payload/ID preserved, explicit redrive resets
+attempts/lease/due time. No consumer completion inferred from PUBLISHED.
+Local Credit's approved security exception affects only two typed push routes;
+ordinary JWT verification and cloud Google OIDC remain. Cloud Order min1/always
+CPU enables timers while idle; no external shared-token lifecycle trigger needed.
+Automatic repost/delegation and User penalty subscribers remain deferred.
+
+## Effective HTTP command gateway — CHANGE-104 / ADR-035
+
+OrderCommandController → OrderCommandService → leased OrderCommandStore → HttpCreditCommandGateway → Credit command/result/compensation API → atomic local finalizer. LocalCreditCommandStub is selected only in explicit mock mode. Matching saved results and mutation markers are mandatory; uncertain responses retain PENDING. Bounded peer timeouts apply. The minute job still runs recovery → expiry → completion; tokenless HTTP recovery asks for fresh user authorization before peer I/O. No lifecycle/data-model change. Historical mock-only descriptions below are superseded at this adapter boundary.
+
+## Foreground durable command stub — CHANGE-100 / ADR-033
+
+Latest approved CREATE/ACCEPT/CANCEL_ACCEPTED refinement: commit immutable intent
+and candidate/target before Credit I/O; claim with a DB-clock lease/generation;
+use a durable unresolved target guard plus existing row locks; atomically commit
+Order/history/receipt/outbox and terminal command result. Owner-only status reads
+are not new-task eligibility checks; mutation/resume still revalidates eligibility.
+Five-second UI polling, frozen account-scoped IndexedDB intent and auth-only
+Continue controls accompany this slice. ADR-034 / CHANGE-102 merges the mock-only
+command scan into the minute lifecycle job: recovery -> expiry -> completion.
+The HTTP gate, item transactions/guards, outbox schedule and repost behavior
+remain unchanged; lifecycle time is captured after recovery.
+
+The [class responsibilities, service sequence, minimal peer contracts and V5
+data model](../concurrency/concurrency-order-credit.md) are the effective feature
+design. Historical diagrams apply except these explicitly amended unsafe-call
+boundaries. HTTP recovery remains hard disabled; Credit protocol is a documented
+stub assumption, not verified financial durability. FEEDBACK-010 extends 003/006.
+
 ## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
 
 Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.
@@ -67,7 +139,7 @@ Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../.
 ## Layers and ports
 
 1. External callers: requester, courier, Admin Service, and trusted lifecycle triggers.
-2. Inbound contracts: commands, queries, admin integration, expiry, auto-completion, and auto-repost triggers.
+2. Inbound contracts: commands, queries, admin integration and retained repost triggers. Expiry and scheduled completion use direct in-process scheduler calls, not an expiry HTTP API (CHANGE-107).
 3. Application components: creation, assignment, transitions, queries/history, completion-time overdue evaluation, scheduled auto-completion, expiry, and reposting.
 4. Order-owned domain rules: lifecycle/status, authorization, checkpoints/history, one-time overdue evaluation, and repost policy.
 5. Outbound ports: Order persistence/outbox, User/Supplier/Credit and typed outcome publishers. Acceptance waits for synchronous Credit assignment before ACCEPTED (provider missing). The shared OrderLifecycleScheduler discovers OPEN expiry and >=48h delivery completion, using existing lifecycle/transition services to queue the respective refund/completion intents.
