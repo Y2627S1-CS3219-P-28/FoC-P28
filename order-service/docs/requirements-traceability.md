@@ -1,5 +1,10 @@
 # Order Service Requirements Traceability
 
+CHANGE-107 / ARCH-EVO-043: F4.1.8/F10 expiry and NFR3/NFR4 -> retire only unused
+HTTP adapter -> OpenApiDocumentationTest proves no expiry operation/routing and
+retains all repost paths; OrderLifecycleSchedulerTest and expiry regressions
+preserve direct expiry/refund behavior. No new product requirement or peer API.
+
 CHANGE-106 / ADR-037 [~]: NTH4 + F10/F10.1.3 override -> immutable REPOST original/
 candidate -> reserve -> atomic OPEN/link/result -> same-key pending UI. ADR-030
 initial30min minimum, ADR-033/035 authorization/lease/compensation; NFR3 test/coverage

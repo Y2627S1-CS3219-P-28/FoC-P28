@@ -1,5 +1,11 @@
 # Approved Change Log
 
+CHANGE-107 (2026-10-11, Vincent): approved ARCH-EVO-043 removal of the unused
+expiry HTTP trigger and OpenAPI/docs operation; direct minute expiry/refund and
+all repost-related routes retained. RED observed then 40 focused tests passed;
+generated OpenAPI removal verified, runtime rebuild remains:
+[record](../changes/CHANGE-107-retire-expiry-http-trigger.md).
+
 CHANGE-106 (2026-10-11, Vincent): approved ADR-037 / ARCH-EVO-042 durable manual
 repost, V8 original/candidate identity and command route, backend/UI recovery.
 Source2c021b6;367 backend/90 frontend pass,94.76%line/80.23%branch. Local rollout

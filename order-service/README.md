@@ -1,5 +1,8 @@
 # Order Service
 
+CHANGE-107: expiry runs directly inside the minute lifecycle scheduler; there is
+no expiry HTTP trigger or Swagger operation. All repost routes are retained.
+
 Pub/Sub topics, exact payloads/attributes and examples are documented in
 [AsyncAPI](docs/asyncapi/asyncapi.yaml), with a
 [browser viewing and validation guide](docs/asyncapi/README.md) (CHANGE-103).

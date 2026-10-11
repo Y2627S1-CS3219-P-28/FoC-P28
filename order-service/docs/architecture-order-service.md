@@ -1,5 +1,9 @@
 # Order Service Architecture
 
+CHANGE-107 / ARCH-EVO-043 retires the unused expiry HTTP adapter only. The minute
+job still invokes recovery -> expiry -> completion directly; lifecycle workers,
+locks, transactions and refund publication are unchanged. All repost adapters stay.
+
 Effective ADR-037 adds durable manual REPOST to the same coordinator. V8 separates
 original guard from candidate reservation. OrderRepostService.manualConfirmed finalizes without
 remote I/O; link/new OPEN/checkpoint/receipt/result commit together. Exact current
@@ -128,7 +132,7 @@ Authoritative sources: `../../../Order Service Overall Doc - Updated.pdf`, `../.
 ## Layers and ports
 
 1. External callers: requester, courier, Admin Service, and trusted lifecycle triggers.
-2. Inbound contracts: commands, queries, admin integration, expiry, auto-completion, and auto-repost triggers.
+2. Inbound contracts: commands, queries, admin integration and retained repost triggers. Expiry and scheduled completion use direct in-process scheduler calls, not an expiry HTTP API (CHANGE-107).
 3. Application components: creation, assignment, transitions, queries/history, completion-time overdue evaluation, scheduled auto-completion, expiry, and reposting.
 4. Order-owned domain rules: lifecycle/status, authorization, checkpoints/history, one-time overdue evaluation, and repost policy.
 5. Outbound ports: Order persistence/outbox, User/Supplier/Credit and typed outcome publishers. Acceptance waits for synchronous Credit assignment before ACCEPTED (provider missing). The shared OrderLifecycleScheduler discovers OPEN expiry and >=48h delivery completion, using existing lifecycle/transition services to queue the respective refund/completion intents.

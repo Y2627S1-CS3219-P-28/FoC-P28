@@ -1,5 +1,8 @@
 # Sprint 2-3: Order-owned effective design and verification
 
+CHANGE-107: expiry is a direct minute-scheduler phase, without an HTTP adapter.
+Recovery/expiry/completion sequence and all repost APIs remain unchanged.
+
 ADR-037 / CHANGE-106 extends approved recovery to MANUAL REPOST only. Same-key,
 stable new candidate, original guard, frozen expiry and pending UI; V8. This
 supersedes historical manual deferral; auto/delegation remains deferred. [~].

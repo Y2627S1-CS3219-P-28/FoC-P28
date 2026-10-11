@@ -2169,3 +2169,13 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** What are the internal lifecycle expire/repost endpoints for, and what UI flow triggers them?
 - **Key response:** Neither has a frontend caller. Expiry scheduler invokes the service directly each minute; HTTP endpoints are local-only explicitly enabled token-gated operator/test triggers, disabled by default. Repost route invokes legacy batch repost with a lifecycle bearer value; live automatic/delegated repost remains deferred and minute scheduler does not call it. UI configures a plan at creation but does not call these routes. No tests or live runtime checks rerun; application/config/peer files unchanged.
 - **Author verification:** Clarification requested, not implementation or authorization to activate automatic repost. Human review pending; existing Sprint[~] and rollout blockers retained.
+
+## Retire unused expiry HTTP trigger assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Implementation, tests, verification and documentation.
+- **Affected locations:** OrderController, OpenApiDocumentationTest, OrderControllerCoverageTest; CHANGE-107, ARCH-EVO-043, current contracts/architecture/context/traceability/sprint/README, Vincent active-work, existing local learning note and this log.
+- **Prompt:** Ok. Remove it according to ur suggested move. Remove also from the documentation and swagger ui ... those not currently called by frontend but is repost related we still keep them.
+- **Key response:** Removed only unused expiry HTTP adapter/OpenAPI operation; scheduler/direct expiry/refunds and all five repost paths retained. TDD RED: two expected failures; corrected retained path placeholder assertion, then GREEN: 40 focused tests, zero failures/errors/skips. Generated OpenAPI inspected. D1/Overall source fingerprints match; patch checks pass. Source/test commit 4bbc4fe. No full suite/coverage or live rollout rerun. Historical decisions preserved with current supersession; no frontend/peer/schema/config/D3 edits. PowerShell stderr pipeline exit1 distinguished from Maven BUILD SUCCESS and independently checked Surefire results.
+- **Author verification:** Vincent explicitly approved scoped removal. Automated evidence recorded; human review/rebuilt-runtime Swagger verification pending. Existing overall Sprint[~] and rollout/workflow blockers unchanged.

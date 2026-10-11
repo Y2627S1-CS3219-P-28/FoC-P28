@@ -1,5 +1,9 @@
 # Order Service Permanent Project Context
 
+Effective CHANGE-107 / ARCH-EVO-043 (Vincent, 2026-10-11): unused expiry HTTP
+trigger removed from controller and OpenAPI. Minute scheduler/direct expiry and
+refunds unchanged. Retain every repost route; automatic peer work still deferred.
+
 Effective 2026-10-11 ADR-037 / CHANGE-106: manual REPOST is approved for durable
 coordination, V8 original/candidate IDs, existing minimal RESERVE protocol, atomic
 successor/link/result and same-key pending UI. Automatic/delegation remain deferred.

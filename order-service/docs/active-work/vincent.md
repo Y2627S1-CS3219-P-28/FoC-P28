@@ -1,5 +1,23 @@
 # Vincent - Active Work
 
+## CHANGE-107 expiry HTTP retirement — 2026-10-11, automated verified
+
+- Vincent explicitly approves removing only expiry HTTP/docs/Swagger; keep all
+  repost routes, direct minute expiry/refund processing, schema and peers intact.
+  Profile/allocation/current branch match; unrelated D3 file preserved.
+- Test-first plan: OpenAPI absence + removed HTTP routing, retained repost APIs,
+  controller token guards and direct scheduler/expiry/refund regressions.
+- Current API/evolution refinement approved; no frontend/runtime consumer found.
+  Existing manifest-format/Docker/rollout/Sprint blockers remain separate.
+- RED observed: 4 OpenAPI tests, 2 expected failures before removing the handler.
+  GREEN: 40 focused tests, 0 failures/errors/skips; generated OpenAPI absence and
+  all five retained repost paths verified. Full suite/coverage/live rollout not
+  rerun; existing Sprint[~] blockers unchanged. D1/Overall hashes match, no drift.
+- Source/current docs synchronized; Swagger update on rebuilt/redeployed runtime.
+  Existing ignored learning note updated. No unrelated D3 edit or peer/UI change.
+  Exact evidence/rollback: changes/CHANGE-107-retire-expiry-http-trigger.md.
+- Source/test commit: 4bbc4fe. Documentation handoff committed separately.
+
 ## Internal lifecycle route clarification — 2026-10-11, read-only
 
 - Started/finished source inspection; no frontend internal/lifecycle call sites.

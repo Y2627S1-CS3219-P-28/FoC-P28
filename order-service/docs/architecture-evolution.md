@@ -1,5 +1,17 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-043 — Retire unused expiry HTTP trigger (CHANGE-107)
+
+2026-10-11, Vincent explicitly approves removal from controller/docs/Swagger.
+Classification: API-contract retirement, not expiry/financial behavior change.
+Supersedes only ADR-036's optional local expiry HTTP trigger; retain history and
+all repost routes. Direct minute recovery -> expiry -> completion remains.
+Options: keep an unused local operator shortcut, or remove it and rely on the
+existing scheduler (selected). No frontend/runtime script caller was found;
+loss is only that optional shortcut. Tests/docs/contract synchronization and
+verification are CHANGE-107. Status APPROVED, implemented; 40 focused tests pass,
+OpenAPI/routing removal verified. Deployed runtime/overall Sprint not verified.
+
 ARCH-EVO-042: Vincent explicitly approves ADR-037 / CHANGE-106 on 2026-10-11.
 Architecture/persistence/API extension: REPOST guards original and reserves a
 stable distinct candidate. Atomic link/result, original failure persistence,

@@ -1,5 +1,8 @@
 # Active Sprint
 
+CHANGE-107 retires only the unused expiry HTTP/Swagger operation. Scheduled
+expiry/refunds and every repost API remain; no Sprint scope expansion.
+
 CHANGE-106 / ADR-037 durable manual repost and V8 implemented/automated verified;
 367 backend/90 frontend pass. Local consuming rollout blocked by Docker engine500.
 Current scope extends the earlier three commands only for manual REPOST;

@@ -1,5 +1,12 @@
 # Service Contracts
 
+## Effective expiry API retirement — CHANGE-107
+
+Expiry is scheduler-only, called directly after command recovery and before
+48-hour completion each minute. There is no HTTP expiry trigger. Existing
+locking, pending guards and refund outbox/event contracts are unchanged. All
+repost routes, including the optional local internal repost trigger, remain.
+
 Effective ADR-037: POST /api/orders/commands/{originalId}/repost takes the existing
 ManualRepostRequest JSON (commandId, actorId, expectedVersion, itemDescription,
 offeredCredits, deliveryTimeLimitMinutes, expiresAt). Returns202 PENDING or200
@@ -202,7 +209,7 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
 - Reposting: creation-time automatic plan, `getManualRepostDraft`, and
   `requestManualRepost`. The legacy `configureReposting` route is retained for
   compatibility but rejects post-creation mutation.
-- Lifecycle: `processExpiry`, `processAutoRepost`, and `autoCompleteDue`. Spring scheduler selects `DELIVERED` orders with a delivered checkpoint at or before `now - 48 hours`; the transition rechecks under lock and commits the ordinary completion checkpoint/receipt and `OrderCompletionTaskEvent` outbox row atomically.
+- Internal lifecycle services: `processExpiry`, `processAutoRepost`, and `autoCompleteDue`; expiry has no HTTP trigger (CHANGE-107). Spring scheduler selects `DELIVERED` orders with a delivered checkpoint at or before `now - 48 hours`; the transition rechecks under lock and commits the ordinary completion checkpoint/receipt and `OrderCompletionTaskEvent` outbox row atomically.
 - Admin integration: `placeCompletionHold`, `releaseCompletionHold`, `applyAdministrativeResolution`.
 - Facts: `subscribeToOrderOutcomes`, including typed completion, shared OPEN-refund, and accepted cancellation event contracts.
 
@@ -232,7 +239,7 @@ retained. These are defaults, not runtime SLAs, especially with idle Cloud Run C
 
 Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
 
-CHANGE-093 changes only internal lifecycle processing boundaries: due-ID query and per-order transaction/lock/recheck, caught failures and successful-transition counts. Existing internal expiry-trigger API path/body/authentication remains unchanged; its expired count now excludes skipped/failed candidates. No foreign API or event body change.
+Historical CHANGE-093 changed only internal lifecycle processing boundaries: due-ID query and per-order transaction/lock/recheck, caught failures and successful-transition counts. Its then-retained expiry HTTP shortcut is retired by CHANGE-107. Internal successful-transition counts still exclude skipped/failed candidates. No foreign API or event body change.
 
 ## Personal Order status filter — CHANGE-094 / ADR-032
 

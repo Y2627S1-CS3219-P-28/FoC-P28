@@ -1,5 +1,9 @@
 # ADR-036: Local emulator and Order review hardening
 
+Scoped supersession: CHANGE-107 / ARCH-EVO-043 retires the optional expiry HTTP
+shortcut only (Vincent, 2026-10-11). All repost routes and this ADR's local/cloud
+security/configuration decisions remain; historical rationale is preserved.
+
 - Date/approver: 2026-10-11 / Vincent, request plus explicit follow-up approvals.
 - Status: APPROVED; scoped local implementation verified (CHANGE-105). Overall
   Sprint/cloud/peer completion remains [~], not granted by local tests.
