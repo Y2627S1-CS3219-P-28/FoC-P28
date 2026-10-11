@@ -198,12 +198,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const data = await creditResponse.json().catch(() => null) as { message?: string } | null;
                 throw new Error(data?.message || "Failed to initialize the credit account");
             }
-
-            await sendEmailVerification(user);
-        
-            console.log("Verification email sent");
-
-            await firebaseSignOut(auth);
         } catch (error) {
             // Error happened
             // Did not go through, delete Firebase acc
