@@ -40,7 +40,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 it("renders the responsive profile summary alongside transaction history", async () => {
   render(<ProfilePage />)
   expect(screen.queryByText("Username")).not.toBeInTheDocument()
-  expect(await screen.findByText("anna@example.com")).toBeInTheDocument()
+  expect(screen.getByText("anna@example.com")).toBeInTheDocument()
   expect(screen.getByText("requester")).toBeInTheDocument()
   expect(screen.getByText("Active")).toBeInTheDocument()
   expect(screen.getByText("2 penalties")).toBeInTheDocument()
