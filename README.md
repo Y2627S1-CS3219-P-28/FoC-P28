@@ -24,7 +24,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 | ----- | ----- |
 | Khoo Yu Yien | TBC |
 | Tham Yao Xiang | TBC |
-| Oh Yi Xian | TBC |
+| Oh Yi Xian | User Service (User database, user authorisation API, profile UI); Penalty system with user suspension |
 | Zheng Jiongjie | Supplier Service (catalogue, search/filter API, supplier management UI); CI/CD pipeline & cloud deployment (NTH5: GitHub Actions, Cloud Run, Artifact Registry, Firestore, staging/production environments) |
 | Choong Weng Sheng | TBC |
 
