@@ -8,6 +8,16 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Profile merge compatibility repair assistance (Order Service shared frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** User-authorized frontend implementation, test generation, verification and commit review.
+- **Affected locations:** frontend/src/app/profile and tests; Order CHANGE-109/context/traceability/evolution/allocation/feedback/active-work and this log; existing ignored learning note.
+- **Prompt:** Can you fix that forntend accoridngly? Review cd411865573982168b7fb91c3878eebd949b3df3 for functions requiring peer coordination; otherwise flag it safe.
+- **Key response:** Exact cd41186 first-parent delta only removes25 lines of DeleteAccountButton import/state/callback/UI; no new service requirement. Repaired current merged tree without restoring older main: current AuthProvider, authenticated gateway profile load/save, verified Firebase email + fresh token before email-only User PUT, retry/error and account-switch protection, Edit navigation. Test-first13 tests:11 expected failures then13 pass; additional account-switch test failed then fixed. Final116/116 frontend tests, typecheck/build pass; lint0errors/3 existing login warnings. Source commitd7f72a8 contains only four frontend source/test paths. D1/Overall hashes match; backend/config/auth-provider/Order recovery unchanged. Existing overlapping audit edits preserved, private D3 remains ignored. No push, deployment, real account/email mutation or browser/mobile verification. FEEDBACK-012 READY_FOR_VERIFICATION, Sprint[~].
+- **Author verification:** Vincent authorizes the narrow fix and exact commit review. Automated/source checks reported accurately; human review and real own-profile/email/browser/runtime verification pending. No claim that UI deletion fixes backend delete authorization or that all inherited main is safe.
+
 ## Requested merge revert assistance (Order Service and integrated shared/peer files)
 
 - **Tool:** OpenAI Codex (model not recorded)
@@ -2249,3 +2259,13 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Is our frontend code using single page application architecture design?
 - **Key response:** Current Next16 React App Router supports SPA-style navigation through Link/router while the async root layout renders at request time on the server; Order forms/lists and API polling run as client components. Classified as hybrid server/client rendering with SPA-style routing, not a pure client-only SPA. No application/config/API/design changes or tests/browser checks run.
 - **Author verification:** Explanation requested, not a design change. Matching Vincent branch/profile and scoped lightweight context; human review pending. Prior uncommitted audit notes and existing Sprint/rollout gates preserved.
+
+## Latest post-revert main merge compatibility review assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Source review, deterministic verification and dependency handoff.
+- **Affected locations:** Vincent active-work, FEEDBACK-012, existing ignored frontend learning note and this disclosure only. Merge/current/main frontend, actual User controller/DTO/service and downstream lookup callers inspected read-only.
+- **Prompt:** Check if this merge with main the user service only bring changes that wont affect other services
+- **Key response:** c2fe90c adds one profile edit route and two historical records; all backend/Compose/gateway files equal first parent5bf1a15. Earlier reverted main auth-provider dependencies were not automatically reintroduced. Typecheck fails3 TS2339 errors for missing profile/profileLoading/refreshProfile at edit/page.tsx:20; existing103 frontend tests/26 files and29 configuration assertions pass but do not cover new route. Username PUT/me matches existing provider; Firebase email change plus current Mongo-only GET/me has no email-sync guarantee. Documented FEEDBACK-012 and Git revert/remerge lesson. No claim prior FEEDBACK-011 backend defects reentered this merge. Patch check passes; build/backend/live-user/cloud checks not rerun.
+- **Author verification:** Vincent requested inspection only. Matching profile/workstream/branch and scoped context approval; no application/peer/config/schema changes, commit/push/revert/remerge or deployment. Owner-compatible narrow integration and human review required before release.

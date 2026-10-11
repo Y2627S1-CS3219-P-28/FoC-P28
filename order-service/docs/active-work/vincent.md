@@ -1,5 +1,74 @@
 # Vincent - Active Work
 
+## Profile merge compatibility repair - CHANGE-109, 2026-10-11, [~]
+
+- Vincent authorizes the narrow shared frontend repair and exact cd41186 review.
+  Branch/profile match; three existing dirty audit files are preserved. The prior
+  scoped context approval applies; sibling backends/configuration remain read-only.
+- Exact cd41186 first-parent delta removes25 lines from profile/edit: delete button
+  import/state/callback/UI only. No new API or cross-service coordination requirement.
+  This does not certify inherited main or remove the existing backend delete API.
+- Existing current User GET/PUT /api/users/me authenticate the Firebase UID. GET
+  reads Mongo only; PUT accepts optional username/email and returns the saved User.
+  Use existing useApi, local profile state and Firebase verification before email
+  PUT; retain current AuthProvider, roles, signup and Order command behaviour.
+- Classification: frontend compatibility implementation detail under the requested
+  repair, not a new service contract or architecture. New route tests must fail
+  first, then focused/full frontend tests, lint, typecheck and production build.
+- No live account mutation, email delivery, cloud deployment or backend change
+  authorized/performed. Strict/browser gates and Sprint remain incomplete.
+- Implemented source/test commitd7f72a8: local profile load/prefill, gateway-only
+  username/email PUT, verified email + refreshed token before save, failure retry,
+  account-keyed drafts/read abort and account-switch async guard, existing Firebase
+  password flow and Profile Edit button. Delete UI stays absent.
+- TDD: initial13 focused tests ->11 expected failures/2 passes; then13/13 pass.
+  Added switch-during-verification regression ->1 expected failure/11 passes;
+  mounted-form guard fixes it. Final116/116 tests in27 files pass, no skips;
+  typecheck/build pass. Lint0errors/3 existing login warnings; external lockfile
+  build warning unchanged. Whitespace/scope checks pass; D1/Overall hashes match.
+- Backend/AuthProvider/Order recovery/config/schema unchanged. Private D3 stays
+  ignored/untracked. FEEDBACK-012 READY_FOR_VERIFICATION, not live peer proof.
+  Source commit excludes pre-existing audit edits; overlapping handoff/feedback/
+  disclosure records remain uncommitted. Next: frontend image rebuild and isolated
+  username/email/password desktop/mobile smoke. Strict gate not rerun; Sprint[~].
+- Separate task record commit1aca823 contains only CHANGE-109/context/evolution/
+  traceability/change-log/allocation updates. Final uncommitted paths are exactly
+  ai/usage-log.md, docs/active-work/vincent.md and docs/peer-service-api-feedback.md
+  (the latter two under order-service); these contain preserved earlier audit
+  edits plus this turn's follow-up. Ignored learning update remains local. No push.
+
+## Latest main merge compatibility recheck - 2026-10-11, [!]
+
+- Vincent requests review only of mergec2fe90c against first parent5bf1a15.
+  Matching developer/allocation/branch; starting worktree clean. Scoped context
+  approval applies. No application/peer/shared configuration mutation authorized.
+- Merge tree changes only profile/edit/page.tsx and two historical audit records;
+  no User/backend/Compose/gateway changes entered relative to first parent.
+  Earlier reverted main changes are not automatically reapplied by another merge.
+- New edit route requires profile/profileLoading/refreshProfile from useAuth,
+  but current AuthContextValue/provider lacks them. Existing own username PUT API
+  is present; auth-context dependency is missing (FEEDBACK-012).
+- Fresh npm typecheck exits1 with exactly three TS2339 errors at edit/page.tsx:20:
+  profile, profileLoading, refreshProfile absent on AuthContextValue. This blocks
+  the shared frontend typecheck gate; production build not rerun or claimed.
+  Fresh103 existing frontend tests/26 files pass, but none covers profile/edit.
+  Fresh29 local/cloud configuration assertions pass; patch whitespace check passes.
+- Git first-parent diff verifies zero backend/Compose/gateway changes. Main's
+  auth-provider and profile navigation dependencies are absent in the current
+  tree after prior revert;935d16d remains an ancestor. No claim the reverted
+  FEEDBACK-011 backend bugs were reintroduced by this three-file merge.
+- Secondary source finding: edit email verifies in Firebase then refreshes profile;
+  current User GET/me only reads saved Mongo user, so a profile refresh alone cannot
+  synchronize that email. Own username PUT/me matches the existing JSON contract.
+  Current ProfilePage also has no link to the added edit route. No live account
+  mutation or email-delivery test performed; missing context already blocks route.
+- Only audit/handoff/disclosure and existing ignored learning note updated.
+  No source/peer/contract/schema/config changes, commit, revert/remerge, images,
+  backend tests or deployment. Next: owner-safe narrow frontend/dependency fix
+  with approval, tests for edit/email sync, then typecheck/build/browser verification.
+
+
+
 ## Frontend SPA clarification - 2026-10-11
 
 - Vincent asks whether current frontend uses SPA architecture. Lightweight

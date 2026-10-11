@@ -1024,3 +1024,49 @@ Completion uses eventType OrderCompletionTaskEvent, orderStatus COMPLETED and it
   provider/Order commit failures, stale reset/compensation and authorization
   contract tests. Only then assess READY_FOR_VERIFICATION / VERIFIED and remove
   Order's HTTP hard gate through a separately approved integration change.
+
+## FEEDBACK-012: Post-revert main merge has incomplete profile frontend dependencies
+
+### Effective follow-up - CHANGE-109, 2026-10-11
+
+Status:READY_FOR_VERIFICATION. Vincent authorizes narrow frontend repair. Source/
+testd7f72a8 replaces missing auth-profile context with account-keyed local loading
+through existing useApi GET/me; username-only PUT and Firebase-verified email-only
+PUT after token refresh. Save failure retains retry, stale account continuation
+is blocked; password reauthentication and deletion-UI removal retained. No User
+backend/AuthProvider/Order recovery/contract/config change.116 frontend tests,
+typecheck/build pass; lint0errors/3 existing login warnings. Automated frontend
+tests mock actual inspected shapes, not real peer execution. Isolated own-profile
+username/email/password + desktop/mobile/browser/email-delivery smoke still needed.
+The dated OPEN findings below are preserved history, not current compile status.
+
+- Date/revision:2026-10-11, c2fe90c compared with first parent5bf1a15 and main
+  second parentcd41186. Status:OPEN. Classification:INCOMPLETE_OR_INCOMPATIBLE
+  for the merged profile client/shared-auth integration. Owner:shared frontend /
+  User-feature owner. This is not a new backend endpoint request.
+- Expected: profile/edit consumes a provider with profile, profileLoading and
+  refreshProfile; User/Firebase profile data must stay aligned after email changes.
+  Actual: current AuthContextValue supplies only user/loading/signIn/signUp/signOut/
+  getIdToken. The newly added page references the three absent members on line20.
+  They exist on main but earlier auth-provider changes remained reverted.
+- Actual merge adds only frontend/src/app/profile/edit/page.tsx and two audit
+  records. User/Credit/Supplier/Admin/Order backend, Compose and gateway trees are
+  byte-identical to this merge's first parent. Existing authenticated role-context /
+  courier-eligibility wire contracts and own username PUT/me body {username}
+  are unchanged; no new actual-provider execution claim.
+- Fresh npm run typecheck exits1 with three TS2339 errors. Existing103 frontend
+  regressions in26 files pass without any edit-route test. Fresh29 configuration
+  assertions pass. Shared frontend release is blocked despite unaffected backend
+  diffs. Current ProfilePage also lacks the main version's edit navigation.
+- Secondary source gap: new route changes email using Firebase and then refreshes
+  profile, but current User GET/me only reads Mongo's saved email. Refresh alone
+  cannot persist the new Firebase email. No live account mutation was performed.
+- Required action: coordinate a narrow compatible profile/auth integration and
+  authoritative email-sync policy, or explicitly defer/remove the unsupported
+  route. Do not blindly restore the entire old merge: FEEDBACK-011 findings are
+  historical owner-review context, not current newly introduced backend findings.
+  Review-only request does not authorize a fix or reintegration.
+- Next verification: add actual edit-route tests, ensure no token/UID/role or
+  Order-command recovery weakening, typecheck/build pass, then isolated real-user
+  username/email/password smoke checks. No peer/application/config/schema edits
+  or new security/API design implemented; stopping point recorded in Vincent work.
