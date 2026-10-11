@@ -16,6 +16,21 @@ import org.junit.jupiter.api.Test;
 
 class GoogleCloudPubSubPublisherFactoryTest {
     @Test
+    void emulatorConfigurationFailsClosedOutsideLocalDemoEnvironment() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new GoogleCloudPubSubPublisherFactory("emulator", "localhost:8085", "staging"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new GoogleCloudPubSubPublisherFactory("cloud", "localhost:8085", "production"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new GoogleCloudPubSubPublisherFactory("emulator", "", "local"));
+        GoogleCloudPubSubPublisherFactory factory = new GoogleCloudPubSubPublisherFactory(
+                "emulator", "localhost:8085", "local");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> factory.forTopic("protean-vigil-509704-q4", "order-completion-prod-v1"));
+        factory.close();
+    }
+
+    @Test
     void reusesPublisherByTopicAndClosesIt() {
         List<ProjectTopicName> createdTopics = new ArrayList<>();
         List<Publisher> createdPublishers = new ArrayList<>();
