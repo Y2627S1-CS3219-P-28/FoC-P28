@@ -293,13 +293,6 @@ public class OrderController {
                 OrderCommandController.repostInput(id, request), authorization));
     }
 
-    @Operation(summary = "Expire due unaccepted orders using the lifecycle token")
-    @PostMapping("/internal/lifecycle/expire")
-    public Map<String, Integer> expire(@RequestHeader("X-Lifecycle-Token") String token) {
-        checkToken(token);
-        return Map.of("expired", lifecycle.expireDue(Instant.now()));
-    }
-
     @Operation(summary = "Create due automatic reposts using the lifecycle token")
     @PostMapping("/internal/lifecycle/repost")
     public Map<String, Integer> automaticRepost(

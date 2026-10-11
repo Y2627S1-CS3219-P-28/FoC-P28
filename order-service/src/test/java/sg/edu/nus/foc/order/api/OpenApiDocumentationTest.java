@@ -2,6 +2,7 @@ package sg.edu.nus.foc.order.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Files;
@@ -78,6 +79,29 @@ class OpenApiDocumentationTest {
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;
+
+    @Test
+    void expiryHttpTriggerIsRetiredWhileRepostRoutesRemainDocumented() throws Exception {
+        String json = mvc.perform(get(PREFIX + "/v3/api-docs"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        JsonNode paths = mapper.readTree(json).path("paths");
+
+        assertThat(paths.has(PREFIX + "/internal/lifecycle/expire")).isFalse();
+        assertThat(paths.path(PREFIX + "/internal/lifecycle/repost").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost/configure").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost-draft").has("get")).isTrue();
+        assertThat(paths.path(PREFIX + "/{id}/repost").has("post")).isTrue();
+        assertThat(paths.path(PREFIX + "/commands/{id}/repost").has("post")).isTrue();
+    }
+
+    @Test
+    void retiredExpiryHttpRequestDoesNotRunLifecycleProcessing() throws Exception {
+        mvc.perform(post(PREFIX + "/internal/lifecycle/expire")
+                .header("X-Lifecycle-Token", "test-lifecycle-token"))
+            .andExpect(status().isNotFound());
+        org.mockito.Mockito.verifyNoInteractions(lifecycle);
+    }
 
     @Test
     void swaggerUsesTheCurrentOriginInsteadOfAnInternalBackendUrl() throws Exception {

@@ -145,12 +145,10 @@ class OrderControllerCoverageTest {
     }
 
     @Test
-    void lifecycleEndpointsValidateTokenAndReturnCounts() {
-        when(lifecycle.expireDue(any())).thenReturn(2);
+    void retainedRepostEndpointValidatesTokenAndReturnsCount() {
         when(lifecycle.repostDue(any(), eq("Bearer lifecycle-secret"))).thenReturn(1);
-        assertEquals(Map.of("expired", 2), controller.expire("lifecycle-secret"));
         assertEquals(Map.of("reposted", 1), controller.automaticRepost("lifecycle-secret"));
-        assertThrows(OrderProblem.class, () -> controller.expire("wrong"));
+        assertThrows(OrderProblem.class, () -> controller.automaticRepost("wrong"));
         assertThrows(OrderProblem.class, () -> controller.automaticRepost(null));
     }
 
@@ -159,7 +157,7 @@ class OrderControllerCoverageTest {
         controller.setLifecycleEnvironment("staging");
         controller.setLifecycleExternalEnabled(false);
         controller.setLifecycleToken("local-lifecycle");
-        assertThrows(OrderProblem.class, () -> controller.expire("local-lifecycle"));
+        assertThrows(OrderProblem.class, () -> controller.automaticRepost("local-lifecycle"));
         verifyNoInteractions(lifecycle);
     }
 
