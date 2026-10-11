@@ -1,12 +1,14 @@
 schema_version = 1
+live_credit_recovery_decision = "docs/decisions/ADR-035-live-credit-command-recovery.md"
+live_credit_recovery_protocol = "credit-command-v1; HTTP gateway; no stored tokens or delegated credentials"
 pubsub_asyncapi = "docs/asyncapi/asyncapi.yaml"
 pubsub_asyncapi_guide = "docs/asyncapi/README.md"
 pubsub_asyncapi_scope = "CHANGE-103: current outgoing contracts only; no live-integration completion"
 merged_minute_scheduler_decision = "docs/decisions/ADR-034-merged-minute-command-and-lifecycle-job.md"
-merged_minute_scheduler_order = ["eligible command recovery (mock-only)", "OPEN expiry", "DELIVERED >=48h completion"]
+merged_minute_scheduler_order = ["eligible command recovery (HTTP requires fresh user authorization)", "OPEN expiry", "DELIVERED >=48h completion"]
 merged_minute_scheduler_cron = "order.lifecycle.cron; default 0 * * * * *; order.commands.cron obsolete"
 foreground_command_recovery_decision = "docs/decisions/ADR-033-durable-credit-command-stub.md"
-foreground_command_recovery_scope = "contract-stub-only; live HTTP disabled; no repost recovery"
+foreground_command_recovery_scope = "CREATE/ACCEPT/ABORT HTTP and explicit mock selection; no repost recovery"
 recovery_context_loading = "latest effective and relevant sections approved by Vincent 2026-10-10"
 service = "order-service"
 canonical_context = "docs/ai-project-context.md"
@@ -137,6 +139,9 @@ credit_consequence_processing = "transactional-outbox-with-after-commit-dispatch
 credit_courier_assignment_before_acceptance = true
 credit_courier_assignment_order_stub_implemented = true
 credit_courier_assignment_peer_api_verified = false
+credit_command_http_adapter_implemented = true
+credit_command_financial_provider_tests = "CHANGE-104: real Credit/PostgreSQL replay, timeout, restart, rollback, compensation, same-key claim; User/Supplier fixtures; final dispatch isolated"
+credit_command_full_stack_verified = false
 synchronous_credit_requests_include_order_version = false
 published_order_events_include_order_version = true
 credit_assignment_request_fields = ["orderId (path)", "courierId (body)"]

@@ -1,5 +1,9 @@
 # Order Service Architecture
 
+## Effective HTTP command gateway — CHANGE-104 / ADR-035
+
+OrderCommandController → OrderCommandService → leased OrderCommandStore → HttpCreditCommandGateway → Credit command/result/compensation API → atomic local finalizer. LocalCreditCommandStub is selected only in explicit mock mode. Matching saved results and mutation markers are mandatory; uncertain responses retain PENDING. Bounded peer timeouts apply. The minute job still runs recovery → expiry → completion; tokenless HTTP recovery asks for fresh user authorization before peer I/O. No lifecycle/data-model change. Historical mock-only descriptions below are superseded at this adapter boundary.
+
 ## Foreground durable command stub — CHANGE-100 / ADR-033
 
 Latest approved CREATE/ACCEPT/CANCEL_ACCEPTED refinement: commit immutable intent

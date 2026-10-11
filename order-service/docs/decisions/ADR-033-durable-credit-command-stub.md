@@ -1,5 +1,11 @@
 # ADR-033: Durable foreground Credit command recovery (contract-stub milestone)
 
+Effective follow-up: ADR-035 / CHANGE-104 (2026-10-11) supersedes only the
+mock-only/absent-provider gate. The actual HTTP protocol is implemented and
+financial-provider tests pass. All intent/lease/security/deadline rules remain;
+repost recovery and delegated credentials stay deferred. Original proposal and
+stub-milestone evidence below remain historical records.
+
 Timer-only follow-up: ADR-034 / CHANGE-102 merges the separate minute recovery
 job into OrderLifecycleScheduler, before expiry and completion. All command,
 authorization, deadline, lease and provider-contract rules below remain in force.

@@ -1,5 +1,10 @@
 # Instruction Map
 
+CHANGE-104 / [ADR-035](decisions/ADR-035-live-credit-command-recovery.md)
+supersedes the earlier HTTP mock-only gate. Current provider integration,
+verification limits and run instructions are recorded in the existing
+concurrency handoff and local-live-testing.md. Historical records are retained.
+
 CHANGE-103 adds [AsyncAPI Pub/Sub contracts](asyncapi/asyncapi.yaml) and a
 [reading/validation guide](asyncapi/README.md). This is documentation of existing
 approved messages, not authority to implement new topics or peer consumers.

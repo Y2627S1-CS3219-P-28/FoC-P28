@@ -1,5 +1,9 @@
 # ADR-034: Recovery-first shared minute scheduler
 
+Effective integration follow-up: ADR-035 / CHANGE-104 enables the actual HTTP
+Credit gateway without changing phase order or cadence. Tokenless HTTP recovery
+defers to user-assisted authorization; original mock-only references are history.
+
 - Date / approver: 2026-10-10 / Vincent, explicit scheduler merge request and
   confirmation of `sprint-2-3-credit-service-concurrency-update-event-payload`.
 - Status: APPROVED; implementation/verification tracked by CHANGE-102.

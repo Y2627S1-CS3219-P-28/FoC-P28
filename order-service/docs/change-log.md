@@ -1,5 +1,11 @@
 # Approved Change Log
 
+- CHANGE-104 (2026-10-11, Vincent): ADR-035 actual Credit HTTP command gateway,
+  paired key/generation headers, historical lookup/conditional compensation,
+  enabled capability, bounded timeouts, real financial-provider tests and
+  frontend regression. See changes/CHANGE-104-live-credit-command-recovery.md.
+  No peer source/schema/event changes; tokenless recovery needs user Continue.
+
 - CHANGE-103 (2026-10-10, Vincent): approved documentation-only AsyncAPI for the
   three current outgoing Pub/Sub contracts, exact schemas/examples, viewing guide
   and source-parity validator. No runtime or peer change; live gates unchanged.

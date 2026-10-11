@@ -1,5 +1,9 @@
 # Service Contracts
 
+## Effective Credit command contract — CHANGE-104 / ADR-035
+
+The implementation in concurrency/concurrency-order-credit.md replaces the earlier missing-provider/stub-only milestone. Each mutation sends Authorization, Idempotency-Key and positive X-Command-Generation, retaining only requesterId/amount, courierId, or no body. Saved-result GET is owner-authorized; compensation POST has no body. Validate commandId/operation/orderId/outcome/code and mutation response markers. Plain 401/403, timeout, malformed response or unmarked rejection cannot resolve an earlier uncertain effect. Missing results replay only the same immutable key. Provider 497a8f9 is actual code; executed evidence and remaining gates belong to CHANGE-104.
+
 ## Current Pub/Sub representation — CHANGE-103 (2026-10-10)
 
 [AsyncAPI](asyncapi/asyncapi.yaml) and its [guide](asyncapi/README.md) document

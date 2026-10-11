@@ -5,6 +5,52 @@ CHANGE-088 / [ADR-029](decisions/ADR-029-local-live-credit-push.md), Vincent,
 live Google push authentication and financial effects still require the run below.
 This is a development-only connector, not a production deployment.
 
+## Real command recovery — CHANGE-104 / ADR-035
+
+The HTTP overrides now enable actual Credit command recovery for browser order
+creation, acceptance and accepted-only abort. Default ORDER_COMMANDS_ENABLED=true;
+set it explicitly in your ignored root .env if you previously disabled it.
+Keep key/generation headers and minimal bodies unchanged; existing named volumes
+upgrade through committed Order V5 / Credit V7 migrations. Do not run down -v.
+
+From repository root, rebuild/start all local-live services:
+
+```powershell
+docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.yaml up -d --build --force-recreate
+powershell -NoProfile -ExecutionPolicy Bypass -File order-service\scripts\local-live.ps1 -Action Setup
+powershell -NoProfile -ExecutionPolicy Bypass -File order-service\scripts\local-live.ps1 -Action Check
+```
+
+Rerun Setup after tunnel recreation because its URL changes. Existing prerequisites
+below still apply (personal ADC/project/test ID, Docker and cloud permissions).
+This task does not run Setup or alter cloud resources on your behalf.
+
+Verify in the signed-in browser Network panel:
+
+- GET /api/orders/commands/capabilities returns enabled=true, protocol=credit-command-v1.
+- Creation uses POST /api/orders/commands/create; acceptance/abort use their
+  /commands/{orderId}/accept or /abort paths. Legacy direct endpoints remain
+  compatible, but they are not the new durable command test path.
+  Do not switch an unresolved command key into a legacy endpoint. Repost paths
+  remain outside this command recovery slice.
+- Same pending command ID survives reload. Buttons stay pending until terminal
+  success/rejection; a recovery requiring authorization offers Continue, which
+  sends your fresh token with that same key. A tokenless minute worker cannot
+  safely act as you; this is user-assisted recovery, not indefinite anonymous retry.
+- Credit credit_command_records and credit_ledger show one financial effect
+  for K despite replays. Mutations carry Idempotency-Key/X-Command-Generation
+  internally, not extra business JSON. Browser Network does not show peer HTTP.
+
+Stop local application containers without removing volumes:
+
+```powershell
+docker compose -f compose.yaml -f compose.http-peers.yaml -f compose.local-live.yaml down
+```
+
+Use the helper's documented Pause action to disable isolated push delivery;
+it does not delete cloud resources. Cloud cleanup is separate/manual.
+This guide does not claim refund/completion delivery verified by command tests.
+
 ## What runs where
 
 - Browser, gateway, User, Supplier, Order, Credit, Firebase Auth emulator and

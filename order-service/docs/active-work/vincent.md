@@ -1,5 +1,51 @@
 # Vincent - Active Work
 
+## CHANGE-104: live Credit command recovery — 2026-10-11, locally verified
+
+- Vincent explicitly requests replacing the mock-only recovery integration on
+  `sprint-2-3-credit-service-concurrency-update-event-payload`. Profile/allocation
+  match; starting tree contains only the unrelated untracked D3 preparation file.
+- Scope: Order HTTP command gateway, coordinator/capability activation, bounded
+  peer timeouts, real Credit/PostgreSQL contract and recovery tests, existing
+  frontend regression, records/runbook. Credit/User/Supplier remain read-only.
+- Credit revision 497a8f9 supplies the paired key/generation headers, immutable
+  historical replay, owned GET result and conditional POST compensation. Actual
+  controllers/store/security/tests inspected. Financial bodies remain unchanged.
+- ADR-035 extends ADR-033's stub boundary only for CREATE/ACCEPT/ABORT. No schema,
+  topic, delegated identity, persisted token or background repost change.
+- D1 and selected Overall fingerprints match. Scoped effective context loaded;
+  historical absent-provider statements are superseded, not erased. Existing
+  historical workflow-format issues are not evidence of a passed completion gate.
+- TDD RED: missing new gateway prevented test compilation; 25 HTTP protocol
+  tests then pass after correcting two fixture issues. Real provider Dockerfile
+  required standard BuildKit; fixed restart host-port allocation in the fixture.
+- Final fresh Java21/Maven3.9.16 verify: 335 tests, zero failures/errors/skips;
+  nine actual Credit/PostgreSQL scenarios including socket timeout after financial
+  commit, local rollback, provider restart, same-key simultaneous claims,
+  acceptance compensation/pending guard and historical abort replay. Financial
+  Credit is real; User/Supplier validation and external dispatch are fixtures.
+- Coverage: lines 95.53% (1815/1900), branches 80.73% (712/882); unchanged >=80%
+  gates pass. All 183 current POM/source/resource/test files match the fresh tested
+  copy. Logs/reports: target/change104-isolated-final.log and
+  target/change104-isolated-final-check/target/. Earlier runs remain diagnostic.
+- Frontend: 83 tests pass, lint passes with three existing login warnings,
+  typecheck passes. Credit/Order/frontend Docker builds pass. Local-live Compose
+  config, OpenAPI CI structural guard/generated documentation, AsyncAPI parity,
+  TOML parsing and whitespace checks pass. Peer source unchanged; D3 file untouched.
+- Operational caveat: early real-financial tests did not isolate after-commit
+  Pub/Sub dispatch. Personal ADC was present; synthetic events may have reached
+  default dev topics. Delivery/effects were not audited. Final fixture prevents
+  external dispatch. No cloud provisioning/IAM/app-volume reset was performed;
+  any synthetic-message review/cleanup requires a separately scoped action.
+- Keep Sprint `[~]`: authenticated full-stack User/Supplier/browser/PubSub/IAM
+  verification is separate. HTTP tokenless recovery needs fresh user Continue;
+  no stored tokens/trusted credentials or repost recovery added. Atomic commits
+  and final handoff are recorded below; no push or application-stack restart.
+- Atomic commits: fbbce54 implementation/tests/frontend regression; 4e7cc77
+  only Order-owned Compose/.env.example settings. Documentation/disclosure is a
+  separate concern. Do not send an unresolved durable K to legacy direct routes;
+  legacy/repost APIs do not acquire the new crash-recovery guarantees.
+
 ## CHANGE-103: AsyncAPI Pub/Sub documentation — 2026-10-10/11, locally verified
 - Vincent profile/allocation/branch match
   `sprint-2-3-credit-service-concurrency-update-event-payload`; clean starting tree.

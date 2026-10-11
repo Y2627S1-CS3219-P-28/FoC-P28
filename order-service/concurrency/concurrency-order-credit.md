@@ -4,6 +4,55 @@ Vincent · `sprint-2-3-credit-service-concurrency` · 2026-10-10
 
 Authority: ADR-033, ARCH-EVO-038, CHANGE-100. Owner of Credit work: Annablee.
 
+## Effective implementation update — 2026-10-11
+
+ADR-035 / CHANGE-104 supersedes the earlier contract-stub-only milestone below.
+Actual Credit revision 497a8f9 implements all five command operations. Order
+selects HttpCreditCommandGateway in HTTP mode; the three minimal business bodies,
+paired headers, five-field lookup result and conditional compensation are now
+implemented, not requests to add missing endpoints. Earlier statements below
+preserve the original proposal; they are not the current implementation status.
+
+HTTP background recovery has no saved token: it retains PENDING and sets
+AUTHORIZATION_REQUIRED before peer I/O. Existing frontend Continue sends a fresh
+token with the SAME K. Pending/status polling remains every five seconds. Leases
+and unresolved-target guards prevent expiry/cancel/new acceptance racing an
+unresolved financial action. No delegated identity or repost recovery was added.
+
+When compensation lookup is COMMAND_NOT_FOUND, first replay the original
+immutable mutation with SAME K to establish a durable binding, then compensate
+it. A missing record alone cannot fence an older delayed request. Never invent a
+new key or infer assignment identity from the courier UID alone.
+
+```mermaid
+sequenceDiagram
+  participant UI as Frontend
+  participant OS as Order command/store
+  participant HG as HTTP Credit command gateway
+  participant CS as Actual Credit command/ledger
+  UI->>OS: Saved K, frozen details, fresh user token
+  OS->>OS: Commit intent; claim owner/lease/generation
+  OS->>HG: Execute same K/candidate/generation
+  HG->>CS: GET /api/credits/commands/K
+  alt Missing or PENDING
+    HG->>CS: Original mutation; paired headers; minimal business body
+    CS->>CS: Atomically financial effect + saved terminal outcome
+  end
+  CS-->>HG: Matching historical/marked outcome
+  HG-->>OS: Applied/rejected or unresolved
+  alt Applied and transition still valid
+    OS->>OS: Commit Order + COMPLETED command together
+  else Applied but transition no longer valid
+    HG->>CS: POST /api/credits/commands/K/compensate (no body)
+    CS-->>HG: Matching COMPENSATED or reconciliation required
+    OS->>OS: Resolve rejection only after safe reversal/fencing
+  end
+  OS-->>UI: Terminal result or PENDING
+```
+
+Execution evidence and remaining browser/cloud gates: CHANGE-104. Credit source,
+schemas, event bodies/topics and accepted-abort User penalty ownership unchanged.
+
 ## What is implemented, and what is not
 
 Order and the shared frontend have an **approved contract-stub implementation**

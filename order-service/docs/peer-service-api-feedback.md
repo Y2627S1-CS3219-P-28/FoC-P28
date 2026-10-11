@@ -877,6 +877,30 @@ Completion uses eventType OrderCompletionTaskEvent, orderStatus COMPLETED and it
 
 ## FEEDBACK-010: Credit historical command recovery protocol (2026-10-10)
 
+### Effective provider integration update — 2026-10-11 (ADR-035 / CHANGE-104)
+
+- Current classification: MATCHES_APPROVED_CONTRACT for the implemented five
+  synchronous operations. Credit 497a8f9 supplies paired headers, immutable
+  replay, owner-scoped result lookup, generations and conditional compensation.
+  Order now has an actual HTTP gateway; the former mock-only gate is superseded.
+- Executed provider evidence: eight isolated actual Credit/PostgreSQL recovery
+  tests pass (lost response, local rollback, provider restart, acceptance reversal,
+  abort history/reset without clearing a later assignment, same-key concurrent
+  claim, replay and insufficient credits). Financial Credit is not mocked; User
+  and Supplier validation fixtures are isolated-test scope, not live verification.
+- Final evidence: ninth real socket-timeout-after-Credit-commit case also passes;
+  externally isolated final full verify has 335 passes, no failures/errors/skips,
+  95.53% lines / 80.73% branches. Early runs could publish synthetic dev-topic
+  events; final tests mock only external dispatch, never Credit financial calls.
+  No live delivery/effect claim from those early publications (CHANGE-104).
+- Runtime rollout remains READY_FOR_VERIFICATION for the authenticated full
+  local-live stack and cloud/browser gates. No request to recreate existing APIs;
+  preserve the original proposal below as history. Broader provider security and
+  cross-replica/chaos tests are not claimed solely by these eight scenarios.
+- HTTP recovery without fresh user authorization remains pending for Continue.
+  No saved tokens/delegated credentials or background repost recovery introduced.
+  Existing event/User penalty findings remain separate; no Credit source changed.
+
 - Owner: Annablee / Credit Service; requester: Vincent, branch
   `sprint-2-3-credit-service-concurrency`.
 - Classification: **INCOMPLETE_OR_INCOMPATIBLE**. Existing reservation,

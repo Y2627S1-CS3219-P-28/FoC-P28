@@ -1,5 +1,9 @@
 # Active Sprint
 
+## CHANGE-104 / ADR-035: actual Credit command integration
+
+Vincent approves HTTP CREATE/ACCEPT/ABORT recovery on the current branch. Same keys, candidate IDs, leases, unresolved guards and deadlines remain. Fresh user authorization is still required for Continue; trusted credentials and repost recovery remain deferred. Sprint [~] until full-stack gates pass. See CHANGE-104 for actual test evidence.
+
 ## CHANGE-102 / ADR-034: recovery-first minute scheduler
 
 Vincent confirms `sprint-2-3-credit-service-concurrency-update-event-payload`.

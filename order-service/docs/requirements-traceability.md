@@ -1,5 +1,18 @@
 # Order Service Requirements Traceability
 
+## CHANGE-104 / ADR-035: actual financial command recovery
+
+| D1 / amendment | Requirement / implementation | Test evidence | Status |
+| --- | --- | --- | --- |
+| F1/F2 + ADR-033/035 | Reserve before OPEN; durable intent/candidate; atomic local outcome | Actual Credit replay/lost response/local rollback/restart | Real eight-scenario suite passes; full-stack gates separate |
+| F3/F4.1.1/F13 + ADR-033/035 | One worker; pending guard; reverse specific assignment after deadline | Simultaneous same-key claim; cancellation blocked; compensation then expiry intent | Actual Credit/PostgreSQL passes |
+| F11.2 + ADR-025/033/035 | Confirm clear before accepted abort history/reopen | Lost clear, history once, replay cannot clear newer assignment | Actual Credit/PostgreSQL passes |
+| NFR3.1.1/NFR3.1.3 | >=80% line/branch gate; positive/negative contracts | 25 HTTP fixture tests; eight real-provider tests; full verify evidence in CHANGE-104 | Recorded at handoff |
+| ADR-033 security/UI + NFR4 | No saved tokens; pending UI; same-key Continue | 83 frontend tests, including eight recovery hook tests; lint/typecheck | Passing; no live browser/User/Supplier/IAM claim |
+
+Legacy routes remain compatible; enabled browser recovery uses /api/orders/commands.
+Repost recovery remains outside this slice. Sprint remains [~].
+
 ## CHANGE-103: AsyncAPI documentation representation
 
 | Requirement / amendment | Documented contract | Verification | Status |

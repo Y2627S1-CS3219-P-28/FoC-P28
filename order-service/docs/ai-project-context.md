@@ -1,5 +1,7 @@
 # Order Service Permanent Project Context
 
+Effective 2026-10-11: CHANGE-104 / ADR-035 supersedes the mock-only recovery gate. HTTP mode selects HttpCreditCommandGateway for CREATE/ACCEPT/ABORT, paired key/generation headers, owned historical lookup and conditional compensation against actual Credit 497a8f9. Minimal bodies remain unchanged. Tokenless recovery defers to AUTHORIZATION_REQUIRED; no persisted tokens/service credentials, repost recovery, schema or event change. Earlier stub-only descriptions are historical. Evidence: changes/CHANGE-104-live-credit-command-recovery.md.
+
 Effective 2026-10-10: Vincent approves CHANGE-103 documentation-only AsyncAPI
 for current Pub/Sub: `docs/asyncapi/asyncapi.yaml` and its reading guide. Three
 send operations; refund/completion compact v2, accepted abort snapshot v1.

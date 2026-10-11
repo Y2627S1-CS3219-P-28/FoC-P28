@@ -1,5 +1,9 @@
 # Overall Architecture
 
+## Effective integration amendment — ADR-035 / CHANGE-104
+
+The existing Order-to-Credit synchronous boundary uses Credit's actual command protocol in HTTP deployments. Order owns intent/leases/lifecycle; Credit owns immutable financial results/compensation. Firebase user authorization is forwarded without persistence. Tokenless recovery requires user Continue; delegated identity remains deferred. Topology, minute orchestration and Pub/Sub cadence are unchanged. Earlier mock-only claims are historical.
+
 ## ADR-034 effective minute orchestration
 
 Order owns one sequential minute job: eligible command recovery (existing

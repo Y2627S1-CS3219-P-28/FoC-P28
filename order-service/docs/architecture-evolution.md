@@ -1,5 +1,18 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-040 — Actual HTTP Credit command integration (CHANGE-104)
+
+Vincent explicitly approves ADR-035 on 2026-10-11. Classification: architecture
+refinement within ADR-033's command protocol. Credit 497a8f9 supplies the former
+missing provider operations; HttpCreditCommandGateway replaces the HTTP hard
+gate. Minimal bodies, leases, unresolved guards, deadlines and authorization
+ownership remain. Historical lookup precedes replay; missing compensation
+binding first replays the same immutable action, then compensates/fences it.
+No 404-only inference or fresh retry key. Selected over retaining the mock gate;
+no peer rewrite, stored token or service credentials. Network timeouts bound
+calls; tokenless HTTP recovery asks for user Continue. Evidence and full gate
+limits: CHANGE-104. Existing schemas and Pub/Sub contracts remain unchanged.
+
 ## CHANGE-103: Existing Pub/Sub represented in AsyncAPI
 
 2026-10-10, Vincent explicitly requests AsyncAPI documentation. Classification:
