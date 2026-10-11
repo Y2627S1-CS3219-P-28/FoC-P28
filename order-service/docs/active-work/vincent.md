@@ -1,5 +1,83 @@
 # Vincent - Active Work
 
+## Command polling race fix - CHANGE-110, 2026-10-11, [~]
+
+- Vincent explicitly approves the diagnosed narrow fix: "Yes, fix it".
+  Matching profile/allocation/branch; existing audit/disclosure edits preserved.
+  Scope is the shared command hook and real-poll regression tests, with required
+  Order records. No backend/peer/schema/contract/infrastructure change.
+- Implementation detail under ADR-033/035/037/038: pause individual command
+  polling while initial POST or local authorization resume is in flight;
+  retain frozen same-key lookup/replay after uncertain responses or reload.
+- D1 and selected Overall PDF SHA-256 match recorded authority. Existing
+  frontend source is clean. No new roles, UI layout, stored token or service API.
+- TDD next: use the actual visible-poll hook with delayed POST and fake timers,
+  establish RED, implement minimal gate, then focused/full frontend checks.
+  No fix, deployment or completed Sprint claimed at task start.
+- TDD completed: eight new tests failed before the fix for premature GET, then
+  pass with the real visible-poll hook. Focused33 pass; final full124 tests/28
+  files pass with zero skips; lint0errors/3 existing login warnings; typecheck
+  and production build pass. Existing external-lockfile build warning unchanged.
+- Source/test commit386f58f contains only the hook and new regression file.
+  Timer pauses during submitting; active-ref guard blocks stale callbacks.
+  Existing frozen-key timeout/reload replay, pending UI and Continue retained.
+- No backend/peer/schema/config changes or backend/live/cloud/browser checks.
+  Remaining: frontend rollout and authenticated browser smoke. Legitimate missing
+  commands after uncertain delivery can still404; not all404s are suppressed.
+  Required records handled separately; previous dirty audit entries remain
+  uncommitted to avoid including earlier work. No push. Sprint/strict gates[~].
+- Separate CHANGE-110 context/verification commit62502a9 completed. Final dirty
+  tracked paths are only ai/usage-log.md and this active-work file, preserving
+  earlier audit notes plus the current handoff; excluded learning remains local.
+
+## Command-status 404 diagnosis - 2026-10-11, [~]
+
+- Vincent supplies NOT_FOUND / Command not found from GET commands/{key}.
+  Read-only diagnosis on matching profile/allocation/branch; existing dirty
+  audit/disclosure notes preserved. No application or test changes authorized.
+- Source confirms use-order-command saves browser intent, sets intent, then
+  awaits initial POST. Intent enables useVisiblePolling, whose initial refresh
+  is scheduled with zero delay. GET can precede the POST registration commit;
+  store.get then returns the supplied 404. Hook catches it and replays the frozen
+  input/key. This is a confirmed possible race, not proof of this exact staging
+  request ordering without the browser Network waterfall/server logs.
+- Recommendation only: exclude in-flight initial submissions/resumes from
+  polling; start status polling after POST settles with a pending or uncertain
+  outcome. Retain same-key lookup/replay for lost submissions. Do not mask all
+  404s as pending or delete the key on unknown outcomes. Repeated post-success
+  404 needs investigation of key, deployment and database continuity.
+- Fresh focused checks: use-order-command 10 tests and command discovery 11
+  tests pass (21 total, zero skips). Hook tests mock polling and do not reproduce
+  the actual zero-delay initial-poll race. No authenticated staging/browser
+  reproduction, new regression test, source fix or completion claim.
+- Next: if Vincent requests implementation, add delayed-initial-POST/real-poll
+  regression first, preserve same-key recovery, then run relevant UI checks.
+  Only this active-work record and AI disclosure changed; no commit or push.
+
+## Two-day PR description review - 2026-10-11
+
+- Vincent requests a What/Why/How-to-test/Checklist draft for Oct10-11 changes;
+  identity/branch match, starting worktree clean at5cfc61b. Read-only code/history
+  review; only required audit/disclosure records updated, no source or commit.
+- First-parent history and CHANGE-100..109 identify durable CREATE/ACCEPT/ABORT/
+  manual REPOST, real Credit gateway, leases/pending guards/user authorization,
+  recovery-first minute orchestration, emulator/cloud split, retained async
+  outbox/redrive, relationship-safe reads, bound receipts/events, V5-V8, AsyncAPI,
+  recovered pending cards and profile frontend repair. Credit command provider
+  implementation497a8f9 belongs to Annabelle; Vincent integrates it, not authors it.
+- Important actual PR scope: git diff upstream/main...HEAD (basecd41186) includes
+  User Service20 files,135 insertions/634 deletions from prior merge/revert history.
+  Deleted bootstrap/eligibility/Credit-client code and frontend auth/profile
+  reversions need peer-owner review before merge; not an Order-only safe PR claim.
+- Prior recorded latest checks:373 backend,116 frontend; lint0errors/3 existing
+  warnings; typecheck/build pass. Not rerun for this drafting task. Real financial
+  harness uses actual Credit/PG/emulator but fixture User/Supplier; prior full
+  Compose24 assertions passed. Latest manual smoke/browser/cloud rollout pending.
+- Draft keeps automatic repost/delegated auth and missing User subscribers out of
+  completed claims, migrations/HTTP202/Continue visible, and AGENTS/secrets review
+  unchecked where not established. Next: User owner reviews the actual PR diff;
+  no reconciliation or source change authorized. Sprint remains[~].
+
 ## Profile merge compatibility repair - CHANGE-109, 2026-10-11, [~]
 
 - Vincent authorizes the narrow shared frontend repair and exact cd41186 review.

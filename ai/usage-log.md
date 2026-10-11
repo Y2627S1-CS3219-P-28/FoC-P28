@@ -8,6 +8,36 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Command submission polling race fix assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Approved frontend implementation, test-first regression and verification.
+- **Affected locations:** frontend/src/hooks/use-order-command.ts and new polling test; Order CHANGE-110/context/sprint/allocation/evolution/traceability/change-log/active-work, existing excluded learning note and this disclosure.
+- **Prompt:** Yes, fix it (following command-status NOT_FOUND diagnosis and proposed in-flight polling gate).
+- **Key response:** Eight tests with actual useVisiblePolling and controlled HTTP promises failed for premature GET before production changes. Minimum fix suspends individual timer during submission/local Continue and guards stale callbacks with active ref; same-key timeout/reload recovery and five-second unresolved polling retained.33 focused pass; final124 tests/28 files, no skips; lint0errors/3 existing login warnings; typecheck/build pass. Source/test commit386f58f excludes pre-existing audit notes. Backend, peers, schema, contracts and deployment unchanged. Actual authenticated staging/browser reproduction not claimed; legitimate missing-key404 remains possible after uncertain delivery.
+- **Author verification:** Vincent explicitly approves the narrow fix; branch/profile/allocation and primary source hashes match. Automated checks pass; human review, frontend rollout/browser smoke and strict/Sprint completion remain pending. No push or cloud change. Earlier dirty audit records are preserved separately.
+
+## Command-status polling 404 diagnosis assistance (Order Service / Frontend)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only source diagnosis and existing focused regression checks.
+- **Affected locations:** Vincent active-work and this disclosure only; command hook, visible polling, discovery, IndexedDB storage and Order command registration/lookup inspected.
+- **Prompt:** Is the console 404 due to a polling race? Provided NOT_FOUND / Command not found from GET /api/orders/commands/{key}.
+- **Key response:** Confirmed possible initial-submission race: browser intent enables zero-delay polling before initial POST returns or necessarily commits its command. Backend missing-key lookup returns 404; frontend catches it and replays the same frozen key/input. Proposed suppressing polling while an initial submission/resume is in flight, preserving uncertain-outcome recovery. Fresh 21 existing focused UI tests pass; polling is mocked in hook tests, so this is not a live race reproduction. No source/test/config/contract change or commit.
+- **Author verification:** Diagnosis only requested. Matching Vincent profile/allocation/branch; pre-existing audit changes preserved. Exact staging request order needs browser Network waterfall/server evidence; implementation and a new race regression remain pending authorization.
+
+## Two-day PR summary assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only Git/change-record review and PR-description drafting.
+- **Affected locations:** Vincent active-work and this disclosure only; Git history/current diff/runbooks and CHANGE-100..109 inspected.
+- **Prompt:** Using the What/Why/How to test/Checklist PR template, as a whole tell me the changes from yesterday until today.
+- **Key response:** Summarized Oct10-11 Order/frontend durable recovery, real Credit integration, emulator transport/security, merged lifecycle scheduler, bounded retained outbox, protected reads/scoped replay, migrations, AsyncAPI, pending-card discovery and profile repair. Distinguished Annabelle's provider commit from Vincent's integration. Actual PR diff against upstream/maincd41186 also removes/reverts User/frontend code:20 User files,+135/-634; flagged peer-owner review instead of calling the whole PR safe/Order-only. Cited recorded373 backend/116 frontend and prior Compose checks without rerunning them; latest browser/manual smoke/cloud gates remain. No source/config/history/remote change or commit.
+- **Author verification:** Vincent requests the summary, not another implementation. Git inspection is deterministic; peer-owner review, checklist/secrets review and remaining runtime/rollout verification are pending. Sprint remains[~].
+
 ## Profile merge compatibility repair assistance (Order Service shared frontend)
 
 - **Tool:** OpenAI Codex (model not recorded)
