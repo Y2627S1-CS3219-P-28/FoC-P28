@@ -1,5 +1,58 @@
 # Vincent - Active Work
 
+## Requested main-merge revert — 2026-10-11, Git operation complete
+
+- Vincent explicitly requests reverting935d16d24e91ffa9c9ca292e2d3cf66118731195.
+  Checked matching identity/branch, clean index and only three unrelated dirty
+  review-note files; none overlap the33 merge paths. Applied inverse with -m1.
+- Revert commit834bb0d restores the tracked tree exactly to first parent
+  e516cfaf9774e5826045332f54c1d9597a34c3bf; no history reset or remote push.
+  Prior Order/Credit work remains. D3 private ignored file/local exclusions kept.
+- git diff --cached --check reported four whitespace lines restored from the
+  pre-merge source; intentionally preserved rather than adding unrelated edits.
+  Exact index/committed-tree comparison passed; no merge conflicts. Tests, image
+  rebuild, runtime database changes and cloud deployment were not performed.
+- Review findings below concern the now-reverted935d16d implementation, not the
+  current source. Three review/handoff/disclosure files stay uncommitted and are
+  not included in834bb0d. Existing Sprint/browser/rollout gates remain unchanged.
+  Next: rebuild locally if running images contain the reverted merge; coordinate
+  safe peer fixes before reintegration. Reverting does not uninstall live images.
+
+## Main merge compatibility review — 2026-10-11, [!]
+
+- Requested inspection only; reviewed merge935d16d against first parent e516cfa
+  on the matching Vincent profile/allocation/branch. Began with a clean tree.
+  No unresolved Git entries or source/Compose conflict markers. Order/Credit
+  source and HTTP/local-live overrides are byte-identical to the pre-merge tree.
+- User role-context userId/roles and courier-eligibility isCourierEligible wire
+  shapes remain compatible. Real HTTP peers, emulator-only local topics, cloud
+  staging/prod topics, paired Credit headers and pending-card UI are preserved.
+  New User Credit URL resolves internally in Compose and is dynamically exported
+  by the existing cloud deploy script. No cloud deployment was performed.
+- Findings: inverted User verifyAdmin permits non-admin protected actions;
+  Firebase/Mongo account deletion ignores active Order/pending commands; signup
+  now invokes Credit twice and cleanup can delete identity/profile after an
+  uncertain financial result; suspension removes courier authority and the
+  expiry restoration helper has no caller, blocking existing abort/recovery.
+  FEEDBACK-011 records owner action and review evidence, not approved fixes.
+- Lower-priority shared frontend issue: profile focus refresh never sets its
+  in-progress flag before await, permitting overlapping focus/visibility reads.
+  Requester eligibility helper is also inverted; Order does not call that API.
+- Initially suspected admin bootstrap YAML/env alias mismatch was disproved:
+  Spring7.0.9 SystemEnvironmentPropertySource resolves ADMIN_BOOTSTRAP_EMAIL to
+  admin.bootstrap-email. Do not record it as a confirmed startup defect.
+- Executed:103 frontend tests/26 files pass, typecheck exit0, lint0 errors/one
+  merged profile-test unused-import warning; base and combined local-live Compose
+  config exit0; existing11 stack services healthy (not a merged-image proof).
+  D1/Overall hashes unchanged; git diff --check passes. No backend suite rerun,
+  signup/admin/deletion mutation, browser smoke, image rebuild or cloud tests.
+- Stopping point: application/peer/shared configuration unchanged. Inspect-only
+  handoff/feedback/disclosure remain uncommitted; no implementation approval.
+  Next: User owner corrects security/consistency behavior or Vincent authorizes a
+  narrow peer task, then test genuine admin/normal-user, pending deletion,
+  uncertain signup and suspended-courier recovery with isolated real peers.
+  Existing Sprint/browser/rollout/strict gates remain [~].
+
 ## CHANGE-108 pending-card implementation — 2026-10-11, [~]
 
 - Vincent approves full option2 response/UI/access projection. ADR-038 records

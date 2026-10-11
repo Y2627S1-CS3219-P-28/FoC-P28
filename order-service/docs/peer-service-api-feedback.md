@@ -1,5 +1,69 @@
 # Peer Service API Feedback
 
+## FEEDBACK-011: User merge authorization and recovery safety
+
+Rollback note (2026-10-11): Vincent explicitly requested reverting merge935d16d.
+Commit834bb0d restores first-parent e516cfa exactly. Findings below are retained
+for peer coordination against that reviewed main revision, not asserted to be
+the current branch implementation. No peer fix or new contract was implemented.
+
+- Date/revision:2026-10-11, merge935d16d versus Order first parent e516cfa.
+- Status:OPEN. Classification:INCOMPLETE_OR_INCOMPATIBLE for trusted role
+  administration and account/eligibility lifecycle during unresolved work.
+  Owner:User Service; shared signup/focus frontend needs its owner's coordination.
+- Expected existing boundary: User owns trusted role changes/eligibility and
+  identity; Order owns active orders/commands and Credit owns financial effects.
+  Identity removal or authority changes must not strand unresolved financial
+  effects. Historical outcomes are not permission for a new courier action.
+- Actual implemented lookup contracts remain MATCHES_APPROVED_CONTRACT at the
+  wire boundary: authenticated GET /api/users/role-context returns userId/roles;
+  GET /api/users/courier-eligibility returns isCourierEligible. This review is
+  source/config inspection, not new real-user contract execution.
+
+### Findings and required owner action
+
+1. UserService.verifyAdmin returns roles==null || !roles.contains("admin"),
+   whereas controllers reject only when !verifyAdmin. Ordinary users therefore
+   pass GET /api/users/{userId}, PUT /api/users/{userId},
+   PUT /api/users/{userId}/user-promotion and DELETE /api/users/{userId}; real
+   admins are rejected. Promotion can inject admin into the role-context Order
+   trusts for administrative reads/redrive. Correct and test positive membership,
+   missing roles and ordinary-user denial before treating admin facts as safe.
+   verifyRequester has the same inverse predicate in the new eligibility API,
+   but Order still uses role-context, not requester-eligibility.
+2. DELETE /api/users/me and administrative deletion remove Firebase then Mongo
+   without checking active orders, pending commands or Credit obligations. A
+   pending command's original owner can become unable to authorize reconciliation;
+   Order's unresolved guard then still blocks competing expiry/cancellation.
+   Agree a safe account-deletion/reconciliation policy across owners. This review
+   does not invent a new peer endpoint or approve bypassing Order guards.
+3. POST /api/users now saves Mongo then calls Credit registration-facts, while
+   frontend AuthProvider still posts another registration fact afterward. Credit
+   insert-if-absent prevents a second initial allocation for the same UID; do NOT
+   claim double credits. However, an unknown Credit outcome leads User to delete
+   its profile, or a failed second frontend call deletes Firebase after User has
+   succeeded. Credit may already have committed. Choose one provisioning owner
+   and durable outcome/reconciliation; never infer rollback from a timeout.
+4. User adjustPenalty removes courier from roles; refreshSuspensionStatus is
+   declared but never called. After the month ends, eligibility can return true
+   while role-context still lacks courier. Order annotations and mutation/resume
+   checks deny acceptance/abort, potentially leaving an assigned or pending abort
+   unresolved. Agree and test restoration and existing-task/historical-recovery
+   authorization; do not silently grant fresh courier operations to a suspension.
+
+### Verification and stopping point
+
+103 existing frontend tests pass; typecheck passes; lint has no errors/one
+profile-test warning. Both Compose configurations validate and preserve HTTP/
+local emulator selection. These tests mock shared auth and do not prove the new
+User admin/signup/deletion/suspension semantics. No financial/identity mutation,
+backend test rerun, merged image rebuild or cloud rollout performed. User/Credit/
+Order/frontend application source, contracts and database schema remain unchanged
+by this review. Required next action: owner fixes/agreement, then isolated actual
+provider regression/contract tests. FEEDBACK-002 penalty consumers and FEEDBACK-005
+delegation remain separate existing gaps; generic unauthenticated PUT penalty is
+not an approved substitute for User's factual Pub/Sub consumers.
+
 ## Manual repost protocol verification — CHANGE-106 / ADR-037 (2026-10-11)
 
 Manual REPOST reuses implemented Credit RESERVE/result/compensation with a stable

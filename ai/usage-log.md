@@ -8,6 +8,26 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Requested merge revert assistance (Order Service and integrated shared/peer files)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** User-authorized Git rollback and verification.
+- **Affected locations:** Only the33 paths introduced/changed by merge935d16d in revert commit834bb0d; existing uncommitted review/handoff/disclosure notes preserved and annotated afterward.
+- **Prompt:** Can u revert this merge ? (935d16d24e91ffa9c9ca292e2d3cf66118731195)
+- **Key response:** Reverted with first parent using git revert --no-commit -m1, verified the staged tree exactly matches e516cfa, then committed834bb0d. Final committed tree equals the pre-merge tree; Order/Credit work and ignored private D3 file preserved. Four whitespace warnings are restored pre-existing content, intentionally not reformatted. No reset, push, test rerun, image rebuild, database mutation or cloud deployment.
+- **Author verification:** Vincent explicitly authorized the whole merge rollback. Deterministic Git tree/index equality and no-conflict checks passed. Existing Sprint/runtime verification gates remain; review findings now explicitly apply to the reverted revision.
+
+## Main merge compatibility review assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only application review, existing regression/config verification and handoff.
+- **Affected locations:** Order Vincent active-work, appended FEEDBACK-011 and this disclosure. User/shared frontend/Docker/deployment source inspected only.
+- **Prompt:** I have integrated some changes just now from main, see if any conflict with my order service ? mainly it is from user service and some change to docker
+- **Key response:** Compared merge935d16d with e516cfa; no unresolved merge or Order/Credit source overwrite. User role wire shapes and local/cloud URL/messaging wiring remain compatible. Identified inverted admin checks, identity deletion without unresolved-work guards, uncertain signup cleanup/double provisioning requests and unrestored courier authority. Disproved suspected bootstrap alias defect with Spring7.0.9 non-mutating environment check. Existing103 frontend tests/26 files, typecheck and both Compose configs pass; lint0errors/one profile-test warning. Existing11 containers healthy, not proof of rebuilt merged images; no backend suite/cloud/browser/financial mutation performed. D1/Overall fingerprints unchanged.
+- **Author verification:** Vincent requested inspection only; no fixes or new design approved. Findings are source-based and require User owner review and isolated actual-provider tests. No application/config/schema edits or commit; Sprint remains incomplete and FEEDBACK-011 OPEN.
+
 ## Peer-service API feedback contract rewrite assistance (Order Service)
 
 - **Tool:** OpenAI Codex (GPT-6)
