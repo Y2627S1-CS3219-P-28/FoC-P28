@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Order } from "@/lib/orders"
 import { formatOrderStatus } from "@/lib/orders"
 
-export function OrderCard({ order, supplierNames = {}, actions, footer }: { order: Order; supplierNames?: Record<string, string>; actions?: React.ReactNode; footer?: React.ReactNode }) {
+export type OrderCardData = Pick<Order, "itemDescription" | "pickupSupplierId" | "deliverySupplierId" | "offeredCredits" | "deliveryTimeLimitMinutes" | "expiresAt" | "status">
+export function OrderCard({ order, supplierNames = {}, actions, footer }: { order: OrderCardData; supplierNames?: Record<string, string>; actions?: React.ReactNode; footer?: React.ReactNode }) {
   const pickupSupplier = supplierNames[order.pickupSupplierId] ?? "Location unavailable"
   const deliverySupplier = supplierNames[order.deliverySupplierId] ?? "Location unavailable"
 

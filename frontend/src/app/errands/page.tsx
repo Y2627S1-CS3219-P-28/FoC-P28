@@ -4,6 +4,9 @@ import { useMemo } from "react"
 import { toast } from "sonner"
 
 import { OrderCard } from "@/components/orders/order-card"
+import { OrderCommandDiscoveryProvider } from "@/components/orders/order-command-discovery"
+import { PendingErrandCards } from "@/components/orders/pending-errand-cards"
+import { PendingOrderCommands } from "@/components/orders/pending-order-commands"
 import { RequireAuth } from "@/components/require-auth"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -30,11 +33,15 @@ export default function ErrandsPage() {
 
   return (
     <RequireAuth>
+      <OrderCommandDiscoveryProvider onResolved={() => void refresh()}>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
         <div><p className="text-sm text-muted-foreground">Available for delivery</p><h1 className="text-2xl font-semibold tracking-tight">Browse errands</h1><p className="mt-1 text-muted-foreground">Accept an open request, then manage it from My Errands.</p></div>
+        <PendingOrderCommands onResolved={() => void refresh()} />
+        <PendingErrandCards displayedOrders={availableOrders} />
         {error && <p role="status" className="text-xs text-muted-foreground">Could not refresh errands. We will try again.</p>}
         {loading || !supplierNamesReady ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : availableOrders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">No open errands are available right now.</CardContent></Card> : <div className="grid gap-4 md:grid-cols-2">{availableOrders.map((order) => <OrderCard key={order.id} order={order} supplierNames={supplierNames} actions={<AcceptOrderButton order={order} onAccepted={accepted} />} />)}</div>}
       </div>
+      </OrderCommandDiscoveryProvider>
     </RequireAuth>
   )
 }

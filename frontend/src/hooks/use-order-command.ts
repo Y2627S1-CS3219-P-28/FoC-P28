@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api"
 import { commandPath, type OrderCommandIntent, type OrderCommandKind, type OrderCommandStatus } from "@/lib/order-commands"
 import { readOrderIntent, removeOrderIntent, writeOrderIntent } from "@/lib/order-command-storage"
 import type { Order } from "@/lib/orders"
+import { useOrderCommandDiscovery } from "@/components/orders/order-command-discovery"
 
 export function useOrderCommand(scope: string, onSuccess: (order: Order) => void, onRejected: (message: string) => void) {
   const api = useApi()
@@ -25,6 +26,9 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
   const callbacks = useRef({ onSuccess, onRejected })
   const active = useRef<string | null>(null)
   const current = !!identity && loadedIdentity === identity && !loading
+  const discovery = useOrderCommandDiscovery()
+  const [action, target] = scope.split(":")
+  const remote = target ? discovery?.items.find((command) => command.kind?.toLowerCase() === action && command.orderId === target) : undefined
   useEffect(() => { callbacks.current = { onSuccess, onRejected } }, [onSuccess, onRejected])
 
   useEffect(() => {
@@ -100,7 +104,7 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
   useVisiblePolling(check, current && !!intent, ORDER_POLL_INTERVAL_MS)
 
   async function run(kind: OrderCommandKind, legacyPath: string, body: Record<string, unknown>) {
-    if (!current || !account || !ready || active.current === identity || intent) return
+    if (!current || !account || !ready || active.current === identity || intent || remote || (discovery && !discovery.ready)) return
     active.current = identity; setSubmitting(true)
     try {
       if (!enabled) {
@@ -120,6 +124,7 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
   }
 
   async function continueRecovery() {
+    if (remote && discovery) { await discovery.resume(remote); return }
     if (!current || !enabled || !intent || !account || active.current === identity || status?.reason !== "AUTHORIZATION_REQUIRED") return
     active.current = identity; setSubmitting(true)
     try {
@@ -133,7 +138,7 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
     }
   }
 
-  return { run, ready: current && ready, pending: current && (!!intent || submitting), message: current ? message : null,
+  return { run, ready: current && ready && (!discovery || discovery.ready), pending: current && (!!intent || submitting || !!remote), message: current ? remote ? `${remote.message ?? "Your request is pending."}${remote.attemptCount ? ` Attempt ${remote.attemptCount}.` : ""}` : message : null,
     savedInput: current ? intent?.body : undefined,
-    needsAuthorization: current && enabled && !!intent && status?.reason === "AUTHORIZATION_REQUIRED", continueRecovery }
+    needsAuthorization: current && (remote ? !!discovery?.enabled && !discovery.busy && remote.reason === "AUTHORIZATION_REQUIRED" : enabled && !!intent && status?.reason === "AUTHORIZATION_REQUIRED"), continueRecovery }
 }

@@ -17,6 +17,12 @@ export type OrderCommandStatus = {
   message?: string
   attemptCount?: number
   result?: Order
+  displayDetails?: OrderCommandDisplayDetails | null
+}
+
+export type OrderCommandDisplayDetails = Pick<Order, "itemDescription" | "pickupSupplierId" | "deliverySupplierId" | "offeredCredits" | "deliveryTimeLimitMinutes" | "expiresAt"> & {
+  orderStatus?: Order["status"] | null
+  version?: number | null
 }
 
 export function commandPath(kind: OrderCommandKind, legacyPath: string): string {

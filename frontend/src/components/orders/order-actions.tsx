@@ -29,6 +29,11 @@ const ACTIONS = {
 } as const
 
 export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: OrderMode; onUpdated: (order: Order) => void }) {
+  if (order.attemptId || order.status === "ABORTED") return null
+  return <LiveOrderActions order={order} mode={mode} onUpdated={onUpdated} />
+}
+
+function LiveOrderActions({ order, mode, onUpdated }: { order: Order; mode: OrderMode; onUpdated: (order: Order) => void }) {
   const api = useApi()
   const { user } = useAuth()
   const [busy, setBusy] = useState(false)
@@ -70,14 +75,14 @@ export function OrderActions({ order, mode, onUpdated }: { order: Order; mode: O
     return (
       <>
         {action && (
-          <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy || abort.pending}>
+          <Button size="sm" onClick={() => void perform(action.path, action.label)} disabled={busy || abort.pending || !abort.ready}>
             {busy ? "Saving…" : action.label}
           </Button>
         )}
         {order.status === "ACCEPTED" && (
           <AlertDialog>
             <AlertDialogTrigger render={<Button size="sm" variant="destructive" disabled={busy || abort.pending || !abort.ready} />}>
-              Abort errand
+              {abort.pending ? "Abort pending…" : "Abort errand"}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

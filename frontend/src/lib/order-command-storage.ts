@@ -37,11 +37,16 @@ export async function writeOrderIntent(account: string, scope: string, intent: O
   })
 }
 
-export async function removeOrderIntent(account: string, scope: string): Promise<void> {
+export async function removeOrderIntent(account: string, scope: string, expectedKey?: string): Promise<void> {
   const db = await database()
   return new Promise((resolve, reject) => {
     const tx = db.transaction("intents", "readwrite")
-    tx.objectStore("intents").delete(JSON.stringify([account, scope]))
+    const store = tx.objectStore("intents"), key = JSON.stringify([account, scope])
+    if (expectedKey === undefined) store.delete(key)
+    else {
+      const read = store.get(key)
+      read.onsuccess = () => { if (read.result?.key === expectedKey) store.delete(key) }
+    }
     tx.oncomplete = () => { db.close(); resolve() }
     tx.onabort = () => { db.close(); reject(new Error("Could not clear the completed action.")) }
   })
