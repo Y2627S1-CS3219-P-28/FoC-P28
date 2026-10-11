@@ -1,5 +1,16 @@
 # Order Service Architecture Evolution
 
+## Implementation detail - CHANGE-109 profile merge compatibility
+
+2026-10-11, Vincent authorizes narrow frontend repair afterc2fe90c. New edit page
+depended on reverted profile context. Adapt to current identity-only AuthProvider
+with account-keyed page-local loading and existing authenticated User GET/PUT/me.
+Verified Firebase email is saved with email-only PUT after fresh token; report
+success only after matching saved response. Existing Edit navigation restored;
+stale reads/account continuations guarded. No new contract, ownership, roles,
+Order sequence/model or ADR. Do not restore older main wholesale. Source d7f72a8;
+116 tests/typecheck/build pass, lint0errors; live/browser/mobile/strict gates[~].
+
 ## ARCH-EVO-044 — Pending commands attached to live cards (CHANGE-108)
 
 APPROVED by Vincent 2026-10-11, "Yes I agree proceed"; ADR-038 supersedes local-only

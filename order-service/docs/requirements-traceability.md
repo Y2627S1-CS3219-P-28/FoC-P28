@@ -1,5 +1,17 @@
 # Order Service Requirements Traceability
 
+## CHANGE-109 profile merge compatibility [~]
+
+| Requirement/convention | Contract -> frontend implementation | Verification |
+| --- | --- | --- |
+| User-approved repair; authenticated gateway convention | Current AuthProvider -> local account-keyed profile GET via useApi | Load/auth restoration/signed-out/failure/account-switch tests |
+| Existing own-profile edit; no new Order FR/role/sequence | Username-only PUT; Firebase verified email + refreshed token then email-only PUT | Minimal payload, rejected saves, unverified no-write, sync retry, stale-account tests |
+| Existing Firebase password flow; NFR3.1.3 | Reauthenticate before updatePassword; no password to User Service | Success/rejected reauthentication; no unintended peer calls |
+| NFR2.1 responsive UI; NFR3.1.3 | Existing primitives/cards with mobile padding; Edit control |116 tests/27 files, typecheck/build pass, lint0errors; actual320-1920px browser/email checks pending |
+
+Source/testd7f72a8; CHANGE-109. User implementation inspected, not real-user
+integration verified. Order financial command recovery unchanged.
+
 ## CHANGE-108 / ADR-038 pending display recovery [~]
 
 | Effective requirement | Design -> implementation | Verification | Status |

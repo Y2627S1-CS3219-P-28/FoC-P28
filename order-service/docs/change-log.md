@@ -1,5 +1,13 @@
 # Approved Change Log
 
+CHANGE-109 (Vincent, 2026-10-11): approved narrow profile merge frontend repair;
+source/testd7f72a8. Current AuthProvider retained; account-keyed profile GET/PUT
+through useApi, verified email sync/token refresh, failure retry, account-switch
+guard and Edit navigation.116 frontend tests/typecheck/build pass; lint0errors/
+3 existing login warnings. No backend/schema/infra/API changes. Exactcd41186
+removes delete UI only: no new peer requirements. Browser/email/mobile/runtime/
+strict gates[~]; CHANGE-109 and FEEDBACK-012.
+
 CHANGE-108 (Vincent, 2026-10-11): approved ADR-038/ARCH-EVO-044 pending card recovery
 and owner-only command display projection. Source9f2e054/942b790;373 backend/103
 frontend pass; lint/typecheck/build pass; browser/rollout/strict gates[~].
