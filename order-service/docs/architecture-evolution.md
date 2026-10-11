@@ -1,5 +1,18 @@
 # Order Service Architecture Evolution
 
+## Implementation detail - CHANGE-110 command submission polling
+
+Vincent explicitly authorizes the fix on2026-10-11. Browser intent persistence
+precedes POST, but previously enabled an immediate status GET before server
+registration. Existing submitting state pauses individual polling; active-ref
+guard protects stale callbacks. After POST settles, terminal outcomes clear
+normally; pending/uncertain responses resume existing five-second polling and
+same frozen-key recovery. No new endpoint, status, role, peer, data model or
+architecture boundary; ADR-033/035/037/038 stay effective. Fixed delays and
+pretending404 means PENDING were not selected. Eight RED tests then GREEN;
+source/test386f58f, final124 frontend tests/typecheck/build pass. Live rollout/
+browser/strict gates remain[~].
+
 ## Implementation detail - CHANGE-109 profile merge compatibility
 
 2026-10-11, Vincent authorizes narrow frontend repair afterc2fe90c. New edit page

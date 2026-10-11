@@ -1,5 +1,10 @@
 # Active Sprint
 
+CHANGE-110: Vincent-approved frontend-only command polling race fix,
+source386f58f; pause individual GET during initial submission/local Continue,
+preserve same-key recovery.124 frontend tests/typecheck/build pass; lint0errors.
+Backend/contracts/schema/config unchanged; browser/rollout/strict gates[~].
+
 CHANGE-108 / ADR-038 is the approved display-only recovery extension: owned
 pending command details, shared discovery and existing-order pending cards;
 creation/repost summaries stay separate. Financial/peer/schema behavior unchanged.

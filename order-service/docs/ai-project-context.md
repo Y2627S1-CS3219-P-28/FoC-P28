@@ -1,5 +1,11 @@
 # Order Service Permanent Project Context
 
+CHANGE-110 (Vincent, 2026-10-11): source/test386f58f pauses individual command
+polling during initial submission/local Continue, with an active-ref stale
+callback guard. Frozen-key uncertainty/reload recovery and five-second polling
+after POST settles remain.124 frontend tests/typecheck/build pass; lint0errors/
+3 existing warnings. No backend/peer/API/schema/config change; rollout[~].
+
 CHANGE-109 (2026-10-11, Vincent): narrow merged profile frontend compatibility
 repaird7f72a8; current AuthProvider/backend retained, useApi GET/PUT/me, verified
 email save with fresh token, safe account-keyed local form and Edit navigation.

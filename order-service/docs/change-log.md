@@ -1,5 +1,12 @@
 # Approved Change Log
 
+CHANGE-110 (Vincent, 2026-10-11): approved command polling race correction under
+ADR-033/035/037/038; source/test386f58f. Pause individual status reads during
+initial submission/local Continue; preserve frozen-key unknown-outcome recovery.
+Eight tests RED then GREEN using actual visible-poll hook; final124 frontend
+tests/28 files, typecheck/build pass; lint0errors/3 existing warnings. Backend,
+Credit contracts, schema and deployment unchanged. Browser/rollout gates[~].
+
 CHANGE-109 (Vincent, 2026-10-11): approved narrow profile merge frontend repair;
 source/testd7f72a8. Current AuthProvider retained; account-keyed profile GET/PUT
 through useApi, verified email sync/token refresh, failure retry, account-switch

@@ -1,5 +1,9 @@
 # Order Service Work Allocation
 
+Vincent authorizes CHANGE-110 on2026-10-11: narrow shared command-hook polling
+race fix/tests/records under his existing recovery allocation. No peer/backend,
+API/schema/config changes; no ownership reassignment. Source386f58f verified.
+
 Vincent authorizes CHANGE-109 on2026-10-11: one narrow shared profile frontend
 compatibility repair afterc2fe90c, existing User/Firebase APIs only. No backend,
 AuthProvider, Order recovery, schema or shared infrastructure change/reassignment.

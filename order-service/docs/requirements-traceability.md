@@ -1,5 +1,17 @@
 # Order Service Requirements Traceability
 
+## CHANGE-110 command submission polling [~]
+
+| Effective requirement | Existing design -> implementation | Verification |
+| --- | --- | --- |
+| F1/F3/F11.2, NTH4 + ADR-033/035/037 | Browser intent -> active POST -> outcome; useOrderCommand pauses individual GET during submission/local resume | Four delayed-operation tests, terminal success/rejection and Continue tests with actual visible polling |
+| ADR-033/038 unknown outcome and stable key; NFR4 identity | Timeout retains frozen key/input; missing-key recovery never invents another ID | Actual-poll timeout/404 same-key test; existing reload/account/discovery regressions |
+| NFR3 test adequacy/regression | New real-poll tests supplement earlier mocked polling |8 observed RED then GREEN; final124 frontend tests/28 files, zero skips; lint0errors, typecheck/build pass |
+
+Source/test386f58f; no backend/peer/API/schema change. Automated-only timing
+verification; authenticated browser and deployment remain pending. Full Sprint
+completion is not claimed; CHANGE-110 contains scope, approval and rollback.
+
 ## CHANGE-109 profile merge compatibility [~]
 
 | Requirement/convention | Contract -> frontend implementation | Verification |
