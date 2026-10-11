@@ -18,4 +18,8 @@ public interface OrderEventOutboxRepository {
     void markPublished(String eventId, Instant publishedAt);
 
     void scheduleRetry(String eventId, Instant nextAttemptAt, String error);
+
+    void redrive(String eventId, Instant now);
+
+    List<String> failedIds(int limit);
 }

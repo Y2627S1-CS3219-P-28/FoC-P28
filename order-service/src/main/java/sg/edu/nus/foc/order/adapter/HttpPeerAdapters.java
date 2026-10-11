@@ -99,14 +99,14 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
 
     @Override
     public void validatePair(String pickup, String delivery, String authorization) {
-        SupplierPairValidationResponse response = supplier.post()
+        SupplierPairValidationResponse response = peerCall("Supplier", () -> supplier.post()
                 .uri("/api/suppliers/validate")
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                 .body(new SupplierPairRequest(pickup, delivery))
                 .retrieve()
-                .body(SupplierPairValidationResponse.class);
+                .body(SupplierPairValidationResponse.class));
         if (response == null || response.getValid() == null) {
-            throw new OrderProblem("DEPENDENCY_UNAVAILABLE",
+            throw new OrderProblem("SERVICE_UNAVAILABLE",
                     "Supplier Service did not confirm the pickup and delivery locations.");
         }
         if (!response.getValid()) {
@@ -163,14 +163,14 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
             String courierId,
             String authorization) {
         CreditCourierAssignmentRequest request = new CreditCourierAssignmentRequest(courierId);
-        ResponseEntity<Void> response = credit.put()
+        ResponseEntity<Void> response = peerCall("Credit", () -> credit.put()
                 .uri("/api/credits/orders/{id}/courier-assignment", orderId)
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                 .body(request)
                 .retrieve()
-                .toBodilessEntity();
+                .toBodilessEntity());
         if (!response.getStatusCode().equals(HttpStatus.OK)) {
-            throw new IllegalStateException("Credit Service did not confirm the requested courier assignment.");
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Credit Service did not confirm the requested courier assignment.");
         }
     }
 
@@ -178,35 +178,14 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     public void holdForReopen(
             String orderId,
             String authorization) {
-        ResponseEntity<Void> response = credit.post()
+        ResponseEntity<Void> response = peerCall("Credit", () -> credit.post()
                 .uri("/api/credits/orders/{id}/hold-for-reopen", orderId)
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                 .retrieve()
-                .toBodilessEntity();
+                .toBodilessEntity());
         if (!response.getStatusCode().equals(HttpStatus.OK)) {
-            throw new IllegalStateException("Credit Service did not synchronously confirm the reopen hold.");
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Credit Service did not synchronously confirm the reopen hold.");
         }
-    }
-
-    @Override
-    public void settle(
-            String commandId,
-            String orderId,
-            String requesterId,
-            String courierId,
-            long amount,
-            String authorization) {
-        CreditSettlementRequest request = new CreditSettlementRequest(
-                commandId,
-                requesterId,
-                courierId,
-                amount);
-        credit.post()
-                .uri("/api/credits/orders/{id}/settlement", orderId)
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
-                .body(request)
-                .retrieve()
-                .toBodilessEntity();
     }
 
     private static <T> T call(
@@ -214,14 +193,28 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
             String path,
             String authorization,
             Class<T> responseType) {
-        try {
-            return client.get()
+        return peerCall("User", () -> client.get()
                     .uri(path)
                     .header(HttpHeaders.AUTHORIZATION, authorizationHeader(authorization))
                     .retrieve()
-                    .body(responseType);
-        } catch (RestClientException exception) {
-            throw new OrderProblem("SERVICE_UNAVAILABLE", "User Service verification is unavailable.");
+                    .body(responseType));
+    }
+
+    private static <T> T peerCall(String peer, java.util.function.Supplier<T> request) {
+        try {
+            return request.get();
+        } catch (RestClientResponseException failure) {
+            String code = switch (failure.getStatusCode().value()) {
+                case 400, 422 -> "VALIDATION_ERROR";
+                case 401 -> "UNAUTHENTICATED";
+                case 403 -> "FORBIDDEN";
+                case 404 -> "NOT_FOUND";
+                case 409 -> "CONFLICT";
+                default -> "SERVICE_UNAVAILABLE";
+            };
+            throw new OrderProblem(code, peer + " Service could not confirm the request.");
+        } catch (RestClientException failure) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", peer + " Service is unavailable.");
         }
     }
 
@@ -266,17 +259,6 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     @AllArgsConstructor
     private static class CreditReservationRequest {
         private String requesterId;
-        private long amount;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class CreditSettlementRequest {
-        private String commandId;
-        private String requesterId;
-        private String courierId;
         private long amount;
     }
 

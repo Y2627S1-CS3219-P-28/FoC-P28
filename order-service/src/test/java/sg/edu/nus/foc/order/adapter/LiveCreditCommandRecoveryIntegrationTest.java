@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,7 +48,8 @@ import sg.edu.nus.foc.order.application.recovery.OrderCommandStore;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 /** Actual Credit container/HTTP/ledger and two isolated PostgreSQL databases.
- * User/Supplier validation is fixture-backed; Pub/Sub and production IAM are not exercised.
+ * User/Supplier validation is fixture-backed; real local Pub/Sub delivery is
+ * exercised without any ADC. Production IAM is deliberately not exercised.
  */
 @SpringBootTest(properties = {"spring.profiles.active=local", "order.peers.mode=http",
         "order.commands.enabled=true", "order.lifecycle.cron=-", "order.messaging.outbox.recovery-cron=-",
@@ -61,8 +63,15 @@ class LiveCreditCommandRecoveryIntegrationTest {
     @Container
     static final PostgreSQLContainer<?> ORDER_DB = new PostgreSQLContainer<>("postgres:15-alpine");
     @Container
+    static final GenericContainer<?> PUBSUB = new GenericContainer<>(
+            "gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators")
+            .withNetwork(NETWORK).withNetworkAliases("pubsub-emulator").withExposedPorts(8085)
+            .withCommand("gcloud", "beta", "emulators", "pubsub", "start", "--project=demo-foc-local",
+                    "--host-port=0.0.0.0:8085")
+            .waitingFor(Wait.forListeningPort()).withStartupTimeout(Duration.ofMinutes(2));
+    @Container
     static final GenericContainer<?> CREDIT = new GenericContainer<>(creditImage())
-            .withNetwork(NETWORK).dependsOn(CREDIT_DB).withExposedPorts(8080)
+            .withNetwork(NETWORK).withNetworkAliases("credit").dependsOn(CREDIT_DB, PUBSUB).withExposedPorts(8080)
             .withCreateContainerCmdModifier(command -> command.getHostConfig().withPublishAllPorts(false)
                     .withPortBindings(new PortBinding(Ports.Binding.bindPort(freePort()), new ExposedPort(8080))))
             .withEnv("SPRING_DATASOURCE_URL", "jdbc:postgresql://credit-db:5432/" + CREDIT_DB.getDatabaseName())
@@ -70,6 +79,12 @@ class LiveCreditCommandRecoveryIntegrationTest {
             .withEnv("SPRING_DATASOURCE_PASSWORD", CREDIT_DB.getPassword())
             .withEnv("FIREBASE_AUTH_PROJECT_ID", "demo-foc")
             .withEnv("FIREBASE_AUTH_EMULATOR_HOST", "local-fixture:9099")
+            .withEnv("FOC_ENVIRONMENT", "local")
+            .withEnv("CREDIT_PUBSUB_PUSH_MODE", "emulator")
+            .withEnv("PUBSUB_EMULATOR_HOST", "pubsub-emulator:8085")
+            .withEnv("PUBSUB_PROJECT_ID", "demo-foc-local")
+            .withEnv("CREDIT_ORDER_COMPLETION_SUBSCRIPTION", "credit-order-completion-local-v1")
+            .withEnv("CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION", "credit-open-order-refund-local-v1")
             .withEnv("USER_SERVICE_MODE", "mock").withEnv("LOG_LEVEL", "WARN")
             .waitingFor(Wait.forHttp("/actuator/health").forStatusCode(200))
             .withStartupTimeout(Duration.ofMinutes(2));
@@ -112,6 +127,29 @@ class LiveCreditCommandRecoveryIntegrationTest {
         properties.add("spring.datasource.username", ORDER_DB::getUsername);
         properties.add("spring.datasource.password", ORDER_DB::getPassword);
         properties.add("order.peers.credit-url", () -> "http://" + CREDIT.getHost() + ":" + CREDIT.getMappedPort(8080));
+        properties.add("order.messaging.mode", () -> "emulator");
+        properties.add("order.messaging.emulator-host", () -> PUBSUB.getHost() + ":" + PUBSUB.getMappedPort(8085));
+        properties.add("order.messaging.project-id", () -> "demo-foc-local");
+        properties.add("order.messaging.publish-timeout", () -> "10s");
+        properties.add("order.messaging.topics.order-completion", () -> "order-completion-local-v1");
+        properties.add("order.messaging.topics.open-order-refund", () -> "open-order-refund-local-v1");
+        properties.add("order.messaging.topics.accepted-order-cancellation", () -> "accepted-order-cancellation-local-v1");
+    }
+
+    @BeforeAll
+    static void emulatorSubscriptions() {
+        RestClient emulator = RestClient.builder().baseUrl("http://" + PUBSUB.getHost() + ":"
+                + PUBSUB.getMappedPort(8085) + "/v1/projects/demo-foc-local").build();
+        for (String topic : java.util.List.of("order-completion", "open-order-refund", "accepted-order-cancellation")) {
+            emulator.put().uri("/topics/" + topic + "-local-v1").body(java.util.Map.of()).retrieve().toBodilessEntity();
+        }
+        for (String topic : java.util.List.of("order-completion", "open-order-refund")) {
+            String route = topic.equals("order-completion") ? "completion" : "open-refund";
+            emulator.put().uri("/subscriptions/credit-" + topic + "-local-v1").body(java.util.Map.of(
+                    "topic", "projects/demo-foc-local/topics/" + topic + "-local-v1", "ackDeadlineSeconds", 30,
+                    "pushConfig", java.util.Map.of("pushEndpoint", "http://credit:8080/api/credits/internal/order-events/" + route)))
+                    .retrieve().toBodilessEntity();
+        }
     }
 
     @Autowired OrderCommandService commands;
@@ -122,7 +160,96 @@ class LiveCreditCommandRecoveryIntegrationTest {
     @MockitoSpyBean HttpCreditCommandGateway gateway;
     @MockitoSpyBean HttpPeerAdapters peers;
     @MockitoSpyBean OrderCreationService creation;
-    @MockitoBean sg.edu.nus.foc.order.application.OrderOutboxDispatcher dispatcher;
+
+    @Test
+    void actualEmulatorCancellationAndExpiryRefundHeldCredits() throws Exception {
+        for (boolean expiry : java.util.List.of(false, true)) {
+            String requester = account();
+            OrderResponse opened = open(requester);
+            if (expiry) {
+                orderDb.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+                scheduler.processDueOrders();
+            } else {
+                transitions.cancel(key(), opened.getId(), requester, opened.getVersion(), token(requester));
+            }
+            awaitReservation(opened.getId(), "REFUNDED");
+            assertEquals(0L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, requester));
+            assertEquals(50L, creditDb().queryForObject("select total_balance from credit_accounts where user_id=?", Long.class, requester));
+        }
+    }
+
+    @Test
+    void actualEmulatorCompletionTransfersOnce() throws Exception {
+        String requester = account();
+        String courier = account();
+        OrderResponse opened = open(requester);
+        OrderResponse accepted = commands.submit(key(), new CommandRequest("ACCEPT", courier,
+                opened.getId(), opened.getVersion(), null), token(courier)).result();
+        sg.edu.nus.foc.order.domain.Order started = transitions.start(key(), accepted.getId(), courier, accepted.getVersion(), token(courier));
+        sg.edu.nus.foc.order.domain.Order pickedUp = transitions.pickup(key(), started.getId(), courier, started.getVersion(), token(courier));
+        sg.edu.nus.foc.order.domain.Order delivered = transitions.deliver(key(), pickedUp.getId(), courier, pickedUp.getVersion(), token(courier));
+        transitions.complete(key(), delivered.getId(), requester, delivered.getVersion(), token(requester));
+        awaitReservation(opened.getId(), "PAID");
+        assertEquals(45L, creditDb().queryForObject("select total_balance from credit_accounts where user_id=?", Long.class, requester));
+        assertEquals(55L, creditDb().queryForObject("select total_balance from credit_accounts where user_id=?", Long.class, courier));
+        String payload = orderDb.queryForObject("select payload from order_event_outbox where order_id=? and event_type='OrderCompletionTaskEvent'",
+                String.class, opened.getId());
+        pushDuplicate("order-completion", payload, "OrderCompletionTaskEvent");
+        pushDuplicate("order-completion", payload, "OrderCompletionTaskEvent");
+        String eventId = tools.jackson.databind.json.JsonMapper.builder().build().readTree(payload).path("eventId").asText();
+        assertEquals(2, creditDb().queryForObject("select count(*) from credit_ledger where origin_id=?", Integer.class, eventId));
+        assertEquals(45L, creditDb().queryForObject("select total_balance from credit_accounts where user_id=?", Long.class, requester));
+        assertEquals(55L, creditDb().queryForObject("select total_balance from credit_accounts where user_id=?", Long.class, courier));
+    }
+
+    @Test
+    void actualAbortAfterExpiryClearsCourierThenRefundsThroughEmulator() throws Exception {
+        String requester = account();
+        String courier = account();
+        OrderResponse opened = open(requester);
+        OrderResponse accepted = commands.submit(key(), new CommandRequest("ACCEPT", courier,
+                opened.getId(), opened.getVersion(), null), token(courier)).result();
+        orderDb.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        String abortKey = key();
+        CommandView aborted = commands.submit(abortKey, new CommandRequest("ABORT", courier,
+                accepted.getId(), accepted.getVersion(), null), token(courier));
+        assertEquals("SUCCESS", aborted.outcome(), aborted.message());
+        assertEquals("EXPIRED", aborted.result().getStatus());
+        assertEquals(opened.getId(), aborted.orderId());
+        awaitReservation(opened.getId(), "REFUNDED");
+        assertNull(creditDb().queryForObject("select courier_id from credit_reservations where order_id=?", String.class, opened.getId()));
+        assertEquals(0L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, requester));
+        assertEquals(1, orderDb.queryForObject("select count(*) from order_courier_attempts where order_id=?", Integer.class, opened.getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='OpenOrderRefundTaskEvent'", Integer.class, opened.getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='AcceptedOrderCancellationTaskEvent'", Integer.class, opened.getId()));
+        assertEquals("SUCCESS", commands.submit(abortKey, new CommandRequest("ABORT", courier,
+                accepted.getId(), accepted.getVersion(), null), token(courier)).outcome());
+    }
+
+    private void pushDuplicate(String topic, String payload, String eventType) {
+        // First delivery travels through the actual emulator. Replay its wrapped
+        // push directly to the actual consumer and wait for its processing ACK.
+        String eventId = tools.jackson.databind.json.JsonMapper.builder().build().readTree(payload).path("eventId").asText();
+        var response = RestClient.builder().baseUrl("http://" + CREDIT.getHost() + ":" + CREDIT.getMappedPort(8080)).build()
+                .post().uri("/api/credits/internal/order-events/completion")
+                .body(java.util.Map.of("subscription", "projects/demo-foc-local/subscriptions/credit-" + topic + "-local-v1",
+                        "message", java.util.Map.of("messageId", key(),
+                                "data", Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8)),
+                                "attributes", java.util.Map.of("eventId", eventId, "eventType", eventType, "eventVersion", "2"))))
+                .retrieve().toBodilessEntity();
+        assertEquals(204, response.getStatusCode().value());
+    }
+
+    private void awaitReservation(String id, String expected) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        String actual;
+        do {
+            actual = creditDb().queryForObject("select status from credit_reservations where order_id=?", String.class, id);
+            if (expected.equals(actual)) return;
+            Thread.sleep(100);
+        } while (System.nanoTime() < deadline);
+        fail("Actual emulator delivery did not reach " + expected + ": " + actual);
+    }
 
     @BeforeEach
     void validationFixtures() {

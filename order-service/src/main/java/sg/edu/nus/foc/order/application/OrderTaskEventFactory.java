@@ -26,7 +26,7 @@ public class OrderTaskEventFactory {
             Instant overdueAt) {
         long resultingVersion = order.getVersion() + 1;
         return mapper.toCompletionEvent(
-                eventId("OrderCompletionTaskEvent", commandId), order, resultingVersion, occurredAt);
+                eventId("OrderCompletionTaskEvent", commandId, order.getId(), actorId), order, resultingVersion, occurredAt);
     }
 
     public OpenOrderRefundTaskEvent openRefund(
@@ -36,7 +36,7 @@ public class OrderTaskEventFactory {
             Instant occurredAt) {
         long resultingVersion = order.getVersion() + 1;
         return mapper.toOpenRefundEvent(
-                eventId("OpenOrderRefundTaskEvent", commandId), order, resultingVersion, occurredAt);
+                eventId("OpenOrderRefundTaskEvent", commandId, order.getId(), actorId), order, resultingVersion, occurredAt);
     }
 
     public AcceptedOrderCancellationTaskEvent acceptedCancellation(
@@ -47,7 +47,7 @@ public class OrderTaskEventFactory {
         long resultingVersion = order.getVersion() + 1;
         OrderEventSnapshot snapshot = snapshot(order, resultingVersion);
         return mapper.toAcceptedCancellationEvent(
-                eventId("AcceptedOrderCancellationTaskEvent", commandId),
+                eventId("AcceptedOrderCancellationTaskEvent", commandId, order.getId(), actorId),
                 order,
                 resultingVersion,
                 actorId,
@@ -61,15 +61,15 @@ public class OrderTaskEventFactory {
             Instant occurredAt) {
         long resultingVersion = order.getVersion() + 1;
         return mapper.toOpenRefundEvent(
-                eventId("OpenOrderRefundTaskEvent", commandId), order, resultingVersion, occurredAt);
+                eventId("OpenOrderRefundTaskEvent", commandId, order.getId(), "lifecycle"), order, resultingVersion, occurredAt);
     }
 
     private OrderEventSnapshot snapshot(Order order, long resultingVersion) {
         return mapper.toSnapshot(order, resultingVersion);
     }
 
-    private String eventId(String eventType, String commandId) {
-        byte[] identity = (eventType + ":" + commandId).getBytes(StandardCharsets.UTF_8);
+    private String eventId(String eventType, String commandId, String orderId, String actorId) {
+        byte[] identity = sg.edu.nus.foc.order.domain.CommandReceipt.fingerprint(eventType, commandId, orderId, actorId).getBytes(StandardCharsets.UTF_8);
         return UUID.nameUUIDFromBytes(identity).toString();
     }
 }

@@ -111,7 +111,6 @@ public class MockPeerAdapters implements UserServicePort, SupplierServicePort, C
                 reservation.getRequesterId(), reservation.getAmount(), ReservationState.RESERVED, courierId));
     }
 
-    @Override
     public synchronized void settle(
             String commandId,
             String orderId,

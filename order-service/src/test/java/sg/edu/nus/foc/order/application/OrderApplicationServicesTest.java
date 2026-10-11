@@ -52,14 +52,17 @@ class OrderApplicationServicesTest {
     @Test
     void creationIsIdempotentByCommandReceipt() {
         Order existing = Order.open("requester", "item", "p", "d", 1, 15, START, START.plusSeconds(1800));
-        CommandReceipt receipt = new CommandReceipt("CREATE", "same", existing.getId(), START);
+        CommandReceipt receipt = new CommandReceipt("CREATE", "same", existing.getId(), START)
+                .bind("requester", CommandReceipt.fingerprint("item", "p", "d", 1L, 15, START.plusSeconds(1800), null, null, null, null, null));
         OrderRepository orders = mock(OrderRepository.class);
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         when(receipts.findExisting("CREATE", "same")).thenReturn(Optional.of(receipt));
         when(orders.get(existing.getId())).thenReturn(Optional.of(existing));
 
+        UserServicePort users = mock(UserServicePort.class);
+        when(users.verifyRequester("requester", AUTH)).thenReturn("requester");
         Order result = new OrderCreationService(orders, receipts, mock(OrderCheckpointRepository.class),
-            mock(UserServicePort.class), mock(SupplierServicePort.class), mock(CreditServicePort.class), mock(OrderAuditLogger.class))
+            users, mock(SupplierServicePort.class), mock(CreditServicePort.class), mock(OrderAuditLogger.class))
             .create("same", "requester", "item", "p", "d", 1, 15, START.plusSeconds(1800), null, AUTH);
 
         assertSame(existing, result);
@@ -89,11 +92,12 @@ class OrderApplicationServicesTest {
         verify(receipts).save(any(CommandReceipt.class));
 
         Order existing = Order.open("requester", "item", "p", "d", 1, 15, START, START.plusSeconds(1800));
-        CommandReceipt previous = new CommandReceipt("ACCEPT", "accept-2", existing.getId(), START);
+        CommandReceipt previous = new CommandReceipt("ACCEPT", "accept-2", existing.getId(), START)
+                .bind("courier", CommandReceipt.fingerprint("ACCEPT", existing.getId(), "courier", 0L));
         when(receipts.findExisting("ACCEPT", "accept-2")).thenReturn(Optional.of(previous));
         when(orders.get(existing.getId())).thenReturn(Optional.of(existing));
         assertSame(existing, new OrderAssignmentService(orders, checkpoints, receipts, users, credits, audit)
-            .accept("accept-2", "courier", "courier", 0, AUTH));
+            .accept("accept-2", existing.getId(), "courier", 0, AUTH));
         when(receipts.findExisting("ACCEPT", "missing")).thenReturn(Optional.empty());
         when(orders.getForUpdate("missing")).thenReturn(Optional.empty());
         assertThrows(OrderProblem.class, () -> new OrderAssignmentService(orders, checkpoints, receipts, users, credits, audit)
@@ -137,7 +141,7 @@ class OrderApplicationServicesTest {
             new OrderCheckpoint(order.getId(), OrderStatus.DELIVERED, START.plusSeconds(10 * 60L), "courier", null)));
         service.complete("complete", order.getId(), "requester", 0, AUTH);
         assertEquals(OrderStatus.COMPLETED, order.getStatus());
-        verify(credits, never()).settle(anyString(), anyString(), anyString(), anyString(), anyLong(), anyString());
+        verifyNoInteractions(credits);
 
         Order cancelled = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         when(orders.getForUpdate("cancelled")).thenReturn(Optional.of(cancelled));
@@ -148,17 +152,20 @@ class OrderApplicationServicesTest {
     @Test
     void transitionOutcomeReceiptsAreIdempotent() {
         Order existing = Order.open("requester", "item", "p", "d", 1, 15, START, START.plusSeconds(1800));
-        CommandReceipt receipt = new CommandReceipt("COMPLETE", "same", existing.getId(), START);
+        CommandReceipt receipt = new CommandReceipt("COMPLETE", "same", existing.getId(), START)
+                .bind("requester", CommandReceipt.fingerprint("COMPLETE", existing.getId(), "requester", 0L));
         CommandReceiptRepository receipts = mock(CommandReceiptRepository.class);
         OrderRepository orders = mock(OrderRepository.class);
         when(receipts.findExisting("COMPLETE", "same")).thenReturn(Optional.of(receipt));
         when(orders.get(existing.getId())).thenReturn(Optional.of(existing));
         OrderCheckpointRepository checkpoints = mock(OrderCheckpointRepository.class);
+        UserServicePort requester = mock(UserServicePort.class);
+        when(requester.verifyRequester("requester", AUTH)).thenReturn("requester");
         OrderTransitionService service = new OrderTransitionService(
             orders,
             checkpoints,
             receipts,
-            mock(UserServicePort.class),
+            requester,
             mock(CreditServicePort.class),
             mock(OrderEventOutboxRepository.class),
             mock(ApplicationEventPublisher.class),

@@ -23,6 +23,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 class OrderTaskEventFactoryTest {
+    @Test void eventIdentitiesDoNotCollideAcrossOrdersOrActors() {
+        Order first = Order.open("r", "item", "p", "d", 1, 15, CREATED_AT, EXPIRES_AT);
+        Order second = Order.open("r", "item", "p", "d", 1, 15, CREATED_AT, EXPIRES_AT);
+        String id = factory.openRefund("shared-key", first, "actor", OCCURRED_AT).getEventId();
+        org.junit.jupiter.api.Assertions.assertNotEquals(id, factory.openRefund("shared-key", second, "actor", OCCURRED_AT).getEventId());
+        org.junit.jupiter.api.Assertions.assertNotEquals(id, factory.openRefund("shared-key", first, "other", OCCURRED_AT).getEventId());
+        assertEquals(id, factory.openRefund("shared-key", first, "actor", OCCURRED_AT).getEventId());
+    }
     private static final Instant CREATED_AT = Instant.parse("2026-10-01T10:00:00Z");
     private static final Instant EXPIRES_AT = Instant.parse("2026-10-02T10:00:00Z");
     private static final Instant OCCURRED_AT = Instant.parse("2026-10-01T10:15:00Z");

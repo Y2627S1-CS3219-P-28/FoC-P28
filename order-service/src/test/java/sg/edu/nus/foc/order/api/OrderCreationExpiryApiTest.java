@@ -68,6 +68,16 @@ class OrderCreationExpiryApiTest {
                 creation, mock(OrderAssignmentService.class), mock(OrderTransitionService.class),
                 mock(OrderQueryService.class), mock(OrderRepostService.class),
                 mock(LifecycleProcessingService.class), users, Mappers.getMapper(OrderMapper.class));
+        sg.edu.nus.foc.order.application.recovery.OrderCommandService commands = mock(sg.edu.nus.foc.order.application.recovery.OrderCommandService.class);
+        controller.setCommands(commands);
+        when(commands.submit(any(), any(), any())).thenAnswer(invocation -> {
+            sg.edu.nus.foc.order.application.recovery.CommandRequest input = invocation.getArgument(1);
+            sg.edu.nus.foc.order.application.recovery.CommandRequest.Creation fields = input.creation();
+            Order result = creation.create(invocation.getArgument(0), input.actorId(), fields.description(),
+                    fields.pickup(), fields.delivery(), fields.amount(), fields.duration(), fields.expiresAt(), fields.plan(), invocation.getArgument(2));
+            return new sg.edu.nus.foc.order.application.recovery.CommandView(invocation.getArgument(0), "CREATE", "COMPLETED",
+                    "SUCCESS", "SUCCEEDED", "Done", result.getId(), 1, null, Mappers.getMapper(OrderMapper.class).toResponse(result));
+        });
         mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new OrderExceptionHandler())
                 .build();

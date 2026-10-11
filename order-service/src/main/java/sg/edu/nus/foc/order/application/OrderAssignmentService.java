@@ -45,6 +45,7 @@ public class OrderAssignmentService {
                 "ACCEPT",
                 commandId);
         if (previous.isPresent()) {
+            previous.get().requireBinding(id, authenticatedCourier, CommandReceipt.fingerprint("ACCEPT", id, authenticatedCourier, version));
             return orders.get(previous.get().getOrderId()).orElseThrow();
         }
 
@@ -67,7 +68,8 @@ public class OrderAssignmentService {
                 null));
 
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt("ACCEPT", commandId, saved.getId(), Instant.now()));
+        receipts.save(new CommandReceipt("ACCEPT", commandId, saved.getId(), Instant.now())
+                .bind(authenticatedCourier, CommandReceipt.fingerprint("ACCEPT", id, authenticatedCourier, version)));
         audit.action("ACCEPT", saved.getId(), authenticatedCourier, commandId, "accepted");
         return saved;
     }

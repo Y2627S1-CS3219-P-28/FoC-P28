@@ -43,7 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class},
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class, OrderOutboxAdminController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -72,6 +72,9 @@ class OpenApiDocumentationTest {
     @MockitoBean private LifecycleProcessingService lifecycle;
     @MockitoBean private UserServicePort users;
     @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCommandService commands;
+    @MockitoBean private sg.edu.nus.foc.order.security.OrderReadAccessPolicy readAccess;
+    @MockitoBean private sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository outbox;
+    @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;

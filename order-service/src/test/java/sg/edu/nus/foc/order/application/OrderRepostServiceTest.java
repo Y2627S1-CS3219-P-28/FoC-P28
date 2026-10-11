@@ -78,12 +78,14 @@ class OrderRepostServiceTest {
         Order repost = original.createRepost("updated", 2, 15, now, now.plusSeconds(3600));
         when(users.verifyRequester("owner", "Bearer owner")).thenReturn("owner");
         when(receipts.findExisting("MANUAL_REPOST", "replay"))
-                .thenReturn(Optional.of(new CommandReceipt("MANUAL_REPOST", "replay", repost.getId(), now)));
+                .thenReturn(Optional.of(new CommandReceipt("MANUAL_REPOST", "replay", repost.getId(), now)
+                        .bind("owner", CommandReceipt.fingerprint("MANUAL_REPOST", original.getId(), "owner", 0L,
+                                "updated", 2L, 15, now.plusSeconds(3600)))));
         when(orders.get(repost.getId())).thenReturn(Optional.of(repost));
         OrderRepostService service = new OrderRepostService(orders, mock(OrderCheckpointRepository.class),
                 receipts, mock(SupplierServicePort.class), credits, users, mock(OrderAuditLogger.class), mock(RepostFailureRecorder.class));
 
-        assertEquals(repost, service.manual("replay", original.getId(), "owner", 0, "ignored", 2, 15,
+        assertEquals(repost, service.manual("replay", original.getId(), "owner", 0, "updated", 2, 15,
                 now.plusSeconds(3600), "Bearer owner"));
         verifyNoInteractions(credits);
     }
