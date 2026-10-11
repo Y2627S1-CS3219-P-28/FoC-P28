@@ -21,10 +21,10 @@ public class OrderCommandController {
     private final OrderCommandService commands;
 
     @GetMapping("/capabilities") @RequireOrderRole
-    @Operation(summary = "Discover whether the local command protocol is enabled")
-    @ApiResponse(responseCode = "200", description = "Stub capability; live HTTP recovery is always disabled")
+    @Operation(summary = "Discover whether durable Credit command recovery is enabled")
+    @ApiResponse(responseCode = "200", description = "Deployment command capability; HTTP peers use the real Credit command protocol")
     public Map<String, Object> capabilities() {
-        return Map.of("enabled", commands.enabled(), "protocol", "contract-stub-only");
+        return Map.of("enabled", commands.enabled(), "protocol", "credit-command-v1");
     }
 
     @PostMapping("/create") @RequireRequesterRole

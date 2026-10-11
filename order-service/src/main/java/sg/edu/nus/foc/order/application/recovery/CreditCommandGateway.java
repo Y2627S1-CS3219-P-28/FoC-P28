@@ -1,6 +1,6 @@
 package sg.edu.nus.foc.order.application.recovery;
 
-/** ADR-033 contract-stub boundary. No live HTTP implementation is authorized. */
+/** ADR-033/035 boundary: actual HTTP Credit protocol or explicitly selected local stub. */
 public interface CreditCommandGateway {
     Result execute(String key, Mutation mutation, long generation, String authorization);
     boolean compensate(String key, Mutation mutation, long generation, String authorization);

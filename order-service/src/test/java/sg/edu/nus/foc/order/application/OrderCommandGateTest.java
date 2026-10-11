@@ -28,14 +28,16 @@ class OrderCommandGateTest {
         mock(OrderTransitionService.class), users, mock(SupplierServicePort.class), gateway,
         mock(PlatformTransactionManager.class), mock(OrderMapper.class), mock(OrderAuditLogger.class));
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
-    @Test void liveHttpRecoveryCannotBeEnabledEvenWithFlagAndGateway() {
+    @Test void verifiedHttpGatewayEnablesRecoveryWithoutAStub() {
         ReflectionTestUtils.setField(service, "mode", "http");
         ReflectionTestUtils.setField(service, "flag", true);
         when(gateway.getIfAvailable()).thenReturn(mock(CreditCommandGateway.class));
+        assertTrue(service.enabled());
+        ReflectionTestUtils.setField(service, "flag", false);
         assertFalse(service.enabled());
-        assertThrows(OrderProblem.class, () -> service.submit("K", new CommandRequest("CREATE", "u", null, 0, null), "auth"));
-        service.recoverDue();
-        verifyNoInteractions(store, users);
+        ReflectionTestUtils.setField(service, "flag", true);
+        when(gateway.getIfAvailable()).thenReturn(null);
+        assertFalse(service.enabled());
     }
     @Test void ownerCanReadPastCourierOutcomeWithoutNewTaskEligibility() {
         var input = new CommandRequest("ABORT", "courier", "order", 0, null);

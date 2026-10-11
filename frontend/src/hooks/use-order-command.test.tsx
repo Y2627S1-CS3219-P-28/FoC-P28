@@ -53,7 +53,7 @@ describe("durable Order UI intent", () => {
     expect(hook.result.current.pending).toBe(true)
     expect(hook.result.current.needsAuthorization).toBe(false)
   })
-  it("does not enable durable writes for live HTTP mode", async () => {
+  it("uses legacy writes only when this deployment explicitly disables recovery", async () => {
     m.api.mockResolvedValue({ enabled: false })
     const success = vi.fn()
     const hook = renderHook(() => useOrderCommand("create", success, vi.fn()))
@@ -62,6 +62,20 @@ describe("durable Order UI intent", () => {
     await act(() => hook.result.current.run("CREATE", "/api/orders", { commandId: "K" }))
     expect(m.write).not.toHaveBeenCalled()
     expect(m.api).toHaveBeenLastCalledWith("/api/orders", { method: "POST", body: { commandId: "K" } })
+  })
+  it("uses durable writes when the real Credit command protocol is enabled", async () => {
+    m.api.mockResolvedValue({ enabled: true, protocol: "credit-command-v1" })
+    const hook = renderHook(() => useOrderCommand("create", vi.fn(), vi.fn()))
+    await waitFor(() => expect(hook.result.current.ready).toBe(true))
+    m.api.mockResolvedValue({ commandId: "K", status: "PENDING", reason: "RETRY_SCHEDULED", attemptCount: 1 })
+    await act(() => hook.result.current.run("CREATE", "/api/orders", { commandId: "K", requesterId: "user-a" }))
+    expect(m.write).toHaveBeenCalledWith("user-a", "create", expect.objectContaining({ key: "K" }))
+    expect(m.api).toHaveBeenLastCalledWith("/api/orders/commands/create", {
+      method: "POST", body: { commandId: "K", requesterId: "user-a" },
+    })
+    expect(hook.result.current.pending).toBe(true)
+    expect(hook.result.current.needsAuthorization).toBe(false)
+    expect(m.remove).not.toHaveBeenCalled()
   })
   it("retains an old intent but never resumes it when recovery is disabled", async () => {
     m.api.mockResolvedValue({ enabled: false })

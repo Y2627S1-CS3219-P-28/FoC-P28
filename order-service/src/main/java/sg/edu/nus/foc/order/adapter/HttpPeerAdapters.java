@@ -1,6 +1,7 @@
 package sg.edu.nus.foc.order.adapter;
 
 import java.util.Optional;
+import java.time.Duration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -40,11 +41,13 @@ public class HttpPeerAdapters implements UserServicePort, SupplierServicePort, C
     public HttpPeerAdapters(
             @Value("${order.peers.user-url}") String userUrl,
             @Value("${order.peers.supplier-url}") String supplierUrl,
-            @Value("${order.peers.credit-url}") String creditUrl) {
+            @Value("${order.peers.credit-url}") String creditUrl,
+            @Value("${order.peers.connect-timeout:3s}") Duration connectTimeout,
+            @Value("${order.peers.read-timeout:5s}") Duration readTimeout) {
         this(
-                RestClient.builder().baseUrl(userUrl).build(),
-                RestClient.builder().baseUrl(supplierUrl).build(),
-                RestClient.builder().baseUrl(creditUrl).build());
+                HttpCreditCommandGateway.client(userUrl, connectTimeout, readTimeout),
+                HttpCreditCommandGateway.client(supplierUrl, connectTimeout, readTimeout),
+                HttpCreditCommandGateway.client(creditUrl, connectTimeout, readTimeout));
     }
 
     HttpPeerAdapters(RestClient user, RestClient supplier, RestClient credit) {

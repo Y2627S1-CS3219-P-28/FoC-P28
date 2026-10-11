@@ -39,9 +39,9 @@ public class OrderCommandService {
     @Value("${order.commands.retry-seconds:15}") private int retrySeconds;
     @Value("${order.commands.batch-size:20}") private int batchSize;
 
-    public boolean enabled() { return flag && "mock".equals(mode) && gateway.getIfAvailable() != null; }
+    public boolean enabled() { return flag && ("mock".equals(mode) || "http".equals(mode)) && gateway.getIfAvailable() != null; }
     private void requireEnabled() {
-        if (!enabled()) throw new OrderProblem("SERVICE_UNAVAILABLE", "Command recovery is disabled until the Credit protocol is verified.");
+        if (!enabled()) throw new OrderProblem("SERVICE_UNAVAILABLE", "Command recovery is disabled or its Credit gateway is unavailable.");
     }
 
     public CommandView submit(String key, CommandRequest input, String authorization) {
@@ -125,6 +125,9 @@ public class OrderCommandService {
         var claim = candidate.get();
         var mutation = mutation(claim);
         try (CommandScope ignored = new CommandScope(key)) {
+            if ("http".equals(mode) && (authorization == null || authorization.isBlank())) {
+                throw new OrderProblem("UNAUTHENTICATED", "Fresh authorization is required to recover this request.");
+            }
             authorize(claim.input(), authorization);
             try {
                 tx().executeWithoutResult(status -> {
