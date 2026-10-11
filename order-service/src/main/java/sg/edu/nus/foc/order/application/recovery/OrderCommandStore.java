@@ -29,23 +29,24 @@ public class OrderCommandStore {
                         CommandRequest input, String inputHash, String status, String outcome,
                         String reason, String message, int attempts, long generation,
                         String owner, Instant leaseExpiry, Instant nextRetry, boolean possibleEffect,
-                        OrderResponse result) { }
+                        OrderResponse result, String candidateOrderId, Instant createdAt) { }
 
     @Transactional
     public Entry register(String key, CommandRequest request) {
         if (key == null || key.isBlank() || key.length() > 128 || request.actorId() == null
                 || request.actorId().isBlank() || request.actorId().length() > 128
-                || !List.of("CREATE", "ACCEPT", "ABORT").contains(request.kind())
+                || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
                 || (!request.kind().equals("CREATE") && (request.orderId() == null || request.orderId().length() > 36))) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid command identity or operation.");
         }
         String payload = json.writeValueAsString(request);
         String target = request.kind().equals("CREATE") ? UUID.randomUUID().toString() : request.orderId();
+        String candidate = request.kind().equals("REPOST") ? UUID.randomUUID().toString() : null;
         try {
             jdbc.update("""
-                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload)
-                values (?, ?, ?, ?, ?, ?::jsonb) on conflict(command_id) do nothing
-                """, key, request.actorId(), request.kind(), target, digest(payload), payload);
+                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload, candidate_order_id)
+                values (?, ?, ?, ?, ?, ?::jsonb, ?) on conflict(command_id) do nothing
+                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate);
         } catch (DuplicateKeyException conflict) {
             throw OrderProblem.conflict("An unresolved request already guards this order.");
         }
@@ -141,7 +142,8 @@ public class OrderCommandStore {
             r.getString("reason"), r.getString("message"), r.getInt("attempt_count"), r.getLong("generation"),
             r.getString("owner"), instant(r, "lease_expires_at"), instant(r, "next_retry_at"),
             r.getBoolean("possible_effect"), r.getString("result") == null ? null
-                : json.readValue(r.getString("result"), OrderResponse.class));
+                : json.readValue(r.getString("result"), OrderResponse.class),
+            r.getString("candidate_order_id"), instant(r, "created_at"));
     }
     private static Instant instant(ResultSet r, String column) throws SQLException {
         var value = r.getTimestamp(column); return value == null ? null : value.toInstant();

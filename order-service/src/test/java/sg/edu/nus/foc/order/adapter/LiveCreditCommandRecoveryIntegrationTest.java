@@ -160,6 +160,7 @@ class LiveCreditCommandRecoveryIntegrationTest {
     @MockitoSpyBean HttpCreditCommandGateway gateway;
     @MockitoSpyBean HttpPeerAdapters peers;
     @MockitoSpyBean OrderCreationService creation;
+    @MockitoSpyBean sg.edu.nus.foc.order.application.OrderRepostService reposts;
 
     @Test
     void actualEmulatorCancellationAndExpiryRefundHeldCredits() throws Exception {
@@ -299,6 +300,105 @@ class LiveCreditCommandRecoveryIntegrationTest {
 
     private void due(String key) {
         orderDb.update("update order_commands set next_retry_at=clock_timestamp()-interval '1 second' where command_id=?", key);
+    }
+
+    private OrderResponse expiredOriginal(String requester) throws Exception {
+        OrderResponse opened = open(requester);
+        orderDb.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        scheduler.processDueOrders();
+        awaitReservation(opened.getId(), "REFUNDED");
+        return opened;
+    }
+
+    private CommandRequest manualInput(OrderResponse original, long amount, Instant expiry) {
+        long version = orderDb.queryForObject("select version from orders where id=?", Long.class, original.getId());
+        return new CommandRequest("REPOST", original.getRequesterId(), original.getId(), version,
+                new CommandRequest.Creation("manual task", "pickup", "delivery", amount, 15, expiry, false, null, 0, 0, null));
+    }
+
+    @Test
+    void manualRepostActualSocketTimeoutRecoversStableCandidateAfterAuthorization() throws Exception {
+        String actor = account(), k = key();
+        OrderResponse original = expiredOriginal(actor);
+        CommandRequest input = manualInput(original, 5, Instant.now().plusSeconds(7200));
+        try (LostReplyProxy proxy = new LostReplyProxy()) {
+            HttpCreditCommandGateway timed = new HttpCreditCommandGateway(proxy.url(), Duration.ofSeconds(1), Duration.ofSeconds(1));
+            doAnswer(call -> timed.execute(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)))
+                    .doCallRealMethod().when(gateway).execute(eq(k), any(), anyLong(), anyString());
+            CommandView pending = commands.submit(k, input, token(actor));
+            assertEquals("PENDING", pending.status());
+            String candidate = store.get(k).candidateOrderId();
+            assertNotEquals(original.getId(), candidate);
+            assertEquals("APPLIED", creditDb().queryForObject("select outcome from credit_command_records where command_id=?", String.class, k));
+            assertEquals(candidate, creditDb().queryForObject("select order_id from credit_command_records where command_id=?", String.class, k));
+            assertThrows(OrderProblem.class, () -> commands.submit(key(), input, token(actor)));
+            due(k); scheduler.processDueOrders();
+            assertEquals("AUTHORIZATION_REQUIRED", store.get(k).reason());
+            CommandView completed = commands.resume(k, actor, token(actor));
+            assertEquals("SUCCESS", completed.outcome(), completed.message());
+            assertEquals(candidate, completed.result().getId());
+            assertEquals(candidate, commands.submit(k, input, token(actor)).result().getId());
+            assertEquals(candidate, orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+            assertEquals(1, creditDb().queryForObject("select count(*) from credit_ledger where command_id=?", Integer.class, k));
+            assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        }
+    }
+
+    @Test
+    void manualRepostLocalRollbackRecoversWithoutAnotherReservation() throws Exception {
+        String actor = account(), k = key();
+        OrderResponse original = expiredOriginal(actor);
+        doAnswer(call -> { call.callRealMethod(); throw new IllegalStateException("crash before repost/link commit"); })
+                .doCallRealMethod().when(reposts).manualConfirmed(eq(k), eq(original.getId()), anyString(), eq(actor), anyLong(),
+                        anyString(), anyLong(), anyInt(), any(), any());
+        CommandView pending = commands.submit(k, manualInput(original, 5, Instant.now().plusSeconds(7200)), token(actor));
+        assertEquals("PENDING", pending.status());
+        assertNull(orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+        assertEquals(0, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        assertEquals("SUCCESS", commands.resume(k, actor, token(actor)).outcome());
+        assertEquals(1, creditDb().queryForObject("select count(*) from credit_ledger where command_id=?", Integer.class, k));
+    }
+
+    @Test
+    void manualRepostInsufficientFundsIsSavedOnExpiredOriginalAndCanBeOverwritten() throws Exception {
+        String actor = account();
+        OrderResponse original = expiredOriginal(actor);
+        CommandView failed = commands.submit(key(), manualInput(original, 51, Instant.now().plusSeconds(7200)), token(actor));
+        assertEquals("REJECTED", failed.outcome());
+        assertEquals("INSUFFICIENT_CREDITS", failed.reason());
+        assertEquals("Repost failed: insufficient available credits.", failed.message());
+        assertEquals(failed.message(), orderDb.queryForObject("select repost_failure_message from orders where id=?", String.class, original.getId()));
+        assertEquals("EXPIRED", orderDb.queryForObject("select status from orders where id=?", String.class, original.getId()));
+        CommandView invalid = commands.submit(key(), manualInput(original, 1, Instant.now().plusSeconds(60)), token(actor));
+        assertEquals("VALIDATION_ERROR", invalid.reason());
+        assertEquals(invalid.message(), orderDb.queryForObject("select repost_failure_message from orders where id=?", String.class, original.getId()));
+        assertNotEquals(failed.message(), invalid.message());
+    }
+
+    @Test
+    void manualRepostRecoveryDoesNotSlideInitialWindowAndCompensatesPassedDeadline() throws Exception {
+        for (boolean expiresDuringReply : java.util.List.of(false, true)) {
+            String actor = account(), k = key();
+            OrderResponse original = expiredOriginal(actor);
+            CommandRequest input = manualInput(original, 5, Instant.now().plusSeconds(expiresDuringReply ? 2 : 60));
+            store.register(k, input);
+            // Model an already committed submission from 31 minutes ago, not a new short-window request.
+            orderDb.update("update order_commands set created_at=clock_timestamp()-interval '31 minutes' where command_id=?", k);
+            if (expiresDuringReply) {
+                doAnswer(call -> { Object result = call.callRealMethod(); Thread.sleep(2200); return result; })
+                        .when(gateway).execute(eq(k), any(), anyLong(), anyString());
+            }
+            CommandView result = commands.resume(k, actor, token(actor));
+            if (expiresDuringReply) {
+                assertEquals("REJECTED", result.outcome(), result.message());
+                assertEquals("COMPENSATED", creditDb().queryForObject("select outcome from credit_command_records where command_id=?", String.class, k));
+                assertNull(orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+                assertEquals(0L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, actor));
+            } else {
+                assertEquals("SUCCESS", result.outcome(), result.message());
+                assertEquals(input.creation().expiresAt(), result.result().getExpiresAt());
+            }
+        }
     }
 
     @Test

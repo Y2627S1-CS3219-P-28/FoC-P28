@@ -284,20 +284,13 @@ public class OrderController {
     @Operation(summary = "Create a requester-reviewed repost")
     @PostMapping("/{id}/repost")
     @RequireRequesterRole
-    public OrderResponse repost(
+    @ApiResponse(responseCode = "202", description = "Saved pending repost; retain the same command ID")
+    public ResponseEntity<?> repost(
             @PathVariable String id,
             @Valid @RequestBody ManualRepostRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return orderMapper.toResponse(reposts.manual(
-                request.getCommandId(),
-                id,
-                request.getActorId(),
-                request.getExpectedVersion(),
-                request.getItemDescription(),
-                request.getOfferedCredits(),
-                request.getDeliveryTimeLimitMinutes(),
-                request.getExpiresAt(),
-                authorization));
+        return legacyResponse(commands.submit(request.getCommandId(),
+                OrderCommandController.repostInput(id, request), authorization));
     }
 
     @Operation(summary = "Expire due unaccepted orders using the lifecycle token")

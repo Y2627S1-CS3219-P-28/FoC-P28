@@ -15,13 +15,15 @@ describe("durable Order UI intent", () => {
     m.read.mockResolvedValue(null); m.write.mockResolvedValue(undefined); m.remove.mockResolvedValue(undefined)
     m.api.mockImplementation(async (path: string) => path.endsWith("capabilities") ? { enabled: true } : { items: [] })
   })
-  it("keeps one frozen key after timeout, restores it on reload and clears only after terminal success", async () => {
+  it.each(["CREATE", "REPOST"] as const)("keeps one frozen key after timeout/reload and clears only after terminal success: %s", async (kind) => {
+    const scope = kind === "CREATE" ? "create" : "repost:old-order"
+    const path = kind === "CREATE" ? "/api/orders" : "/api/orders/old-order/repost"
     const success = vi.fn(), failure = vi.fn()
-    const first = renderHook(() => useOrderCommand("create", success, failure))
+    const first = renderHook(() => useOrderCommand(scope, success, failure))
     await waitFor(() => expect(first.result.current.ready).toBe(true))
     m.api.mockRejectedValueOnce(new ApiError(0, "NETWORK_ERROR", "timeout"))
     const details = { commandId: "K", requesterId: "user-a", itemDescription: "old details" }
-    await act(() => first.result.current.run("CREATE", "/api/orders", details))
+    await act(() => first.result.current.run(kind, path, details))
     details.itemDescription = "edited after submit"
     expect(first.result.current.pending).toBe(true)
     expect(m.remove).not.toHaveBeenCalled()
@@ -31,13 +33,13 @@ describe("durable Order UI intent", () => {
     first.unmount()
     m.read.mockResolvedValue(intent)
     m.api.mockResolvedValue({ enabled: true })
-    const restored = renderHook(() => useOrderCommand("create", success, failure))
+    const restored = renderHook(() => useOrderCommand(scope, success, failure))
     await waitFor(() => expect(restored.result.current.pending).toBe(true))
     expect(restored.result.current.needsAuthorization).toBe(false)
     m.api.mockResolvedValue({ commandId: "K", status: "COMPLETED", outcome: "SUCCESS", result: { id: "new-order", status: "OPEN" } })
     await act(async () => { await m.poll?.() })
     expect(success).toHaveBeenCalledWith(expect.objectContaining({ id: "new-order" }))
-    expect(m.remove).toHaveBeenCalledWith("user-a", "create")
+    expect(m.remove).toHaveBeenCalledWith("user-a", scope)
     expect(restored.result.current.pending).toBe(false)
   })
   it("offers Continue only for authorization, retaining the same command", async () => {
@@ -62,6 +64,18 @@ describe("durable Order UI intent", () => {
     await act(() => hook.result.current.run("CREATE", "/api/orders", { commandId: "K" }))
     expect(m.write).not.toHaveBeenCalled()
     expect(m.api).toHaveBeenLastCalledWith("/api/orders", { method: "POST", body: { commandId: "K" } })
+  })
+  it("persists manual repost input and sends the dedicated durable route", async () => {
+    const hook = renderHook(() => useOrderCommand("repost:old-order", vi.fn(), vi.fn()))
+    await waitFor(() => expect(hook.result.current.ready).toBe(true))
+    m.api.mockResolvedValue({ commandId: "R", status: "PENDING", reason: "RETRY_SCHEDULED" })
+    await act(() => hook.result.current.run("REPOST", "/api/orders/old-order/repost", { commandId: "R", actorId: "user-a", offeredCredits: 5 }))
+    expect(m.write).toHaveBeenCalledWith("user-a", "repost:old-order", expect.objectContaining({ key: "R", kind: "REPOST" }))
+    expect(m.api).toHaveBeenLastCalledWith("/api/orders/commands/old-order/repost", {
+      method: "POST", body: expect.objectContaining({ commandId: "R", offeredCredits: 5 }),
+    })
+    expect(hook.result.current.pending).toBe(true)
+    expect(m.remove).not.toHaveBeenCalled()
   })
   it("uses durable writes when the real Credit command protocol is enabled", async () => {
     m.api.mockResolvedValue({ enabled: true, protocol: "credit-command-v1" })

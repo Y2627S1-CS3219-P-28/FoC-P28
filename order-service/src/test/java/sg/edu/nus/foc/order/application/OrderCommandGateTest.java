@@ -25,7 +25,7 @@ class OrderCommandGateTest {
     private final ObjectProvider<CreditCommandGateway> gateway = mock(ObjectProvider.class);
     private final OrderCommandService service = new OrderCommandService(store, mock(OrderRepository.class),
         mock(CommandReceiptRepository.class), mock(OrderCreationService.class), mock(OrderAssignmentService.class),
-        mock(OrderTransitionService.class), users, mock(SupplierServicePort.class), gateway,
+        mock(OrderTransitionService.class), mock(OrderRepostService.class), users, mock(SupplierServicePort.class), gateway,
         mock(PlatformTransactionManager.class), mock(OrderMapper.class), mock(OrderAuditLogger.class));
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
     @Test void verifiedHttpGatewayEnablesRecoveryWithoutAStub() {
@@ -42,7 +42,7 @@ class OrderCommandGateTest {
     @Test void ownerCanReadPastCourierOutcomeWithoutNewTaskEligibility() {
         var input = new CommandRequest("ABORT", "courier", "order", 0, null);
         when(store.get("K")).thenReturn(new OrderCommandStore.Entry("K", "courier", "ABORT", "order", input,
-            "hash", "COMPLETED", "SUCCESS", "SUCCEEDED", "Done", 1, 1, null, null, Instant.now(), true, null));
+            "hash", "COMPLETED", "SUCCESS", "SUCCEEDED", "Done", 1, 1, null, null, Instant.now(), true, null, null, Instant.now()));
         var jwt = Jwt.withTokenValue("validated").header("alg", "RS256").subject("courier").build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
                 List.of(new SimpleGrantedAuthority("ROLE_COURIER"))));

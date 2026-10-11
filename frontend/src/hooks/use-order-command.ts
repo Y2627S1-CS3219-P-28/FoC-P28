@@ -134,5 +134,6 @@ export function useOrderCommand(scope: string, onSuccess: (order: Order) => void
   }
 
   return { run, ready: current && ready, pending: current && (!!intent || submitting), message: current ? message : null,
+    savedInput: current ? intent?.body : undefined,
     needsAuthorization: current && enabled && !!intent && status?.reason === "AUTHORIZATION_REQUIRED", continueRecovery }
 }

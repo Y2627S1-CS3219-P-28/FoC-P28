@@ -1,6 +1,6 @@
 import type { Order } from "@/lib/orders"
 
-export type OrderCommandKind = "CREATE" | "ACCEPT" | "ABORT"
+export type OrderCommandKind = "CREATE" | "ACCEPT" | "ABORT" | "REPOST"
 export type OrderCommandIntent = {
   key: string
   kind: OrderCommandKind
@@ -22,5 +22,6 @@ export type OrderCommandStatus = {
 export function commandPath(kind: OrderCommandKind, legacyPath: string): string {
   if (kind === "CREATE") return "/api/orders/commands/create"
   const orderId = legacyPath.split("/")[3]
-  return `/api/orders/commands/${encodeURIComponent(orderId)}/${kind === "ACCEPT" ? "accept" : "abort"}`
+  const action = kind === "ACCEPT" ? "accept" : kind === "REPOST" ? "repost" : "abort"
+  return `/api/orders/commands/${encodeURIComponent(orderId)}/${action}`
 }

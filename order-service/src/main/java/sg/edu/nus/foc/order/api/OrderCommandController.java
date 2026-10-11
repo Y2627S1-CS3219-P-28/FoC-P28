@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sg.edu.nus.foc.order.api.dto.request.CreateOrderRequest;
 import sg.edu.nus.foc.order.api.dto.request.OrderActorRequest;
+import sg.edu.nus.foc.order.api.dto.request.ManualRepostRequest;
 import sg.edu.nus.foc.order.application.recovery.*;
 import sg.edu.nus.foc.order.security.annotation.*;
 
@@ -56,6 +57,21 @@ public class OrderCommandController {
     public ResponseEntity<CommandView> abort(@PathVariable String id, @Valid @RequestBody OrderActorRequest r,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         return response(commands.submit(r.getCommandId(), new CommandRequest("ABORT", r.getActorId(), id, r.getExpectedVersion(), null), authorization));
+    }
+
+    @PostMapping("/{id}/repost") @RequireRequesterRole
+    @Operation(summary = "Submit a durable manual repost with a stable new candidate ID")
+    @ApiResponse(responseCode = "200", description = "Terminal command result; success contains the new OPEN successor")
+    @ApiResponse(responseCode = "202", description = "Saved pending manual repost; original remains EXPIRED")
+    public ResponseEntity<CommandView> repost(@PathVariable String id, @Valid @RequestBody ManualRepostRequest r,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return response(commands.submit(r.getCommandId(), repostInput(id, r), authorization));
+    }
+
+    static CommandRequest repostInput(String id, ManualRepostRequest r) {
+        CommandRequest.Creation fields = new CommandRequest.Creation(r.getItemDescription(), null, null,
+                r.getOfferedCredits(), r.getDeliveryTimeLimitMinutes(), r.getExpiresAt(), false, null, 0, 0, null);
+        return new CommandRequest("REPOST", r.getActorId(), id, r.getExpectedVersion(), fields);
     }
 
     @GetMapping("/{key}") @RequireOrderRole

@@ -43,4 +43,15 @@ class OrderCommandControllerTest {
             assertThrows(OrderProblem.class, () -> controller.pending("owner", values[0], values[1], "auth"));
         }
     }
+    @Test void manualRepostKeepsOriginalTargetAndOnlyFreezesSubmittedFields() {
+        Instant expiry = Instant.now().plusSeconds(3600);
+        ManualRepostRequest input = new ManualRepostRequest("R", "owner", 3, "edited", 7, 30, expiry);
+        when(service.submit(eq("R"), any(), eq("auth"))).thenReturn(view("PENDING"), view("COMPLETED"));
+        assertEquals(202, controller.repost("original", input, "auth").getStatusCode().value());
+        assertEquals(200, controller.repost("original", input, "auth").getStatusCode().value());
+        verify(service, times(2)).submit(eq("R"), argThat(r -> r.kind().equals("REPOST")
+                && r.orderId().equals("original") && r.actorId().equals("owner") && r.expectedVersion() == 3
+                && r.creation().amount() == 7 && r.creation().expiresAt().equals(expiry)
+                && r.creation().pickup() == null && r.creation().delivery() == null), eq("auth"));
+    }
 }

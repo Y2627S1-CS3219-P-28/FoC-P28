@@ -52,4 +52,18 @@ class OrderCommandSecurityTest {
         mvc.perform(get("/api/orders/commands/K?userId=other").with(user("u").roles("REQUESTER"))).andExpect(status().isForbidden());
         mvc.perform(post("/api/orders/commands/K/resume?userId=other").with(user("u").roles("REQUESTER"))).andExpect(status().isForbidden());
     }
+    @Test void manualRepostRequiresRequesterAndBoundsCommandIdentity() throws Exception {
+        String body = "{\"commandId\":\"R\",\"actorId\":\"u\",\"expectedVersion\":0,\"itemDescription\":\"task\","
+                + "\"offeredCredits\":5,\"deliveryTimeLimitMinutes\":15,\"expiresAt\":\"2030-01-01T00:00:00Z\"}";
+        mvc.perform(post("/api/orders/commands/original/repost").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        for (String role : new String[] {"ADMIN", "COURIER"}) {
+            mvc.perform(post("/api/orders/commands/original/repost").with(user("u").roles(role))
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
+        }
+        mvc.perform(post("/api/orders/commands/original/repost").with(user("u").roles("REQUESTER"))
+                .contentType(MediaType.APPLICATION_JSON).content(body.replace("\"R\"", "\"" + "x".repeat(129) + "\"")))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(commands);
+    }
 }

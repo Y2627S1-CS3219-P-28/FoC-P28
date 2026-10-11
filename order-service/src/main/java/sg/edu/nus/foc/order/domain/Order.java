@@ -251,6 +251,11 @@ public class Order {
     }
 
     public Order createRepost(String description, long credits, int duration, Instant createdAt, Instant expiresAt) {
+        return createRepostWithId(UUID.randomUUID().toString(), description, credits, duration, createdAt, expiresAt);
+    }
+
+    private Order createRepostWithId(String candidateId, String description, long credits, int duration,
+            Instant createdAt, Instant expiresAt) {
         if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
             throw OrderProblem.conflict("Order is not eligible for repost.");
         }
@@ -258,18 +263,28 @@ public class Order {
                 || credits <= 0 || duration < 15 || expiresAt == null || !expiresAt.isAfter(createdAt)) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid repost details or expired new expiry.");
         }
-        return new Order(UUID.randomUUID().toString(), requesterId, description, pickupSupplierId,
+        if (candidateId == null || candidateId.isBlank() || candidateId.equals(id)) {
+            throw new OrderProblem("VALIDATION_ERROR", "Repost requires a distinct new order ID.");
+        }
+        return new Order(candidateId, requesterId, description, pickupSupplierId,
                 deliverySupplierId, credits, duration, createdAt, expiresAt, id);
     }
 
     public Order createManualRepost(String description, long credits, int duration, Instant createdAt, Instant expiresAt) {
+        return createManualRepostWithId(UUID.randomUUID().toString(), description, credits, duration,
+                createdAt, createdAt, expiresAt);
+    }
+
+    /** The initial submission window is immutable; recovery must not slide it forward. */
+    public Order createManualRepostWithId(String candidateId, String description, long credits, int duration,
+            Instant submittedAt, Instant createdAt, Instant expiresAt) {
         if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
             throw OrderProblem.conflict("Order is not eligible for repost.");
         }
         List<OrderProblem.Detail> errors = new ArrayList<>();
-        validateRepostFields(description, credits, duration, createdAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
+        validateRepostFields(description, credits, duration, submittedAt.plus(MINIMUM_POSTING_WINDOW), expiresAt, errors);
         rejectInvalidFields(errors);
-        return createRepost(description, credits, duration, createdAt, expiresAt);
+        return createRepostWithId(candidateId, description, credits, duration, createdAt, expiresAt);
     }
 
     private static void validateRepostFields(String description, long credits, int duration,

@@ -128,6 +128,23 @@ public class OrderRepostService {
                 fingerprint);
     }
 
+    /** Called only after the durable coordinator confirmed candidate reservation. No peer I/O. */
+    @Transactional
+    public Order manualConfirmed(String commandId, String id, String candidateId, String actor, long version,
+            String description, long amount, int duration, Instant submittedAt, Instant expiresAt) {
+        Order original = findForUpdate(id);
+        original.requireVersion(version);
+        if (!original.getRequesterId().equals(actor)) {
+            throw OrderProblem.forbidden("Only the requester may repost.");
+        }
+        Instant now = Instant.now();
+        Order repost = original.createManualRepostWithId(candidateId, description, amount, duration,
+                submittedAt, now, expiresAt);
+        String fingerprint = CommandReceipt.fingerprint("MANUAL_REPOST", id, actor, version,
+                description, amount, duration, expiresAt);
+        return saveRepost("MANUAL_REPOST", commandId, original, repost, now, null, fingerprint);
+    }
+
     private Order saveRepost(
             String operation,
             String commandId,

@@ -54,6 +54,109 @@ class OrderCommandRecoveryIntegrationTest {
     String key() { return UUID.randomUUID().toString(); }
     void due(String k) { jdbc.update("update order_commands set next_retry_at=clock_timestamp()-interval '1 second', owner=null, lease_expires_at=null where command_id=?", k); }
 
+    OrderResponse expiredOriginal(String actor) {
+        OrderResponse opened = service.submit(key(), create(actor), null).result();
+        jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        lifecycle.expireDue(Instant.now());
+        return service.status(jdbc.queryForObject("select command_id from order_commands where order_id=?", String.class, opened.getId()), actor, null).result();
+    }
+
+    CommandRequest repost(OrderResponse original, Instant expiry) {
+        long version = jdbc.queryForObject("select version from orders where id=?", Long.class, original.getId());
+        return new CommandRequest("REPOST", original.getRequesterId(), original.getId(), version,
+                new CommandRequest.Creation("reposted task", "pickup", "delivery", 5, 15,
+                        expiry, false, null, 0, 0, null));
+    }
+
+    @Test void manualRepostCommitsOneCandidateAndHidesOnlySuccessfullyLinkedOriginal() {
+        OrderResponse original = expiredOriginal(key());
+        String k = key();
+        CommandRequest request = repost(original, Instant.now().plusSeconds(7200));
+        doAnswer(call -> {
+            assertEquals(original.getId(), store.get(k).orderId());
+            assertEquals("PENDING", store.get(k).status());
+            assertNotNull(jdbc.queryForObject("select candidate_order_id from order_commands where command_id=?", String.class, k));
+            return call.callRealMethod();
+        }).when(credit).execute(eq(k), any(), anyLong(), nullable(String.class));
+        CommandView completed = service.submit(k, request, null);
+        assertEquals("SUCCESS", completed.outcome());
+        String candidate = completed.result().getId();
+        assertNotEquals(original.getId(), candidate);
+        assertEquals(candidate, jdbc.queryForObject("select candidate_order_id from order_commands where command_id=?", String.class, k));
+        assertEquals(candidate, jdbc.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+        assertEquals(original.getId(), completed.result().getOriginalOrderId());
+        assertEquals(candidate, service.submit(k, request, null).result().getId());
+        verify(credit, times(1)).execute(eq(k), any(), anyLong(), nullable(String.class));
+        assertEquals(1, jdbc.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        assertEquals(1, jdbc.queryForObject("select count(*) from order_event_outbox where order_id=?", Integer.class, original.getId()));
+    }
+
+    @Test void manualRepostLostReplyGuardsOriginalAndRecoversTheSameCandidate() {
+        OrderResponse original = expiredOriginal(key());
+        String k = key();
+        CommandRequest request = repost(original, Instant.now().plusSeconds(7200));
+        doAnswer(call -> { call.callRealMethod(); throw new IllegalStateException("lost response"); })
+                .doCallRealMethod().when(credit).execute(eq(k), any(), anyLong(), nullable(String.class));
+        CommandView pending = service.submit(k, request, null);
+        assertEquals("PENDING", pending.status());
+        String candidate = jdbc.queryForObject("select candidate_order_id from order_commands where command_id=?", String.class, k);
+        assertNull(jdbc.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+        assertThrows(OrderProblem.class, () -> service.submit(key(), request, null));
+        due(k);
+        service.recoverDue();
+        assertEquals("SUCCESS", store.get(k).outcome());
+        assertEquals(candidate, store.get(k).result().getId());
+        assertEquals(10, balances.creditSnapshot(original.getRequesterId()).getReserved());
+    }
+
+    @Test void manualRepostInitialWindowRejectionPersistsSafeMessageWithoutCredit() {
+        OrderResponse original = expiredOriginal(key());
+        String k = key();
+        CommandView rejected = service.submit(k, repost(original, Instant.now().plusSeconds(1799)), null);
+        assertEquals("REJECTED", rejected.outcome());
+        assertEquals("VALIDATION_ERROR", rejected.reason());
+        verify(credit, never()).execute(eq(k), any(), anyLong(), nullable(String.class));
+        assertEquals(rejected.message(), jdbc.queryForObject("select repost_failure_message from orders where id=?", String.class, original.getId()));
+        assertEquals("EXPIRED", jdbc.queryForObject("select status from orders where id=?", String.class, original.getId()));
+    }
+
+    @Test void manualRepostConcurrentSameKeyAndDifferentKeysCannotCreateTwoSuccessors() throws Exception {
+        OrderResponse original = expiredOriginal(key());
+        CommandRequest request = repost(original, Instant.now().plusSeconds(7200));
+        String k = key();
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        doAnswer(call -> { entered.countDown(); assertTrue(release.await(10, TimeUnit.SECONDS)); return call.callRealMethod(); })
+                .when(credit).execute(eq(k), any(), anyLong(), nullable(String.class));
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<CommandView> first = pool.submit(() -> service.submit(k, request, null));
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            try {
+                assertEquals("PENDING", service.submit(k, request, null).status());
+                assertThrows(OrderProblem.class, () -> service.submit(key(), request, null));
+            } finally { release.countDown(); }
+            assertEquals("SUCCESS", first.get(10, TimeUnit.SECONDS).outcome());
+        }
+        verify(credit, times(1)).execute(eq(k), any(), anyLong(), nullable(String.class));
+    }
+
+    @Test void manualRepostOwnerInputBindingAndFrozenSupplierReferencesAreAuthoritative() {
+        OrderResponse original = expiredOriginal(key());
+        CommandRequest valid = repost(original, Instant.now().plusSeconds(7200));
+        String foreignKey = key();
+        assertThrows(OrderProblem.class, () -> service.submit(foreignKey,
+                new CommandRequest("REPOST", key(), original.getId(), valid.expectedVersion(), valid.creation()), null));
+        assertTrue(store.find(foreignKey).isEmpty());
+        String k = key();
+        CommandRequest.Creation tampered = new CommandRequest.Creation("reposted task", "forged-p", "forged-d", 5, 15,
+                valid.creation().expiresAt(), false, null, 0, 0, null);
+        CommandView success = service.submit(k, new CommandRequest("REPOST", valid.actorId(), valid.orderId(), valid.expectedVersion(), tampered), null);
+        assertEquals("pickup", store.get(k).input().creation().pickup());
+        assertEquals("delivery", success.result().getDeliverySupplierId());
+        assertThrows(OrderProblem.class, () -> service.submit(k,
+                new CommandRequest("REPOST", valid.actorId(), valid.orderId(), valid.expectedVersion(),
+                        new CommandRequest.Creation("changed", "pickup", "delivery", 6, 15, valid.creation().expiresAt(), false, null, 0, 0, null)), null));
+    }
+
     @Test void creationIsDurableBeforeCreditAndTerminalReplayDoesNotReserveTwice() {
         String k = key(), actor = key();
         doAnswer(call -> {

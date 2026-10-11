@@ -25,6 +25,7 @@ public class OrderCommandService {
     private final OrderCreationService creation;
     private final OrderAssignmentService assignment;
     private final OrderTransitionService transitions;
+    private final OrderRepostService reposts;
     private final UserServicePort users;
     private final SupplierServicePort suppliers;
     private final ObjectProvider<CreditCommandGateway> gateway;
@@ -49,18 +50,39 @@ public class OrderCommandService {
         authorize(input, authorization);
         try (CommandScope ignored = new CommandScope(key)) {
             tx().executeWithoutResult(status -> {
+                Order original = null;
                 if (!"CREATE".equals(input.kind())) {
-                    orders.getForUpdate(input.orderId()).orElseThrow(() -> OrderProblem.notFound("Order not found."));
+                    original = orders.getForUpdate(input.orderId()).orElseThrow(() -> OrderProblem.notFound("Order not found."));
                 }
                 // Legacy receipts have no immutable input/actor evidence. Never guess a migration binding.
-                String operation = input.kind().equals("ABORT") ? "CANCEL_ACCEPTED" : input.kind();
+                String operation = switch (input.kind()) {
+                    case "ABORT" -> "CANCEL_ACCEPTED";
+                    case "REPOST" -> "MANUAL_REPOST";
+                    default -> input.kind();
+                };
                 if (receipts.findExisting(operation, key).isPresent() && store.find(key).isEmpty()) {
                     throw OrderProblem.conflict("This key belongs to a legacy operation. Use its original workflow.");
                 }
-                store.register(key, input);
+                store.register(key, "REPOST".equals(input.kind()) ? frozenRepost(key, input, original) : input);
             });
         }
         return execute(key, authorization, true);
+    }
+
+    private CommandRequest frozenRepost(String key, CommandRequest input, Order original) {
+        if (!original.getRequesterId().equals(input.actorId())) {
+            throw OrderProblem.forbidden("Only the requester may repost.");
+        }
+        CommandRequest.Creation fields = input.creation();
+        if (fields == null) throw new OrderProblem("VALIDATION_ERROR", "Repost details are required.");
+        OrderCommandStore.Entry saved = store.find(key).orElse(null);
+        // Server-owned references are bound once. Same-key replay keeps the original fingerprint.
+        CommandRequest.Creation prior = saved != null && "REPOST".equals(saved.kind()) ? saved.input().creation() : null;
+        CommandRequest.Creation frozen = new CommandRequest.Creation(fields.description(),
+                prior == null ? original.getPickupSupplierId() : prior.pickup(),
+                prior == null ? original.getDeliverySupplierId() : prior.delivery(),
+                fields.amount(), fields.duration(), fields.expiresAt(), false, null, 0, 0, null);
+        return new CommandRequest("REPOST", input.actorId(), input.orderId(), input.expectedVersion(), frozen);
     }
 
     public CommandView status(String key, String actor, String authorization) {
@@ -112,7 +134,7 @@ public class OrderCommandService {
 
     private void authorize(CommandRequest input, String authorization) {
         String verified = switch (input.kind()) {
-            case "CREATE" -> users.verifyRequester(input.actorId(), authorization);
+            case "CREATE", "REPOST" -> users.verifyRequester(input.actorId(), authorization);
             case "ACCEPT", "ABORT" -> users.verifyCourier(input.actorId(), authorization);
             default -> throw new OrderProblem("VALIDATION_ERROR", "Unsupported command operation.");
         };
@@ -134,7 +156,7 @@ public class OrderCommandService {
                     store.assertOwned(claim);
                     validate(claim);
                 });
-                if (claim.kind().equals("CREATE")) {
+                if (claim.kind().equals("CREATE") || claim.kind().equals("REPOST")) {
                     var fields = claim.input().creation();
                     suppliers.validatePair(fields.pickup(), fields.delivery(), authorization);
                 }
@@ -147,7 +169,7 @@ public class OrderCommandService {
                         return view(store.get(key));
                     }
                 }
-                reject(claim, invalid.getCode(), safeRejection(invalid.getCode()));
+                reject(claim, invalid.getCode(), rejectionMessage(claim, invalid.getCode()));
                 return view(store.get(key));
             }
             // Persist the uncertainty barrier BEFORE invoking Credit, even if this process crashes next.
@@ -155,7 +177,7 @@ public class OrderCommandService {
             var remote = gateway.getObject().execute(key, mutation, claim.generation(), authorization);
             if (!remote.applied()) {
                 // Only an authoritative saved no-effect result may be returned as a rejection.
-                reject(claim, remote.code(), safeRejection(remote.code()));
+                reject(claim, remote.code(), rejectionMessage(claim, remote.code()));
             } else {
                 try {
                     tx().executeWithoutResult(status -> {
@@ -169,7 +191,9 @@ public class OrderCommandService {
                     // Re-read/claim-fence before reversal: a stale worker must not compensate a new owner.
                     tx().executeWithoutResult(status -> store.assertOwned(claim));
                     if (gateway.getObject().compensate(key, mutation, claim.generation(), authorization)) {
-                        reject(claim, "DEADLINE_OR_STATE_CHANGED", "The request is no longer valid; its Credit change was reversed.");
+                        reject(claim, "DEADLINE_OR_STATE_CHANGED", "REPOST".equals(claim.kind())
+                                ? "Repost is no longer valid; its Credit change was reversed."
+                                : "The request is no longer valid; its Credit change was reversed.");
                     } else {
                         store.defer(claim, "RECONCILIATION_REQUIRED", "We are checking the earlier Credit outcome. Please wait.", retrySeconds);
                     }
@@ -196,6 +220,19 @@ public class OrderCommandService {
             }
             case "ACCEPT" -> locked(claim).validateAcceptance(input.actorId(), input.expectedVersion(), Instant.now());
             case "ABORT" -> locked(claim).validateAcceptedCancellation(input.actorId(), input.expectedVersion());
+            case "REPOST" -> {
+                Order original = locked(claim);
+                original.requireVersion(input.expectedVersion());
+                if (!original.getRequesterId().equals(input.actorId())) {
+                    throw OrderProblem.forbidden("Only the requester may repost.");
+                }
+                CommandRequest.Creation fields = input.creation();
+                if (fields.expiresAt() != null && !fields.expiresAt().isAfter(Instant.now())) {
+                    throw new OrderProblem("REPOST_EXPIRED", "Repost expiry has passed.");
+                }
+                original.createManualRepostWithId(claim.candidateOrderId(), fields.description(), fields.amount(),
+                        fields.duration(), claim.createdAt(), Instant.now(), fields.expiresAt());
+            }
             default -> throw new OrderProblem("VALIDATION_ERROR", "Unsupported command.");
         }
     }
@@ -214,16 +251,34 @@ public class OrderCommandService {
             }
             case "ACCEPT" -> assignment.acceptConfirmed(claim.key(), claim.orderId(), input.actorId(), input.expectedVersion(), authorization);
             case "ABORT" -> transitions.abortConfirmed(claim.key(), claim.orderId(), input.actorId(), input.expectedVersion(), authorization);
+            case "REPOST" -> {
+                CommandRequest.Creation fields = input.creation();
+                yield reposts.manualConfirmed(claim.key(), claim.orderId(), claim.candidateOrderId(), input.actorId(),
+                        input.expectedVersion(), fields.description(), fields.amount(), fields.duration(),
+                        claim.createdAt(), fields.expiresAt());
+            }
             default -> throw new IllegalStateException("Unsupported saved command.");
         };
     }
 
     private CreditCommandGateway.Mutation mutation(OrderCommandStore.Entry claim) {
-        return new CreditCommandGateway.Mutation(claim.kind(), claim.orderId(), claim.actorId(),
+        return new CreditCommandGateway.Mutation("REPOST".equals(claim.kind()) ? "CREATE" : claim.kind(),
+                "REPOST".equals(claim.kind()) ? claim.candidateOrderId() : claim.orderId(), claim.actorId(),
                 claim.input().creation() == null ? 0 : claim.input().creation().amount());
     }
     private void reject(OrderCommandStore.Entry claim, String code, String message) {
-        tx().executeWithoutResult(status -> store.complete(claim, "REJECTED", code, message, null));
+        tx().executeWithoutResult(status -> {
+            store.assertOwned(claim);
+            if ("REPOST".equals(claim.kind())) {
+                Order original = locked(claim);
+                if (original.getRequesterId().equals(claim.actorId()) && original.getStatus() == OrderStatus.EXPIRED
+                        && original.getRepostedOrderId() == null) {
+                    original.recordRepostFailure(code, message, Instant.now());
+                    orders.save(original);
+                }
+            }
+            store.complete(claim, "REJECTED", code, message, null);
+        });
     }
     private CommandView view(OrderCommandStore.Entry entry) {
         return new CommandView(entry.key(), entry.kind(), entry.status(), entry.outcome(), entry.reason(), entry.message(),
@@ -239,5 +294,15 @@ public class OrderCommandService {
     private static String safeRejection(String code) {
         return "INSUFFICIENT_CREDITS".equals(code) ? "Request failed: insufficient available credits."
                 : "Request could not be completed because its details or order state are no longer valid.";
+    }
+    private static String rejectionMessage(OrderCommandStore.Entry claim, String code) {
+        if (!"REPOST".equals(claim.kind())) return safeRejection(code);
+        return switch (code) {
+            case "INSUFFICIENT_CREDITS" -> "Repost failed: insufficient available credits.";
+            case "REPOST_EXPIRED" -> "Repost expired before it could be posted.";
+            case "VALIDATION_ERROR" -> "Repost failed: check the request details.";
+            case "NOT_FOUND", "ACCOUNT_NOT_FOUND" -> "Repost failed: a required account or location is unavailable.";
+            default -> "Repost could not be completed because its details or order state are no longer valid.";
+        };
     }
 }

@@ -40,7 +40,7 @@ export function PendingOrderCommands({ onResolved }: { onResolved: () => void })
   }
 
   if (loading || !account || saved?.account !== account || (!saved.items.length && saved.pages <= 1)) return null
-  const labels = { CREATE: "Posting request", ACCEPT: "Accepting errand", ABORT: "Aborting errand" }
+  const labels = { CREATE: "Posting request", ACCEPT: "Accepting errand", ABORT: "Aborting errand", REPOST: "Reposting request" }
   return <section aria-label="Pending requests" className="space-y-3 rounded-xl border p-4">
     <h2 className="text-sm font-medium">Requests in progress</h2>
     {saved.items.map((command) => <div key={command.commandId} className="space-y-1">
