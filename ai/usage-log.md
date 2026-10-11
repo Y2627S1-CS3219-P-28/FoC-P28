@@ -2160,3 +2160,12 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Does frontend use GET order by ID, and when are repost/configure and repost-draft triggered?
 - **Key response:** Confirmed direct order GET refresh after manual-repost rejection/error while board polling uses mine/available. No current frontend configure/draft call sites. Legacy configure always conflicts; automatic plan configured at creation. Draft API checks original requester and unlinked EXPIRED eligibility, but UI seeds editable fields from the existing card Order. No application/contracts/tests changes or tests rerun; existing rollout and Sprint blockers unchanged.
 - **Author verification:** User requested clarification only. Actual source independently inspected; human review pending. No implementation approval inferred, peer changes or unrelated D3 edits.
+## Internal lifecycle controller clarification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Read-only inspection and explanation.
+- **Affected locations:** Vincent active-work and this disclosure only; frontend call sites, OrderController, OrderLifecycleScheduler and LifecycleProcessingService inspected read-only.
+- **Prompt:** What are the internal lifecycle expire/repost endpoints for, and what UI flow triggers them?
+- **Key response:** Neither has a frontend caller. Expiry scheduler invokes the service directly each minute; HTTP endpoints are local-only explicitly enabled token-gated operator/test triggers, disabled by default. Repost route invokes legacy batch repost with a lifecycle bearer value; live automatic/delegated repost remains deferred and minute scheduler does not call it. UI configures a plan at creation but does not call these routes. No tests or live runtime checks rerun; application/config/peer files unchanged.
+- **Author verification:** Clarification requested, not implementation or authorization to activate automatic repost. Human review pending; existing Sprint[~] and rollout blockers retained.

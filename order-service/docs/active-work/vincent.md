@@ -1,5 +1,18 @@
 # Vincent - Active Work
 
+## Internal lifecycle route clarification — 2026-10-11, read-only
+
+- Started/finished source inspection; no frontend internal/lifecycle call sites.
+  Minute scheduler invokes recoverDue, expireDue and autoCompleteDue directly,
+  not the HTTP controller; no scheduler automatic repost invocation.
+- expire/repost HTTP routes are optional local operator/test triggers: default
+  external-enabled=false, environment must be local, matching lifecycle token.
+  UI creation saves an automatic plan only; it does not call either route.
+  Repost route forwards lifecycle token as bearer to peers, which is not approved
+  delegated Firebase authentication. Live automatic repost remains deferred.
+- No application/contracts/config/tests edits, tests/runtime not rerun. Existing
+  rollout and Sprint[~] blockers/next action unchanged; peer source untouched.
+
 ## Order read/configure/draft route clarification — 2026-10-11, read-only
 
 - Start/end: Vincent/profile/allocation/current branch match. Inspected current
