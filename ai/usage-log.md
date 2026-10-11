@@ -2189,3 +2189,13 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** What if the user clears IndexedDB, and how does pending polling know the particular command key?
 - **Key response:** Client key/frozen input saved before POST; hook polls by saved key every5s while visible, including after timeout, restores on reload and clears only on terminal result. My Requests/My Errands independently discover server-owned pending keys by signed-in UID even without local storage. Server command persists, but panel does not rehydrate original create button; different CREATE keys cannot deduplicate identical intentions. No application change, tests rerun or live storage-clear experiment.
 - **Author verification:** Clarification only; matching Vincent profile/allocation/branch. Human review pending. Server-to-form restoration is a possible refinement, not approved/implemented. Existing Sprint[~] blockers retained.
+
+## Pending command card recovery proposal assistance (Order Service)
+
+- **Tool:** OpenAI Codex (model not recorded)
+- **Date:** 2026-10-11
+- **Mode:** Inspection and feature-level design proposal, no implementation.
+- **Affected locations:** CHANGE-108 proposed record, ARCH-EVO-044, Vincent active-work and this disclosure. Actual Order command/read policy/store and frontend hooks/panel/cards/routes/auth/tests inspected read-only.
+- **Prompt:** Can we implement recovered pending accept/abort as normal order cards with Pending/Continue, and pending creation/repost separately with respective details; is that a good idea?
+- **Key response:** Recommended owner-only displayDetails extension plus shared account-scoped discovery/card binding. Current command API lacks pending display fields; normal order GET can deny expired pending acceptance, and courier mine does not include uncommitted acceptance. Proposed safe projection avoids general read permission relaxation, fake CREATE/REPOST order cards, duplicated commands, arbitrary new-key replay, terminal inference from list disappearance and history-card binding. Same-key resume/5s visible polling and all existing Credit/lease/deadline rules remain. No peer/schema/config change proposed. Approval required before response/access implementation and tests; test matrix and trade-offs recorded. D1/Overall fingerprints unchanged; patch check passes, no tests run.
+- **Author verification:** Vincent requested the UI direction; the discovered API/access extension remains PROPOSED pending explicit detailed approval. Human review and existing Sprint/rollout gates remain open. Application code and unrelated D3 file unchanged.

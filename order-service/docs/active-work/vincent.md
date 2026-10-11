@@ -1,5 +1,23 @@
 # Vincent - Active Work
 
+## CHANGE-108 pending-card proposal — 2026-10-11, awaiting detailed approval
+
+- Started/finished actual backend/frontend inspection, matching branch/profile/
+  allocation; no source drift in D1/Overall fingerprints. Shared frontend clean;
+  unrelated D3 file untouched. Order/frontend vertical slice only, peers read-only.
+- User requests recovered pending ACCEPT/ABORT on normal existing cards and
+  CREATE/REPOST detail summaries without fake Order cards. Existing API returns
+  key/target but no pending details. Pending acceptance isn't courier /mine yet;
+  normal GET read policy can deny access after expiry. Do not invent peer API or
+  weaken general authorization.
+- PROPOSED ARCH-EVO-044/CHANGE-108 owner-only displayDetails + shared account
+  discovery/card binding, same-key resume, retain local intent, terminal lookup
+  when known pending disappears. Expected fields/options/test matrix in proposal.
+  API/access projection needs explicit detailed approval before source/tests.
+- No tests run or application/frontend/schema/peer/config changes. Existing
+  Sprint[~]/rollout/strict-format gates unchanged. Next: obtain approval, then
+  synchronize approved contract/design and implement test-first vertical slice.
+
 ## IndexedDB loss and pending polling clarification — 2026-10-11, read-only
 
 - Started/finished inspection on matching Vincent profile/allocation/branch.

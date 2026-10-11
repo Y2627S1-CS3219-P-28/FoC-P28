@@ -1,5 +1,16 @@
 # Order Service Architecture Evolution
 
+## ARCH-EVO-044 — Pending commands attached to live cards (CHANGE-108)
+
+PROPOSED 2026-10-11; current rule remains ADR-033/035/037 local intent plus separate
+server-discovery panel. Vincent requests recovered accept/abort on proper cards,
+creation/repost as detail summaries. Actual command response lacks pending fields;
+normal GET cannot always authorize a pending courier after deadline. Recommend an
+owner-only safe display projection and shared discovery binding; no general read
+permission relaxation or Credit contract change. Detailed additive response/access
+approval pending. Alternatives/tests/scope: changes/CHANGE-108-pending-order-card-recovery-proposal.md.
+No application or implementation-test change authorized by this proposal record.
+
 ## ARCH-EVO-043 — Retire unused expiry HTTP trigger (CHANGE-107)
 
 2026-10-11, Vincent explicitly approves removal from controller/docs/Swagger.
