@@ -154,5 +154,10 @@ class OpenApiDocumentationTest {
         JsonNode personal = paths.path("/api/orders/mine").path("get");
         assertThat(personal.path("parameters").toString()).contains("status", "COMPLETED", "ABORTED");
         assertThat(personal.path("responses").has("400")).isTrue();
+        JsonNode schemas = mapper.readTree(json).path("components").path("schemas");
+        assertThat(schemas.path("CommandView").path("properties").has("displayDetails")).isTrue();
+        assertThat(schemas.path("DisplayDetails").path("properties").propertyNames()).containsExactlyInAnyOrder(
+                "itemDescription", "pickupSupplierId", "deliverySupplierId", "offeredCredits",
+                "deliveryTimeLimitMinutes", "expiresAt", "orderStatus", "version");
     }
 }

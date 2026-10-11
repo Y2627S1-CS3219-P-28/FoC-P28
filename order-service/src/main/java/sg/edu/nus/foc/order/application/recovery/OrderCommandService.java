@@ -282,7 +282,20 @@ public class OrderCommandService {
     }
     private CommandView view(OrderCommandStore.Entry entry) {
         return new CommandView(entry.key(), entry.kind(), entry.status(), entry.outcome(), entry.reason(), entry.message(),
-                entry.orderId(), entry.attempts(), entry.nextRetry(), entry.result());
+                entry.orderId(), entry.attempts(), entry.nextRetry(), entry.result(), displayDetails(entry));
+    }
+    private CommandView.DisplayDetails displayDetails(OrderCommandStore.Entry entry) {
+        if (!"PENDING".equals(entry.status())) return null;
+        if ("CREATE".equals(entry.kind()) || "REPOST".equals(entry.kind())) {
+            var creation = entry.input().creation();
+            return creation == null ? null : new CommandView.DisplayDetails(creation.description(), creation.pickup(),
+                    creation.delivery(), creation.amount(), creation.duration(), creation.expiresAt(), null, null);
+        }
+        if (!"ACCEPT".equals(entry.kind()) && !"ABORT".equals(entry.kind())) return null;
+        // Projection for an authorized command owner; not general Order read access.
+        return orders.get(entry.orderId()).map(order -> new CommandView.DisplayDetails(order.getItemDescription(),
+                order.getPickupSupplierId(), order.getDeliverySupplierId(), order.getOfferedCredits(),
+                order.getDeliveryTimeLimitMinutes(), order.getExpiresAt(), order.getStatus().name(), order.getVersion())).orElse(null);
     }
     private TransactionTemplate tx() { return new TransactionTemplate(transactions); }
     private static boolean isAuthorization(OrderProblem p) {

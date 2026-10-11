@@ -54,6 +54,35 @@ class OrderCommandRecoveryIntegrationTest {
     String key() { return UUID.randomUUID().toString(); }
     void due(String k) { jdbc.update("update order_commands set next_retry_at=clock_timestamp()-interval '1 second', owner=null, lease_expires_at=null where command_id=?", k); }
 
+    @Test void savedPendingProjectionSurvivesLostResponsesAndUsesCommittedTargetOrFrozenInput() {
+        String createKey = key(), requester = key();
+        var input = create(requester);
+        store.register(createKey, input);
+        var creationView = service.status(createKey, requester, null);
+        assertEquals("test", creationView.displayDetails().itemDescription());
+        assertNull(creationView.displayDetails().orderStatus());
+        assertFalse(creationView.orderId().isBlank());
+        assertEquals(0, jdbc.queryForObject("select count(*) from orders where id=?", Integer.class, creationView.orderId()));
+
+        var opened = service.submit(key(), create(key()), null).result();
+        String courier = key(), acceptKey = key();
+        doAnswer(call -> { call.callRealMethod(); throw new IllegalStateException("lost response"); })
+            .doCallRealMethod().when(credit).execute(eq(acceptKey), any(), anyLong(), nullable(String.class));
+        var pending = service.submit(acceptKey, new CommandRequest("ACCEPT", courier, opened.getId(), opened.getVersion(), null), null);
+        assertEquals("PENDING", pending.status());
+        jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
+        var discovered = service.pending(courier, null, 1, 100).stream().filter(view -> acceptKey.equals(view.commandId())).findFirst().orElseThrow();
+        assertEquals(opened.getId(), discovered.orderId());
+        assertEquals("OPEN", discovered.displayDetails().orderStatus());
+        assertEquals(opened.getItemDescription(), discovered.displayDetails().itemDescription());
+        assertThrows(OrderProblem.class, () -> service.status(acceptKey, requester, null));
+        due(acceptKey);
+        service.recoverDue();
+        var terminal = service.status(acceptKey, courier, null);
+        assertEquals("REJECTED", terminal.outcome());
+        assertNull(terminal.displayDetails());
+    }
+
     OrderResponse expiredOriginal(String actor) {
         OrderResponse opened = service.submit(key(), create(actor), null).result();
         jdbc.update("update orders set expires_at=clock_timestamp()-interval '1 second' where id=?", opened.getId());
