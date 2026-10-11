@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { verifyBeforeUpdateEmail, reload, EmailAuthProvider, reauthenticateWithCredential, updatePassword, } from "firebase/auth"
+import { verifyBeforeUpdateEmail, reload, EmailAuthProvider, reauthenticateWithCredential, updatePassword, type User } from "firebase/auth"
 
 import { useAuth } from "@/components/providers/auth-provider"
-import { useConfig } from "@/components/providers/config-provider"
+import { useApi } from "@/hooks/use-api"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,11 +15,29 @@ import { Input } from "@/components/ui/input"
 import { PasswordRequirements } from "../../login/password-requirements"
 
 
+type UserProfile = { email: string; username?: string | null }
+
 export default function EditProfilePage() {
-    // Profile info comes from auth
-    const { user, loading, profile, profileLoading, refreshProfile, getIdToken } = useAuth()
-    const config = useConfig()
+    const { user, loading } = useAuth()
     const router = useRouter()
+
+    useEffect(() => {
+        if (!loading && !user) router.replace("/login")
+    }, [loading, user, router])
+
+    if (loading || !user) return <div className="px-4 py-8" role="status">Loading...</div>
+
+    // A different signed-in account must not inherit another account's drafts.
+    return <EditProfileForm key={user.uid} user={user} />
+}
+
+function EditProfileForm({ user }: { user: User }) {
+    const api = useApi()
+    const router = useRouter()
+    const [profile, setProfile] = useState<UserProfile | null>(null)
+    const [profileLoading, setProfileLoading] = useState(true)
+    const [profileError, setProfileError] = useState<string | null>(null)
+    const active = useRef(false)
 
     const [saving, setSaving] = useState(false)
 
@@ -35,6 +53,7 @@ export default function EditProfilePage() {
     const [emailVerifiedMessage, setEmailVerifiedMessage] = useState("")
     const [pendingEmail, setPendingEmail] = useState("")
     const [sendingVerification, setSendingVerification] = useState(false)
+    const [checkingVerification, setCheckingVerification] = useState(false)
     const [emailError, setEmailError] = useState<string | null>(null)
 
     // Password states
@@ -47,16 +66,33 @@ export default function EditProfilePage() {
     const [passwordValid, setPasswordValid] = useState(true)
     const onPasswordValidity = useCallback((valid: boolean) => setPasswordValid(valid), [])
 
-    useEffect(() => {
-        if (loading || profileLoading) return
-
-        if (!user) {
-            router.replace("/login")
-            return
+    const loadProfile = useCallback(async (signal?: AbortSignal) => {
+        setProfileLoading(true)
+        setProfileError(null)
+        try {
+            const data = await api<UserProfile>("/api/users/me", { signal })
+            if (!signal?.aborted) {
+                setProfile(data)
+                setUsername(data.username ?? "")
+                setEmail(data.email)
+            }
+        } catch (err) {
+            if (!signal?.aborted) setProfileError(err instanceof Error ? err.message : "Unable to load profile.")
+        } finally {
+            if (!signal?.aborted) setProfileLoading(false)
         }
+    }, [api])
 
-        if (!profile) return
-    }, [loading, user, profile, profileLoading, router])
+    useEffect(() => {
+        active.current = true
+        const controller = new AbortController()
+        const initial = window.setTimeout(() => void loadProfile(controller.signal), 0)
+        return () => {
+            active.current = false
+            window.clearTimeout(initial)
+            controller.abort()
+        }
+    }, [loadProfile])
 
     async function handleSaveUsername(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -65,35 +101,15 @@ export default function EditProfilePage() {
         setUsernameMessage("")
 
         try {
-            if (!user) {
-                throw new Error("You must be signed in.")
+            const trimmed = username.trim()
+            if (trimmed.length < 3 || trimmed.length > 30) {
+                throw new Error("Username must be between 3 and 30 characters.")
             }
-
-            // Handles username change
-            const token = await getIdToken()
-
-            if (!token) {
-                throw new Error("You must be signed in.")
-            }
-
-            const response = await fetch(`${config.apiBaseUrl}/api/users/me`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    username: username.trim(), 
-                }),
-            });
-
-            if (!response.ok) { 
-                const message = await response.text() 
-                throw new Error(message || "Failed to update username.") 
-            }
-
-            // Reload the shared profile from the backend.
-            await refreshProfile()
+            const saved = await api<UserProfile>("/api/users/me", {
+                method: "PUT", body: { username: trimmed },
+            })
+            setProfile(saved)
+            setUsername(saved.username ?? trimmed)
             
             setUsernameMessage("Username updated successfully.")
         } catch (err) {
@@ -157,21 +173,16 @@ export default function EditProfilePage() {
     }
 
     async function handleCheckEmailVerification() {
-        if (!user) {
-            throw new Error("You must be signed in.")
-        }
-
-        if (!pendingEmail) {
-            throw new Error("Please request an email verification first.")
-        }
-
         setEmailMessage("")
         setEmailVerifiedMessage("Checking verification status...")
         setEmailError(null)
+        setCheckingVerification(true)
 
         try {
+            if (!pendingEmail) throw new Error("Please request an email verification first.")
             // Refresh the Firebase user's state
             await reload(user)
+            if (!active.current) return
 
             const currentEmail = user.email ?? ""
 
@@ -180,17 +191,29 @@ export default function EditProfilePage() {
                 throw new Error("Your email has not been verified yet. Please check your inbox.")
             }
 
-            // Refresh the shared profile.
-            await refreshProfile()
+            // GET /me only reads the stored profile on this branch. Persist the
+            // verified identity email through the existing authenticated self API.
+            await user.getIdToken(true)
+            if (!active.current) return
+            const saved = await api<UserProfile>("/api/users/me", {
+                method: "PUT", body: { email: currentEmail },
+            })
+            if (saved.email.toLowerCase() !== currentEmail.toLowerCase()) {
+                throw new Error("Your verified email has not been saved to your profile. Please try again.")
+            }
+            setProfile(saved)
 
             setEmail(currentEmail)
             setPendingEmail("")
             setEmailVerificationSent(false)
             setEmailVerifiedMessage("Your email has been updated and saved successfully.")
         } catch (err) {
+            setEmailVerifiedMessage("")
             setEmailError(
                 err instanceof Error ? err.message : "Failed to check email verification."
             )
+        } finally {
+            setCheckingVerification(false)
         }
     }
 
@@ -237,6 +260,7 @@ export default function EditProfilePage() {
             // Verify the current password
             const credential = EmailAuthProvider.credential(user.email, currentPassword) 
             await reauthenticateWithCredential(user, credential) 
+            if (!active.current) return
 
             // Update the password in Firebase Authentication
             await updatePassword(user, newPassword)
@@ -274,8 +298,8 @@ export default function EditProfilePage() {
         }
     }
 
-  if (loading || profileLoading) {
-    return <div className="flex min-h-screen items-center justify-center">
+  if (profileLoading) {
+    return <div className="flex min-h-screen items-center justify-center px-4 py-8">
               <Card className="w-full max-w-sm">
                 <CardHeader>
                   <CardTitle className="text-xl">{"Loading..."}</CardTitle>
@@ -285,17 +309,21 @@ export default function EditProfilePage() {
   }
 
   if (!profile) {
-    return <div className="flex min-h-screen items-center justify-center">
+    return <div className="flex min-h-screen items-center justify-center px-4 py-8">
               <Card className="w-full max-w-sm">
                 <CardHeader>
                   <CardTitle className="text-xl">{"Unable to load profile."}</CardTitle>
                 </CardHeader>
+                <CardContent>
+                  <p className="mb-3 text-sm text-destructive" role="alert">{profileError}</p>
+                  <Button variant="outline" onClick={() => void loadProfile()}>Try again</Button>
+                </CardContent>
               </Card>
             </div>
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">{"My Profile"}</CardTitle>
@@ -318,7 +346,7 @@ export default function EditProfilePage() {
                     <div className="space-y-2">
                         <Button 
                             type="button" 
-                            disabled={!email.trim() || sendingVerification}
+                            disabled={!email.trim() || sendingVerification || checkingVerification}
                             onClick={handleEmailChange}
                         >    
                             {sendingVerification 
@@ -348,6 +376,7 @@ export default function EditProfilePage() {
                             <Button 
                                 type="button"
                                 variant="outline"
+                                disabled={checkingVerification || sendingVerification}
                                 onClick={handleCheckEmailVerification}
                             >
                                 I&apos;ve verified my email
@@ -399,7 +428,7 @@ export default function EditProfilePage() {
                         <Input
                             id="currentPassword"
                             type="password"
-                            autoComplete="currentPassword"
+                            autoComplete="current-password"
                             value={currentPassword}
                             onChange={(event) => setCurrentPassword(event.target.value)}
                             disabled={changingPassword}
@@ -411,7 +440,7 @@ export default function EditProfilePage() {
                         <Input
                             id="newPassword"
                             type="password"
-                            autoComplete="newPassword"
+                            autoComplete="new-password"
                             value={newPassword}
                             onChange={(event) => setNewPassword(event.target.value)}
                             disabled={changingPassword}
@@ -424,7 +453,7 @@ export default function EditProfilePage() {
                         <Input
                             id="confirmPassword"
                             type="password"
-                            autoComplete="confirmPassword"
+                            autoComplete="new-password"
                             value={confirmPassword}
                             onChange={(event) => setConfirmPassword(event.target.value)}
                             disabled={changingPassword}

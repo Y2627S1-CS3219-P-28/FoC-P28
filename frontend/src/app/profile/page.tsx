@@ -65,6 +65,7 @@ export default function ProfilePage() {
         <p className="text-sm text-muted-foreground">Account</p>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My profile</h1>
         <p className="mt-1 text-muted-foreground">Review your account and credit activity.</p>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/profile/edit")}>Edit profile</Button>
       </header>
 
       <Card>
