@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import sg.edu.nus.foc.supplier.supplier.DuplicateSupplierException;
 import sg.edu.nus.foc.supplier.supplier.Supplier;
@@ -27,6 +29,11 @@ public class InMemorySupplierRepository implements SupplierRepository {
 
     public InMemorySupplierRepository(Clock clock) {
         this.clock = clock;
+    }
+
+    /** Stores a record as-is, e.g. one written by an older version of the service. */
+    public void put(Supplier supplier) {
+        suppliers.put(supplier.id(), supplier);
     }
 
     @Override
@@ -56,19 +63,44 @@ public class InMemorySupplierRepository implements SupplierRepository {
             throw new DuplicateSupplierException(s.id());
         });
         Instant now = clock.instant();
-        Supplier supplier = new Supplier("s" + (++sequence), details, true, source, now, now);
+        String seedKey = source == SupplierSource.SEED ? details.naturalKey() : null;
+        Supplier supplier = new Supplier("s" + (++sequence), details, true, source, seedKey, false, now, now);
         suppliers.put(supplier.id(), supplier);
         return supplier;
     }
 
     @Override
-    public Supplier update(String id, SupplierDetails details, boolean active) {
+    public Supplier update(String id, UnaryOperator<SupplierDetails> change, Boolean active) {
+        return modify(id, current -> Optional.of(current.editedByAdmin(change.apply(current.details()),
+                active != null ? active : current.active())))
+                .orElseThrow();
+    }
+
+    @Override
+    public Optional<Supplier> updateFromSeed(String id, SupplierDetails details) {
+        return modify(id, current -> current.managedBySeed()
+                ? Optional.of(current.seededWith(details))
+                : Optional.empty());
+    }
+
+    @Override
+    public Optional<Supplier> deactivateFromSeed(String id) {
+        return modify(id, current -> current.managedBySeed() && current.active()
+                ? Optional.of(current.deactivatedBySeed())
+                : Optional.empty());
+    }
+
+    private Optional<Supplier> modify(String id, Function<Supplier, Optional<Supplier>> change) {
         Supplier existing = findById(id).orElseThrow(() -> new SupplierNotFoundException(id));
-        findByNaturalKey(details.naturalKey()).filter(s -> !s.id().equals(id)).ifPresent(s -> {
+        Optional<Supplier> changed = change.apply(existing);
+        if (changed.isEmpty()) {
+            return Optional.empty();
+        }
+        findByNaturalKey(changed.get().details().naturalKey()).filter(s -> !s.id().equals(id)).ifPresent(s -> {
             throw new DuplicateSupplierException(s.id());
         });
-        Supplier updated = new Supplier(id, details, active, existing.source(), existing.createdAt(), clock.instant());
+        Supplier updated = changed.get().updatedAt(clock.instant());
         suppliers.put(id, updated);
-        return updated;
+        return Optional.of(updated);
     }
 }

@@ -16,12 +16,11 @@ public record AccountResponse(
         long totalBalance,
         long reservedBalance,
         long usableBalance,
-        long version,
         Instant createdAt,
         Instant updatedAt) {
 
     static AccountResponse from(CreditAccount account) {
         return new AccountResponse(account.userId(), account.totalBalance(), account.reservedBalance(),
-                account.usableBalance(), account.version(), account.createdAt(), account.updatedAt());
+                account.usableBalance(), account.createdAt(), account.updatedAt());
     }
 }

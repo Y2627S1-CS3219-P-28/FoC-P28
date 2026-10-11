@@ -22,8 +22,12 @@ flowchart LR
 - Public entry point per environment: the gateway,
   `https://gateway-<environment>-374055363871.asia-southeast1.run.app`. Staging:
   https://gateway-staging-374055363871.asia-southeast1.run.app.
-- Only the gateway routes `/api/*` to the services. The frontend redirects direct visits
-  to its own URL to the gateway (`FOC_PUBLIC_URL`, set by `frontend/deploy/env.yaml`).
+- **Only the gateway is public.** Every other Cloud Run service (backends and frontend) has
+  **internal ingress**: it only accepts requests from the project's VPC and from Pub/Sub push. The
+  gateway, and every service that calls another (Order, Credit, Supplier), sends its traffic through the
+  VPC with Direct VPC egress (`foc-vpc` / `foc-run-asia-southeast1`, Private Google Access on), so
+  those calls count as internal. Internet-bound traffic from them (e.g. Cloud SQL's public IP) leaves
+  through Cloud NAT (`foc-nat`). Opening a backend's own `*.run.app` URL returns 404.
 
 ## Workflows
 
@@ -80,16 +84,21 @@ For each service (backends → frontend → gateway):
 3. `gcloud run deploy` as the service's own identity `foc-<service>@`. If the identity
    doesn't exist, the deploy stops rather than using the project's default identity. For an existing
    service the new revision gets **no traffic** and a `sha-xxxxxxx` tag URL.
-4. Smoke test `HEALTH_PATH` on the new revision (12 tries, 5 s apart).
+4. Health check. Every revision has an HTTP startup probe on `HEALTH_PATH`, so Cloud Run only
+   marks it ready once the service answers. The deploy fails otherwise. The gateway (the only public
+   service) is also curled on its tagged URL (12 tries, 5 s apart).
 5. Healthy → switch 100% of traffic to it. Unhealthy → fail the job; the previous revision
    keeps serving.
-6. After all services: tag the images `<environment>` in Artifact Registry.
+6. After all services: smoke-test each one **through the public gateway** (its
+   `/api/<name>s/v3/api-docs`, the frontend's `/health`). This proves the gateway can reach it
+   over the VPC.
+7. Then tag the images `<environment>` in Artifact Registry.
 
 ### Per-service deploy config
 
 | File | Purpose |
 | --- | --- |
-| `<service>/deploy/service.conf` | bash: `HEALTH_PATH` (default `/actuator/health`), `EXTRA_FLAGS=(--memory=512Mi ...)` |
+| `<service>/deploy/service.conf` | bash: `HEALTH_PATH` (default `/actuator/health`), `EXTRA_FLAGS=(--memory=512Mi ...)`, `INGRESS` (default `internal`; `all` for the gateway), `VPC_EGRESS` (`all-traffic` if the service calls other services), `GATEWAY_PATH` (smoke-test path through the gateway) |
 | `<service>/deploy/env.yaml` | extra env vars; `${VARS}` from `infra/environments/<env>.env` and `<SERVICE>_URL`s |
 | `<service>/deploy/pre-deploy.sh` | optional executable hook, receives `ENVIRONMENT` |
 
@@ -121,14 +130,24 @@ Or re-run **Deploy production** with an older commit SHA (its images are still i
 - **Least privilege at runtime.** Each Cloud Run service runs as `foc-<service>@`, which can
   only access its own Firestore databases (IAM condition on the database name).
 - **Config vs secrets.** Non-secret settings are committed in `infra/environments/*.env`.
-  Secrets go in Secret Manager and are mounted with `--set-secrets` in `EXTRA_FLAGS`.
+  Secrets go in Secret Manager and are mounted with `--set-secrets` in `EXTRA_FLAGS`: the Order and
+  Credit database passwords, and the User Service's MongoDB Atlas connection string
+  (`user-mongodb-uri-<environment>`; `bootstrap.sh` creates it, the owner adds the value with
+  `printf '%s' "$URI" | gcloud secrets versions add user-mongodb-uri-<environment> --data-file=-`).
 
 ## One-time setup (already done for this project)
 
 ```bash
 gcloud auth login   # or activate an owner service account
 infra/gcp/bootstrap.sh
+infra/gcp/configure-order-pubsub.sh staging      # Order topics + publisher access, per environment
+infra/gcp/configure-order-pubsub.sh production
+infra/gcp/configure-credit-pubsub.sh staging     # Credit push subscriptions (after credit-service is deployed)
 ```
+
+Each environment has its own Order topics (`*-staging-v1`, `*-prod-v1`). Local runs publish to the
+`*-dev-v1` topics, which no cloud environment subscribes to, so a laptop can never deliver events to
+staging.
 
 The script is idempotent and works out its service lists from the repository: every service
 folder gets a runtime identity, and every service using the Firestore client gets its
@@ -146,6 +165,9 @@ Adding required reviewers to the `production` environment is optional.
 | --- | --- |
 | Smoke test gets **404 on `/healthz`** although the service runs | Cloud Run reserves some paths ending in `z`. Use a path like `/health`. |
 | UI loads but data requests get **404 on `/api/...`** | The page was opened on a service's own URL instead of the gateway. Use the gateway URL (the frontend now redirects there). |
+| **404 from a service's own `*.run.app` URL** | Expected: only the gateway is public. Use `<gateway>/api/<name>s/...`, e.g. the API docs at `<gateway>/api/suppliers/docs`. |
+| A service gets **404/403 calling another service** | The caller needs `VPC_EGRESS=all-traffic` in its `deploy/service.conf`, because internal services only accept traffic that comes through the VPC. |
+| **Smoke test failed** (not reachable through the gateway) | The gateway can't reach the service over the VPC (check the gateway's `VPC_EGRESS`, the subnet's Private Google Access, and `check-infra.sh`). Roll back as described below. |
 | Rollout succeeded but the job failed on `artifacts docker tags add` (`tags.delete` denied) | The deployer needs `artifactregistry.repoAdmin` on the repository (in `bootstrap.sh`). |
 | Sign-up fails in the cloud but works locally | The cloud Firebase project enforces a password policy; the emulator doesn't. The sign-up form lists the rules. |
 | **Repository checks** fails installing actionlint (`Connection reset`, `./actionlint: No such file`) | A network blip while downloading. The step now retries and verifies a pinned release; re-run the job if GitHub itself is down. |

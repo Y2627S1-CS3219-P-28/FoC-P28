@@ -13,7 +13,6 @@ public record CreditAccount(
         String userId,
         long totalBalance,
         long reservedBalance,
-        long version,
         Instant createdAt,
         Instant updatedAt) {
 

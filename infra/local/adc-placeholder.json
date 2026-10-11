@@ -1,0 +1,4 @@
+{
+  "type": "foc_no_credentials_configured",
+  "_comment": "Placeholder mounted by compose.yaml when GOOGLE_APPLICATION_CREDENTIALS_HOST is not set. It contains no credentials. The stack starts normally, but the Order Service cannot publish events to Google Pub/Sub, so they stay in its outbox. Set GOOGLE_APPLICATION_CREDENTIALS_HOST in .env to your gcloud application-default credentials file to publish (see README)."
+}

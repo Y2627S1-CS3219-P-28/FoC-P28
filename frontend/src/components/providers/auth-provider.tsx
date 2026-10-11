@@ -13,6 +13,7 @@ import {
 import { useConfig } from "@/components/providers/config-provider"
 import { getFirebaseAuth } from "@/lib/firebase"
 import { loadUserProfile, type UserProfile } from "@/lib/user-profile"
+import { buildRegistrationFactPayload } from "@/lib/registration"
 
 type AuthContextValue = {
   user: User | null
@@ -155,14 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             // Signed up on Firebase
             user = userCredential.user;
-            const token = await user.getIdToken();
+            const idToken = await user.getIdToken();
                     
             // Create user doc on MongoDB and initialise credits
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${idToken}`
                 }
             });
 
@@ -173,6 +174,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log("API Error: ", data.message || "Unknown error")
                 throw new Error(data.message || "Failed to create user");
             }
+
+
+            const creditResponse = await fetch(`${config.apiBaseUrl}/api/credits/registration-facts`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`,
+                },
+                body: JSON.stringify(buildRegistrationFactPayload(user.uid, crypto.randomUUID(), new Date().toISOString())),
+            });
+
+            if (!creditResponse.ok) {
+                const data = await creditResponse.json().catch(() => null) as { message?: string } | null;
+                throw new Error(data?.message || "Failed to initialize the credit account");
+            }
+
+            await sendEmailVerification(user);
+        
+            console.log("Verification email sent");
+
+            await firebaseSignOut(auth);
         } catch (error) {
             // Error happened
             // Did not go through, delete Firebase acc

@@ -67,7 +67,7 @@ jobs:
           echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict
           tar -xzf "$archive" actionlint
           ./actionlint -color
-      - name: Validate compose.yaml
+      - name: Validate compose.yaml (must work on a fresh clone, without a .env)
         run: docker compose -f compose.yaml config --quiet
       - name: Ensure no credentials are committed
         run: |

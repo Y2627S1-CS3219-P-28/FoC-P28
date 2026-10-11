@@ -1,0 +1,404 @@
+schema_version = 1
+service = "order-service"
+canonical_context = "docs/ai-project-context.md"
+active_sprint_pointer = "docs/current-sprint.md"
+change_log = "docs/change-log.md"
+work_allocation = "docs/work-allocation.md"
+local_developer_profile = "docs/local/developer-profile.md"
+active_work_directory = "docs/active-work"
+instruction_map = "docs/instruction-map.md"
+decision_directory = "docs/decisions"
+change_directory = "changes"
+skill = ".codex/skills/spec-driven-development/SKILL.md"
+ai_usage_log = "../ai/usage-log.md"
+ai_usage_format = "docs/ai-usage-format.md"
+architecture_review_playbook = "docs/architecture-review-playbook.md"
+architecture_evolution = "docs/architecture-evolution.md"
+completion_reporting = "docs/completion-reporting.md"
+peer_service_api_feedback = "docs/peer-service-api-feedback.md"
+event_candidate_catalog = "docs/event-candidates.md"
+frontend_integration_workflow = "docs/frontend-integration-workflow.md"
+frontend_directory = "../frontend"
+
+[workflow]
+specification_driven = true
+test_driven = true
+pre_coding_gate_required = true
+project_d1_traceability_required = true
+ui_specification_available = false
+frontend_context_approved = true
+shared_frontend_required = true
+responsive_web_required = true
+native_mobile_application_in_scope = false
+frontend_live_inspection_before_coding_required = true
+frontend_shared_file_coordination_required = true
+production_code_started = true
+developer_scope_validation_required = true
+feature_completion_gate_required = true
+architecture_approval_required = true
+peer_service_implementation_inspection_required = true
+peer_api_mismatch_approval_required = true
+foreign_api_compatibility_classification_required = true
+peer_api_actual_implementation_verification_required = true
+peer_api_feedback_before_blocked_handoff_required = true
+contract_stub_is_verified_integration = false
+event_design_comparison_required = true
+architecture_evolution_tracking_required = true
+implementation_discovery_classification_required = true
+artifact_synchronization_after_approved_change_required = true
+per_turn_context_rehydration_required = true
+per_turn_completion_report_required = true
+scenario_specific_report_sections_allowed = true
+conversation_history_is_authoritative = false
+implementation_before_architecture_approval_allowed = false
+implementation_tests_before_architecture_approval_allowed = false
+technology_conflict_open = false
+on_demand_pre_push_ci_rehearsal = true
+pre_push_ci_rehearsal_default = "explicit-trigger-only"
+pre_push_ci_rehearsal_scope = ["order-service", "approved-shared-frontend"]
+
+[current_workstream]
+validation_amendment = "CHANGE-091 / ADR-030: field-only errors; new auto expiry >= due+30min; manual expiry >= submit+30min"
+saved_explicit_expiry_plans = "grandfather unchanged; no migration; late execution allowed while expiry future"
+decision_record = "changes/CHANGE-082-sprint-2-3-lifecycle-implementation.md"
+developer = "Vincent"
+branch = "sprint-2-3-credit"
+sprints = [2, 3]
+scope = "Order-owned parts only; sibling backend services read-only"
+stage = "approved Order lifecycle/history slice implemented and locally verified; live peer/browser/cloud gates pending"
+selected_overall_source = "../../../Order Service Overall Doc.pdf"
+selected_overall_sha256 = "F0E925278FCCC0FCBB48F6C7BE1C23D908E15BEF75BB7C013EEC28C3F05DA602"
+updated_overall_source_available_locally = false
+courier_assignment_local_mock_approved = true
+http_peer_mock_fallback_approved = false
+courier_attempt_history_approved = true
+internal_uuid_primary_key_approved = true
+abort_allowed_status = "ACCEPTED only, before IN_PROGRESS"
+abort_penalty_topic = "existing accepted-order-cancellation topic"
+expired_refund_topic = "existing open-order-refund topic"
+credit_reset_or_reassignment_decided = true
+abort_synchronous_credit_update_approved = true
+abort_after_expiry_current_status = "EXPIRED; same business orderId; separate ABORTED courier history"
+repost_row_replacement_mechanics_decided = true
+repost_storage_policy = "retain old EXPIRED row and new repost row with different business orderIds and immutable refund/history references"
+requester_hide_reposted_expired_approved = true
+repost_visibility_query_implemented = true
+new_lifecycle_implementation_started = true
+production_completion_verified = false
+effective_design = "docs/decisions/ADR-025-sprint-2-3-abort-history-and-repost-visibility.md"
+effective_diagrams = "sprints/sprint-2-3/README.md"
+
+[sources]
+project_d1 = "../../../Project-D1.pdf"
+order_service_overall = "../../../Order Service Overall Doc.pdf"
+historical_updated_overall = "../../../Order Service Overall Doc - Updated.pdf"
+architecture_overall = "../../../High Level Architecture Diagram - FOC.png"
+architecture_order_service = "../../../High Level Architecture Diagram - Order Service.png"
+class_diagram_overall = "../../../Class Diagram - Order Service.png"
+sprint_1_pack = "../../../Sprint 1/Order Service Sprint 1 Doc.pdf"
+sprint_1_class_core = "../../../Sprint 1/S1 Class Diagram - Order Service.png"
+sprint_1_class_nth4 = "../../../Sprint 1/S1 Class Diagram - Order Service + NTH 4.png"
+
+[frontend]
+framework = "Next.js"
+inspected_version = "16.3.6"
+routing_model = "App Router"
+client_type = "responsive-web"
+supported_access = ["desktop-browser", "mobile-browser"]
+application_roles = ["ADMIN", "USER"]
+user_modes = ["Requester", "Courier"]
+mode_switcher = false
+backend_authorization_is_final = true
+detailed_ui_design_approved = false
+
+[approved_amendments]
+overdue_is_flag = true
+overdue_evaluated_at_completion = true
+continuous_overdue_scheduler_allowed = false
+sprint_1_aborted_reopening_allowed = false
+penalty_owner = "user-service"
+supplier_catalogue_owner = "supplier-service"
+reposting_owner = "order-service"
+one_repost_per_original = true
+courier_outcome_operations_are_explicit = true
+courier_outcome_discriminator_allowed = false
+courier_outcome_facts_bag_allowed = false
+credit_consequence_processing = "transactional-outbox-with-after-commit-dispatch-and-cron-recovery"
+credit_courier_assignment_before_acceptance = true
+credit_courier_assignment_order_stub_implemented = true
+credit_courier_assignment_peer_api_verified = false
+synchronous_credit_requests_include_order_version = false
+published_order_events_include_order_version = true
+credit_assignment_request_fields = ["orderId (path)", "courierId (body)"]
+credit_reopen_hold_request_body = "none; orderId is in the path"
+credit_reopen_hold_contract_status = "route/core reset exists at 09e04a0; replay authorization incomplete; live verification pending; CHANGE-087"
+ordinary_progress_transitions_require_credit = false
+penalty_policy_owner = "user-service"
+penalty_fact_signaling_blocks_order_commit = false
+overall_design_declares_typed_event_broker = true
+durable_event_broker_implementation_approved = true
+transactional_outbox_implementation_approved = true
+publish_before_status_change_approved = false
+full_order_snapshot_in_events = true
+event_snapshots_include_checkpoint_history = false
+event_version_after_checkpoint_history_removal = 1
+peer_consumer_implementation_assumed_for_order_scope = true
+same_order_aborted_reopening_implementation_approved = true
+
+[approved_order_service_infrastructure]
+persistence = "PostgreSQL on Google Cloud SQL"
+deployment = "Google Cloud Run"
+cloud_sql_instance = "order-postgres"
+cloud_sql_databases = ["order_staging", "order_production"]
+cloud_sql_region = "asia-southeast1"
+cloud_sql_connection = "Public IP with Cloud SQL Java Connector"
+cloud_sql_backup = "Automated backups and point-in-time recovery"
+cloud_sql_deletion_protection = true
+cloud_sql_billing_acknowledged = true
+
+[approved_order_service_event_messaging]
+transport = "Google Cloud Pub/Sub"
+gcp_project_id = "protean-vigil-509704-q4"
+environment_isolation = "separate dev/prod topics with topic-scoped publisher IAM"
+local_authentication = "per-developer Application Default Credentials, mounted read-only into Order Service container"
+local_completion_topic = "order-completion-dev-v1"
+local_open_refund_topic = "open-order-refund-dev-v1"
+local_accepted_cancellation_topic = "accepted-order-cancellation-dev-v1"
+production_authentication = "Cloud Run attached service identity"
+production_topic_ids = "set via environment variables when provisioned"
+pubsub_emulator_default = false
+service_account_key_sharing = false
+
+[open_conflicts]
+frontend_role_authority_mapping = "RESOLVED for Order Service: Firebase-authenticated role authorities come from User Service role-context; Admin endpoints use ROLE_ADMIN and Supplier-style @PreAuthorize. Frontend role/mode behavior remains backend-authoritative. See CHANGE-057/ADR-012."
+updated_overall_design_vs_sprint_scope = "CHANGE-082/ADR-025 supersedes ADR-001/014 for this workstream: every ACCEPTED-only abort synchronously resets Credit, retains immutable courier history and resolves current state to OPEN/EXPIRED. Every abort queues User penalty; EXPIRED additionally queues Credit refund. Reposts retain old/new IDs but hide linked expired originals from requester pagination. Existing outbox/typed PubSub/48h completion approvals remain. Peer providers/subscribers and trusted automatic-repost authentication are missing or unverified. Cloud Run scale-to-zero/request CPU still limits idle scheduling; NTH3 report/hold/resolution is not completed by this slice."
+
+
+[approved_time_selection_and_scheduler_cadence]
+decision = "ADR-022 / CHANGE-077"
+requester_clock_minutes = [0, 15, 30, 45]
+restriction_scope = "frontend creation and repost time selection; existing API timestamp shape unchanged"
+lifecycle_decision = "ADR-026 / CHANGE-083"
+shared_lifecycle_cron = "0 * * * * *"
+shared_lifecycle_checks = ["OPEN/unassigned/deadline reached -> EXPIRED/refund", "DELIVERED/latest delivery at least 48h ago -> COMPLETED/completion"]
+outbox_recovery_cron = "0 */15 * * * *"
+immediate_after_commit_dispatch = true
+existing_deadlines_rounded = false
+
+[requested_repost_timing_and_retry]
+decision = "ADR-028 / CHANGE-086 expiry/outcomes; ADR-027 / CHANGE-084 paused retry design; Vincent 2026-10-09"
+requirement_approved = true
+timing = "repostExpiresAt > repostDueAt >= original.expiresAt"
+late_execution = "allowed only while repostExpiresAt > current time"
+explicit_repost_expiry_implemented = true
+explicit_repost_expiry_change = "CHANGE-086; V4; legacy no-expiry plans disabled by Vincent"
+latest_manual_and_automatic_failure_persisted = true
+durable_retry_implemented = false
+insufficient_credit_card_message_implemented = true
+failure_message_scope = "latest safe eligible manual/automatic attempt failure on original EXPIRED row; overwrite newer result; clear on success; survives reload"
+background_retry_implementation_paused = true
+background_retry_resume_condition = "user resumes after peer agreement; no mock-mode retry worker either"
+retry_design_approval = "approved: fixed new candidate ID, temporary failures only, stop at new expiry or permanent rejection; concrete task/schema/API design still needed"
+terminal_failure_messages_approved = true
+insufficient_credit_reason = "confirmed semantic INSUFFICIENT_CREDITS only; cannot infer delayed refund versus inadequate balance"
+failed_original_status = "EXPIRED; visible/unlinked until successful repost"
+background_authentication_approval = "approved for peer proposal/documentation ONLY; implementation explicitly deferred"
+background_authentication_implemented = false
+background_authentication_peer_agreed = false
+peer_dependencies = ["FEEDBACK-002", "FEEDBACK-003", "FEEDBACK-004", "FEEDBACK-005", "FEEDBACK-006"]
+
+[approved_order_ui_refresh]
+decision = "ADR-027 / CHANGE-084; Vincent 2026-10-09"
+mechanism = "authenticated HTTP polling; no WebSocket/SSE/frontend broker"
+polling_implemented = true
+interval = "Order lists5 seconds (ADR-032); Credit15 seconds; visible/auth-ready, focus/visibility/mutation refresh; AbortController cleanup/no overlap"
+auth_ready_required = true
+immediate_mutation_refetch = true
+
+[approved_role_annotations]
+decision = "ADR-024 / CHANGE-079"
+annotations = ["RequireRequesterRole", "RequireCourierRole", "RequireAdminRole", "RequireOrderRole"]
+production_role_mode = "ORDER_USER_SERVICE_MODE defaults to http independently of shared USER_SERVICE_MODE"
+role_source = "GET /api/users/role-context using verified Firebase caller token; response userId must match JWT subject"
+role_reuse = "current request only; no cross-request cache"
+local_authentication_required = false
+courier_eligibility = "fresh HTTP check retained when HTTP peers selected"
+order_ownership = "existing locked domain guards retained"
+
+[credit_integration_source_review]
+change = "CHANGE-087"
+date = "2026-10-09"
+branch = "sprint-2-3-credit"
+integrated_revision = "09e04a0"
+scope = "Order documentation only; peer source and infrastructure read-only"
+assignment_route_present = true
+hold_route_present = true
+refund_consumer_present = true
+completion_consumer_present = true
+compatible_source_status = "Credit-local focused tests passed (27); READY_FOR_VERIFICATION for live integration; no cloud/end-to-end claim"
+focused_credit_tests_passed = 27
+focused_credit_tests_failures_errors_skips = 0
+focused_credit_test_runtime = "Java 21 Docker, read-only source copy, isolated Testcontainers PostgreSQL V1/V2"
+live_integration_verified = false
+subscription_provisioning_script_present = true
+subscription_provisioning_verified = false
+remaining_credit_feedback = ["FEEDBACK-003 replay authorization", "FEEDBACK-006 reservation/recovery", "FEEDBACK-007 accepted-cancellation semantics", "FEEDBACK-005 delegated authorization"]
+background_retries_remain_paused = true
+
+[local_live_connector]
+change = "CHANGE-088"
+decision = "ADR-029"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+compose_files = ["compose.yaml", "compose.http-peers.yaml", "compose.local-live.yaml"]
+runbook = "docs/local-live-testing.md"
+setup_script = "scripts/local-live.ps1"
+broker = "Real Google Pub/Sub; developer-isolated topics/subscriptions"
+ingress = "Temporary cloudflared HTTPS -> exact-path POST-only nginx -> local Credit"
+authentication = "Existing Google OIDC push; Order existing prod JWT/method profile with local emulator and HTTP User roles"
+configuration_safety_assertions = 60
+actual_nginx_fixture_assertions = 16
+live_cloud_financial_verified = false
+live_blocker = "User Setup progressed to Compose but PS5.1 stderr handling failed; CHANGE-089 fixes wrapper. Rerun real Setup/Check; Google IAM/push/financial verification still pending."
+script_compatibility_change = "CHANGE-089"
+native_stderr_regression_assertions = 11
+cli_installation_verified = true
+cli_version_exit = 0
+cli_sdk_version = "588.0.0"
+peer_source_changed = false
+staging_resources_changed = false
+schema_changed = false
+background_retries_paused = true
+user_consumers_provided = false
+
+[credit_push_security_exception]
+change = "CHANGE-090"
+date = "2026-10-09"
+approver = "Vincent"
+branch = "sprint-2-3-credit"
+scope = "One-time Credit push converter and regression test only; no financial/contract/schema/cloud edits"
+interference_record = "changes/CHANGE-090-credit-push-security-interference.md"
+feedback = "FEEDBACK-008"
+feedback_status = "READY_FOR_VERIFICATION"
+new_security_tests_passed = 15
+credit_tests_passed = 80
+clean_coverage_verified = true
+source_test_commit = "198cd7c"
+credit_line_coverage = 95.48
+credit_branch_coverage = 85.56
+live_financial_verified = false
+credit_owner_review_pending = true
+running_credit_rebuilt = false
+background_retries_paused = true
+
+[compact_events_change_092]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+branch = "order-service/sprint-1/yx-sprint-2-and-3"
+wire_fields = ["eventId", "eventType", "orderId", "orderStatus", "creditAmount", "occurredAt", "courierId"]
+compact_schema_version = 2
+accepted_schema_unchanged = true
+peer_integration = "BLOCKED: FEEDBACK-009"
+
+[lifecycle_failure_isolation_change_093]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+coordinator_transaction = "none"
+per_order_transaction = "REQUIRES_NEW"
+due_selection = "database IDs and latest delivered checkpoint"
+error_boundary = "outside each per-order invocation"
+verification = "44 focused passed; fresh verify 232 total, 211 passed, 21 Docker skips, zero failures/errors; existing coverage gates pass"
+line_coverage_percent = 91.44
+branch_coverage_percent = 82.10
+postgres_isolation_verified = true
+postgres_blocker = ""
+postgres_last_verified_date = "2026-10-10"
+postgres_followup_evidence = "CHANGE-096: all four lifecycle PostgreSQL tests passed; full 252 tests passed without skips"
+
+[order_ui_change_094]
+approved_by = "Yao Xiang"
+date = "2026-10-09"
+order_poll_seconds = 5
+credit_poll_seconds_unchanged = 15
+status_query = "optional uppercase enum on /api/orders/mine; DB filter before count/pagination"
+courier_action_label = "Abort errand"
+frontend_tests_passed = 58
+backend_tests_passed = 219
+backend_docker_skips = 24
+real_postgres_filter_verified = true
+postgres_filter_last_verified_date = "2026-10-10"
+normal_frontend_build = "blocked by existing Google Fonts connectivity"
+browser_fixture_scenarios_passed = 8
+
+[personal_filter_options_change_095]
+approved_by = "Yao Xiang"
+requester_excludes = ["ABORTED"]
+courier_excludes = ["OPEN", "EXPIRED", "CANCELLED"]
+api_contract_unchanged = true
+frontend_tests_passed = 60
+browser_fixture_scenarios_passed = 8
+
+[scheduler_isolation_change_096]
+approved_by = "Yao Xiang"
+date = "2026-10-10"
+selection = "DB-filtered IDs; bounded SQL outbox limit"
+coordinator_transaction = "none"
+lifecycle_per_order_transaction = "REQUIRES_NEW"
+outbox_per_item_writes = "REQUIRES_NEW claim/mark/retry; REQUIRED enqueue"
+error_boundary = "outside persistence/worker proxy, per item"
+focused_tests_passed = 43
+backend_tests_passed = 252
+backend_tests_skipped = 0
+postgres_tests_passed = 28
+line_coverage_percent = 95.99
+branch_coverage_percent = 83.72
+real_pubsub_verified = false
+peer_integration_blocker = "FEEDBACK-009"
+
+[order_ui_missing_supplier_references_change097]
+classification = "implementation detail; existing fallback label"
+response_contract = "Supplier lookup items and missingIds, unchanged"
+missing_label = "Location unavailable"
+frontend_tests_passed = 63
+production_frontend_build_passed = true
+local_frontend_recreated = true
+authenticated_browser_verified = false
+supplier_data_restored = false
+
+[swagger_current_origin_change098]
+classification = "implementation detail; approved gateway/OpenAPI runtime"
+server_url = "/"
+configuration_class = "OpenApiConfiguration"
+backend_tests_passed = 253
+backend_tests_skipped = 0
+line_coverage_percent = 96.00
+branch_coverage_percent = 83.72
+staging_fix_deployed = false
+staging_authenticated_browser_verified = false
+
+[backend_expiry_validation_verification]
+change_record = "changes/CHANGE-099-backend-expiry-api-regression.md"
+date = "2026-10-10"
+developer = "Yao Xiang"
+rule = "existing expiresAt >= server validation instant + 30 minutes; inclusive"
+implementation_changed = false
+regression = "OrderCreationExpiryApiTest; short/past deadlines return expiry-specific 400 before credit reservation or writes"
+verification = "19 focused tests passed; full result in change record"
+live_deployment_retested = false
+
+[main_typed_credit_merge_verification]
+date = "2026-10-10"
+incoming_commit = "a641836ce8c9d7b1458560099bc079a1fb62b1b0"
+feedback_conflict_resolved = true
+other_staged_changes_preserved = true
+compact_contract_preserved = true
+credit_consumer_migration_pending = true
+order_tests_passed = 258
+order_tests_skipped = 0
+ci_force_update_reintroduced = false
+infrastructure_scripts_preserved_from_main = true
+hosted_ci_rerun_pending = true
+live_staging_production_infrastructure_passed = true
+initial_cloud_run_transient_dns_failure = true
+merge_commit_created = false

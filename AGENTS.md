@@ -128,9 +128,12 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - Each service validates the token with Spring Security's OAuth2 resource server:
   issuer `https://securetoken.google.com/<FIREBASE_AUTH_PROJECT_ID>`, audience
   `<FIREBASE_AUTH_PROJECT_ID>`, Google's securetoken JWKS. The user ID is the `sub` claim.
-- Roles (`requester`, `courier`, `admin`) come from the User Service and become Spring
-  authorities `ROLE_REQUESTER`, `ROLE_COURIER`, `ROLE_ADMIN`. Enforce them with
-  `@PreAuthorize` on endpoints; never trust roles sent by the client.
+- Roles (`requester`, `courier`, `admin`) come from the User Service
+  (`GET /api/users/role-context` with the caller's token). Enforce them with `@PreAuthorize` on
+  endpoints; never trust roles sent by the client.
+- Prefer looking roles up only on endpoints that need them, with a short per-user cache, so reads
+  keep working when the User Service is down (see `supplier-service` `CallerRoles`). A failed lookup
+  answers 503, never 500.
 - Until the User Service role API exists, use `USER_SERVICE_MODE=mock`. Admin emails are set in
   `MOCK_ADMIN_EMAILS`: `compose.yaml` for local runs and `infra/environments/<env>.env` for the cloud.
 - The cloud Firebase project (`cs3219-p28-auth`) enforces a password policy (8+ characters,
@@ -179,7 +182,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
    `<NAME>_SERVICE_URL` default to `gateway/Dockerfile` / `gateway/deploy/env.yaml`.
 4. Add any new env vars to `.env.example`.
 5. Document every endpoint in OpenAPI and add `OpenApiDocumentationTest` (section 6).
-6. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
+6. In the cloud the new service gets internal ingress (only the gateway is public). If it calls other
+   services, set `VPC_EGRESS=all-traffic` in its `deploy/service.conf` (see docs/ci-cd.md).
+7. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
    owner runs `infra/gcp/bootstrap.sh`, which provisions the new service's identity (and
    databases, if it uses Firestore). Then re-run the check (section 8).
 

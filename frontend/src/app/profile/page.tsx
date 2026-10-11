@@ -1,6 +1,8 @@
 "use client" 
 
+<<<<<<< HEAD
 import { useRouter } from "next/navigation" 
+import { TransactionHistory } from "@/components/credits/transaction-history"
 import { useAuth } from "@/components/providers/auth-provider" 
 import { UserInformation } from "@/components/users/user-information"  
 import { Button } from "@/components/ui/button" 
@@ -34,7 +36,7 @@ export default function ProfilePage() {
         </div> 
       </header> 
       <UserInformation /> 
-      
+      <TransactionHistory />
       <Card> 
         <CardHeader> 
           <CardTitle className="text-xl">Account management</CardTitle> 

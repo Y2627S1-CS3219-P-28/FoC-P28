@@ -11,12 +11,14 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import sg.edu.nus.foc.supplier.web.RequestIdFilter;
 
 class RoleProvidersTest {
 
@@ -50,6 +52,24 @@ class RoleProvidersTest {
 
         HttpUserServiceRoleProvider provider = new HttpUserServiceRoleProvider(builder.build());
         assertThat(provider.rolesFor(token("u1", null))).containsExactlyInAnyOrder(Role.REQUESTER, Role.ADMIN);
+        server.verify();
+    }
+
+    @Test
+    void httpProviderForwardsTheRequestIdForLogCorrelation() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://user-service");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(ROLE_CONTEXT))
+                .andExpect(header(RequestIdFilter.HEADER, "req-1"))
+                .andRespond(withSuccess("{\"userId\":\"u1\",\"roles\":[\"courier\"]}", MediaType.APPLICATION_JSON));
+
+        MDC.put(RequestIdFilter.MDC_KEY, "req-1");
+        try {
+            assertThat(new HttpUserServiceRoleProvider(builder.build()).rolesFor(token("u1", null)))
+                    .containsExactly(Role.COURIER);
+        } finally {
+            MDC.remove(RequestIdFilter.MDC_KEY);
+        }
         server.verify();
     }
 

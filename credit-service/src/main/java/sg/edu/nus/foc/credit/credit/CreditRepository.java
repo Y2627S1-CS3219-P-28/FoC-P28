@@ -17,7 +17,17 @@ public interface CreditRepository {
 
     Optional<CreditAccount> findAccount(String userId);
 
+    CreditTransactionPage findTransactions(String userId, int page, int size);
+
     ReservationResult reserve(String orderId, String requesterId, long amount);
 
     Optional<CreditReservation> findReservation(String orderId);
+
+    void assignCourier(String orderId, String courierId);
+
+    void holdForReopen(String orderId, String callerId);
+
+    void refund(CreditOutcomeEvent event);
+
+    void settle(CreditOutcomeEvent event);
 }

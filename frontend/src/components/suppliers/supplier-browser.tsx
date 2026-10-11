@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { SupplierFilters } from "@/components/suppliers/supplier-filters"
 import { SupplierPagination } from "@/components/suppliers/supplier-pagination"
 import { SupplierResults, SupplierResultsSkeleton } from "@/components/suppliers/supplier-results"
+import { useAuth } from "@/components/providers/auth-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -28,6 +29,7 @@ type Result = { key: string; data?: Page<Supplier>; error?: string }
 
 export function SupplierBrowser() {
   const api = useApi()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -53,6 +55,8 @@ export function SupplierBrowser() {
 
   // The catalogue page, re-fetched whenever the URL (and so the query) changes.
   useEffect(() => {
+    if (authLoading || !user) return
+
     const controller = new AbortController()
     api<Page<Supplier>>(requestPath, { signal: controller.signal })
       .then((data) => setResult({ key: requestPath, data }))
@@ -62,13 +66,15 @@ export function SupplierBrowser() {
         setResult({ key: requestPath, error: message })
       })
     return () => controller.abort()
-  }, [api, requestPath])
+  }, [api, authLoading, requestPath, user])
 
   useEffect(() => {
+    if (authLoading || !user) return
+
     api<{ items: string[] }>("/api/suppliers/types")
       .then((data) => setTypes(data.items))
       .catch(() => setTypes([]))
-  }, [api])
+  }, [api, authLoading, user])
 
   function toggleNearMe() {
     if (query.near) {

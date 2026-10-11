@@ -11,6 +11,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
+import { useVisiblePolling } from "@/hooks/use-visible-polling"
+import { CREDIT_BALANCE_INVALIDATED_EVENT } from "@/lib/credit-balance-events"
 
 export type CreditBalance = {
   userId: string
@@ -41,9 +43,9 @@ export function useCreditBalance() {
   const requestVersion = useRef(0)
   const [state, setState] = useState<BalanceState>(INITIAL_STATE)
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     const ownerId = user?.uid
-    if (!ownerId) return
+    if (authLoading || !ownerId) return
 
     const version = ++requestVersion.current
     setState((current) => ({
@@ -54,35 +56,24 @@ export function useCreditBalance() {
     }))
 
     try {
-      const balance = await api<CreditBalance>("/api/credits/me")
-      if (requestVersion.current === version) {
+      const balance = await api<CreditBalance>("/api/credits/me", { signal })
+      if (!signal.aborted && requestVersion.current === version) {
         setState({ ownerId, balance, error: false, loading: false })
       }
     } catch {
-      if (requestVersion.current === version) {
+      if (!signal.aborted && requestVersion.current === version) {
         setState({ ownerId, balance: null, error: true, loading: false })
       }
     }
-  }, [api, user?.uid])
-
-  useEffect(() => {
-    if (authLoading || !user) return
-
-    const timer = window.setTimeout(() => void refresh(), 0)
-    return () => {
-      window.clearTimeout(timer)
-      requestVersion.current += 1
-    }
-  }, [authLoading, refresh, user])
+  }, [api, authLoading, user?.uid])
+  const refresh = useVisiblePolling(load, !authLoading && !!user)
 
   useEffect(() => {
     if (!user) return
 
-    const refreshOnFocus = () => {
-      if (document.visibilityState === "visible") void refresh()
-    }
-    window.addEventListener("focus", refreshOnFocus)
-    return () => window.removeEventListener("focus", refreshOnFocus)
+    const refreshAfterMutation = () => void refresh()
+    window.addEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
+    return () => window.removeEventListener(CREDIT_BALANCE_INVALIDATED_EVENT, refreshAfterMutation)
   }, [refresh, user])
 
   const ownerId = user?.uid ?? null

@@ -14,8 +14,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sg.edu.nus.foc.credit.credit.CreditReservation;
 import sg.edu.nus.foc.credit.credit.CreditService;
@@ -69,6 +73,23 @@ public class CreditController {
         return BalanceResponse.from(service.getAccount(caller.getName()));
     }
 
+    @GetMapping("/me/transactions")
+    @Operation(summary = "List the authenticated user's credit transactions, newest first")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated credit transaction history"),
+            @ApiResponse(responseCode = "400", description = "Pagination parameters are invalid"),
+            @ApiResponse(responseCode = "401", description = "Firebase ID token is missing or invalid"),
+            @ApiResponse(responseCode = "404", description = "Credit account has not been provisioned")
+    })
+    public TransactionPageResponse transactions(
+            @Parameter(description = "One-based page number")
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @Parameter(description = "Transactions per page, from 1 to 100")
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            JwtAuthenticationToken caller) {
+        return TransactionPageResponse.from(service.getTransactions(caller.getName(), page, size));
+    }
+
     @PutMapping("/orders/{orderId}/reservation")
     @Operation(summary = "Reserve a requester's usable credits for an order")
     @ApiResponses({
@@ -96,6 +117,45 @@ public class CreditController {
             JwtAuthenticationToken caller) {
         CreditReservation reservation = service.getReservation(orderId, caller.getName());
         return ReservationResponse.from(reservation);
+    }
+
+    @PutMapping("/orders/{orderId}/courier-assignment")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "Assign the authenticated courier to an active order reservation")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Courier assignment recorded or replayed"),
+            @ApiResponse(responseCode = "403",
+                    description = "Caller lacks the courier role or identity does not match"),
+            @ApiResponse(responseCode = "404", description = "Reservation or courier credit account not found"),
+            @ApiResponse(responseCode = "409", description = "Reservation is inactive or assigned elsewhere"),
+            @ApiResponse(responseCode = "503", description = "User Service role lookup is unavailable")
+    })
+    public ResponseEntity<Void> assignCourier(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            @Valid @RequestBody CourierAssignmentRequest request,
+            JwtAuthenticationToken caller) {
+        requireSelf(request.courierId(), caller);
+        service.assignCourier(orderId, request.courierId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/orders/{orderId}/hold-for-reopen")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "Clear the assigned courier while retaining reserved credits for reopening")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Reservation held for reopen or already held"),
+            @ApiResponse(responseCode = "403", description = "Caller is not the assigned courier"),
+            @ApiResponse(responseCode = "404", description = "Reservation not found"),
+            @ApiResponse(responseCode = "409", description = "Reservation is no longer active"),
+            @ApiResponse(responseCode = "503", description = "User Service role lookup is unavailable")
+    })
+    public ResponseEntity<Void> holdForReopen(
+            @Parameter(description = "Opaque Order Service order ID")
+            @PathVariable @Size(max = 128) String orderId,
+            JwtAuthenticationToken caller) {
+        service.holdForReopen(orderId, caller.getName());
+        return ResponseEntity.ok().build();
     }
 
     private static void requireSelf(String userId, JwtAuthenticationToken caller) {
