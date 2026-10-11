@@ -1,11 +1,9 @@
 # Order Service HTTP-peer smoke profile.
 #
-# The default compose.yaml intentionally keeps ORDER_PEERS_MODE=mock for
-# deterministic local sequence testing. Use this file as an override when
-# testing the real User, Supplier, and Credit HTTP adapters. Integrated Credit
-# now has refund/completion push handlers; this override alone does NOT wire
-# Google Pub/Sub into local Credit. Add compose.local-live.yaml and follow
-# order-service/docs/local-live-testing.md for isolated authenticated delivery.
+# Default compose.yaml now uses actual HTTP peers and local Pub/Sub emulator.
+# This retained override explicitly selects the same HTTP service addresses.
+# compose.local-live.yaml pins local auth/messaging flags; neither mounts ADC
+# nor provisions any Google Cloud topic or subscription (ADR-036).
 services:
   order-service:
     environment:

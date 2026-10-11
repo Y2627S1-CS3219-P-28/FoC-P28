@@ -5,8 +5,8 @@
 #
 # AI Assistance Disclosure:
 # Tool: OpenAI Codex (GPT-6), date: 2026-10-07
-# Scope: Replaced Order Service's default Pub/Sub emulator with real Pub/Sub dev topics and a private local ADC mount.
-# Author review: User/team must configure GCP topics and topic-scoped IAM before running.
+# Scope: Historical cloud-local selection superseded by ADR-036 (2026-10-11).
+# Local Docker now uses only the Pub/Sub emulator; cloud deployments keep Google Pub/Sub.
 
 # FoC local deployment (M7). Start everything with:   docker compose up --build
 #
@@ -42,12 +42,39 @@ x-backend-depends: &backend-depends
     condition: service_healthy
 
 x-order-pubsub-topics: &order-pubsub-topics
-  PUBSUB_PROJECT_ID: ${PUBSUB_PROJECT_ID:-protean-vigil-509704-q4}
-  ORDER_COMPLETION_TOPIC: ${ORDER_COMPLETION_TOPIC:-order-completion-dev-v1}
-  ORDER_OPEN_REFUND_TOPIC: ${ORDER_OPEN_REFUND_TOPIC:-open-order-refund-dev-v1}
-  ORDER_ACCEPTED_CANCELLATION_TOPIC: ${ORDER_ACCEPTED_CANCELLATION_TOPIC:-accepted-order-cancellation-dev-v1}
+  # Local Docker never reads cloud project/topic/ADC values from a developer .env.
+  PUBSUB_PROJECT_ID: demo-foc-local
+  ORDER_MESSAGING_MODE: emulator
+  PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+  ORDER_COMPLETION_TOPIC: order-completion-local-v1
+  ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
+  ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-local-v1
 
 services:
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators@sha256:be2f0e582a94c9e06e7a384fe2b3b39d590eeb8da65a110eda991598c100fe80
+    command: ["gcloud", "beta", "emulators", "pubsub", "start", "--project=demo-foc-local", "--host-port=0.0.0.0:8085"]
+    ports:
+      - "127.0.0.1:8085:8085"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1',8085),2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  pubsub-init:
+    image: python:3.12-alpine
+    command: ["python", "/setup/init.py"]
+    environment:
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+    volumes:
+      - ./order-service/deploy/local-emulator/init.py:/setup/init.py:ro
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+      credit-service:
+        condition: service_healthy
+
   gateway:
     build: ./gateway
     ports:
@@ -135,11 +162,15 @@ services:
       SPRING_DATASOURCE_USERNAME: ${CREDIT_DB_USERNAME:-credit_dev}
       SPRING_DATASOURCE_PASSWORD: ${CREDIT_DB_PASSWORD:-credit_dev_password}
       SPRING_FLYWAY_ENABLED: "true"
-      PUBSUB_PROJECT_ID: ${PUBSUB_PROJECT_ID:-protean-vigil-509704-q4}
+      FOC_ENVIRONMENT: local
+      USER_SERVICE_MODE: http
+      CREDIT_PUBSUB_PUSH_MODE: emulator
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      PUBSUB_PROJECT_ID: demo-foc-local
       CREDIT_PUBSUB_PUSH_AUDIENCE: http://credit-service:8080
       CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-credit-push-local@demo-foc.iam.gserviceaccount.com
-      CREDIT_ORDER_COMPLETION_SUBSCRIPTION: ${CREDIT_ORDER_COMPLETION_SUBSCRIPTION:-credit-order-completion-dev-v1}
-      CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: ${CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION:-credit-open-order-refund-dev-v1}
+      CREDIT_ORDER_COMPLETION_SUBSCRIPTION: credit-order-completion-local-v1
+      CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: credit-open-order-refund-local-v1
     depends_on:
       <<: *backend-depends
       credit-postgres:
@@ -211,28 +242,33 @@ services:
       SPRING_DATASOURCE_USERNAME: ${ORDER_DB_USERNAME:-order_dev}
       SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:-order_dev_password}
       SPRING_FLYWAY_ENABLED: "true"
-      ORDER_PEERS_MODE: mock
+      ORDER_PEERS_MODE: http
+      SPRING_PROFILES_ACTIVE: prod
+      ORDER_USER_SERVICE_MODE: http
+      USER_SERVICE_MODE: http
+      USER_SERVICE_URL: http://user-service:8080
+      SUPPLIER_SERVICE_URL: http://supplier-service:8080
+      CREDIT_SERVICE_URL: http://credit-service:8080
       ORDER_COMMANDS_ENABLED: ${ORDER_COMMANDS_ENABLED:-true}
       ORDER_COMMAND_LEASE_SECONDS: ${ORDER_COMMAND_LEASE_SECONDS:-120}
       ORDER_COMMAND_RETRY_SECONDS: ${ORDER_COMMAND_RETRY_SECONDS:-15}
       ORDER_COMMAND_BATCH_SIZE: ${ORDER_COMMAND_BATCH_SIZE:-20}
       ORDER_PEER_CONNECT_TIMEOUT: ${ORDER_PEER_CONNECT_TIMEOUT:-3s}
       ORDER_PEER_READ_TIMEOUT: ${ORDER_PEER_READ_TIMEOUT:-5s}
-      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      FOC_ENVIRONMENT: local
       ORDER_LIFECYCLE_TOKEN: ${ORDER_LIFECYCLE_TOKEN:-local-lifecycle}
+      ORDER_LIFECYCLE_EXTERNAL_ENABLED: "false"
       ORDER_LIFECYCLE_CRON: ${ORDER_LIFECYCLE_CRON:-0 * * * * *}
       ORDER_OUTBOX_RECOVERY_CRON: ${ORDER_OUTBOX_RECOVERY_CRON:-0 */15 * * * *}
-    volumes:
-      # Your gcloud application-default credentials, to publish to the real Pub/Sub dev topics.
-      # Optional: without them a placeholder is mounted, the stack still starts, and Order events
-      # stay in the outbox (logged as publish failures) instead of reaching Pub/Sub.
-      - type: bind
-        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:-./infra/local/adc-placeholder.json}
-        target: /var/run/secrets/google/application_default_credentials.json
-        read_only: true
     depends_on:
       <<: *backend-depends
       order-postgres:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+      user-service:
+        condition: service_healthy
+      supplier-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
