@@ -1,4 +1,5 @@
 schema_version = 1
+pending_card_recovery = "CHANGE-108 / ADR-038: source9f2e054/942b790; owner displayDetails/shared cards;373 backend/103 frontend pass; browser/rollout/strict gates open"
 expiry_http_trigger = "CHANGE-107 / ARCH-EVO-043: retired; scheduler-only expiry; all repost routes retained"
 manual_repost_recovery = "ADR-037 / CHANGE-106: implemented, source2c021b6; 367 backend/90 frontend; consuming rollout blocked by Docker engine500; strict gate pending"
 manual_repost_migration = "V8__durable_manual_repost.sql"

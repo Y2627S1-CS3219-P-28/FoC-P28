@@ -1,6 +1,34 @@
 # Vincent - Active Work
 
-## CHANGE-108 pending-card proposal — 2026-10-11, awaiting detailed approval
+## CHANGE-108 pending-card implementation — 2026-10-11, [~]
+
+- Vincent approves full option2 response/UI/access projection. ADR-038 records
+  effective class/sequence/contract. Implemented Order projection and shared
+  frontend discovery/cards/summaries with same-key Continue and conditional
+  terminal browser-key cleanup. Source commits: backend 9f2e054; frontend 942b790.
+- TDD: three backend projection failures before implementation; frontend module
+  RED followed by meaningful history-hook and conditional-cleanup RED assertions,
+  then GREEN. Intermediate repost-label/AbortSignal fixture errors were corrected,
+  not bypassed. Final Java21 offline Maven verify:373 tests,0 failures/errors/skips;
+  includes saved PostgreSQL projection and16 actual Credit HTTP/emulator tests.
+  User/Supplier in that harness remain fixtures, not live all-peer verification.
+  JaCoCo report95.37% lines/80.27% branches; coverage gate passes. Four older XML
+  report files excluded from current execution totals. Surefire reported a fork
+  shutdown timeout after tests; Maven still exited0 with BUILD SUCCESS.
+- Final frontend:103 tests/26 files pass,0 unhandled errors; lint0 errors/three
+  pre-existing login warnings; typecheck and production build pass. Next reports
+  ignored external user-home package-lock warning; configuration unchanged.
+- Approval/context/ADR/class/sequence/contracts/traceability/evolution/sprint/
+  disclosure synchronized. Existing learning/order-frontend-integration.md updated
+  locally (ignored policy retained). Peers/schema/financial/events/config unchanged;
+  unrelated untracked D3-preparation-answers.md untouched.
+- Remaining: authenticated storage-clear/Continue/browser viewport320–1920 and
+  ADMIN/USER mode smoke, local consuming container rebuild and cloud rollout;
+  existing strict workflow-format/manifest/human gates remain. Sprint and slice[~],
+  not a full-stack completion claim. Next: rebuild Order/frontend using existing
+  local emulator configuration and exercise stored pending cards after site reset.
+
+### Historical proposal checkpoint (superseded by approval/implementation above)
 
 - Started/finished actual backend/frontend inspection, matching branch/profile/
   allocation; no source drift in D1/Overall fingerprints. Shared frontend clean;

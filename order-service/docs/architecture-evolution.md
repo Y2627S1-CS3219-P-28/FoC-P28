@@ -2,14 +2,18 @@
 
 ## ARCH-EVO-044 — Pending commands attached to live cards (CHANGE-108)
 
-PROPOSED 2026-10-11; current rule remains ADR-033/035/037 local intent plus separate
+APPROVED by Vincent 2026-10-11, "Yes I agree proceed"; ADR-038 supersedes local-only
+card restoration. Historical proposal: ADR-033/035/037 local intent plus separate
 server-discovery panel. Vincent requests recovered accept/abort on proper cards,
 creation/repost as detail summaries. Actual command response lacks pending fields;
 normal GET cannot always authorize a pending courier after deadline. Recommend an
 owner-only safe display projection and shared discovery binding; no general read
 permission relaxation or Credit contract change. Detailed additive response/access
-approval pending. Alternatives/tests/scope: changes/CHANGE-108-pending-order-card-recovery-proposal.md.
-No application or implementation-test change authorized by this proposal record.
+approval received. Alternatives/tests/scope: changes/CHANGE-108-pending-order-card-recovery-proposal.md.
+Implemented source9f2e054/942b790,373 backend/103 frontend tests pass. Conditional
+browser cleanup before terminal refresh protects newer actions; history never
+mounts live command hook. Browser/rollout/strict gates[~]. Order/frontend only,
+no Credit/general read/schema changes. Verification: CHANGE-108.
 
 ## ARCH-EVO-043 — Retire unused expiry HTTP trigger (CHANGE-107)
 

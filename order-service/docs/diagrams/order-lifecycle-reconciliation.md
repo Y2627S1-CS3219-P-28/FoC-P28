@@ -1,5 +1,17 @@
 # Attached Order flow: approved amendments and implementation gaps
 
+## Effective pending display extension — ADR-038
+
+Owned pending command responses include allow-listed displayDetails. The shared
+page/account discovery provider polls all pending pages every five visible
+seconds. Existing ACCEPT/ABORT targets show committed state plus Pending/Continue;
+CREATE/REPOST remain submitted-detail summaries. Never attach commands to ABORTED
+history, fabricate candidate Orders, or infer success from list disappearance.
+Read the known key's terminal result before clearing and refreshing normal lists.
+Resume is the same-key POST with current user token and no invented input/body.
+Class/sequence: [ADR-038](../decisions/ADR-038-server-discovered-pending-card-recovery.md).
+Credit payloads, locks, leases, unresolved guards and expiry rules are unchanged.
+
 ## Latest effective recovery flow — ADR-035/036/037
 
 The historical flow/table below preserves earlier gaps; it is superseded for

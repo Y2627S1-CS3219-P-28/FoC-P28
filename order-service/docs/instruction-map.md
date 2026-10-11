@@ -1,5 +1,10 @@
 # Instruction Map
 
+Current pending-display authority: [ADR-038](decisions/ADR-038-server-discovered-pending-card-recovery.md),
+CHANGE-108 and ARCH-EVO-044. Vincent approved owner-only command display details,
+shared discovery/card binding and separate creation/repost summaries. No schema,
+general read-access, Credit/financial/event/infrastructure change.
+
 Current manual-repost authority: CHANGE-106 / ADR-037, explicit Vincent approval.
 Its class/sequence/data diagrams and protocol supersede earlier manual deferrals
 only; automatic/delegation and peer source remain out of scope.

@@ -1,5 +1,14 @@
 # Order Service Requirements Traceability
 
+## CHANGE-108 / ADR-038 pending display recovery [~]
+
+| Effective requirement | Design -> implementation | Verification | Status |
+| --- | --- | --- | --- |
+| F1/F3/F4.1.1/F4.1.9/F11.2 + ADR-033/035 | ADR-038 safe display -> CommandView/OrderCommandService | Owner projection/source/expired-target/null tests; saved PostgreSQL discovery | Automated passed |
+| F2/F8/F9 + NFR2/NFR4 | Shared page/account discovery -> pending existing cards, no history binding | Storage loss, same-key resume, account isolation, dedup and real page filter/pagination tests | Automated passed; browser pending |
+| NTH4 + F10/F10.1.3 + ADR-037 | Frozen REPOST details separate; original EXPIRED form blocked | Submitted summaries, actual abort/repost controls, terminal confirmation and conditional key cleanup | Automated passed |
+| NFR3/4 | No new Credit payload, schema, general read permission or workflow handler |373 backend0skips/103 frontend, lint/typecheck/build/OpenAPI pass;95.37%line/80.27%branch | Browser/human/rollout/strict gates remain |
+
 CHANGE-107 / ARCH-EVO-043: F4.1.8/F10 expiry and NFR3/NFR4 -> retire only unused
 HTTP adapter -> OpenApiDocumentationTest proves no expiry operation/routing and
 retains all repost paths; OrderLifecycleSchedulerTest and expiry regressions

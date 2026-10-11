@@ -1,5 +1,10 @@
 # Approved Change Log
 
+CHANGE-108 (Vincent, 2026-10-11): approved ADR-038/ARCH-EVO-044 pending card recovery
+and owner-only command display projection. Source9f2e054/942b790;373 backend/103
+frontend pass; lint/typecheck/build pass; browser/rollout/strict gates[~].
+Credit, financial policy, schema and general read permissions unchanged.
+
 CHANGE-107 (2026-10-11, Vincent): approved ARCH-EVO-043 removal of the unused
 expiry HTTP trigger and OpenAPI/docs operation; direct minute expiry/refund and
 all repost-related routes retained. RED observed then 40 focused tests passed;

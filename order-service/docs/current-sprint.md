@@ -1,5 +1,11 @@
 # Active Sprint
 
+CHANGE-108 / ADR-038 is the approved display-only recovery extension: owned
+pending command details, shared discovery and existing-order pending cards;
+creation/repost summaries stay separate. Financial/peer/schema behavior unchanged.
+Source9f2e054/942b790 automated verified:373 backend/103 frontend tests pass,
+lint/typecheck/build pass. Browser/rollout/strict completion gates remain[~].
+
 CHANGE-107 retires only the unused expiry HTTP/Swagger operation. Scheduled
 expiry/refunds and every repost API remain; no Sprint scope expansion.
 

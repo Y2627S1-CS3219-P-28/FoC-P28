@@ -1,5 +1,9 @@
 # Overall Architecture
 
+ADR-038 / CHANGE-108 refines only owned command display and shared frontend
+recovery. No topology/broker/service ownership or financial boundary change.
+Server discovery restores pending ACCEPT/ABORT cards and CREATE/REPOST summaries.
+
 ADR-037 / CHANGE-106 adds manual repost to existing synchronous durable commands.
 No topology, broker, peer ownership or financial policy changes. Original/candidate
 identity and UI pending/Continue follow the approved Order-only vertical slice.

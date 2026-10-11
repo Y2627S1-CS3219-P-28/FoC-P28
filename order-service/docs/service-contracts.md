@@ -1,5 +1,13 @@
 # Service Contracts
 
+Effective ADR-038/CHANGE-108: owned CommandView adds nullable displayDetails with
+itemDescription, pickupSupplierId, deliverySupplierId, offeredCredits,
+deliveryTimeLimitMinutes, expiresAt; existing ACCEPT/ABORT also orderStatus/version.
+CREATE/REPOST use frozen input; no candidate Order card. Existing target projection
+is command-owner only, not a general Order-read grant. All routes/status/resume,
+Credit bodies/headers and event contracts unchanged. See ADR-038 for null/terminal
+and storage-loss semantics.
+
 ## Effective expiry API retirement — CHANGE-107
 
 Expiry is scheduler-only, called directly after command recovery and before

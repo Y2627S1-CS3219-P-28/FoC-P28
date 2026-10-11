@@ -1,5 +1,10 @@
 # Order Service Permanent Project Context
 
+CHANGE-108 / ADR-038 approved by Vincent 2026-10-11: owned pending displayDetails,
+shared discovery and existing accept/abort card recovery without IndexedDB;
+create/repost submitted-detail summaries. Source9f2e054/942b790;373 backend/103
+frontend tests pass, lint/typecheck/build pass. Browser/rollout/strict gates open[~].
+
 Effective CHANGE-107 / ARCH-EVO-043 (Vincent, 2026-10-11): unused expiry HTTP
 trigger removed from controller and OpenAPI. Minute scheduler/direct expiry and
 refunds unchanged. Retain every repost route; automatic peer work still deferred.

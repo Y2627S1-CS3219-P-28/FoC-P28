@@ -1,5 +1,12 @@
 # Order Service Architecture
 
+ADR-038 / CHANGE-108 adds an owner-only CommandView display projection and a
+shared frontend discovery provider. ACCEPT/ABORT show actual committed target
+details; CREATE/REPOST show immutable submitted details without fake Orders.
+Owned command checks precede projection, including after acceptance deadline.
+General Order read policy, provider APIs, data model and financial flow unchanged.
+Effective display class/sequence: decisions/ADR-038-server-discovered-pending-card-recovery.md.
+
 CHANGE-107 / ARCH-EVO-043 retires the unused expiry HTTP adapter only. The minute
 job still invokes recovery -> expiry -> completion directly; lifecycle workers,
 locks, transactions and refund publication are unchanged. All repost adapters stay.

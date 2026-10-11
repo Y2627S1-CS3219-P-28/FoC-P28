@@ -1,5 +1,9 @@
 # Order Service Work Allocation
 
+Vincent approves CHANGE-108 / ADR-038 on 2026-10-11: owner-safe command display
+projection and shared frontend discovery/card recovery, tests and records.
+This extends his existing Order/frontend recovery slice only; peers read-only.
+
 Vincent approves CHANGE-106 / ADR-037 on 2026-10-11: durable manual repost,
 V8 original/candidate separation, backend/companion frontend/tests and records.
 This supersedes manual-only deferral, not automatic/delegated credentials.
