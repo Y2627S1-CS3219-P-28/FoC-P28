@@ -152,10 +152,6 @@ deploy_service() {
   env_file=$(mktemp)
   render_env_file "$svc" "$env_file"
 
-  # Debug code
-  echo "Generated environment file for $svc:"
-  cat "$env_file"
-
   # Never fall back to the project's default identity: it is over-privileged and cannot
   # reach the service's own databases. scripts/ci/check-infra.sh catches this earlier.
   local sa="foc-$svc@$PROJECT_ID.iam.gserviceaccount.com"
