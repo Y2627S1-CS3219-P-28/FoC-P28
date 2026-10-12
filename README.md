@@ -120,11 +120,10 @@ cp .env.example .env        # optional: override ports / admin emails
 docker compose up --build
 ```
 
-No cloud credentials are needed to start the stack. The Order Service publishes its events
-to real Google Pub/Sub dev topics, which needs your gcloud application-default credentials
-(`gcloud auth application-default login`, then set `GOOGLE_APPLICATION_CREDENTIALS_HOST` in
-`.env`; see [order-service/README.md](order-service/README.md)). Without them the events stay in
-the Order Service's outbox, and everything else works.
+No cloud credentials are needed. Locally, the Order Service publishes its events to a **Pub/Sub
+emulator** (`pubsub-emulator`, topics and push subscriptions created by `pubsub-init`), which
+pushes them to the Credit Service, so the whole asynchronous Order -> Credit flow runs offline.
+The cloud environments use Google Cloud Pub/Sub.
 
 | URL | What |
 | --- | --- |
@@ -166,11 +165,11 @@ are pre-built images, used unmodified:
 | --- | --- | --- |
 | `eclipse-temurin:21-jdk`, `eclipse-temurin:21-jre` | [Docker Official Image](https://hub.docker.com/_/eclipse-temurin) (Eclipse Adoptium) | Build and runtime of the Spring Boot services |
 | `node:24-alpine`, `node:24-slim` | [Docker Official Image](https://hub.docker.com/_/node) (Node.js) | Frontend build and runtime; base of the Firebase emulator image |
-| `nginx:1.29-alpine`, `nginx:1.28-alpine` | [Docker Official Image](https://hub.docker.com/_/nginx) (NGINX) | Gateway; local Pub/Sub push ingress (`compose.local-live.yaml`) |
+| `nginx:1.29-alpine` | [Docker Official Image](https://hub.docker.com/_/nginx) (NGINX) | Gateway |
 | `mongo:8` | [Docker Official Image](https://hub.docker.com/_/mongo) (MongoDB) | User Service database (local) |
 | `postgres:15-alpine` | [Docker Official Image](https://hub.docker.com/_/postgres) (PostgreSQL) | Order and Credit Service databases (local) |
-| `cloudflare/cloudflared:2025.9.1` | [Docker Hub](https://hub.docker.com/r/cloudflare/cloudflared) (Cloudflare) | Optional tunnel for local Pub/Sub push (`compose.local-live.yaml`) |
-| `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators` | [Google Cloud CLI](https://cloud.google.com/sdk/docs/downloads-docker) | Firestore emulator in integration tests (Testcontainers) |
+| `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators` (pinned by digest in compose) | [Google Cloud CLI](https://cloud.google.com/sdk/docs/downloads-docker) | Pub/Sub emulator (local); Firestore emulator in integration tests (Testcontainers) |
+| `python:3.12-alpine` | [Docker Official Image](https://hub.docker.com/_/python) (Python) | `pubsub-init`: creates the local Pub/Sub topics and subscriptions (`order-service/deploy/local-emulator/init.py`) |
 | `firebase-tools@15.31.0` (npm) | [Firebase CLI](https://github.com/firebase/firebase-tools) | Firebase Auth and Firestore emulators (`infra/firebase-emulator`) |
 
 ---
