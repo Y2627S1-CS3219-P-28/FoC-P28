@@ -1,5 +1,59 @@
 # Order Service Permanent Project Context
 
+## Effective Order layout correction - CHANGE-116
+
+User clarifies CHANGE-115: restore original Order card widths and two-column
+internal grid. Swap only Version/Item Description positions; keep requester
+above courier. Supplier changes remain. Remove unused custom grid/span options.
+No API/data/permission/provider change; prior wider layout is superseded.
+
+## Effective Admin layout adjustment - CHANGE-115
+
+Order Information spans the page: metadata first, then credits left and wider
+description right in the final row. People renders requester above courier
+independently of JSON key order. Supplier list overview map removed; detail map
+and creation picker retained. Status badge sits beside Location details, outside
+Admin actions. UI-only implementation detail; all contracts/guards unchanged.
+
+## Effective Admin maps/layout - CHANGE-114
+
+2026-10-12, Yao Xiang: Leaflet/OSM maps for current supplier page, selected detail
+and optional Admin creation; Photon address suggestions and drag/manual coordinate
+sync. Remove supplier-card deactivation only. Separate User fields; Order details
+grouped with a dedicated repost card and related-name navigation / separate ID
+copy. Same mocks/permissions and SupplierInput; no backend/schema/config changes.
+Public mapping adapter is anonymous and replaceable; manual fallback retained.
+Provider contract/limits: admin-peer-api-request.md; diagrams: ADR-039.
+
+## Effective dedicated Admin details - CHANGE-113
+
+Orders/Suppliers now use full detail pages. User/Supplier actions sit below the
+heading, before details/history. Existing adapter sends exact-ID sample Order
+query page1/size1; Supplier GET by ID unchanged. No new endpoint/backend/schema/
+config or provider changes. CHANGE-113 records this approved UI-only refinement.
+
+## Effective Admin refinement - CHANGE-112
+
+User-approved 2026-10-11, Yao Xiang on order-service/admin-dashboard. Full
+Users-tab profile/credit history; separate Order columns with related-record
+links to Admin detail routes; normal supplier badges; equal-height controls;
+header mode switch only. Same local mock milestone/gate as ADR-039. New local
+GET users/{id}/transactions matches Credit history wire fields. Real admin
+other-user history is missing (ADMIN-API-006). No peer/auth/schema/config change.
+Verification and limits: changes/CHANGE-112-admin-ui-profile-navigation.md.
+
+## Admin UI prototype - CHANGE-111 / ADR-039
+
+Yao Xiang confirms order-service/admin-dashboard on 2026-10-11 and requests
+Orders/Users/Suppliers Admin UI, mode switching and Order-owned sample APIs.
+Shared shell/navigation changes are authorized only for this slice. Existing
+normal/recovery UI and peer backend implementation remain unchanged.
+Sample APIs require explicit flag + local environment + Firebase emulator,
+including local prod-security Compose. No real DB/cloud/role/peer mutation.
+Dedicated frontend adapter enables later provider replacement without page
+changes or automatic sample fallback. Real gaps: admin-peer-api-request.md.
+This is a prototype, not completed NTH1 or verified real admin integration.
+
 CHANGE-110 (Vincent, 2026-10-11): source/test386f58f pauses individual command
 polling during initial submission/local Continue, with an active-ref stale
 callback guard. Frozen-key uncertainty/reload recovery and five-second polling

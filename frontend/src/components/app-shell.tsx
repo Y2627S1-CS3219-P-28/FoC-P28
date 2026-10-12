@@ -11,31 +11,23 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import { toast } from "sonner"
 import {
   CoinsIcon,
   LogOutIcon,
   MenuIcon,
   PackageIcon,
   RefreshCwIcon,
-  UserIcon,
 } from "lucide-react"
 
 import { useAuth } from "@/components/providers/auth-provider"
+import { AdminModeProvider, useAdminMode } from "@/components/admin/admin-mode-provider"
 import { useConfig } from "@/components/providers/config-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { POST_REQUEST_ITEM, SIDEBAR_NAV_ITEMS } from "@/config/navigation"
+import { ADMIN_NAV_ITEMS, POST_REQUEST_ITEM, SIDEBAR_NAV_ITEMS } from "@/config/navigation"
 import { useCreditBalance } from "@/hooks/use-credit-balance"
 import { cn } from "@/lib/utils"
 
@@ -103,10 +95,11 @@ function SidebarNavigation({
 }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
   const postRequestActive = isActive(POST_REQUEST_ITEM.href)
+  const adminMode = pathname === "/admin" || pathname.startsWith("/admin/")
 
   return (
     <nav className="flex flex-col gap-1 px-3 py-4" aria-label="Primary navigation">
-      {SIDEBAR_NAV_ITEMS.map((item) => (
+      {(adminMode ? ADMIN_NAV_ITEMS : SIDEBAR_NAV_ITEMS).map((item) => (
         <Link
           key={item.href}
           href={item.href}
@@ -121,7 +114,7 @@ function SidebarNavigation({
           {item.label}
         </Link>
       ))}
-      <div className="pt-3">
+      {!adminMode && <div className="pt-3">
         <Button
           nativeButton={false}
           render={<Link href={POST_REQUEST_ITEM.href} onClick={onNavigate} />}
@@ -131,7 +124,7 @@ function SidebarNavigation({
           <POST_REQUEST_ITEM.icon />
           {POST_REQUEST_ITEM.label}
         </Button>
-      </div>
+      </div>}
     </nav>
   )
 }
@@ -152,7 +145,7 @@ function SidebarPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border py-0 pl-4 pr-12 md:pr-4">
-        <Link href="/" onClick={onNavigate} className="flex items-center gap-2 font-semibold">
+        <Link href={pathname.startsWith("/admin") ? "/admin/orders" : "/"} onClick={onNavigate} className="flex items-center gap-2 font-semibold">
           <PackageIcon className="size-5" />
           <span>Friend on Campus</span>
         </Link>
@@ -161,7 +154,7 @@ function SidebarPanel({
       <SidebarNavigation pathname={pathname} onNavigate={onNavigate} />
 
       <div className="mt-auto p-4">
-        <CreditSummary {...credit} />
+        {!pathname.startsWith("/admin") && <CreditSummary {...credit} />}
       </div>
       <div className="flex flex-col gap-3 border-t border-sidebar-border p-4">
         <div className="min-w-0">
@@ -178,12 +171,18 @@ function SidebarPanel({
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return <AdminModeProvider><AppShellContent>{children}</AppShellContent></AdminModeProvider>
+}
+
+function AppShellContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth()
   const { environment } = useConfig()
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const credit = useCreditBalance()
+  const admin = useAdminMode()
+  const adminMode = pathname === "/admin" || pathname.startsWith("/admin/")
 
   async function handleSignOut() {
     setMobileOpen(false)
@@ -208,13 +207,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header
           className={cn(
             "sticky top-0 z-40 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70",
-            user && "md:hidden",
+            user && "md:block",
           )}
         >
           <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4">
             {user && (
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger render={<Button variant="ghost" size="icon" aria-label="Open menu" />}>
+                <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu" />}>
                   <MenuIcon />
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 gap-0 bg-sidebar p-0">
@@ -232,7 +231,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Sheet>
             )}
 
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Link href={adminMode ? "/admin/orders" : "/"} className="flex items-center gap-2 font-semibold">
               <PackageIcon className="size-5" />
               <span>FoC</span>
             </Link>
@@ -242,24 +241,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Badge>
             )}
 
-            <div className="ml-auto">
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Account menu" />}>
-                    <UserIcon />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => void handleSignOut()}>
-                      <LogOutIcon />
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
+            <div className="ml-auto flex items-center gap-2">
+              {user && <Button size="sm" variant="outline" disabled={admin.checking}
+                onClick={() => {
+                  if (adminMode) admin.leave()
+                  else void admin.enter().then((allowed) => { if (!allowed) toast.error("Admin access is unavailable. Check that the local demo is running.") })
+                }}>
+                {admin.checking ? "Checking…" : adminMode ? "Normal Mode" : "Admin Mode"}
+              </Button>}
+              {!user && (
                 pathname !== "/login" && (
                   <Button nativeButton={false} render={<Link href="/login" />} size="sm">
                     Sign in

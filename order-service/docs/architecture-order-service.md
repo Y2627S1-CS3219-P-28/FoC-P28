@@ -1,5 +1,27 @@
 # Order Service Architecture
 
+CHANGE-114 adds no Order backend component: frontend maps use existing sample
+supplier coordinates and create payload; Order detail grouping uses existing
+responses, preserving all returned fields. Public map reads are isolated from
+authenticated mock service reads/writes. Backend repositories/jobs unchanged.
+
+CHANGE-113 is frontend-only: AdminOrderDetails and AdminSupplierDetails render
+dedicated pages, using existing Order-owned sample reads. Existing Order query
+filters by exact ID before paging; adapter uses page1/size1 and rejects absent/
+mismatched records. Backend controllers/store/persistence are unchanged.
+
+CHANGE-112 refines ADR-039: selected-record routes independently load sample
+profiles/locations; AdminUserProfile shares TransactionHistoryView presentation
+with normal Profile, but uses the Order mock history loader. Existing normal
+GET /credits/me/transactions and all lifecycle/outbox logic are unchanged.
+The sample store owns fixture transaction pages; no Credit database access.
+
+ADR-039 / CHANGE-111: AdminMockController -> synchronized AdminMockService ->
+MapStruct response copies, requiring explicit local emulator configuration.
+Shared frontend admin pages -> semantic adapter -> sample HTTP routes.
+Domain persistence/recovery/lifecycle unchanged. ADR-039 contains class/sequence
+diagrams; admin-peer-api-request.md records the real-provider stopping point.
+
 ADR-038 / CHANGE-108 adds an owner-only CommandView display projection and a
 shared frontend discovery provider. ACCEPT/ABORT show actual committed target
 details; CREATE/REPOST show immutable submitted details without fake Orders.

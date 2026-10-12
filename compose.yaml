@@ -244,6 +244,8 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       ORDER_PEERS_MODE: http
       SPRING_PROFILES_ACTIVE: prod
+      # Sample Admin UI endpoints require local environment and Firebase emulator.
+      ORDER_ADMIN_MOCK_ENABLED: ${ORDER_ADMIN_MOCK_ENABLED:-true}
       ORDER_USER_SERVICE_MODE: http
       USER_SERVICE_MODE: http
       USER_SERVICE_URL: http://user-service:8080

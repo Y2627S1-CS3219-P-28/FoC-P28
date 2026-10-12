@@ -1,5 +1,24 @@
 # Order Service Work Allocation
 
+## Yao Xiang Admin UI prototype extension - 2026-10-11
+
+CHANGE-114 is the same user's 2026-10-12 map/layout continuation. Shared frontend
+dependencies/map components and optional SupplierForm mode are approved by the
+specific map request; normal supplier/backend owner behavior remains unchanged.
+
+CHANGE-113 is the user's UI-only continuation: dedicated Order/Supplier pages
+and upward action placement. Same developer/branch; no backend write expansion.
+
+The same user explicitly authorizes CHANGE-112 presentation/navigation and
+Order-owned mock history refinements. Existing Profile history presentation may
+be shared while its current-user data loader/authorization remain unchanged.
+
+Yao Xiang explicitly confirms order-service/admin-dashboard and requests the
+complete mock Admin UI in CHANGE-111, including coordinated shared shell,
+navigation and admin-mode provider changes. Only frontend and Order Service
+implementation are authorized; peers remain read-only. Vincent's recovery and
+other shared feature behavior must be preserved. No schema/cloud changes.
+
 Vincent authorizes CHANGE-110 on2026-10-11: narrow shared command-hook polling
 race fix/tests/records under his existing recovery allocation. No peer/backend,
 API/schema/config changes; no ownership reassignment. Source386f58f verified.

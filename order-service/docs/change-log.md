@@ -1,5 +1,45 @@
 # Approved Change Log
 
+CHANGE-116 (Yao Xiang, 2026-10-12): user's clarification reverts115's Order
+full-width/three-column/span changes. Original card dimensions/two-column grid
+with Version/Item Description swapped; requester before courier preserved.
+Supplier map/status changes remain; no backend/contract/data/config change.
+
+CHANGE-115 (Yao Xiang, 2026-10-12): Order metadata then credits/wide-description
+final row; requester before courier regardless of response key order. Remove only
+Supplier list overview map; status badge moves to Location details heading.
+Creation/detail maps and all business/API/backend behavior unchanged.
+
+CHANGE-114 (Yao Xiang, 2026-10-12): Admin supplier maps/address suggestions/
+draggable pins/manual sync; card deactivation removed; User columns separated;
+Order details grouped with repost card, linked names and distinct copy IDs.
+Frontend-only implementation/dependencies; existing mock API contracts reused.
+Provider boundaries/limits and verification recorded in CHANGE-114/ADR-039.
+
+CHANGE-113 (Yao Xiang, 2026-10-11, continued2026-10-12): dedicated Admin Order/
+Supplier detail pages and upward User/Supplier action placement. Existing mock
+exact-ID contracts, list functionality, guards and confirmations retained.
+Frontend-only source/tests; no new backend endpoint or schema/config change.
+
+CHANGE-112 (Yao Xiang, 2026-10-11): approved Admin prototype refinement: full
+user profile/shared history view, selected-record routes, supplier badges,
+aligned controls, individual Order columns/details and header mode switch only.
+Order-local sample transaction API; ADMIN-API-006 pending real Credit contract.
+Source/test verification is recorded in changes/CHANGE-112-admin-ui-profile-navigation.md.
+
+CHANGE-111 (Yao Xiang, 2026-10-11): user-approved local Admin UI prototype on
+order-service/admin-dashboard. Shell mode navigation, guarded three pages,
+semantic adapter and Order-only sample HTTP store/DTOs/mapper. Explicit local
+emulator gate preserves prod-security Compose and excludes cloud. Existing
+providers/gaps documented in admin-peer-api-request.md. No real peer/account/
+credit/Order/schema/cloud mutation; test evidence in change record. Real
+administrative integration and overall Sprint completion remain [~].
+
+CHANGE-111 verification:379 Order tests/full coverage gate; final10 API/OpenAPI;
+146 frontend tests/typecheck/build, lint0errors/3 pre-existing warnings. Changed
+Docker images built; local stack healthy, three admin routes200 and sample API
+unauthenticated401. Real peer administration and visual browser check pending.
+
 CHANGE-110 (Vincent, 2026-10-11): approved command polling race correction under
 ADR-033/035/037/038; source/test386f58f. Pause individual status reads during
 initial submission/local Continue; preserve frozen-key unknown-outcome recovery.

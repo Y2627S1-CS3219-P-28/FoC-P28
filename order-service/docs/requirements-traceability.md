@@ -1,5 +1,57 @@
 # Order Service Requirements Traceability
 
+CHANGE-116 is the effective clarification of CHANGE-115's Order UI amendment:
+original card widths/two columns, Version/Item Description swapped and requester
+above courier. Existing regression now checks the ordinary grid and no wide span.
+Supplier placement/map assertions remain; no requirement/API scope expansion.
+
+## CHANGE-115 Admin presentation clarification [~]
+
+User's explicit follow-up under the same Admin amendment/NFR2.1/NFR3: metadata
+then credits/wide description; requester above courier; no list overview map;
+status in Location details. Regressions check reordered response keys, field
+order/span and status/map placement. Detail/creation maps and confirmations stay.
+
+## CHANGE-114 Admin map/layout amendment [~]
+
+| User-approved behavior / existing requirements | Implementation | Evidence |
+| --- | --- | --- |
+| Maps/pins/suggestions/drag/manual coordinates; NTH1-supporting mock Admin scope | LocationMap/LeafletMap/AddressSearch/map-provider; optional SupplierForm mode | Real Leaflet synthetic drag/lifecycle, GeoJSON/anonymous request/race/error/form sync tests |
+| Detail-only confirmed Supplier deactivation; NFR4 retained | AdminSupplierDetails existing action; removed card control | Confirmation/error/inactive regressions; cards still navigate |
+| Grouped complete Order details, name navigation and separate IDs | Logical cards including Repost/Other, RecordLink + CopyId | Repost/unknown-field completeness and exact User/Supplier route assertions |
+| Separate User columns; NFR2.1/NFR3 | Horizontally scrollable single-field columns | Header/cell regressions; typecheck/lint/build; visual review pending |
+
+No actual backend integration completion is claimed. Maps depend on external
+public providers; service data/actions retain the approved local mock milestone.
+
+## CHANGE-113 dedicated Admin pages [~]
+
+User-approved continuation of NTH1-supporting Admin prototype. Dedicated Order/
+Supplier routes show the selected complete record; existing User/Supplier actions
+appear before details/history. Existing page/ID/status search remains. Regression
+tests check actual route links, exact-ID requests, full detail rendering, back/
+retry controls, action ordering and confirmed deactivation. NFR2.1/NFR3/NFR4
+remain applicable; browser verification/real provider integration remain pending.
+
+## CHANGE-112 Admin profile/navigation refinement [~]
+
+| Effective approved amendment / existing requirement | Implementation | Evidence |
+| --- | --- | --- |
+| User's Admin UI refinements; existing NTH1 prototype | Selected Admin routes, full profile, copy UID and existing actions | Deep-link/off-page/late-response tests; provider integration remains pending |
+| Existing Profile credit history, admin-selected sample user | Shared TransactionHistoryView; separate mock history loader/DTO | Paging/identity/failure-isolation UI tests and mock wire-contract tests |
+| NFR2.1 responsive web, NFR3 regression | Equal-height wrapping controls, separate scrollable Order columns, SupplierBadges | Typecheck/lint/build/tests; authenticated visual check still required |
+| NFR4 security and approved mock gate | Existing AdminGate and local condition retained; ADMIN-API-006 | Existing role/gate regressions; no impersonation or sibling service writes |
+
+## CHANGE-111 Admin UI prototype [~]
+
+| Effective requirement | Implementation | Verification |
+| --- | --- | --- |
+| User-approved admin mock amendment; NTH1 support | AppShell switch, guarded admin routes/three pages, dedicated adapter | Permission/identity/navigation tests; real NTH1 integration not claimed |
+| All statuses/latest/paging/ID search; existing ADR-012 | AdminOrders, sample query, all response fields/details, names/copy controls | Backend search/page/latest contract and UI status/page/copy tests |
+| Sample user profile/suspend/promote/confirmed deactivate | AdminUsers, future UTC end instant, sample store | Profile/mutation/validation/confirmation tests; real peer APIs pending |
+| Sample suppliers; existing Supplier F6 support | AdminSuppliers, reused SupplierForm and DTO wire fields | Search/create/deactivation tests; real Supplier APIs already exist |
+| NFR2.1 responsive web, NFR3 regression, NFR4 security | Shared sidebar/mobile sheet/primitives; local-only backend gate | Tests/lint/typecheck/build/condition checks; browser evidence in CHANGE-111 |
+
 ## CHANGE-110 command submission polling [~]
 
 | Effective requirement | Existing design -> implementation | Verification |

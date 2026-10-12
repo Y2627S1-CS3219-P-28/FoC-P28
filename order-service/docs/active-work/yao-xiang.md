@@ -1,5 +1,103 @@
 # Yao Xiang - Sprint 1 Active Work
 
+## Current task - CHANGE-116 internal row correction (2026-10-12)
+
+- Same confirmed developer/branch; workflow/context reloaded; PDFs unchanged.
+- User clarifies only internal field swapping, not card resizing. Restore normal
+  Order card/grid layout, keep version/description swap and requester-first People.
+- Supplier changes/backend/API/config unchanged. Existing regression observed RED
+  then all175 frontend tests pass; typecheck/build pass; lint0errors/3 existing
+  warnings. Only frontend recreated/healthy, Order detail200, Order unchanged/
+  healthy; patch check passes. No scope expansion, volume removal or commit/push.
+- Authenticated visual confirmation pending; backend checks not rerun for this
+  frontend-only correction. No API/models/diagrams/workflows/config change.
+
+## Current task - CHANGE-115 Admin detail layout (2026-10-12)
+
+- Same identity/branch. UI-only explicit user request and implementation detail.
+- Design recorded in CHANGE-115: metadata then credits/description final row;
+  requester before courier; no list map; supplier status beside Location details.
+- Delivered requested layout; previous mock/picker/backend behavior preserved.
+- Verification:175 frontend tests, typecheck and lint0errors/3 existing warnings;
+  production frontend build passes, only frontend recreated/healthy, Order and
+  Supplier detail routes200. Existing Order unchanged/healthy; patch check passes.
+  Three initial RED regressions. No volumes removed or Git commit/push.
+- No API/schema/auth/config or peer-source changes; browser visual review remains
+  pending. No backend tests rerun for the narrow frontend-only adjustment.
+
+## Current task - CHANGE-114 Admin maps/layout (2026-10-12)
+
+- Same confirmed identity/branch. User-approved map and layout refinements;
+  design in CHANGE-114. Frontend implementation and Order docs only.
+- Preserve existing mocks, permissions, normal SupplierForm behavior and peers.
+- Delivered: map/address picker, supplier detail-only deactivation, separated
+  User columns and grouped linked Order details, preserving all returned fields.
+- Verification:173 frontend tests pass plus final28 Admin regressions; native
+  TypeScript, production frontend build and lint0errors/3 existing warnings.
+  Leaflet synthetic drag/popup/cleanup and provider/form/race tests pass. Generic
+  Photon NUS query/CORS and one OSM tile smoke succeed. Only frontend recreated;
+  healthy, Admin routes200. Order container/peer source/DB volumes unchanged.
+- Remaining: no browser connected for authenticated visual confirmation; public
+  map-provider availability is not guaranteed and real Admin peers stay pending.
+  Backend tests not rerun for frontend-only changes. No Git staging/commit/push.
+
+## Current task - CHANGE-113 dedicated Admin details (2026-10-11)
+
+- Same confirmed identity/branch. Approved existing mock frontend scope.
+- Design in CHANGE-113: full Order/Supplier routes, actions near heading;
+  reuse existing exact-ID queries and preserve permissions/confirmations.
+- Delivered: dedicated Order/Supplier pages and near-heading User/Supplier
+  actions. Existing ID reads, list filters, guards and confirmations retained.
+- Verification:160 frontend tests pass; typecheck and production frontend image
+  build pass; lint0errors/3 existing warnings. Five observed RED regressions
+  before implementation. Only frontend recreated; healthy. Both dedicated routes
+  serve200 through gateway. Existing Order container stayed running/healthy.
+- Backend peers, actual Order lifecycle, API contracts, schema, cloud and config
+  unchanged. Backend checks not rerun for UI-only refinement. Mock integration
+  and authenticated responsive visual review remain pending; no Git commit/push.
+
+## Current task - CHANGE-112 Admin UI refinement (2026-10-11)
+
+- Same confirmed developer/branch; frontend and Order mock APIs only.
+- User-approved design recorded in CHANGE-112. Existing CHANGE-111 changes
+  preserved. Backend peers inspected read-only; Credit admin history missing.
+- Delivered: aligned controls, header mode button, SupplierBadges, full user
+  profiles/history and selected-record routes from the Orders table.
+- Verification:154 frontend tests, typecheck, lint0errors/3 existing warnings,
+  production Docker build;380 Order tests/coverage pass plus11 focused contracts.
+  Regression assertions observed RED before implementation. Normal Profile
+  history retains its caller-specific loader. Both changed images rebuilt and
+  only frontend/Order containers recreated. Both healthy; selected-user/location
+  routes return200 through gateway, mock history returns401 without a token and
+  its new operation appears in runtime OpenAPI. Patch whitespace check passes.
+- No schema, actual peer, authentication or config change. Missing Credit
+  other-user history documented as ADMIN-API-006. Browser visual checking remains
+  pending; mock integration is not actual admin integration.
+
+## Current task - CHANGE-111 Admin UI mock prototype (2026-10-11)
+
+- Identity/branch confirmed: Yao Xiang, order-service/admin-dashboard.
+- Request/design: changes/CHANGE-111-admin-ui-mock-prototype.md. User explicitly
+  authorizes frontend mode/navigation and Order-local mock endpoints only.
+- Baseline: working tree clean; latest context includes Vincent recovery changes
+  through CHANGE-110. Preserve all those features and peer backend files.
+- Workflow/context: parent/Order/frontend instructions, spec workflow, required
+  context/ADR/sprint records and frontend baseline loaded. PDF fingerprints match
+  existing records. Actual User/Supplier/Credit controllers/DTOs inspected.
+- Implementation delivered: separate adapter, local-only sample store and mock
+  role check; Orders, Users and Suppliers pages with confirmations/forms.
+- Verified: 379 Order tests and coverage gates; final10 API/OpenAPI tests;146
+  frontend tests, TypeScript and build; lint0errors/3 existing login warnings.
+  Both changed Docker images built and local stack healthy. Three admin routes
+  serve200; mock API remains401 without authentication; runtime OpenAPI present.
+- Gate refinement: Compose uses prod security locally, so mocks require enabled
+  flag + local environment + Firebase emulator instead of a non-prod profile.
+  Only Order-owned Compose/env fields changed; cloud auth/settings unchanged.
+- Remaining: browser automation unavailable (empty browser inventory); manual
+  authenticated/responsive visual check. Real peer integration is outside the
+  prototype milestone; exact pending contracts are in admin-peer-api-request.md.
+  Sample updates reset on restart. No volumes removed or Git commits/pushes.
+
 ## Current request - explain authorization change scope (2026-10-08)
 
 - Request: explain error handling and why the central role-annotation change touched many files. Advisory review only; no code change requested.

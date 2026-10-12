@@ -85,7 +85,15 @@ function TransactionRows({ items }: { items: CreditTransaction[] }) {
 
 export function TransactionHistory() {
   const [page, setPage] = useState(1)
-  const { items, totalItems, totalPages, error, loading, refreshing, refresh } = useCreditTransactions(page)
+  const state = useCreditTransactions(page)
+  return <TransactionHistoryView {...state} page={page} onPage={setPage} />
+}
+
+/** Shared presentation: normal Profile and Admin use separate authorized data loaders. */
+export function TransactionHistoryView({ items, totalItems, totalPages, error, loading, refreshing, refresh, page, onPage }: {
+  items: CreditTransaction[]; totalItems: number; totalPages: number; error: boolean
+  loading: boolean; refreshing: boolean; refresh: () => void; page: number; onPage: (page: number) => void
+}) {
 
   return (
     <Card>
@@ -106,9 +114,9 @@ export function TransactionHistory() {
         ) : <TransactionRows items={items} />}
         {(totalPages > 1 || page > 1) && (
           <nav aria-label="Credit transaction pages" className="flex flex-wrap items-center justify-center gap-3 border-t pt-4">
-            <Button variant="outline" disabled={refreshing || page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</Button>
+            <Button variant="outline" disabled={refreshing || page <= 1} onClick={() => onPage(page - 1)}>Previous</Button>
             <span className="text-sm text-muted-foreground">Page {page} of {Math.max(1, totalPages)}</span>
-            <Button variant="outline" disabled={refreshing || page >= totalPages} onClick={() => setPage((current) => current + 1)}>Next</Button>
+            <Button variant="outline" disabled={refreshing || page >= totalPages} onClick={() => onPage(page + 1)}>Next</Button>
           </nav>
         )}
       </CardContent>

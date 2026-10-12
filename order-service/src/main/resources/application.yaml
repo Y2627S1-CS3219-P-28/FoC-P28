@@ -32,6 +32,8 @@ springdoc:
     path: /api/orders/docs
 
 order:
+  admin-mock:
+    enabled: ${ORDER_ADMIN_MOCK_ENABLED:false}
   security:
     auth:
       project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}

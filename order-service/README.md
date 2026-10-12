@@ -1,5 +1,57 @@
 # Order Service
 
+## Admin UI local prototype
+
+CHANGE-116 restores the original Order detail card sizes/two-column arrangement.
+Version and Item Description exchange positions, leaving description last;
+requester remains above courier. Supplier map/status changes from115 remain.
+
+CHANGE-115 removes the Supplier list overview map; maps remain in View Details
+and the create form. Supplier status is beside Location details, outside actions.
+Order Information has metadata first and credits/wider description in the final
+row; People shows requester before courier.
+
+CHANGE-114 adds supplier maps in the list/details and address suggestions with
+a draggable pin in Admin creation. You can still type coordinates manually.
+Pins link to Google Maps. Deactivation is in View Details only. User columns
+are separate; Order details have logical cards, including repost information,
+and related names navigate while separate ID controls copy.
+Maps use Leaflet/OSM/Photon and require internet, without an API key. Public
+providers may be unavailable; coordinate entry and Google Maps links remain.
+No backend contract changed; see admin-peer-api-request.md for provider limits.
+
+CHANGE-113: **View** opens full Order/Supplier detail pages. User and Supplier
+admin actions are below the heading, above details/history. Existing mock APIs
+are reused; Order detail is read-only. Back buttons return to the relevant tab.
+
+CHANGE-112 refines this prototype: Orders names open selected Admin users or
+locations directly; Users now has a full profile with copyable UID, balances,
+sample transaction history and the existing admin actions. Suppliers reuse
+normal open/closed/inactive badges. Search controls align; the header has only
+the mode switch. Order description remains available through View details.
+The sample history endpoint is local-only; ADMIN-API-006 documents the actual
+Credit Service admin history needed for future integration.
+
+CHANGE-111 adds a top-right **Admin Mode** button and Orders, Users and Suppliers
+tabs. Sign in with an existing local user and click Admin Mode; a sample role
+lookup permits the demo without a real admin account. Normal Mode returns to the
+existing user tabs. These pages always use sample data for now.
+
+Rebuild only the changed images from the project root:
+
+~~~powershell
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build order-service frontend
+~~~
+
+Use the existing gateway at http://localhost:8080 and refresh the page.
+The sample API requires ORDER_ADMIN_MOCK_ENABLED=true (local Compose default),
+FOC_ENVIRONMENT=local and FIREBASE_AUTH_EMULATOR_HOST. Cloud defaults exclude
+these mocks. Real endpoint authentication is unchanged. Demo updates reset on
+Order restart; no real database, account, role, supplier or credit mutations.
+See [peer API requests](docs/admin-peer-api-request.md),
+[design](docs/decisions/ADR-039-admin-ui-local-mock-prototype.md) and
+[verification](changes/CHANGE-111-admin-ui-mock-prototype.md).
+
 CHANGE-107: expiry runs directly inside the minute lifecycle scheduler; there is
 no expiry HTTP trigger or Swagger operation. All repost routes are retained.
 

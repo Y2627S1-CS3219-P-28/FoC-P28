@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { LocateIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -10,6 +10,9 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiError } from "@/lib/api"
+import { AddressSearch } from "@/components/maps/address-search"
+import { LocationMap } from "@/components/maps/location-map"
+import { coordinates, type AddressResult, type MapPoint } from "@/lib/map-provider"
 import type { SupplierInput } from "@/lib/suppliers"
 
 type Values = Record<keyof SupplierInput, string>
@@ -70,12 +73,14 @@ export function SupplierForm({
   submitLabel,
   onSubmit,
   onCancel,
+  locationPicker = false,
 }: {
   initial?: SupplierInput
   types: string[]
   submitLabel: string
   onSubmit: (input: SupplierInput) => Promise<void>
   onCancel: () => void
+  locationPicker?: boolean
 }) {
   const [values, setValues] = useState<Values>(
     initial
@@ -85,6 +90,13 @@ export function SupplierForm({
   const [errors, setErrors] = useState<Errors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null)
+  const point = coordinates(values.latitude, values.longitude)
+  const movePin = useCallback((location: MapPoint) => {
+    setValues((current) => ({ ...current, latitude: location.latitude.toFixed(6), longitude: location.longitude.toFixed(6) }))
+    setErrors((current) => ({ ...current, latitude: undefined, longitude: undefined }))
+  }, [])
+  const pinAdjusted = selectedAddress && point && (Math.abs(selectedAddress.latitude - point.latitude) > 0.000001 || Math.abs(selectedAddress.longitude - point.longitude) > 0.000001)
 
   const set = (field: keyof Values) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = event.target.value
@@ -168,6 +180,19 @@ export function SupplierForm({
             {errors.locationDescription && <FieldError>{errors.locationDescription}</FieldError>}
           </Field>
         </div>
+        {locationPicker && <div className="space-y-4 rounded-xl border p-4">
+          <AddressSearch disabled={submitting} onSelect={(address) => {
+            setSelectedAddress(address)
+            movePin(address)
+            setValues((current) => ({ ...current, locationDescription: current.locationDescription || address.label.slice(0, 200) }))
+          }} />
+          {selectedAddress && <div className="space-y-1 text-sm">
+            <p className="font-medium">Selected address</p><p>{selectedAddress.label}</p>
+            {pinAdjusted && <p className="text-xs text-muted-foreground">Pin adjusted from this address. The coordinates below specify the exact position.</p>}
+          </div>}
+          <LocationMap label="Select supplier location" pins={point ? [{ ...point, id: "selected", name: "selected location" }] : []}
+            editable disabled={submitting} onMove={movePin} />
+        </div>}
         <div className="grid gap-5 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
           {field("latitude", "Latitude", { inputMode: "decimal", required: true })}
           {field("longitude", "Longitude", { inputMode: "decimal", required: true })}
