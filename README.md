@@ -42,15 +42,23 @@ flowchart LR
   gateway -- "/api/credits" --> credit[credit-service]
   gateway -- "/api/admin" --> admin[admin-service]
   browser -. "sign in" .-> auth[(Firebase Auth)]
+  order -- "HTTP: roles" --> user
+  order -- "HTTP: validate pickup/delivery" --> supplier
+  order -- "HTTP: reserve, assign courier" --> credit
+  order -. "events via Pub/Sub: refund, completion" .-> credit
   supplier --> sdb[(Firestore<br/>supplier-*)]
-  order --> odb[(Firestore<br/>order-*)]
-  credit --> cdb[(Firestore<br/>credit-*)]
-  user --> udb[(MongoDB Atlas<br/>user-*)]
+  order --> odb[(PostgreSQL<br/>Cloud SQL order_*)]
+  credit --> cdb[(PostgreSQL<br/>Cloud SQL credit_*)]
+  user --> udb[(MongoDB Atlas)]
 ```
 
 - **Microservices**: each backend service is an independent Spring Boot app with its own
-  Firestore or MongoDB Atlas database (database-per-service). Services never read another service's data
-  directly; they call its API.
+  database, chosen per service (database-per-service): Firestore for the read-heavy supplier
+  catalogue, PostgreSQL on Cloud SQL for Order and Credit (transactions, row locks and constraints
+  for order state and money), MongoDB Atlas for user profiles. Services never read another
+  service's data directly; they call its API or consume its events.
+- **Network**: only the gateway is public. Every other Cloud Run service has internal ingress and
+  is reached over a VPC (see [docs/ci-cd.md](docs/ci-cd.md)).
 - **Frontend**: a single Next.js app that only renders UI and calls the services' APIs.
 - **Gateway**: nginx serves the UI and routes `/api/<service>` to each service, so the
   browser talks to one origin.
@@ -62,11 +70,12 @@ flowchart LR
 | Layer | Technology |
 | --- | --- |
 | Backend services | Java 21, Spring Boot 4.1.1 (Web MVC, Security OAuth2 Resource Server, Validation, Actuator), Maven wrapper |
-| Data | Google Cloud Firestore (one database per service per environment), MongoDB Atlas |
+| Data | Firestore (Supplier), PostgreSQL on Cloud SQL with Flyway (Order, Credit), MongoDB Atlas (User); one database per service per environment |
+| Messaging | Google Cloud Pub/Sub (cloud), Pub/Sub emulator (local) |
 | Auth | Firebase Authentication (ID tokens verified by each service) |
 | Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS 4, shadcn/ui |
 | Gateway | nginx |
-| Testing | JUnit 5, Spring Boot Test, Testcontainers (Firestore emulator), JaCoCo (≥ 80% line + branch) |
+| Testing | JUnit 5, Spring Boot Test, Testcontainers (Firestore emulator, PostgreSQL, Pub/Sub emulator), JaCoCo (≥ 80% line + branch) |
 | Containers | Docker, Docker Compose |
 | CI/CD & cloud | GitHub Actions, Google Cloud Run, Artifact Registry, Workload Identity Federation |
 

@@ -142,8 +142,11 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 ## 8. Data
 
-- Firestore, one database per service per environment: `<name>-local`, `<name>-staging`,
-  `<name>-production`. Each service's runtime identity can only access its own databases.
+- One database per service per environment, and each service's runtime identity can only access
+  its own. The default is Firestore (`<name>-local`, `<name>-staging`, `<name>-production`). A
+  service may choose another store with a recorded decision: Order and Credit use PostgreSQL on
+  the shared Cloud SQL instance (separate databases, users and Secret Manager passwords;
+  order-service ADR-008), and the User Service uses MongoDB Atlas (`user-mongodb-uri-<env>` secret).
 - There's no list to edit. A service whose `pom.xml` depends on `google-cloud-firestore` is
   detected automatically (`scripts/ci/list-services.sh --firestore`).
 - CI's **Cloud infrastructure** check fails your PR until the service's identity, databases
