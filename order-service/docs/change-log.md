@@ -1,5 +1,77 @@
 # Approved Change Log
 
+CHANGE-125 (Yao Xiang, 2026-10-13): central Admin font/theme scope matches shared
+Geist Sans, regular14px data/badges/IDs and semantic colours. Headings/helper
+hierarchy retained; missing balance text muted14px; map popups use shared theme.
+Shared normal-profile implementation and backend/data/provider behaviour unchanged.
+
+CHANGE-124 (Yao Xiang, 2026-10-13): scoped Order table body to regular14px, including
+linked IDs/names, statuses and dates. Column headings remain distinct; all copy,
+navigation/ellipsis/filter behavior and other table/detail typography unchanged.
+
+CHANGE-123 (Yao Xiang, 2026-10-13): bound table Order ID width and use one-line
+ellipsis via optional CopyId compact mode. Full-ID copy/title/detail/navigation
+preserved; other ID displays and backend/config behavior unchanged.
+
+CHANGE-122 (Yao Xiang, 2026-10-13): explicitly approved shared Compose selection
+for Admin UI. Base pins mock, HTTP override live/demo-disabled; new request-time
+FOC_ADMIN_API_MODE, cloud live-only. Existing backend HTTP peers/emulators and
+partial119 integration remain. Verification recorded in122.
+
+CHANGE-121 (Yao Xiang, 2026-10-13): apply120's responsive Order search pattern to
+all Admin searches through shared form/action components. Users/Suppliers now
+match Orders: fields first, actions below on mobile; inline on larger screens.
+Single-UID live lookup uses the same wrappers. Existing behavior is preserved.
+
+CHANGE-120 (Yao Xiang, 2026-10-13): screenshot-driven mobile Order filter fix.
+Status and Order ID now share one responsive form/grid row, Search/Clear below
+on mobile and inline on desktop. Layout only; existing119 integrations retained.
+
+CHANGE-119 (Yao Xiang, 2026-10-13): explicit user-approved environment-aware Admin
+adapter. Local emulator keeps samples; outside local completed real providers
+are used, missing User/Credit features show Coming soon/disabled controls, no
+mock fallback or peer/backend/config changes. Tests first; verification in119.
+
+CHANGE-116 (Yao Xiang, 2026-10-12): user's clarification reverts115's Order
+full-width/three-column/span changes. Original card dimensions/two-column grid
+with Version/Item Description swapped; requester before courier preserved.
+Supplier map/status changes remain; no backend/contract/data/config change.
+
+CHANGE-115 (Yao Xiang, 2026-10-12): Order metadata then credits/wide-description
+final row; requester before courier regardless of response key order. Remove only
+Supplier list overview map; status badge moves to Location details heading.
+Creation/detail maps and all business/API/backend behavior unchanged.
+
+CHANGE-114 (Yao Xiang, 2026-10-12): Admin supplier maps/address suggestions/
+draggable pins/manual sync; card deactivation removed; User columns separated;
+Order details grouped with repost card, linked names and distinct copy IDs.
+Frontend-only implementation/dependencies; existing mock API contracts reused.
+Provider boundaries/limits and verification recorded in CHANGE-114/ADR-039.
+
+CHANGE-113 (Yao Xiang, 2026-10-11, continued2026-10-12): dedicated Admin Order/
+Supplier detail pages and upward User/Supplier action placement. Existing mock
+exact-ID contracts, list functionality, guards and confirmations retained.
+Frontend-only source/tests; no new backend endpoint or schema/config change.
+
+CHANGE-112 (Yao Xiang, 2026-10-11): approved Admin prototype refinement: full
+user profile/shared history view, selected-record routes, supplier badges,
+aligned controls, individual Order columns/details and header mode switch only.
+Order-local sample transaction API; ADMIN-API-006 pending real Credit contract.
+Source/test verification is recorded in changes/CHANGE-112-admin-ui-profile-navigation.md.
+
+CHANGE-111 (Yao Xiang, 2026-10-11): user-approved local Admin UI prototype on
+order-service/admin-dashboard. Shell mode navigation, guarded three pages,
+semantic adapter and Order-only sample HTTP store/DTOs/mapper. Explicit local
+emulator gate preserves prod-security Compose and excludes cloud. Existing
+providers/gaps documented in admin-peer-api-request.md. No real peer/account/
+credit/Order/schema/cloud mutation; test evidence in change record. Real
+administrative integration and overall Sprint completion remain [~].
+
+CHANGE-111 verification:379 Order tests/full coverage gate; final10 API/OpenAPI;
+146 frontend tests/typecheck/build, lint0errors/3 pre-existing warnings. Changed
+Docker images built; local stack healthy, three admin routes200 and sample API
+unauthenticated401. Real peer administration and visual browser check pending.
+
 CHANGE-110 (Vincent, 2026-10-11): approved command polling race correction under
 ADR-033/035/037/038; source/test386f58f. Pause individual status reads during
 initial submission/local Continue; preserve frozen-key unknown-outcome recovery.

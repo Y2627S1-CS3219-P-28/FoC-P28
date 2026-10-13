@@ -1,5 +1,123 @@
 # Order Service Requirements Traceability
 
+## CHANGE-125 Admin typography/theme consistency [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: same overall font/size/colour; NFR2.1 and shared style baseline | Central Admin layout policy, regular identifiers, semantic shared tokens; hierarchy and numeric metrics retained | Existing203 frontend regressions, typecheck/lint/build pass; authenticated visual/theme review pending |
+
+Normal-profile shared presenter source and data/contracts unchanged. Style guide
+records the approved Admin scope; no new CSS implementation-detail tests.
+
+## CHANGE-124 consistent Order table typography [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: consistent sizes and regular IDs; NFR2.1/UI baseline | Regular14px Order table body, scoped link weight and matching badge/date size | Existing34 Admin regressions, TypeScript/scoped lint/build pass; authenticated visual review pending |
+
+No API/data/interaction change or new CSS implementation-detail tests.
+
+## CHANGE-123 compact table Order IDs [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: truncate table IDs without losing full copy/detail; NFR2.1 | Optional CopyId compact mode only in Admin Order table; bounded width/ellipsis | Existing Admin copy/navigation/detail tests and typecheck/lint/build in123; authenticated visual check pending |
+
+Identifier values/search/API contracts unchanged. No CSS-class-only tests added.
+
+## CHANGE-122 Compose-selectable Admin providers [~]
+
+| Approved requirement / invariant | Implementation | Verification |
+|---|---|---|
+| User: base Compose mock UI, HTTP override actual local endpoints with staging-equivalent capabilities | FOC_ADMIN_API_MODE -> runtime public config -> existing Admin adapter; base/override mode flags | Config/mode/auth regression matrix and resolved Compose projection assertions |
+| NFR4 / authoritative role checks | Mock allowed only local+emulator+mock flag; cloud/invalid flags live; HTTP demo routes disabled | Non-admin local-live denial; cloud mock-flag rejection; no fallback/peer impersonation |
+| NFR3.1.3 / runtime contract | New variable in .env.example and README; request-time rather than built-in mode | RED then GREEN tests, frontend/typecheck/lint/build and Compose checks in122 |
+
+Existing119 provider matching/missing APIs and121 layouts retained; local real
+data differs from staging. Live authenticated rollout is not proven by these tests.
+
+## CHANGE-121 consistent Admin responsive searches [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User-requested consistent mobile controls; NFR2.1 | Shared AdminFilterForm/AdminFilterActions used by all Admin searches | Existing34 Admin tests, typecheck and scoped lint pass; production build recorded in121; actual mobile visual check pending |
+
+Existing search/reset/query handlers and provider contracts remain unchanged.
+
+## CHANGE-120 mobile Order filter alignment [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User-requested aligned fields; NFR2.1 responsive web | Single responsive AdminOrders form/grid, equal first-row fields and mobile action row | Existing34 Admin interaction tests and TypeScript/scoped lint pass; production build in CHANGE-120; browser visual check pending |
+
+Presentation-only implementation detail; existing API handlers and119 provider
+behavior unchanged. No CSS-class-only tests added for this reversible fix.
+
+## CHANGE-119 environment-aware Admin integration [~]
+
+| Approved requirement / invariant | Implementation | Evidence |
+|---|---|---|
+| Explicit user amendment: mocks locally, completed APIs outside local, unfinished sections/placeholders | Runtime useAdminApi; live/mock adapter capabilities; Coming soon cards and disabled User actions | Mode matrix, real route/method/search/404/error tests and unavailable-operation no-call assertions |
+| NFR4 / existing provider authorization | Real role-context with current UID/admin comparison; no mock fallback or credit impersonation | AdminGate role/identity/failure regressions and live non-admin denial |
+| NFR2.1 / existing Admin layouts/navigation | Reused wrapping controls/cards; UID summary lookup and linked details; labels independent of Order loading | UI no-call/placeholder/navigation/pending-label regressions; authenticated visual check pending |
+| NFR3.1.3 regression | Existing local prototype tests retained; additional live capability tests | Full frontend verification recorded in CHANGE-119 |
+
+Matching API contracts reused; ADMIN-API-001..006 remain incomplete. No claims of
+full NTH1/Admin integration or peer implementation completion; local demo and
+live capability verification are separate.
+
+CHANGE-116 is the effective clarification of CHANGE-115's Order UI amendment:
+original card widths/two columns, Version/Item Description swapped and requester
+above courier. Existing regression now checks the ordinary grid and no wide span.
+Supplier placement/map assertions remain; no requirement/API scope expansion.
+
+## CHANGE-115 Admin presentation clarification [~]
+
+User's explicit follow-up under the same Admin amendment/NFR2.1/NFR3: metadata
+then credits/wide description; requester above courier; no list overview map;
+status in Location details. Regressions check reordered response keys, field
+order/span and status/map placement. Detail/creation maps and confirmations stay.
+
+## CHANGE-114 Admin map/layout amendment [~]
+
+| User-approved behavior / existing requirements | Implementation | Evidence |
+| --- | --- | --- |
+| Maps/pins/suggestions/drag/manual coordinates; NTH1-supporting mock Admin scope | LocationMap/LeafletMap/AddressSearch/map-provider; optional SupplierForm mode | Real Leaflet synthetic drag/lifecycle, GeoJSON/anonymous request/race/error/form sync tests |
+| Detail-only confirmed Supplier deactivation; NFR4 retained | AdminSupplierDetails existing action; removed card control | Confirmation/error/inactive regressions; cards still navigate |
+| Grouped complete Order details, name navigation and separate IDs | Logical cards including Repost/Other, RecordLink + CopyId | Repost/unknown-field completeness and exact User/Supplier route assertions |
+| Separate User columns; NFR2.1/NFR3 | Horizontally scrollable single-field columns | Header/cell regressions; typecheck/lint/build; visual review pending |
+
+No actual backend integration completion is claimed. Maps depend on external
+public providers; service data/actions retain the approved local mock milestone.
+
+## CHANGE-113 dedicated Admin pages [~]
+
+User-approved continuation of NTH1-supporting Admin prototype. Dedicated Order/
+Supplier routes show the selected complete record; existing User/Supplier actions
+appear before details/history. Existing page/ID/status search remains. Regression
+tests check actual route links, exact-ID requests, full detail rendering, back/
+retry controls, action ordering and confirmed deactivation. NFR2.1/NFR3/NFR4
+remain applicable; browser verification/real provider integration remain pending.
+
+## CHANGE-112 Admin profile/navigation refinement [~]
+
+| Effective approved amendment / existing requirement | Implementation | Evidence |
+| --- | --- | --- |
+| User's Admin UI refinements; existing NTH1 prototype | Selected Admin routes, full profile, copy UID and existing actions | Deep-link/off-page/late-response tests; provider integration remains pending |
+| Existing Profile credit history, admin-selected sample user | Shared TransactionHistoryView; separate mock history loader/DTO | Paging/identity/failure-isolation UI tests and mock wire-contract tests |
+| NFR2.1 responsive web, NFR3 regression | Equal-height wrapping controls, separate scrollable Order columns, SupplierBadges | Typecheck/lint/build/tests; authenticated visual check still required |
+| NFR4 security and approved mock gate | Existing AdminGate and local condition retained; ADMIN-API-006 | Existing role/gate regressions; no impersonation or sibling service writes |
+
+## CHANGE-111 Admin UI prototype [~]
+
+| Effective requirement | Implementation | Verification |
+| --- | --- | --- |
+| User-approved admin mock amendment; NTH1 support | AppShell switch, guarded admin routes/three pages, dedicated adapter | Permission/identity/navigation tests; real NTH1 integration not claimed |
+| All statuses/latest/paging/ID search; existing ADR-012 | AdminOrders, sample query, all response fields/details, names/copy controls | Backend search/page/latest contract and UI status/page/copy tests |
+| Sample user profile/suspend/promote/confirmed deactivate | AdminUsers, future UTC end instant, sample store | Profile/mutation/validation/confirmation tests; real peer APIs pending |
+| Sample suppliers; existing Supplier F6 support | AdminSuppliers, reused SupplierForm and DTO wire fields | Search/create/deactivation tests; real Supplier APIs already exist |
+| NFR2.1 responsive web, NFR3 regression, NFR4 security | Shared sidebar/mobile sheet/primitives; local-only backend gate | Tests/lint/typecheck/build/condition checks; browser evidence in CHANGE-111 |
+
 ## CHANGE-110 command submission polling [~]
 
 | Effective requirement | Existing design -> implementation | Verification |

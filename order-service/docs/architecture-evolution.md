@@ -1,5 +1,78 @@
 # Order Service Architecture Evolution
 
+## Compose-selected Admin providers - CHANGE-122
+
+Explicit user-approved material refinement: environment alone cannot distinguish
+local sample UI from local HTTP integration UI. Add request-time public provider
+mode, pin base mock/override live, retain cloud live-only guard and disable demo
+controllers in HTTP override. Reuse119 adapter/capabilities and existing backend
+security. No peer API or data-model/schema change; browser-safe configuration
+adds one enum field. ADR-039 reflects the effective selection predicate.
+
+## Environment-selected Admin providers - CHANGE-119
+
+Explicit user-approved refinement to ADR-039: retain local emulator mock
+prototype and enable only matching real APIs outside local. Runtime adapter
+selection/capabilities centralize unfinished-feature gates; User/Credit absence
+is explicit rather than errors or synthetic data. Preserve layout, local backend
+conditions, backend authorization and existing contracts. Actual User summary
+supports UID navigation; private full profile/directory and User actions/Credit
+cross-user queries remain blocked. No backend/schema/infra change.
+
+## Corrected presentation interpretation - CHANGE-116
+
+User clarifies an internal field swap rather than resized cards. Supersede only
+115's full-width/three-column/description-span choice; restore ordinary card/grid
+sizes with description last and requester-first ordering. Remove unused shared
+grid options. No model/sequence/provider/API change; preserve all supplier edits.
+
+## Admin layout clarification - CHANGE-115
+
+User-approved implementation detail in ADR-039: use fixed field order and optional
+grid spans for metadata/credit/description and requester/courier rows; remove only
+list map and move supplier status out of actions. Existing components/sequences/
+data models/providers/contracts unchanged. Remove only the obsolete supplier-list
+map dependency from ADR-039's class diagram; no diagram redesign required.
+
+## Admin maps and detail grouping - CHANGE-114
+
+User-approved material UI/integration refinement within ADR-039. Introduces
+client-only Leaflet maps and an anonymous public address-provider adapter;
+service operations remain mocked through the gateway. Maps/address state share
+numeric coordinates and existing SupplierInput. Normal SupplierForm remains
+without maps unless opted in. Group Order facts without dropping unknown fields;
+related names navigate, IDs copy separately. No persistence/peer/auth/event change.
+Public provider limits/manual fallback and external-vs-mock boundary documented.
+
+## Dedicated Admin detail navigation - CHANGE-113
+
+Approved follow-up within ADR-039: replace Order/Supplier detail modals with
+dedicated routes and move existing User/Supplier actions upward. Classification:
+presentation/routing refinement; use existing exact-ID mock queries, not new
+provider APIs. Preserve read-only Orders and all confirmation/error guards.
+No data model, security, event, backend or infrastructure behavior change.
+
+## Approved Admin design refinement - CHANGE-112
+
+2026-10-11, Yao Xiang explicitly requests full user profiles/history, direct
+related-record navigation, consistent supplier status and aligned controls.
+Classification: material presentation/component refinement within ADR-039's
+approved local mock scope. Share only the transaction presenter: sharing its
+normal current-user loader would show the admin's history instead of the
+selected user's. Selected records load independently of list page membership.
+Mock transaction DTO/page and missing ADMIN-API-006 are documented; no schema,
+real peer, auth or infrastructure change. Diagrams updated in ADR-039.
+
+## User-approved mock milestone - CHANGE-111 / ADR-039
+
+2026-10-11, Yao Xiang confirms order-service/admin-dashboard and authorizes shared
+admin navigation and Order-owned sample APIs. This supersedes the previous
+no-dashboard boundary only for the local prototype. Other services and real
+integration stay read-only/pending. No migration or event decision changes.
+Implementation refinement: local Compose uses prod security, so profile alone
+is unsuitable. The flag/local-environment/Firebase-emulator gate preserves auth
+and excludes cloud. ADR-039/CHANGE-111 preserve the rejected profile-only option.
+
 ## Implementation detail - CHANGE-110 command submission polling
 
 Vincent explicitly authorizes the fix on2026-10-11. Browser intent persistence

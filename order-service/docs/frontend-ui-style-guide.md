@@ -56,6 +56,21 @@ approved design-system decision.
 
 ## Color and surface baseline
 
+### Approved Admin consistency refinement - CHANGE-125 (2026-10-13)
+
+Use the central presentation scope in frontend/src/app/admin/layout.tsx. Primary
+values, table IDs/links and data badges use Geist Sans/14px/regular. Page headings
+stay24px; section headings20px; muted metadata labels12px. Actual numeric balance
+metrics retain their existing emphasis; unavailable values use14px muted helper
+text. Shared form controls keep their existing responsive sizing/behaviour.
+
+Admin presentation adapts the shared history's technical monospace IDs to the
+same primary-value font/size without editing its normal-profile implementation.
+Leaflet popup UI inherits the Admin font and shared card/foreground theme tokens.
+Preserve meaningful existing Supplier/Credit positive/reservation/debit and
+destructive colours; normal/admin use the same shared state-colour mapping.
+Do not change normal-page styles or add fonts/palettes to achieve consistency.
+
 Use the semantic tokens in `frontend/src/app/globals.css` and existing shadcn
 components instead of scattered literal colors:
 

@@ -1,5 +1,35 @@
 # Overall Architecture
 
+CHANGE-122 uses the same gateway/local services but selects Admin frontend
+provider by Compose runtime flag. Base sample UI versus HTTP override real UI;
+both retain local databases/emulators. Cloud stays live-only. No topology/broker/
+IAM or peer API change; source/deployed record sets are intentionally independent.
+
+CHANGE-119 approves partial live Admin frontend integration through the existing
+gateway: real Order/Supplier and User role/summary endpoints outside local;
+existing local emulator sample APIs otherwise. Unfinished User/Credit features
+are visibly unavailable and never called. Provider-owned data/authorization,
+deployment topology and broker/persistence configuration remain unchanged.
+
+CHANGE-114 adds public map tiles/address lookup to Admin frontend only; these
+anonymous reads do not forward Firebase credentials and do not replace service
+gateway/mock boundaries. Supplier/Order/User APIs and data ownership unchanged.
+Current component/sequence refinement and limits are in ADR-039.
+
+CHANGE-113 adds full dedicated Admin Order/Supplier views and top actions within
+the existing frontend. No API/provider/topology change. Current navigation
+sequence/components are documented in ADR-039.
+
+CHANGE-112 adds selected-record routing and a shared credit-history presenter
+to the existing local Admin prototype; ADR-039 contains updated class/sequence
+diagrams. Only Order-local mock HTTP history is new. Real Credit admin history
+is a documented pending provider contract, not a topology/deployment change.
+
+ADR-039 / CHANGE-111 adds a local Admin UI prototype and replaceable HTTP adapter.
+Order's isolated sample store serves demo endpoints; no peer ownership, real
+financial/auth mutation, DB, broker or topology change. Effective diagrams:
+decisions/ADR-039-admin-ui-local-mock-prototype.md.
+
 ADR-038 / CHANGE-108 refines only owned command display and shared frontend
 recovery. No topology/broker/service ownership or financial boundary change.
 Server discovery restores pending ACCEPT/ABORT cards and CREATE/REPOST summaries.

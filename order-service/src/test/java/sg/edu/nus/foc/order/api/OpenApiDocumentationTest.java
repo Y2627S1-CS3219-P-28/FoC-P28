@@ -44,7 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class, OrderOutboxAdminController.class},
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class, OrderOutboxAdminController.class, AdminMockController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -58,6 +58,9 @@ import tools.jackson.databind.json.JsonMapper;
 })
 @TestPropertySource(properties = {
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
+    "order.admin-mock.enabled=true",
+    "FOC_ENVIRONMENT=local",
+    "order.security.auth.emulator-host=localhost:9099",
     "order.lifecycle-token=test-lifecycle-token"
 })
 class OpenApiDocumentationTest {
@@ -76,6 +79,7 @@ class OpenApiDocumentationTest {
     @MockitoBean private sg.edu.nus.foc.order.security.OrderReadAccessPolicy readAccess;
     @MockitoBean private sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository outbox;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
+    @MockitoBean private sg.edu.nus.foc.order.application.adminmock.AdminMockService adminSamples;
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;

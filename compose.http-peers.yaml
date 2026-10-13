@@ -1,12 +1,19 @@
 # Order Service HTTP-peer smoke profile.
 #
-# Default compose.yaml now uses actual HTTP peers and local Pub/Sub emulator.
-# This retained override explicitly selects the same HTTP service addresses.
+# Base compose.yaml uses HTTP backend peers/local Pub/Sub and mock Admin UI.
+# This override selects real Admin UI APIs (same capabilities as staging),
+# against local peer containers, and disables the local Admin demo endpoints.
+# An actual admin role in the local User Service is required for Admin Mode.
 # compose.local-live.yaml pins local auth/messaging flags; neither mounts ADC
 # nor provisions any Google Cloud topic or subscription (ADR-036).
 services:
+  frontend:
+    environment:
+      FOC_ADMIN_API_MODE: live
+
   order-service:
     environment:
+      ORDER_ADMIN_MOCK_ENABLED: "false"
       ORDER_PEERS_MODE: http
       USER_SERVICE_URL: http://user-service:8080
       SUPPLIER_SERVICE_URL: http://supplier-service:8080

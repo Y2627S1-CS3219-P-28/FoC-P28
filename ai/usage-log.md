@@ -2299,3 +2299,279 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Check if this merge with main the user service only bring changes that wont affect other services
 - **Key response:** c2fe90c adds one profile edit route and two historical records; all backend/Compose/gateway files equal first parent5bf1a15. Earlier reverted main auth-provider dependencies were not automatically reintroduced. Typecheck fails3 TS2339 errors for missing profile/profileLoading/refreshProfile at edit/page.tsx:20; existing103 frontend tests/26 files and29 configuration assertions pass but do not cover new route. Username PUT/me matches existing provider; Firebase email change plus current Mongo-only GET/me has no email-sync guarantee. Documented FEEDBACK-012 and Git revert/remerge lesson. No claim prior FEEDBACK-011 backend defects reentered this merge. Patch check passes; build/backend/live-user/cloud checks not rerun.
 - **Author verification:** Vincent requested inspection only. Matching profile/workstream/branch and scoped context approval; no application/peer/config/schema changes, commit/push/revert/remerge or deployment. Owner-compatible narrow integration and human review required before release.
+
+## Admin UI mock prototype assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-11
+- **Mode:** Design recording, implementation, testing, verification and documentation.
+- **Affected locations:** frontend admin pages/components/hooks/adapter/tests,
+  shared shell/navigation, Order sample API/DTO/mapper/store/condition/tests,
+  Order docs/ADR-039/CHANGE-111/learning/context/allocation, Order-only Compose
+  flag and root .env.example.
+- **Prompt:** User's pasted Admin UI request: top-right mode switch, Orders/
+  Users/Suppliers tabs, Order-owned mock role/data endpoints and admin-peer-api-
+  request.md; do not change other backend services. Follow-up explicitly confirmed
+  Yao Xiang on order-service/admin-dashboard.
+- **Key response:** Implemented isolated local sample milestone with existing
+  UI primitives and replaceable adapter. Actual peer inspection avoids duplicate
+  Supplier/Order requests. Local prod-security Compose requires explicit flag,
+  local environment and Firebase emulator; real auth preserved. Initial RED
+  tests then green;379 backend full verify plus final10 contract tests,146
+  frontend tests, typecheck/build, lint0errors/3 existing warnings and both changed
+  Docker builds pass. Local stack healthy; routes200 and unauthenticated mock
+  API401. Browser automation unavailable, so visual verification remains pending.
+- **Author verification:** Yao Xiang selected the complete mock prototype and
+  confirmed identity/scope; implementation review and authenticated responsive
+  browser confirmation remain pending. No actual peer/admin/credit/cloud mutation,
+  volume reset or Git staging/commit/push was performed.
+
+## Admin profile/navigation refinement assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-11
+- **Mode:** Workflow/context loading, implementation, regression testing and documentation.
+- **Affected locations:** frontend Admin tables/profiles/detail routes/adapter/tests,
+  shared AppShell and TransactionHistory presenter; Order mock transaction DTO,
+  mapper/store/controller/tests and CHANGE-112/ADR-039/context/contract records.
+- **Prompt:** Align Admin searches/filters; retain only header mode switching;
+  show supplier status; replace user popup with full profile/history/copy ID and
+  existing actions; link Order users/locations to selected Admin records; separate
+  Order fields and retain description in View; keep mocks, only Order backend,
+  document additional APIs in admin-peer-api-request.md.
+- **Key response:** Reused SupplierBadges/Profile Cards and shared only credit
+  history presentation, keeping current-user and selected-user loaders separate.
+  Direct record routes fetch by ID independently of list pagination. New local
+  history follows existing Credit wire fields; missing real admin read recorded
+  ADMIN-API-006. RED then GREEN regressions,154 frontend/380 backend tests,
+  coverage/typecheck/build pass; lint0errors/3 existing warnings. Only changed
+  images rebuilt and frontend/Order containers recreated; no volume/peer mutation.
+- **Author verification:** Yao Xiang explicitly chose these refinements under the
+  existing mock scope. Automated evidence is recorded in CHANGE-112; human
+  implementation review and authenticated responsive visual checking remain
+  pending. No real provider integration, cloud change or Git commit/push claimed.
+
+## Dedicated Admin detail pages assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow/context loading, implementation, regression testing and documentation.
+- **Affected locations:** frontend Admin Order/Supplier detail routes/components,
+  user action-card placement, existing admin adapter/tests; Order CHANGE-113,
+  ADR-039 diagrams and relevant context/index/traceability/learning/disclosure.
+- **Prompt:** Should we make order and supplier also like user profile open a new
+  dedicated page instead of a card. And can u move the admin actions upward
+  instead of at the bottom.
+- **Key response:** Replaced Order/Supplier detail modals with dedicated pages;
+  moved existing user/supplier actions directly below headings. Reused existing
+  exact-ID sample reads without adding a backend endpoint. Kept read-only Order,
+  role gate, copy IDs, search/pagination and mutation confirmation/error handling.
+  Regression assertions failed before the change, then passed. Final automated
+  and container evidence is recorded in CHANGE-113 and active work.
+- **Author verification:** User explicitly requested this refinement within the
+  existing mock scope; same Yao Xiang branch/profile. Human visual review remains
+  pending. No backend source, real provider, schema, config, cloud or Git history
+  changes; frontend-only image rebuild.
+
+## Admin supplier maps and detail grouping assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow/context loading, provider research, implementation, testing,
+  verification and documentation.
+- **Affected locations:** frontend map components/provider/dependencies/tests,
+  optional SupplierForm picker, Admin supplier/user/order layouts/tests;
+  Order CHANGE-114/ADR-039/contract/context/traceability/index/learning records.
+- **Prompt:** Add supplier maps, address suggestions and draggable/manual
+  coordinates; move card deactivation to details; make related names navigate
+  instead of copy; separate User fields; split Order details with a repost card.
+  Reuse UI, keep mocks, do not change other backend services; document API needs.
+- **Key response:** Leaflet1.9.4/attributed OSM plus bounded anonymous Photon
+  suggestions isolated from authenticated mock service calls. Existing coordinates/
+  locationDescription suffice, no backend change. Details/card maps and optional
+  creation picker, copy/navigation separation, logical detail groups/unknown-field
+  preservation implemented. Initial RED then173 full frontend tests and final28
+  Admin regressions pass; typecheck/build and lint0errors/3 existing warnings.
+  Generic geocoder/CORS and one tile smoke pass. Only frontend recreated/healthy;
+  Admin routes200. Browser inventory empty; visual confirmation still pending.
+- **Author verification:** User explicitly selected these map/layout capabilities
+  in the existing prototype scope. Human review/visual checking and actual peer
+  integration remain pending. No tokens/secrets sent to public providers, no
+  sibling/backend/config/schema/cloud/volume or Git history changes performed.
+
+## Admin detail row ordering assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow loading, layout implementation, regression verification and documentation.
+- **Affected locations:** frontend Admin Order/Supplier/detail-grid components and
+  tests; Order CHANGE-115/context/ADR-039/traceability/readme/active-work records.
+- **Prompt:** Put item description in the last row with more space; offered credit
+  and description left-to-right in the second row; requester above courier;
+  remove Locations on this page and put supplier status beside Location details.
+- **Key response:** Metadata first, then credit/wide-description final row in a
+  full-width card; explicit requester/courier ordering independent of JSON keys.
+  Removed only list map, preserved detail/create maps, moved status out of actions.
+  Three RED regressions then175 tests/typecheck pass; lint0errors/3 existing
+  warnings. Build/runtime evidence is recorded in CHANGE-115 and active work.
+- **Author verification:** User explicitly requested this presentation refinement
+  under the same Yao Xiang mock scope. Human visual review pending; no backend,
+  provider contract, schema, permission/config or Git history changes.
+
+## Admin internal-field correction assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow loading, scoped layout correction, regression verification and documentation.
+- **Affected locations:** frontend Admin Order/detail-grid source and existing
+  regression expectation; Order CHANGE-116/ADR/context/README/active-work records.
+- **Prompt:** Revert back the Order details layout; only change internal People
+  and Order Information arrangement, swapping Version with Item Description.
+- **Key response:** Restored original card widths and two-column fields, removed
+  unused custom grid/span options, retained Version/Description swap and requester
+  first. Supplier edits preserved. Adjusted the existing regression (RED before
+  correction); final checks/runtime are recorded in CHANGE-116 and active work.
+- **Author verification:** User corrected the interpretation explicitly; same
+  Yao Xiang branch/profile. Human visual review remains pending. No API/backend,
+  data model, provider, permission/config or Git history change.
+
+## Environment-aware Admin integration assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, contract inspection, approved implementation, tests and documentation.
+- **Affected locations:** frontend Admin adapter/hook/pages/auth fixtures and new
+  live/mode tests; Order CHANGE-119/ADR-039/context/traceability/API handoff records.
+- **Prompt:** Can u do that ? Maybe for the unfinished one, ui will display credits
+  transaction coming soon with headers like credit transactions for the card.
+  Then for a specific value only, just put a placeholder on staging. Then for
+  local usage, we use the mock one.
+- **Key response:** Local emulator retains the sample prototype; outside local
+  completed real role/Order/Supplier/limited User summary APIs are linked.
+  Unfinished User/Credit features are cards/value placeholders/disabled controls,
+  never fake data or missing API calls. Order labels cannot hide the primary
+  results. Six contract and seven runtime/UI tests observed RED before changes;
+  seventeen added overall. Final 192 tests / 38 files, typecheck and production
+  build pass; lint 0 errors / 3 existing login warnings; patch check passes.
+- **Author verification:** Yao Xiang explicitly chose partial live integration
+  with placeholders while retaining local mocks. Existing peer contracts were
+  inspected; no sibling backend, env/IAM/persistence changes or deployment.
+  Human authenticated staging and responsive visual review remain pending.
+
+## Admin mobile Order filter alignment assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped layout correction, verification and documentation.
+- **Affected locations:** frontend/src/components/admin/admin-orders.tsx;
+  Order CHANGE-120/active-work/README/context/traceability/change-log records.
+- **Prompt:** The search by order id and status is not at same level in phone
+  render mode (with the supplied screenshot).
+- **Key response:** Replaced outer/nested flex alignment with one responsive form
+  grid. Status and Order ID share the first mobile row; Search/Clear sit below,
+  inline on larger screens. Existing 34 Admin tests, TypeScript, scoped lint and
+  production build pass; patch check passes. Existing119 edits retained.
+- **Author verification:** User identifies the phone layout error; implementation
+  stays within the approved Admin responsive UI scope. Actual visual confirmation
+  remains pending because no browser is connected. No backend/API/configuration
+  or container/deployment changes; no class-name-only tests added.
+
+## Consistent Admin search layout assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, layout refinement, verification and documentation.
+- **Affected locations:** frontend Admin shared form, Orders and Users components;
+  Order CHANGE-121/README/context/traceability/current-sprint/active-work/change-log.
+- **Prompt:** I feel like there' s not consistency like in order page in admin mode,
+  the search and clear is at the second row. But the rest is different.
+- **Key response:** Shared responsive form/action wrappers now give Orders,
+  Users/Suppliers directory searches and live UID lookup the same field-first,
+  action-second mobile layout and inline larger-screen pattern. Existing 34
+  Admin tests, TypeScript, scoped lint and production build pass; patch clean.
+- **Author verification:** User requests consistent presentation; existing
+  Yao Xiang scope/branch/source fingerprints confirmed. No backend/API/mode/config
+  changes or new tests; previous119/120 work preserved. Authenticated visual
+  confirmation remains pending; no container recreation or deployment performed.
+
+## Compose Admin provider selection assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, runtime/Compose implementation, test-first verification and documentation.
+- **Affected locations:** compose.yaml, compose.http-peers.yaml, .env.example;
+  frontend runtime config/Admin hook/tests; Order CHANGE-122/ADR-039/context/
+  traceability/README/API handoff/active-work and allocation records.
+- **Prompt:** Can u make it when we have compose.http-peers.yaml. Then we will use
+  the actual endpoint. We will see what we see in the staging. Then for compose
+  just use mock endpoint cuz local endpoint. I think we also did that like compose
+  use local or mock endpoint then compose.http-peers.yaml use the actual endpoint.
+- **Key response:** Added request-time FOC_ADMIN_API_MODE, pinned mock in base and
+  live in HTTP override; override disables local Order Admin sample controllers.
+  Cloud/invalid modes stay live. Existing backend HTTP peer mode and local
+  emulators/data remain unchanged; actual User admin role required in live mode.
+  Eleven tests observed RED first; final203 tests/39 files, TypeScript/build pass;
+  lint0 errors/3 existing login warnings. Both Compose config checks and resolved
+  mode projections pass; patch clean. Initial missing NODE_ENV test fixture fixed.
+- **Author verification:** User explicitly authorizes shared Compose selection
+  and actual Admin endpoint behavior while retaining local mocks. Scope clarified
+  as Admin UI, not a rollback of ADR-036 backend HTTP/emulator settings. No peer
+  source/credentials/IAM/data changes or service recreation/deployment. Human
+  authenticated local-live/staging verification remains pending.
+
+## Compact Admin Order ID presentation assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped presentation fix, verification and documentation.
+- **Affected locations:** frontend Admin CopyId and Order table;
+  Order CHANGE-123/README/context/sprint/traceability/active-work/change-log records.
+- **Prompt:** Long actual Order IDs make the table boxes too big; truncate the
+  table display but still copy the whole ID and show the full ID in View details.
+- **Key response:** Added optional compact display only in the table's Order ID
+  cell, with bounded width and single-line ellipsis. Full title/accessibility,
+  clipboard value, View route and detail text retained. Other IDs unchanged.
+  Existing34 Admin regressions, TypeScript/scoped lint/production build pass;
+  patch check passes. No implementation-mirroring CSS tests added.
+- **Author verification:** User requests this precise presentation change;
+  Yao Xiang branch/profile/source fingerprints confirmed. Prior119..122 preserved.
+  No API/backend/model/config/container/deployment changes; authenticated visual
+  review remains pending. Identifier and clipboard correctness inspected in source.
+
+## Consistent Admin Order table typography assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped styling correction, verification and documentation.
+- **Affected locations:** frontend Admin Orders table;
+  Order CHANGE-124/README/context/sprint/traceability/change-log/active-work records.
+- **Prompt:** I feel like order table. The font size is not consistent. And some
+  of the id bold but some of them not. Then might as well make it not.
+- **Key response:** Normalized table body to regular14px, with scoped regular link
+  weight, matching status badge size/weight and dates inheriting body size.
+  Headers and other pages/details remain unchanged. Existing34 Admin tests,
+  TypeScript/scoped lint/production build pass; patch clean. No CSS-detail tests.
+- **Author verification:** User explicitly requests table font consistency and
+  non-bold IDs. Current Yao Xiang branch/profile and sources confirmed; prior
+  work preserved. No API/backend/model/configuration or Docker/deployment change.
+  Authenticated visual confirmation remains pending.
+
+## Shared Admin font and theme consistency assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, styling consistency inspection/implementation, verification and documentation.
+- **Affected locations:** frontend Admin layout and copy/record/profile components;
+  Order CHANGE-125/style baseline/README/context/sprint/traceability/log/active-work.
+- **Prompt:** Please ensure we are using the overall same font type font size,
+  colouring for consistency.
+- **Key response:** Centralized Admin Geist Sans/body14px/theme scope, matching
+  regular data/IDs/badges, retained heading/helper hierarchy and existing state
+  colours. Admin technical/history IDs and map popup text/surfaces adapt to shared
+  tokens. Missing balances use muted helper text. Normal-profile presenter source
+  and all data/contracts unchanged. Existing203 tests/39 files, TypeScript/build
+  pass; lint0 errors/3 pre-existing login warnings; scoped lint/patch checks pass.
+- **Author verification:** User requests consistent presentation; same Yao Xiang
+  identity/branch/source fingerprints verified. Prior119..124 retained. No new
+  fonts/API/backend/models/configuration or Docker/deployment change. Actual
+  authenticated mobile/desktop/light/dark visual review remains pending.

@@ -1,5 +1,19 @@
 # Service Contracts
 
+CHANGE-112 extends only the local Admin sample contract:
+GET /api/orders/admin-mock/users/{id}/transactions?page=1&size=20 returns
+items/page/size/totalItems/totalPages, with transactionId/type/amount/direction/
+occurredAt/orderId matching Credit's existing history wire format. User/location
+detail routes use existing sample GET by ID, independent of list paging.
+400 invalid paging and404 unknown sample user; existing authentication/local
+gate unchanged. Real Credit admin history remains ADMIN-API-006 (MISSING).
+
+CHANGE-111 / ADR-039 adds local sample contracts under /api/orders/admin-mock,
+documented in admin-peer-api-request.md and OpenAPI. Flag + local environment +
+Firebase emulator are mandatory. Real provider contracts/auth remain unchanged.
+Sample role claims/mutations never grant real administrative authority. Proposed
+peer adjustments are documentation requests, not completed provider changes.
+
 Effective ADR-038/CHANGE-108: owned CommandView adds nullable displayDetails with
 itemDescription, pickupSupplierId, deliverySupplierId, offeredCredits,
 deliveryTimeLimitMinutes, expiresAt; existing ACCEPT/ABORT also orderStatus/version.

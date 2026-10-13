@@ -1,5 +1,57 @@
 # Active Sprint
 
+CHANGE-125 is a presentation consistency refinement across Admin pages: shared
+font/type hierarchy/theme, regular data and scoped map popup styling. Existing
+provider/authorization/scheduler/backend scope and contracts unchanged.
+
+CHANGE-124 normalizes Admin Order table body font size/weight only. Existing
+copy/navigation/filter/provider behavior, contracts and scope remain unchanged.
+
+CHANGE-123 is a presentation-only Admin Order ID table fix: bounded single-line
+display, full copy/detail/navigation preserved. Existing scope/APIs unchanged.
+
+CHANGE-122 refines Admin transport selection under explicit user approval:
+base Compose mock UI, HTTP-peer override real local APIs/partial staging-like UI.
+New runtime flag; genuine live admin role required. Backend HTTP peers/emulators
+and peer ownership/Sprint behavior unchanged.
+
+CHANGE-121 extends120's responsive filter pattern to all Admin search controls
+using shared wrappers. Presentation-only; existing scope/contracts unchanged.
+
+CHANGE-120 is a layout-only Admin follow-up: align Status/Order ID on phones,
+with Search/Clear below. Existing119 scope/integrations and backend unchanged.
+
+CHANGE-119 is the user-approved Admin continuation on2026-10-13: local emulator
+mocks retained; matching live Order/Supplier/role/summary APIs outside local;
+unfinished User/Credit features show Coming soon and do not issue calls. Backend
+and peer ownership/Sprint lifecycle scope unchanged; live rollout verification
+and full Admin integration remain pending.
+
+CHANGE-116 corrects115's Order layout interpretation: restore original card/grid
+dimensions; only swap Version with Item Description and keep requester first.
+Other Admin changes and backend/Sprint scope remain unchanged.
+
+CHANGE-115 is an approved presentation-only follow-up: final-row wide description,
+explicit requester/courier ordering, no Supplier list overview map and status near
+Location details. Existing mock milestone, APIs and lifecycle scope unchanged.
+
+CHANGE-114 continues the Admin mock prototype with maps/address picker and
+detail/table refinements. Public mapping reads are anonymous; provider SLA/live
+browser checks remain separate. No backend lifecycle, schema or scope expansion.
+
+CHANGE-113 supersedes only Admin Order/Supplier detail modals with dedicated
+pages and moves User/Supplier actions near the heading. Existing mock scope,
+provider integration blockers and backend/scheduler scope remain unchanged.
+
+CHANGE-112 refines the approved Admin prototype: full user profiles/history,
+selected-record routes, SupplierBadges and aligned controls. Real Credit admin
+history remains missing (ADMIN-API-006); no peer implementation or schema change.
+
+CHANGE-111 / ADR-039 is Yao Xiang's authorized Admin UI prototype on
+order-service/admin-dashboard. Three views with Order-owned sample APIs;
+actual peer administration is not integrated. Existing Sprint recovery/lifecycle
+scope remains [~]. Exact real gaps are in admin-peer-api-request.md.
+
 CHANGE-110: Vincent-approved frontend-only command polling race fix,
 source386f58f; pause individual GET during initial submission/local Continue,
 preserve same-key recovery.124 frontend tests/typecheck/build pass; lint0errors.

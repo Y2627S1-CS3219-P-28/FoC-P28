@@ -1,5 +1,15 @@
 # Current Developer Profile
 
+## Effective current profile - Yao Xiang, 2026-10-11
+
+- Name: Yao Xiang (Developer 1).
+- Branch: order-service/admin-dashboard.
+- Approval: explicit identity/current-branch confirmation in chat on 2026-10-11.
+- Current scope: CHANGE-111 mock Admin UI, shared frontend shell/navigation and
+  CHANGE-112 refinements and Order-owned sample endpoints/contracts/tests/documentation. Other backend
+  services are read-only. No cloud role, real account, schema or peer mutation.
+- This supersedes the current identity paragraph below, preserving its history.
+
 ## Effective current profile — Vincent, 2026-10-10
 
 - Name: Vincent

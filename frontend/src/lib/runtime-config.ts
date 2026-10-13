@@ -3,6 +3,7 @@
 // environment; reading plain env vars here lets CI promote one image staging -> prod.
 export type PublicConfig = {
   environment: string
+  adminApiMode: "mock" | "live"
   // Origin of the API gateway. Empty string = same origin (the gateway also serves this UI).
   apiBaseUrl: string
   authEmulatorUrl: string | null
@@ -16,10 +17,15 @@ export type PublicConfig = {
 
 export function readPublicConfig(env: NodeJS.ProcessEnv = process.env): PublicConfig {
   const projectId = env.FOC_FIREBASE_PROJECT_ID || "demo-foc"
+  const environment = env.FOC_ENVIRONMENT || "local"
+  const authEmulatorUrl = env.FOC_FIREBASE_AUTH_EMULATOR_URL || null
+  const requestedAdminMode = env.FOC_ADMIN_API_MODE ?? "mock"
   return {
-    environment: env.FOC_ENVIRONMENT || "local",
+    environment,
+    // Demo transport is local-only. Invalid flags and all cloud modes stay live.
+    adminApiMode: environment === "local" && authEmulatorUrl && requestedAdminMode === "mock" ? "mock" : "live",
     apiBaseUrl: (env.FOC_API_BASE_URL || "").replace(/\/+$/, ""),
-    authEmulatorUrl: env.FOC_FIREBASE_AUTH_EMULATOR_URL || null,
+    authEmulatorUrl,
     firebase: {
       // The Firebase web API key is a public identifier, not a secret.
       apiKey: env.FOC_FIREBASE_API_KEY || "demo-api-key",

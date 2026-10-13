@@ -1,5 +1,40 @@
 # Order Service Architecture
 
+CHANGE-122 adds frontend request-time adminApiMode to distinguish base Compose
+samples from HTTP-peer local integration. Override disables existing Order demo
+routes through their current flag; Order peer HTTP mode and security are retained.
+No backend class/contract/schema change. Existing119 real adapter/capabilities are
+reused; cloud/invalid config stay live. Effective selector diagram: ADR-039.
+
+CHANGE-119 adds no backend component. Runtime config selects local mock transport
+or real matching APIs in the Admin adapter. Capability flags prevent unfinished
+User/Credit calls; selected user uses the existing limited summary. Order related
+labels load independently, retaining ID navigation during peer delays/failures.
+Existing repositories/schedulers/outbox/security and peer services are unchanged.
+Current component/sequence diagrams and handoff are in ADR-039/admin-peer-api-request.
+
+CHANGE-114 adds no Order backend component: frontend maps use existing sample
+supplier coordinates and create payload; Order detail grouping uses existing
+responses, preserving all returned fields. Public map reads are isolated from
+authenticated mock service reads/writes. Backend repositories/jobs unchanged.
+
+CHANGE-113 is frontend-only: AdminOrderDetails and AdminSupplierDetails render
+dedicated pages, using existing Order-owned sample reads. Existing Order query
+filters by exact ID before paging; adapter uses page1/size1 and rejects absent/
+mismatched records. Backend controllers/store/persistence are unchanged.
+
+CHANGE-112 refines ADR-039: selected-record routes independently load sample
+profiles/locations; AdminUserProfile shares TransactionHistoryView presentation
+with normal Profile, but uses the Order mock history loader. Existing normal
+GET /credits/me/transactions and all lifecycle/outbox logic are unchanged.
+The sample store owns fixture transaction pages; no Credit database access.
+
+ADR-039 / CHANGE-111: AdminMockController -> synchronized AdminMockService ->
+MapStruct response copies, requiring explicit local emulator configuration.
+Shared frontend admin pages -> semantic adapter -> sample HTTP routes.
+Domain persistence/recovery/lifecycle unchanged. ADR-039 contains class/sequence
+diagrams; admin-peer-api-request.md records the real-provider stopping point.
+
 ADR-038 / CHANGE-108 adds an owner-only CommandView display projection and a
 shared frontend discovery provider. ACCEPT/ABORT show actual committed target
 details; CREATE/REPOST show immutable submitted details without fake Orders.

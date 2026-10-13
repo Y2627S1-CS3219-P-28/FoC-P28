@@ -1,5 +1,115 @@
 # Order Service
 
+## Admin UI: local demo and partial staging/production
+
+CHANGE-125 centralizes consistent Admin presentation: Geist Sans, regular14px
+data, shared heading/helper sizes and semantic colours. Technical IDs and map
+popups match; missing balance values use muted helper text. Existing normal-mode
+components/state colours and all data/provider behaviour stay unchanged.
+
+CHANGE-124 uses consistent regular14px text in the Orders table body, including
+IDs/names, statuses and dates. Headers remain distinct; other pages stay unchanged.
+
+CHANGE-123 keeps long table Order IDs on one line with an ellipsis. Clicking copies
+the whole ID; hovering or View details exposes the full ID. Other IDs unchanged.
+
+CHANGE-122 makes Compose choose the Admin UI provider:
+
+| Run configuration | Admin UI |
+|---|---|
+| compose.yaml | Order-owned mock endpoints and sample roles/data |
+| compose.yaml + compose.http-peers.yaml | Actual local peer APIs and genuine admin role verification; same partial capabilities/placeholders as staging |
+| Staging / production | Actual APIs; mock UI cannot be enabled |
+
+Choose one command from the project root:
+
+~~~powershell
+# Sample Admin UI
+docker compose -f compose.yaml up -d --build
+
+# Actual local Admin APIs (a real admin role in local User Service is required)
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build
+~~~
+
+The new request-time FOC_ADMIN_API_MODE is pinned to mock/live by those Compose
+files. Mock is allowed only locally with the Auth emulator. HTTP override disables
+Order's Admin demo routes. Both runs retain local databases and Auth/Pub/Sub
+emulators; neither reads staging databases. Order backend peers already use HTTP
+in base Compose under ADR-036, and this independent setting is unchanged.
+
+CHANGE-121 shares the same responsive search layout across Admin Orders, Users
+and Suppliers: fields first/actions below on mobile, inline on larger screens.
+
+CHANGE-120 aligns Status and Order ID on the same row on phones, with Search/Clear
+below; larger screens keep controls inline. Search/filter behavior is unchanged.
+
+CHANGE-119 keeps the existing sample Admin UI locally with the Auth emulator.
+Staging/production now use actual Order and Supplier APIs and actual User admin
+role verification. Supplier creation/deactivation outside local changes real
+Supplier data and retains the existing confirmation/authorization.
+
+Unfinished User directory and credit history show **Coming soon** cards. User
+links and exact UID lookup reuse existing User summaries; missing profile fields
+and credit balances show **Coming soon** rather than invented values. User
+suspension/promotion/deactivation remain disabled outside local. Existing layout,
+maps, ID/status search and pagination are retained. An actual admin account is
+required on staging; local sample roles do not grant real production access.
+CHANGE-122 adds FOC_ADMIN_API_MODE; no peer backend changes are needed. Runtime
+mode, FOC_ENVIRONMENT and Auth emulator config select the adapter; live errors never
+fall back to sample data. See [capability/API handoff](docs/admin-peer-api-request.md).
+
+CHANGE-116 restores the original Order detail card sizes/two-column arrangement.
+Version and Item Description exchange positions, leaving description last;
+requester remains above courier. Supplier map/status changes from115 remain.
+
+CHANGE-115 removes the Supplier list overview map; maps remain in View Details
+and the create form. Supplier status is beside Location details, outside actions.
+Order Information has metadata first and credits/wider description in the final
+row; People shows requester before courier.
+
+CHANGE-114 adds supplier maps in the list/details and address suggestions with
+a draggable pin in Admin creation. You can still type coordinates manually.
+Pins link to Google Maps. Deactivation is in View Details only. User columns
+are separate; Order details have logical cards, including repost information,
+and related names navigate while separate ID controls copy.
+Maps use Leaflet/OSM/Photon and require internet, without an API key. Public
+providers may be unavailable; coordinate entry and Google Maps links remain.
+No backend contract changed; see admin-peer-api-request.md for provider limits.
+
+CHANGE-113: **View** opens full Order/Supplier detail pages. User and Supplier
+admin actions are below the heading, above details/history. Existing mock APIs
+are reused; Order detail is read-only. Back buttons return to the relevant tab.
+
+CHANGE-112 refines this prototype: Orders names open selected Admin users or
+locations directly; Users now has a full profile with copyable UID, balances,
+sample transaction history and the existing admin actions. Suppliers reuse
+normal open/closed/inactive badges. Search controls align; the header has only
+the mode switch. Order description remains available through View details.
+The sample history endpoint is local-only; ADMIN-API-006 documents the actual
+Credit Service admin history needed for future integration.
+
+CHANGE-111 adds a top-right **Admin Mode** button and Orders, Users and Suppliers
+tabs. Sign in with an existing local user and click Admin Mode; a sample role
+lookup permits the demo without a real admin account. Normal Mode returns to the
+existing user tabs. This describes the initial local sample milestone; CHANGE-119
+above is the effective staging/production behavior.
+
+Rebuild only the changed images from the project root:
+
+~~~powershell
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build order-service frontend
+~~~
+
+Use the existing gateway at http://localhost:8080 and refresh the page.
+The sample API requires ORDER_ADMIN_MOCK_ENABLED=true (local Compose default),
+FOC_ENVIRONMENT=local and FIREBASE_AUTH_EMULATOR_HOST. Cloud defaults exclude
+these mocks. Real endpoint authentication is unchanged. Local demo updates reset on
+Order restart; the local demo makes no real database/account/role/supplier/credit
+mutations. Live Supplier actions use their existing real provider contracts.
+See [peer API requests](docs/admin-peer-api-request.md),
+[design](docs/decisions/ADR-039-admin-ui-local-mock-prototype.md) and
+[verification](changes/CHANGE-111-admin-ui-mock-prototype.md).
+
 CHANGE-107: expiry runs directly inside the minute lifecycle scheduler; there is
 no expiry HTTP trigger or Swagger operation. All repost routes are retained.
 
