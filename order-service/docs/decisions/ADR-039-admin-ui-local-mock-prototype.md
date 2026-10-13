@@ -1,6 +1,6 @@
 # ADR-039: Local Admin UI mock prototype
 
-Status: user-approved prototype scope, Yao Xiang, 2026-10-11.
+Status: user-approved prototype scope, Yao Xiang, 2026-10-11; partial live refinement approved2026-10-13 (CHANGE-119).
 Change: [CHANGE-111](../../changes/CHANGE-111-admin-ui-mock-prototype.md).
 
 The user's detailed request approves Orders/Users/Suppliers admin tabs, separate
@@ -9,6 +9,83 @@ inside Order Service. Other backend services are read-only. This is a prototype
 milestone and does not approve real administrative writes or peer integration.
 
 ## Decision
+
+### Effective Compose provider selection: CHANGE-122 (2026-10-13)
+
+The user approves base Compose mock UI and HTTP-peer override actual local APIs
+with the same partial capabilities as staging. Add FOC_ADMIN_API_MODE=mock|live,
+read through existing runtime ConfigProvider. Base pins mock, override live and
+ORDER_ADMIN_MOCK_ENABLED=false. Mock selection also requires local environment
+and Auth emulator; cloud/invalid flags remain live. Missing flag retains119 local
+compatibility. Genuine User Service admin role is required in local-live mode.
+
+Both Compose variants retain local data/emulators and existing backend HTTP peer
+settings; do not point at staging databases or infer identical record sets.
+This supersedes119's automatic local-emulator-only UI predicate, not its adapter,
+contracts/capability gates, layouts or authentication. Shared Compose/.env.example
+changes are explicitly authorized; no backend service implementation or IAM edits.
+
+### Effective provider refinement: CHANGE-119 (2026-10-13)
+
+The user approves retaining the complete local emulator demo while making
+staging/production use completed real APIs. Runtime ConfigProvider selects mocks
+only for local with configured Auth emulator. All other environments select
+real role-context/Order/Supplier/limited User summary; no automatic mock fallback.
+Supplier create/deactivate now mutate the actual supplier outside local through
+existing authorized POST/DELETE contracts and existing confirmation controls.
+
+Missing User directory/full trusted profile/management and cross-user Credit
+APIs remain gated. Show section headings with Coming soon, individual unavailable
+values as null/Coming soon and disabled actions. Reuse public UserSummary for
+selected-user routes/UID lookup, rather than an unprotected full profile or
+unpaged list. Credit caller-only APIs cannot stand in for another user's data.
+Name lookups are independent from primary Order loading; ID navigation survives
+delay/failure. No peer backend, schema, broker, env variable or IAM change.
+
+This supersedes only the earlier mock-only transport restriction outside local;
+the historical diagrams below still describe local prototype flows. Actual
+provider authorization is mandatory; UI gates are not backend security. Approved
+partial integration does not assert that missing peer APIs or deployed behavior
+have been verified. Current capability matrix is in admin-peer-api-request.md.
+
+~~~mermaid
+flowchart LR
+    Config[Runtime ConfigProvider] --> Hook[useAdminApi]
+    Hook -->|local with Auth emulator and mock mode| Mock[Existing Order mock adapter]
+    Hook -->|other environments| Live[Live Admin adapter]
+    Mock --> MockAPI[Existing local-only sample APIs]
+    Live --> Gateway[Existing authenticated gateway]
+    Gateway --> Order[Order list and detail]
+    Gateway --> Supplier[Supplier search detail create and soft deactivate]
+    Gateway --> User[User role-context and limited summary]
+    Live --> Caps[Explicit capabilities]
+    Caps --> UI[Coming soon cards / value placeholders / disabled User actions]
+~~~
+
+~~~mermaid
+sequenceDiagram
+    actor Admin
+    participant UI as Admin pages / AdminGate
+    participant API as Environment-selected adapter
+    participant User as Existing User Service
+    participant Ready as Existing Order / Supplier APIs
+    Admin->>UI: Enter Admin Mode in live configuration
+    UI->>API: roleContext(current UID)
+    API->>User: GET role-context with bearer token
+    User-->>UI: Authenticated UID and roles
+    UI->>UI: Compare UID and require admin
+    opt Authorized admin
+        UI->>API: Matching Order/Supplier operation
+        API->>Ready: Existing HTTP contract with bearer token
+        Ready-->>UI: Real record/page or real error
+        Admin->>UI: Open selected user / enter exact UID
+        API->>User: GET summary by UID
+        User-->>UI: Existing identity/standing projection
+        UI-->>Admin: Known facts; unavailable fields Coming soon
+        UI-->>Admin: Credit transactions Coming soon; User actions disabled
+        Note over UI,API: No missing peer calls and no fallback to mock data
+    end
+~~~
 
 Reuse AppShell and its desktop sidebar/mobile sheet, add a top-right mode switch,
 guard admin routes with account-bound verified role-context, and use a dedicated

@@ -15,7 +15,7 @@ import { useAdminApi } from "@/hooks/use-admin-api"
 import { useAdminPage } from "@/hooks/use-admin-page"
 import { ADMIN_ORDER_STATUSES, type AdminOrder, type AdminOrderQuery } from "@/lib/admin-api"
 import { formatOrderStatus, type OrderStatus } from "@/lib/orders"
-import { AdminDetails, AdminHeading, AdminLoadState, AdminPagination, CopyId, adminDate } from "./admin-ui"
+import { AdminDetails, AdminFilterActions, AdminFilterForm, AdminHeading, AdminLoadState, AdminPagination, CopyId, adminDate } from "./admin-ui"
 
 function OrderDetails({ order }: { order: AdminOrder }) {
   const entries = Object.entries(order)
@@ -57,9 +57,13 @@ function OrderDetails({ order }: { order: AdminOrder }) {
 }
 
 function RecordLink({ id, name, kind }: { id: string | null; name: string | null; kind: "users" | "suppliers" }) {
+  const api = useAdminApi()
+  const load = useCallback((signal: AbortSignal) => api.mode === "live" && id && !name
+    ? api.recordName(kind, id, signal) : Promise.resolve(name), [api, id, name, kind])
+  const { data } = useAdminPage(load)
   if (!id) return <span className="text-muted-foreground">Unassigned</span>
-  return <Link href={"/admin/" + kind + "/" + encodeURIComponent(id)} className="font-medium underline-offset-4 hover:underline">
-    {name || id}
+  return <Link href={"/admin/" + kind + "/" + encodeURIComponent(id)} className="font-normal underline-offset-4 hover:underline">
+    {name || data || id}
   </Link>
 }
 
@@ -92,43 +96,43 @@ function AdminOrderList() {
 
   return <section className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-8">
     <AdminHeading title="Orders" description="View every order, across all statuses. Latest orders appear first." />
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="flex flex-col gap-2"><Label>Status</Label>
+    <AdminFilterForm onSubmit={(event) => {
+      event.preventDefault(); setQuery((current) => ({ ...current, page: 1, orderId: orderId.trim() }))
+    }}>
+      <div className="flex min-w-0 flex-col gap-2"><Label>Status</Label>
         <Select items={statuses} value={query.status ?? "all"} onValueChange={(value) =>
           setQuery((current) => ({ ...current, page: 1, status: !value || value === "all" ? null : value as OrderStatus }))}>
-          <SelectTrigger aria-label="Order status" className="min-w-40 data-[size=default]:h-10"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Order status" className="w-full min-w-0 data-[size=default]:h-10"><SelectValue /></SelectTrigger>
           <SelectContent>{Object.entries(statuses).map(([value, label]) =>
             <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
         </Select>
       </div>
-      <form className="flex flex-1 flex-wrap items-end gap-2" onSubmit={(event) => {
-        event.preventDefault(); setQuery((current) => ({ ...current, page: 1, orderId: orderId.trim() }))
-      }}>
-        <div className="flex min-w-40 flex-1 flex-col gap-2"><Label htmlFor="admin-order-id">Order ID</Label>
-          <Input className="h-10" id="admin-order-id" value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="Enter an exact Order ID" />
-        </div>
+      <div className="flex min-w-0 flex-col gap-2"><Label htmlFor="admin-order-id">Order ID</Label>
+        <Input className="h-10 min-w-0" id="admin-order-id" value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="Enter an exact Order ID" />
+      </div>
+      <AdminFilterActions>
         <Button className="h-10" type="submit">Search</Button>
         <Button className="h-10" type="button" variant="outline" onClick={() => {
           setOrderId(""); setQuery({ page: 1, status: null, orderId: "" })
         }}>Clear</Button>
-      </form>
-    </div>
+      </AdminFilterActions>
+    </AdminFilterForm>
     <AdminLoadState loading={loading} error={error} empty={data?.items.length === 0} retry={refresh} />
     {data && data.items.length > 0 && <>
       <div className="min-w-0 overflow-x-auto rounded-xl border" tabIndex={0} aria-label="Orders table, scroll horizontally for more columns">
-        <Table className="min-w-[1400px]">
+        <Table className="min-w-[1400px] text-sm">
           <TableHeader><TableRow>{["Order ID", "Status", "Requester", "Courier", "Pickup", "Delivery", "Credits", "Created", "Expires", ""].map((title, index) =>
             <TableHead key={index}>{title || <span className="sr-only">Details</span>}</TableHead>)}</TableRow></TableHeader>
-          <TableBody>{data.items.map((order) => <TableRow key={order.id}>
-            <TableCell className="max-w-64 whitespace-normal"><CopyId id={order.id} /></TableCell>
-            <TableCell><Badge variant="outline">{formatOrderStatus(order.status)}</Badge></TableCell>
+          <TableBody className="font-normal [&_a]:font-normal">{data.items.map((order) => <TableRow key={order.id}>
+            <TableCell className="w-48 min-w-48 whitespace-nowrap"><CopyId id={order.id} compact /></TableCell>
+            <TableCell><Badge variant="outline" className="h-6 text-sm font-normal">{formatOrderStatus(order.status)}</Badge></TableCell>
             <TableCell><RecordLink kind="users" id={order.requesterId} name={order.requesterName} /></TableCell>
             <TableCell><RecordLink kind="users" id={order.courierId} name={order.courierName} /></TableCell>
             <TableCell><RecordLink kind="suppliers" id={order.pickupSupplierId} name={order.pickupSupplierName} /></TableCell>
             <TableCell><RecordLink kind="suppliers" id={order.deliverySupplierId} name={order.deliverySupplierName} /></TableCell>
             <TableCell>{order.offeredCredits}</TableCell>
-            <TableCell className="text-xs">{adminDate(order.createdAt)}</TableCell>
-            <TableCell className="text-xs">{adminDate(order.expiresAt)}</TableCell>
+            <TableCell>{adminDate(order.createdAt)}</TableCell>
+            <TableCell>{adminDate(order.expiresAt)}</TableCell>
             <TableCell><Link className={buttonVariants({ size: "sm", variant: "outline" })}
               href={"/admin/orders/" + encodeURIComponent(order.id)} aria-label={"View order " + order.id}>View</Link></TableCell>
           </TableRow>)}</TableBody>

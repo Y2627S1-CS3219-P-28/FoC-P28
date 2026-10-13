@@ -1,5 +1,18 @@
 # Order Service Work Allocation
 
+## Yao Xiang Compose Admin selection - 2026-10-13
+
+CHANGE-122 on order-service/admin-dashboard: user explicitly authorizes shared
+Compose files and .env.example for Admin UI mock/live selection. Frontend runtime
+config/hook/tests and Order docs only; no sibling backend or credential changes.
+
+## Yao Xiang Admin environment refinement - 2026-10-13
+
+CHANGE-119 continues order-service/admin-dashboard under explicit user approval:
+shared Admin frontend adapter/UI/tests and Order-owned documentation only.
+Matching actual Order/Supplier/role/summary calls outside local; no sibling
+backend edits. Missing User/Credit APIs remain placeholders, not assumed ready.
+
 ## Yao Xiang Admin UI prototype extension - 2026-10-11
 
 CHANGE-114 is the same user's 2026-10-12 map/layout continuation. Shared frontend

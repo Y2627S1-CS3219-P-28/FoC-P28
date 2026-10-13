@@ -1,5 +1,24 @@
 # Order Service Architecture Evolution
 
+## Compose-selected Admin providers - CHANGE-122
+
+Explicit user-approved material refinement: environment alone cannot distinguish
+local sample UI from local HTTP integration UI. Add request-time public provider
+mode, pin base mock/override live, retain cloud live-only guard and disable demo
+controllers in HTTP override. Reuse119 adapter/capabilities and existing backend
+security. No peer API or data-model/schema change; browser-safe configuration
+adds one enum field. ADR-039 reflects the effective selection predicate.
+
+## Environment-selected Admin providers - CHANGE-119
+
+Explicit user-approved refinement to ADR-039: retain local emulator mock
+prototype and enable only matching real APIs outside local. Runtime adapter
+selection/capabilities centralize unfinished-feature gates; User/Credit absence
+is explicit rather than errors or synthetic data. Preserve layout, local backend
+conditions, backend authorization and existing contracts. Actual User summary
+supports UID navigation; private full profile/directory and User actions/Credit
+cross-user queries remain blocked. No backend/schema/infra change.
+
 ## Corrected presentation interpretation - CHANGE-116
 
 User clarifies an internal field swap rather than resized cards. Supersede only

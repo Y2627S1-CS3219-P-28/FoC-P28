@@ -1,5 +1,32 @@
 # Active Sprint
 
+CHANGE-125 is a presentation consistency refinement across Admin pages: shared
+font/type hierarchy/theme, regular data and scoped map popup styling. Existing
+provider/authorization/scheduler/backend scope and contracts unchanged.
+
+CHANGE-124 normalizes Admin Order table body font size/weight only. Existing
+copy/navigation/filter/provider behavior, contracts and scope remain unchanged.
+
+CHANGE-123 is a presentation-only Admin Order ID table fix: bounded single-line
+display, full copy/detail/navigation preserved. Existing scope/APIs unchanged.
+
+CHANGE-122 refines Admin transport selection under explicit user approval:
+base Compose mock UI, HTTP-peer override real local APIs/partial staging-like UI.
+New runtime flag; genuine live admin role required. Backend HTTP peers/emulators
+and peer ownership/Sprint behavior unchanged.
+
+CHANGE-121 extends120's responsive filter pattern to all Admin search controls
+using shared wrappers. Presentation-only; existing scope/contracts unchanged.
+
+CHANGE-120 is a layout-only Admin follow-up: align Status/Order ID on phones,
+with Search/Clear below. Existing119 scope/integrations and backend unchanged.
+
+CHANGE-119 is the user-approved Admin continuation on2026-10-13: local emulator
+mocks retained; matching live Order/Supplier/role/summary APIs outside local;
+unfinished User/Credit features show Coming soon and do not issue calls. Backend
+and peer ownership/Sprint lifecycle scope unchanged; live rollout verification
+and full Admin integration remain pending.
+
 CHANGE-116 corrects115's Order layout interpretation: restore original card/grid
 dimensions; only swap Version with Item Description and keep requester first.
 Other Admin changes and backend/Sprint scope remain unchanged.

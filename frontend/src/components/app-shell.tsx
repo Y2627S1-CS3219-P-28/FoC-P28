@@ -245,7 +245,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
               {user && <Button size="sm" variant="outline" disabled={admin.checking}
                 onClick={() => {
                   if (adminMode) admin.leave()
-                  else void admin.enter().then((allowed) => { if (!allowed) toast.error("Admin access is unavailable. Check that the local demo is running.") })
+                  else void admin.enter().then((allowed) => { if (!allowed) toast.error("Admin access is unavailable. Check your administrator role and try again.") })
                 }}>
                 {admin.checking ? "Checking…" : adminMode ? "Normal Mode" : "Admin Mode"}
               </Button>}

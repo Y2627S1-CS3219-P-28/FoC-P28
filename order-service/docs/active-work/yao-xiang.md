@@ -1,5 +1,81 @@
 # Yao Xiang - Sprint 1 Active Work
 
+## Current task - CHANGE-125 Admin typography/theme consistency (2026-10-13)
+
+- Same confirmed Yao Xiang branch/workflow and source fingerprints. User asks
+  shared font/size/colour consistency; scoped Admin refinement, hierarchy retained.
+- Completed central Admin typography/theme policy, regular IDs/record links,
+  matching table/badge values, missing-balance helper and map popup theme styling.
+- Full203 frontend tests/39 files, TypeScript/final build pass; lint0 errors/3
+  existing login warnings; final layout lint/patch checks pass. Prior work/shared
+  normal-profile presenter retained. No API/backend/config or Docker changes.
+- Authenticated mobile/desktop/light/dark visual confirmation remains pending.
+
+## Current task - CHANGE-124 uniform Order table typography (2026-10-13)
+
+- Same confirmed developer/branch and sources; workflow reloaded. User wants
+  consistent table sizes and regular IDs. Scope to table body, preserve headers.
+- Completed matching date/badge size and link weight; all123 copy/ellipsis
+  behavior and earlier119..122 work retained. Existing34 Admin regressions,
+  TypeScript/scoped lint/build pass; patch clean. No backend/config change or
+  Docker recreation. Actual authenticated visual check pending.
+
+## Current task - CHANGE-123 compact table Order IDs (2026-10-13)
+
+- Same developer/branch, workflow reloaded, sources unchanged. User requests
+  bounded single-line table IDs, full copy and unchanged full detail IDs.
+- Completed optional CopyId compact display only in Admin Orders table;
+  preserve119..122 changes and all data/handlers. Existing34 Admin tests,
+  TypeScript/scoped lint/production build pass; patch clean. No API/backend/config
+  change or container recreation. Actual authenticated visual confirmation pending.
+
+## Current task - CHANGE-122 Compose Admin provider switch (2026-10-13)
+
+- Same Yao Xiang branch/workflow, source fingerprints unchanged. User authorizes
+  shared Compose selection: mock UI with base, real partial Admin UI with HTTP
+  override. Backend already HTTP; preserve that existing independent setting.
+- Completed request-time flag/Compose selection and documentation. Eleven new
+  tests observed RED first; final203 tests/39 files, TypeScript/build pass; lint
+  0 errors/3 existing login warnings. Base/HTTP Compose config and resolved-mode
+  projection checks pass. Docker read-only check required sandbox retry.
+- No sibling backend, credentials, cloud, data or volume changes, service restart
+  or deployment. Genuine admin role required in local-live; authenticated browser
+  verification pending. Existing119..121 work preserved.
+
+## Current task - CHANGE-121 consistent Admin search layout (2026-10-13)
+
+- Same confirmed developer/branch, workflow reloaded, fingerprints unchanged.
+  User requests consistency between Orders and other Admin search controls.
+- Completed shared responsive form/action wrappers for all Admin searches,
+  including live UID lookup. Preserve119/120 edits and existing behavior.
+- Existing34 Admin page tests, TypeScript, scoped lint and production build pass;
+  patch clean. No tests/API/backend/config changes or Docker recreation. Actual
+  authenticated mobile visual check remains pending.
+
+## Current task - CHANGE-120 mobile Order filter alignment (2026-10-13)
+
+- Same confirmed developer/branch and workflow; fingerprints unchanged. Preserve
+  in-progress119 edits. User requests aligned Status/Order ID fields on phone.
+- Completed layout-only fix: single form grid, equal first-row controls, mobile
+  action row; desktop stays inline. Existing handlers/contracts retained.
+- Existing 34 Admin page tests, TypeScript, scoped lint and production build pass;
+  patch check passes. No new tests, backend/API/config changes or Docker rebuild.
+- No browser is connected; actual authenticated mobile visual check unavailable.
+
+## Current task - CHANGE-119 environment-aware Admin UI (2026-10-13)
+
+- Confirmed Yao Xiang on order-service/admin-dashboard; workflow loaded, source
+  fingerprints unchanged. Explicit user approval recorded in CHANGE-119.
+- Local keeps existing mocks. Nonlocal uses completed Order/Supplier/role/summary
+  APIs and placeholders/disabled controls for unfinished User/Credit features.
+- Completed frontend-only integration/capability gates and API handoff. No peer
+  backend/config changes. Six contract plus seven runtime/UI regressions observed
+  RED first; seventeen added overall, final 192 tests / 38 files pass. Typecheck and
+  production build pass; lint 0 errors / 3 pre-existing login warnings; patch clean.
+- Real staging admin role required; missing User/Credit capabilities remain
+  uncalled. No Docker recreation/deployment/Git history or volume changes.
+  Authenticated staging and responsive visual confirmation remain pending.
+
 ## Current task - CHANGE-116 internal row correction (2026-10-12)
 
 - Same confirmed developer/branch; workflow/context reloaded; PDFs unchanged.

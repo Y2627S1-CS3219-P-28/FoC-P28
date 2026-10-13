@@ -5,9 +5,11 @@ import { AdminGate, AdminModeProvider, useAdminMode } from "./admin-mode-provide
 
 const mocks = vi.hoisted(() => ({
   api: vi.fn(), push: vi.fn(), pathname: "/",
+  config: { environment: "local", authEmulatorUrl: "http://localhost:9099" as string | null, adminApiMode: "mock" as "mock" | "live" },
   user: { uid: "user-a" } as { uid: string } | null,
 }))
 vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
+vi.mock("@/components/providers/config-provider", () => ({ useConfig: () => mocks.config }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: mocks.user, loading: false }) }))
 vi.mock("next/navigation", () => ({
   usePathname: () => mocks.pathname, useRouter: () => ({ push: mocks.push }),
@@ -19,10 +21,34 @@ function Probe() {
     <span>{admin.allowed ? "Allowed" : "Denied"}</span>
     <AdminGate><p>Protected admin content</p></AdminGate></>
 }
-beforeEach(() => { vi.clearAllMocks(); mocks.pathname = "/"; mocks.user = { uid: "user-a" } })
+beforeEach(() => {
+  vi.clearAllMocks(); mocks.pathname = "/"; mocks.user = { uid: "user-a" }
+  mocks.config = { environment: "local", authEmulatorUrl: "http://localhost:9099", adminApiMode: "mock" }
+})
 afterEach(cleanup)
 
 describe("Admin mode authorization", () => {
+  it("uses the real authenticated role-context on staging and requires the actual admin role", async () => {
+    mocks.config = { environment: "staging", authEmulatorUrl: null, adminApiMode: "live" }
+    mocks.api.mockResolvedValue({ userId: "user-a", roles: ["requester", "courier"] })
+    render(<AdminModeProvider><Probe /></AdminModeProvider>)
+    fireEvent.click(screen.getByText("Enter"))
+    await screen.findByText("Only administrators can enter Admin Mode.")
+    expect(mocks.api).toHaveBeenCalledWith("/api/users/role-context", { signal: undefined })
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(screen.queryByText("Protected admin content")).not.toBeInTheDocument()
+  })
+
+  it("uses real admin verification in local HTTP-peer mode despite the Auth emulator", async () => {
+    mocks.config.adminApiMode = "live"
+    mocks.api.mockResolvedValue({ userId: "user-a", roles: ["courier"] })
+    render(<AdminModeProvider><Probe /></AdminModeProvider>)
+    fireEvent.click(screen.getByText("Enter"))
+    await screen.findByText("Only administrators can enter Admin Mode.")
+    expect(mocks.api).toHaveBeenCalledWith("/api/users/role-context", { signal: undefined })
+    expect(mocks.push).not.toHaveBeenCalled()
+  })
+
   it("checks the current identity before entering and supports returning to normal mode", async () => {
     mocks.api.mockResolvedValue({ userId: "user-a", roles: ["admin"] })
     render(<AdminModeProvider><Probe /></AdminModeProvider>)

@@ -1,5 +1,37 @@
 # Approved Change Log
 
+CHANGE-125 (Yao Xiang, 2026-10-13): central Admin font/theme scope matches shared
+Geist Sans, regular14px data/badges/IDs and semantic colours. Headings/helper
+hierarchy retained; missing balance text muted14px; map popups use shared theme.
+Shared normal-profile implementation and backend/data/provider behaviour unchanged.
+
+CHANGE-124 (Yao Xiang, 2026-10-13): scoped Order table body to regular14px, including
+linked IDs/names, statuses and dates. Column headings remain distinct; all copy,
+navigation/ellipsis/filter behavior and other table/detail typography unchanged.
+
+CHANGE-123 (Yao Xiang, 2026-10-13): bound table Order ID width and use one-line
+ellipsis via optional CopyId compact mode. Full-ID copy/title/detail/navigation
+preserved; other ID displays and backend/config behavior unchanged.
+
+CHANGE-122 (Yao Xiang, 2026-10-13): explicitly approved shared Compose selection
+for Admin UI. Base pins mock, HTTP override live/demo-disabled; new request-time
+FOC_ADMIN_API_MODE, cloud live-only. Existing backend HTTP peers/emulators and
+partial119 integration remain. Verification recorded in122.
+
+CHANGE-121 (Yao Xiang, 2026-10-13): apply120's responsive Order search pattern to
+all Admin searches through shared form/action components. Users/Suppliers now
+match Orders: fields first, actions below on mobile; inline on larger screens.
+Single-UID live lookup uses the same wrappers. Existing behavior is preserved.
+
+CHANGE-120 (Yao Xiang, 2026-10-13): screenshot-driven mobile Order filter fix.
+Status and Order ID now share one responsive form/grid row, Search/Clear below
+on mobile and inline on desktop. Layout only; existing119 integrations retained.
+
+CHANGE-119 (Yao Xiang, 2026-10-13): explicit user-approved environment-aware Admin
+adapter. Local emulator keeps samples; outside local completed real providers
+are used, missing User/Credit features show Coming soon/disabled controls, no
+mock fallback or peer/backend/config changes. Tests first; verification in119.
+
 CHANGE-116 (Yao Xiang, 2026-10-12): user's clarification reverts115's Order
 full-width/three-column/span changes. Original card dimensions/two-column grid
 with Version/Item Description swapped; requester before courier preserved.

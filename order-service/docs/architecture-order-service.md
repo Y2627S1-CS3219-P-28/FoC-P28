@@ -1,5 +1,18 @@
 # Order Service Architecture
 
+CHANGE-122 adds frontend request-time adminApiMode to distinguish base Compose
+samples from HTTP-peer local integration. Override disables existing Order demo
+routes through their current flag; Order peer HTTP mode and security are retained.
+No backend class/contract/schema change. Existing119 real adapter/capabilities are
+reused; cloud/invalid config stay live. Effective selector diagram: ADR-039.
+
+CHANGE-119 adds no backend component. Runtime config selects local mock transport
+or real matching APIs in the Admin adapter. Capability flags prevent unfinished
+User/Credit calls; selected user uses the existing limited summary. Order related
+labels load independently, retaining ID navigation during peer delays/failures.
+Existing repositories/schedulers/outbox/security and peer services are unchanged.
+Current component/sequence diagrams and handoff are in ADR-039/admin-peer-api-request.
+
 CHANGE-114 adds no Order backend component: frontend maps use existing sample
 supplier coordinates and create payload; Order detail grouping uses existing
 responses, preserving all returned fields. Public map reads are isolated from

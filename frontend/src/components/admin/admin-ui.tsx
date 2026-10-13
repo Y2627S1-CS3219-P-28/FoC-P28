@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useAdminApi } from "@/hooks/use-admin-api"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -17,15 +19,25 @@ import {
 export function AdminHeading({ title, description, children }: {
   title: string; description: string; children?: React.ReactNode
 }) {
+  const api = useAdminApi()
   return <div className="flex flex-wrap items-start justify-between gap-4">
     <div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      <p className="mt-2 text-xs text-muted-foreground">Demo data • Changes reset when the service restarts.</p>
+      {api.mode === "mock" && <p className="mt-2 text-xs text-muted-foreground">Demo data • Changes reset when the service restarts.</p>}
     </div>{children}
   </div>
 }
 
-export function CopyId({ id, name }: { id: string | null | undefined; name?: string | null }) {
+export function AdminComingSoon({ title }: { title: string }) {
+  return <Card>
+    <CardHeader><CardTitle className="text-xl">{title}</CardTitle></CardHeader>
+    <CardContent><p className="text-sm text-muted-foreground">Coming soon</p></CardContent>
+  </Card>
+}
+
+export function CopyId({ id, name, compact = false }: {
+  id: string | null | undefined; name?: string | null; compact?: boolean
+}) {
   const [copied, setCopied] = useState(false)
   if (!id) return <span className="text-muted-foreground">Unassigned</span>
   async function copy() {
@@ -37,11 +49,23 @@ export function CopyId({ id, name }: { id: string | null | undefined; name?: str
       toast.error("Could not copy the ID. Select it manually: " + id)
     }
   }
-  return <button type="button" className="inline-flex max-w-full items-center gap-1.5 rounded text-left text-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+  return <button type="button" className={"inline-flex max-w-full items-center gap-1.5 rounded text-left text-sm font-normal underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring" + (compact ? " w-44 whitespace-nowrap" : "")}
     onClick={() => void copy()} title={"Copy ID: " + id} aria-label={"Copy " + (name || id) + " ID"}>
-    <span className="break-all">{name || id}</span>
+    <span className={compact ? "min-w-0 flex-1 truncate" : "break-all"}>{name || id}</span>
     {copied ? <CheckIcon className="size-3 shrink-0" /> : <CopyIcon className="size-3 shrink-0 text-muted-foreground" />}
   </button>
+}
+
+export function AdminFilterForm({ children, onSubmit }: {
+  children: React.ReactNode; onSubmit: React.FormEventHandler<HTMLFormElement>
+}) {
+  return <form className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto]" onSubmit={onSubmit}>
+    {children}
+  </form>
+}
+
+export function AdminFilterActions({ children }: { children: React.ReactNode }) {
+  return <div className="col-span-2 flex gap-2 sm:col-span-1">{children}</div>
 }
 
 export function AdminSearchForm({ label, onSearch }: {
@@ -49,24 +73,26 @@ export function AdminSearchForm({ label, onSearch }: {
 }) {
   const [searchBy, setSearchBy] = useState<"name" | "id">("name")
   const [query, setQuery] = useState("")
-  return <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => {
+  return <AdminFilterForm onSubmit={(event) => {
     event.preventDefault(); onSearch(searchBy, query.trim())
   }}>
-    <div className="flex flex-col gap-2"><Label>Search by</Label>
+    <div className="flex min-w-0 flex-col gap-2"><Label>Search by</Label>
       <Select items={{ name: "Name", id: "ID" }} value={searchBy}
         onValueChange={(value) => setSearchBy(value === "id" ? "id" : "name")}>
-        <SelectTrigger aria-label={label + " search type"} className="w-28 data-[size=default]:h-10"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label={label + " search type"} className="w-full min-w-0 data-[size=default]:h-10"><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="name">Name</SelectItem><SelectItem value="id">ID</SelectItem></SelectContent>
       </Select>
     </div>
-    <div className="flex min-w-40 flex-1 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={label + "-search"}>Search {label.toLowerCase()}</Label>
-      <Input className="h-10" id={label + "-search"} maxLength={100} value={query} onChange={(event) => setQuery(event.target.value)}
+      <Input className="h-10 min-w-0" id={label + "-search"} maxLength={100} value={query} onChange={(event) => setQuery(event.target.value)}
         placeholder={searchBy === "id" ? "Enter an exact ID" : "Enter a name"} />
     </div>
-    <Button className="h-10" type="submit">Search</Button>
-    <Button className="h-10" type="button" variant="outline" onClick={() => { setQuery(""); onSearch(searchBy, "") }}>Clear</Button>
-  </form>
+    <AdminFilterActions>
+      <Button className="h-10" type="submit">Search</Button>
+      <Button className="h-10" type="button" variant="outline" onClick={() => { setQuery(""); onSearch(searchBy, "") }}>Clear</Button>
+    </AdminFilterActions>
+  </AdminFilterForm>
 }
 
 export function AdminLoadState({ loading, error, empty, retry }: {

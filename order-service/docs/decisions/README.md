@@ -4,7 +4,7 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
-| [ADR-039](ADR-039-admin-ui-local-mock-prototype.md) | User-approved local mock milestone and CHANGE-112/113/114 refinements, Yao Xiang 2026-10-11/12 | Admin UI/adapter, dedicated grouped pages/history/maps/top actions, local sample APIs; peers read-only |
+| [ADR-039](ADR-039-admin-ui-local-mock-prototype.md) | User-approved local mock milestone and CHANGE-112..116/119..122 refinements, Yao Xiang 2026-10-11..13 | Admin UI/maps/details; base Compose samples, HTTP override/cloud partial live providers; unfinished capabilities gated, peers read-only |
 | [ADR-033](ADR-033-durable-credit-command-stub.md) | Approved contract-stub milestone, Vincent 2026-10-10; live recovery disabled | Durable foreground CREATE/ACCEPT/ABORT command claims/results and pending/auth-only UI; Credit historical protocol awaits owner agreement |
 | [ADR-030](ADR-030-field-errors-and-new-repost-minimum.md) | Accepted, Vincent 2026-10-09 | Actual field errors; new auto due-to-expiry/manual submit-to-expiry min30; saved explicit plans grandfathered |
 | [ADR-029](ADR-029-local-live-credit-push.md) | Accepted; local connector tested, cloud integration pending | Isolated financial push through exact-path authenticated local ingress; existing peer source/security/ledger ownership retained |

@@ -1,14 +1,47 @@
 # Admin Peer API Requests
 
-Date: 2026-10-11. Owner: Yao Xiang. Scope: CHANGE-111 Admin UI prototype.
+Date: 2026-10-13. Owner: Yao Xiang. Scope: CHANGE-111 prototype, CHANGE-119 partial live integration and CHANGE-122 Compose selection.
 Evidence: current repository controllers, request/response models and services;
 source inspection only, not live integration verification.
 
-The UI currently uses ONLY Order-owned sample endpoints under
-/api/orders/admin-mock. Role lookup is mocked too. No real User, Supplier,
-Credit, Firebase account or Order data is mutated. Replacing the adapter with
-real providers is a separate milestone. Do not interpret sample fields or
-successful demo actions as completed peer implementation.
+Base Compose UI with Firebase Auth emulator retains Order-owned sample endpoints
+under /api/orders/admin-mock, including sample role lookup. HTTP-peer override and staging/production use
+completed real providers; unfinished capabilities show Coming soon. No sibling
+backend implementation was changed. Do not interpret sample fields, placeholders
+or successful adapter tests as completed peer implementation/live verification.
+
+## Effective partial live rollout - CHANGE-119
+
+| Capability | Base Compose mock demo | HTTP-peer Compose / staging / production |
+|---|---|---|
+| Admin role check | Existing mock role-context | Real GET /api/users/role-context; returned UID must match caller and roles contain admin |
+| Orders list / status / paging / exact ID / detail | Existing sample pages | Real Order list/detail; current provider authorization applies |
+| Order related user/supplier labels | Fixture names | Existing User summary / Supplier detail, independently loaded; ID links remain visible on delay/failure |
+| Supplier search / detail / create / deactivate | Sample operations | Existing Supplier q/status=all paging, exact detail, POST create and DELETE soft deactivation |
+| User directory / name search / pagination | Sample pages | User directory card: Coming soon; no unprotected/unpaged real list call |
+| Selected user / exact UID lookup | Complete sample profile | Existing UserSummary only: userId, username, email, roles, penalty, isCourierSuspended, suspensionEndDate |
+| Profile ID / phone / address / account active | Sample projections | Null placeholders: Coming soon; unavailable is never represented as inactive |
+| Suspension / promotion / safe user deactivation | Sample mutations | Disabled; no calls to missing endpoints or existing hard-delete operation |
+| Another user's Credit balance | Sample numbers | Available/reserved/total each Coming soon; never substituted with zero or caller balance |
+| Another user's Credit history | Sample history page | Credit transactions card: Coming soon; no missing endpoint call |
+
+Under CHANGE-122, runtime ConfigProvider selects mocks only when the requested
+FOC_ADMIN_API_MODE is mock, FOC_ENVIRONMENT is local and an Auth emulator URL is
+configured. Missing flag retains local demo compatibility; invalid flags select
+live. Base Compose pins mock; HTTP-peer override pins live and disables Order
+demo routes. Cloud always selects live even with a stray mock flag. An actual
+admin account is required in every live mode, including local HTTP-peer testing.
+Backend authentication/role checks are not relaxed. Live local mode uses local
+services/data through the gateway; capabilities match staging, records do not.
+Live errors remain errors; there is no fallback to mocks. Exact-ID searches adapt
+one record into a page and only a provider404 into empty results; 401/403/5xx
+remain visible. Supplier q search also matches building/location, as its existing
+contract specifies. No client fetch-all/filter directory workaround is used.
+
+ADMIN-API-001..006 below remain requests to the owning teams. Completing their
+contracts later allows the central adapter/capability flags to replace the
+placeholders; no page-layout redesign is required. Source/adapter/UI tests pass
+as recorded in CHANGE-119; deployed authenticated integration is not yet verified.
 
 ## Already implemented: reuse these, do not create duplicates
 
@@ -231,7 +264,7 @@ entered description is preserved. The address label is a reference, not a
 reverse-geocoded guarantee after dragging; coordinates are the exact placement.
 No structured/persisted `address` field or additional backend API is requested.
 
-Administrative operations still use the gateway and Order-owned mock adapter.
+Administrative operations use the gateway and the environment-selected adapter.
 Public map rendering/search are separate, isolated in frontend/src/lib/map-provider.ts:
 
 - Tiles: HTTPS OpenStreetMap tiles via Leaflet1.9.4, with visible attribution,
@@ -256,8 +289,9 @@ offers no availability guarantee. Primary documentation:
 [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/),
 [Leaflet stable release](https://leafletjs.com/download.html).
 
-Supplier deactivation now exists only in detailed view, using its same confirmed
-sample operation; no contract change. Order detail user/supplier names navigate
+Supplier deactivation exists only in detailed view, using confirmed sample
+operations locally or real Supplier DELETE outside local; no contract change.
+Order detail user/supplier names navigate
 to Admin routes; separate ID copy controls use existing IDs. Grouped Order cards
 preserve all returned fields, including a separate repost card and unknown fields.
 
@@ -291,7 +325,9 @@ Mock pagination is in-memory because this is a small isolated fixture, not the
 real Order database or scheduler. All real lifecycle DB queries remain unchanged.
 The immutable copy mapper prevents HTTP readers from altering stored fixtures.
 
-Replace frontend/src/lib/admin-api.ts transport and any necessary normalizers,
+CHANGE-119 implements environment-selected transport/normalizers in
+frontend/src/lib/admin-api.ts for the matching operations above. Replace remaining
+unsupported operations/capability flags when their provider contracts are ready,
 not the page controls. Use real role-context, validate UID/admin membership, then
 real provider calls with their actual HTTP methods and bodies. The frontend role
 check only controls UI: every actual backend operation must enforce admin too.

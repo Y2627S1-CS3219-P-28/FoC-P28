@@ -8,8 +8,11 @@ import { CopyId } from "./admin-ui"
 import { AdminSelectedUser } from "./admin-selected-user"
 
 const mocks = vi.hoisted(() => ({
+  mode: "mock" as "mock" | "live",
+  capabilities: { userDirectory: true, userActions: true, creditTransactions: true },
   orders: vi.fn(), users: vi.fn(), user: vi.fn(), suppliers: vi.fn(),
   order: vi.fn(), push: vi.fn(),
+  recordName: vi.fn(),
   supplier: vi.fn(), userTransactions: vi.fn(),
   suspendUser: vi.fn(), promoteUser: vi.fn(), deactivateUser: vi.fn(),
   createSupplier: vi.fn(), deactivateSupplier: vi.fn(),
@@ -40,6 +43,8 @@ const order = {
 const page = (items: unknown[], current = 1) => ({ items, page: current, size: 10, totalItems: 12, totalPages: 2 })
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.mode = "mock"
+  mocks.capabilities = { userDirectory: true, userActions: true, creditTransactions: true }
   mocks.orders.mockImplementation((query) => Promise.resolve(page([order], query.page)))
   mocks.order.mockResolvedValue(order)
   mocks.users.mockResolvedValue(page([user]))
@@ -55,6 +60,62 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe("Admin pages", () => {
+  it("shows live orders and navigation immediately even while names are pending or unavailable", async () => {
+    mocks.mode = "live"
+    mocks.orders.mockResolvedValue(page([{ ...order, requesterName: null, pickupSupplierName: null, deliverySupplierName: null }]))
+    mocks.recordName.mockImplementation(() => new Promise(() => {}))
+    render(<AdminOrders />)
+    expect(await screen.findByRole("link", { name: "View order order-1" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "user-1" })).toHaveAttribute("href", "/admin/users/user-1")
+    expect(screen.getByRole("link", { name: "supplier-1" })).toHaveAttribute("href", "/admin/suppliers/supplier-1")
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+  })
+
+  it("opens an existing user summary by exact UID when the live directory is not ready", async () => {
+    mocks.mode = "live"
+    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: false }
+    render(<AdminUsers />)
+    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: " user-1 " } })
+    fireEvent.click(screen.getByRole("button", { name: "View profile" }))
+    expect(await screen.findByText("alex@u.nus.edu")).toBeInTheDocument()
+    expect(mocks.user).toHaveBeenCalledWith("user-1", expect.any(AbortSignal))
+    expect(mocks.users).not.toHaveBeenCalled()
+    expect(mocks.userTransactions).not.toHaveBeenCalled()
+  })
+
+  it("shows a live directory Coming soon card without loading the missing list endpoint", async () => {
+    mocks.mode = "live"
+    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: false }
+    render(<AdminUsers />)
+    expect(screen.getByText("User directory")).toBeInTheDocument()
+    expect(screen.getByText(/Coming soon/)).toBeInTheDocument()
+    expect(mocks.users).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Changes reset/)).not.toBeInTheDocument()
+  })
+
+  it("keeps live user summary visible with missing-value placeholders and no Credit or mutation calls", async () => {
+    mocks.mode = "live"
+    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: false }
+    mocks.user.mockResolvedValue({ ...user, id: null, active: null, phoneNumber: null, address: null,
+      usableBalance: null, reservedBalance: null, totalBalance: null })
+    render(<AdminSelectedUser userId="user-1" />)
+    expect(await screen.findByText("alex@u.nus.edu")).toBeInTheDocument()
+    expect(screen.getByText("Credit transactions")).toBeInTheDocument()
+    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(3)
+    for (const name of ["Suspend User", "Promote to Admin", "Deactivate User"]) {
+      const button = screen.getByRole("button", { name })
+      expect(button).toBeDisabled()
+      fireEvent.click(button)
+    }
+    expect(mocks.userTransactions).not.toHaveBeenCalled()
+    expect(mocks.suspendUser).not.toHaveBeenCalled()
+    expect(mocks.promoteUser).not.toHaveBeenCalled()
+    expect(mocks.deactivateUser).not.toHaveBeenCalled()
+    expect(screen.queryByText("Inactive")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Copy user-1 ID" })).toBeInTheDocument()
+    expect(screen.queryByText(/Demo data/)).not.toBeInTheDocument()
+  })
+
   it("paginates and searches orders on the server and exposes every status", async () => {
     render(<AdminOrders />)
     await screen.findByRole("link", { name: "View order order-1" })

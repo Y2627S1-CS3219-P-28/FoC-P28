@@ -1,5 +1,16 @@
 # Overall Architecture
 
+CHANGE-122 uses the same gateway/local services but selects Admin frontend
+provider by Compose runtime flag. Base sample UI versus HTTP override real UI;
+both retain local databases/emulators. Cloud stays live-only. No topology/broker/
+IAM or peer API change; source/deployed record sets are intentionally independent.
+
+CHANGE-119 approves partial live Admin frontend integration through the existing
+gateway: real Order/Supplier and User role/summary endpoints outside local;
+existing local emulator sample APIs otherwise. Unfinished User/Credit features
+are visibly unavailable and never called. Provider-owned data/authorization,
+deployment topology and broker/persistence configuration remain unchanged.
+
 CHANGE-114 adds public map tiles/address lookup to Admin frontend only; these
 anonymous reads do not forward Firebase credentials and do not replace service
 gateway/mock boundaries. Supplier/Order/User APIs and data ownership unchanged.
