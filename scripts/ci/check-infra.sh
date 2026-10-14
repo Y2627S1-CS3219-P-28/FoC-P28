@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-5), date: 2026-10-13
+# Mode: Infrastructure verification.
+# Scope: Added checks for Reporting Service bucket privacy and object permissions.
+# Author review: I verified for correctness.
+
 # Verifies that every deployable service has the cloud resources it needs, so a missing piece
 # fails a pull request instead of a deploy. Read-only: it never creates or changes anything.
 #
@@ -380,6 +386,24 @@ for env in "${environments[@]}"; do
     ok "gs://$bucket"
   else
     problem "config bucket gs://$bucket does not exist"
+  fi
+done
+
+echo "Reporting Service private attachment buckets"
+for env in "${environments[@]}"; do
+  bucket="${PROJECT_ID}-foc-reporting-$env"
+  if ! bucket_json=$(gcloud storage buckets describe "gs://$bucket" --project "$PROJECT_ID" --format=json 2>/dev/null); then
+    problem "reporting-service: attachment bucket gs://$bucket does not exist"
+    continue
+  fi
+  if [[ $(jq -r '.iamConfiguration.publicAccessPrevention // ""' <<<"$bucket_json") != enforced ]]; then
+    problem "reporting-service: gs://$bucket does not enforce public-access prevention"
+  elif gcloud storage buckets get-iam-policy "gs://$bucket" --project "$PROJECT_ID" --format=json |
+      jq -e --arg m "serviceAccount:$(runtime_sa reporting-service)" \
+        '.bindings // [] | any(.role == "roles/storage.objectAdmin" and (.members | index($m)))' >/dev/null; then
+    ok "reporting-service: gs://$bucket is private and bucket-scoped object access is granted"
+  else
+    problem "reporting-service: $(runtime_sa reporting-service) has no object access to gs://$bucket"
   fi
 done
 

@@ -3084,3 +3084,17 @@ CHANGE-155 (2026-10-19), Yao Xiang: retire accepted-cancellation producer/replay
 
 
 CHANGE-155 verification: final full reactor verify passed: 531 Order tests +12 common tests, zero failures/errors/skips; coverage checks passed with fresh execution data and no class-mismatch warning. First full run also passed but accumulated old mapper coverage, so only jacoco.exec was backed up/cleared before the final run (no Maven clean). Local bootstrap3 tests pass; base/http-peers/http-peers+local-live Compose config checks pass; shell syntax and stubbed staging/production provisioning pass (four topics each; no live gcloud calls). AsyncAPI checker passes four channels/operations, four DTO field sets, six examples, negative schemas and source/config/cadence parity; initial stale validator/missing example attributes were corrected. AsyncAPI parses and all local refs resolve. Docker foc-order-service:change155-check built; packaged JAR contains no retired event/publisher/snapshot classes; git diff --check passes. Production backlog and deployed User scoring remain unverified. No DB/GCP modifications, app-container recreation, commit or staging.
+
+## 2026-10-14 — Reporting Service implementation and disclosure assistance
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Implementation, test generation, verification, infrastructure, documentation, and disclosure maintenance.
+- **Exact prompts:**
+
+  > Create `feat/reporting-service` from `main` and add a dedicated Reporting Service plus its user-facing report form.
+
+  > can you help me add ai declaration on the files and also in the ai log file
+
+- **Key response:** Created `feat/reporting-service` from `main` and implemented the required Reporting Service, multipart report submission, authoritative Order association client, Firestore persistence, private Cloud Storage attachments, admin APIs, authenticated frontend form, all-page/all-status order selector, completion reminder, gateway routing, local emulators, cloud bucket provisioning, OpenAPI, tests, and documentation. Reporting Service verification passes 29 tests and both JaCoCo gates; the frontend passes 132 tests, lint with three unrelated existing warnings, typecheck, and production build; Reporting Service, frontend, and gateway images build; Compose and patch validation pass. Added scoped disclosure headers to AI-assisted text files. Standard Maven wrapper files retain their upstream license text without AI headers, and `infra/firebase-emulator/firebase.json` remains valid strict JSON without comments; their use and modification are covered by this entry. `REPORTING-ORDER-001` remains an external Order Service dependency, so authenticated end-to-end integration is pending its merge and branch rebase.
+- **Affected locations:** `reporting-service/`; `frontend/src/app/reporting/`, `frontend/src/components/reporting/`, shared frontend API/navigation/request-completion files and tests; gateway configuration; Firebase emulator, GCP bootstrap, and infrastructure checks; `.env.example`, `compose.yaml`, root and CI/CD documentation; and this usage log. Order Service source was not changed.
+- **Author verification:** The author supplied the feature contract and requested the disclosures. Automated verification is complete as recorded above. No commit, push, cloud mutation, or peer-service implementation was performed.
