@@ -10,6 +10,8 @@ Author review: I reviewed for correctness.
 
 Reporting Service owns report records and their private photo attachments. Firestore stores report and attachment metadata; Cloud Storage stores the photo bytes. Admin Service is only a future consumer and does not own or mutate this data.
 
+See [HANDOFF.md](HANDOFF.md) for the complete implementation summary, API payloads, Order Service contract, dependencies, known gaps, and pre-merge checklist.
+
 ## API
 
 - `POST /api/reports` — authenticated multipart submission (`report` JSON plus zero to five `photos`).
