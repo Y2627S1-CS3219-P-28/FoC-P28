@@ -355,6 +355,29 @@ class JpaCreditRepositoryIntegrationTest {
     }
 
     @Test
+    void readsStableNewestFirstHistoryAcrossUsers() {
+        repository.initializeAccount(
+                UUID.randomUUID(), "older-user", Instant.parse("2026-09-24T08:00:00Z"));
+        repository.initializeAccount(
+                UUID.randomUUID(), "newer-user", Instant.parse("2026-09-25T08:00:00Z"));
+        repository.reserve("newest-order", "older-user", 10);
+
+        CreditTransactionPage first = repository.findAllTransactions(1, 2);
+        assertThat(first.items()).hasSize(2);
+        assertThat(first.items().getFirst().userId()).isEqualTo("older-user");
+        assertThat(first.items().getFirst().orderId()).isEqualTo("newest-order");
+        assertThat(first.items().get(1).userId()).isEqualTo("newer-user");
+        assertThat(first.totalItems()).isEqualTo(3);
+        assertThat(first.totalPages()).isEqualTo(2);
+
+        CreditTransactionPage second = repository.findAllTransactions(2, 2);
+        assertThat(second.items()).singleElement()
+                .satisfies(transaction -> assertThat(transaction.userId()).isEqualTo("older-user"));
+        assertThat(first.items()).extracting(transaction -> transaction.occurredAt())
+                .isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    }
+
+    @Test
     void settlesCompletionToTheRecordedCourierExactlyOnce() {
         createAccount("requester");
         createAccount("courier");

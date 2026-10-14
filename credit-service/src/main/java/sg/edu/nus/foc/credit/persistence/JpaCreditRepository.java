@@ -109,11 +109,31 @@ public class JpaCreditRepository implements CreditRepository {
                 CreditCommandOperation.RESERVE,
                 CreditCommandOutcome.COMPENSATED,
                 "REVERSED",
-                PageRequest.of(
-                        page - 1,
-                        size,
-                        Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("createdAt"),
-                                Sort.Order.desc("entryId"))));
+                transactionPageRequest(page, size));
+        return toTransactionPage(result, page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CreditTransactionPage findAllTransactions(int page, int size) {
+        Page<CreditLedgerEntity> result = ledger.findAllUserVisible(
+                CreditCommandOperation.RESERVE,
+                CreditCommandOutcome.COMPENSATED,
+                "REVERSED",
+                transactionPageRequest(page, size));
+        return toTransactionPage(result, page, size);
+    }
+
+    private static PageRequest transactionPageRequest(int page, int size) {
+        return PageRequest.of(
+                page - 1,
+                size,
+                Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("createdAt"),
+                        Sort.Order.desc("entryId")));
+    }
+
+    private static CreditTransactionPage toTransactionPage(
+            Page<CreditLedgerEntity> result, int page, int size) {
         return new CreditTransactionPage(
                 result.getContent().stream().map(CreditLedgerEntity::toTransaction).toList(),
                 page,

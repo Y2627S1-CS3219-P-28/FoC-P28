@@ -192,6 +192,96 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void adminCanReadAnotherUsersTransactionsWithoutChangingTheExistingWireShape() throws Exception {
+        register(USER);
+        reserve("order-1", USER, 20);
+        register("other-user");
+
+        mvc.perform(get("/api/credits/users/{userId}/transactions?page=1&size=1", USER)
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.items[0].type").value("RESERVATION"))
+                .andExpect(jsonPath("$.items[0].orderId").value("order-1"))
+                .andExpect(jsonPath("$.items[0].userId").doesNotExist());
+
+        mvc.perform(get("/api/credits/users/other-user/transactions")
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(1));
+    }
+
+    @Test
+    void adminUserHistoryRejectsInvalidOrUnauthorizedRequests() throws Exception {
+        mvc.perform(get("/api/credits/users/missing-user/transactions"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/credits/users/missing-user/transactions")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        mvc.perform(get("/api/credits/users/missing-user/transactions")
+                        .with(adminJwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_NOT_FOUND"));
+        mvc.perform(get("/api/credits/users/__reserved__/transactions")
+                        .with(adminJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+        mvc.perform(get("/api/credits/users/missing-user/transactions?page=0&size=101")
+                        .with(adminJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void adminCanReadAllTransactionsWithOwningUserAndPagination() throws Exception {
+        mvc.perform(get("/api/credits/all/transactions").with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalItems").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
+
+        register(USER);
+        register("other-user");
+        reserve("order-1", USER, 20);
+
+        mvc.perform(get("/api/credits/all/transactions?page=1&size=2")
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalItems").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.items[0].userId").value(USER))
+                .andExpect(jsonPath("$.items[0].type").value("RESERVATION"))
+                .andExpect(jsonPath("$.items[0].orderId").value("order-1"))
+                .andExpect(jsonPath("$.items[1].userId").value("other-user"));
+
+        mvc.perform(get("/api/credits/all/transactions?page=2&size=2")
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].userId").value(USER));
+    }
+
+    @Test
+    void allTransactionsRequiresAdminAndValidPagination() throws Exception {
+        mvc.perform(get("/api/credits/all/transactions"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/credits/all/transactions")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        mvc.perform(get("/api/credits/all/transactions?page=0&size=101")
+                        .with(adminJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void reservesByOrderIdReplaysAndAllowsOwnerRecovery() throws Exception {
         register(USER);
         ReserveCreditsRequest request = new ReserveCreditsRequest(USER, 20);
@@ -482,5 +572,11 @@ class CreditApiIntegrationTest {
         return jwt()
                 .jwt(token -> token.subject(userId))
                 .authorities(new SimpleGrantedAuthority("ROLE_COURIER"));
+    }
+
+    private static RequestPostProcessor adminJwt() {
+        return jwt()
+                .jwt(token -> token.subject("admin-user"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 }
