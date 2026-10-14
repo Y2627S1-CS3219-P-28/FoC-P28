@@ -1,5 +1,12 @@
 /*
  * AI Assistance Disclosure:
+ * Tool: OpenAI Codex (GPT-5), date: 2026-10-13
+ * Mode: Implementation.
+ * Scope: Generated or updated frontend code for the team-specified report form, order association, navigation, and completion reminder.
+ * Author review: I reviewed for correctness
+ */
+/*
+ * AI Assistance Disclosure:
  * Tool: OpenAI Codex (GPT-5), date: 2026-09-28
  * Mode: Code generation.
  * Scope: Added the team-specified sidebar navigation order and Post Request action.
@@ -14,6 +21,7 @@ import {
   PlusIcon,
   SearchIcon,
   StoreIcon,
+  TriangleAlertIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -68,6 +76,12 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
     label: "My Requests",
     description: "Track the requests you have posted.",
     icon: ClipboardListIcon,
+  },
+  {
+    href: "/reporting",
+    label: "Report an Issue",
+    description: "Report an order, courier, credits, or another issue.",
+    icon: TriangleAlertIcon,
   },
   ...NAV_ITEMS,
 ]

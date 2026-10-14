@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure:
+ * Tool: OpenAI Codex (GPT-5), date: 2026-10-13
+ * Mode: Implementation.
+ * Scope: Generated or updated frontend code for the team-specified report form, order association, navigation, and completion reminder.
+ * Author review: I reviewed for correctness
+ */
 "use client"
 
 import { useMemo, useState } from "react"
@@ -6,6 +13,7 @@ import { OrderActions } from "@/components/orders/order-actions"
 import { OrderCard } from "@/components/orders/order-card"
 import { RepostControls } from "@/components/orders/repost-controls"
 import { OrderStatusFilter } from "@/components/orders/order-status-filter"
+import { CompletionReportReminder } from "@/components/orders/completion-report-reminder"
 import { OrderPagination } from "@/components/orders/order-pagination"
 import { PendingOrderCommands } from "@/components/orders/pending-order-commands"
 import { OrderCommandDiscoveryProvider } from "@/components/orders/order-command-discovery"
@@ -42,7 +50,7 @@ export default function MyRequestsPage() {
         <PendingOrderCommands onResolved={() => void load()} />
         <PendingErrandCards displayedOrders={orders} />
         {error && <p role="status" className="text-xs text-muted-foreground">Could not refresh your requests. We will try again.</p>}
-        {loading || !supplierNamesReady ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{query.status ? "No requests match this status." : "You have not posted a request yet."}</CardContent></Card> : <div className="space-y-4">{orders.map((order) => <OrderCard key={order.id} order={order} supplierNames={supplierNames} actions={<OrderActions order={order} mode="requester" onUpdated={replace} />} footer={<RepostControls order={order} onUpdated={replace} />} />)}</div>}
+        {loading || !supplierNamesReady ? <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : orders.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{query.status ? "No requests match this status." : "You have not posted a request yet."}</CardContent></Card> : <div className="space-y-4">{orders.map((order) => <OrderCard key={order.id} order={order} supplierNames={supplierNames} actions={<OrderActions order={order} mode="requester" onUpdated={replace} />} footer={<><RepostControls order={order} onUpdated={replace} />{order.status === "COMPLETED" && <CompletionReportReminder orderId={order.id} />}</>} />)}</div>}
         <OrderPagination page={query.page} totalPages={totalPages} disabled={loading}
           onChange={(page) => setQuery((current) => ({ ...current, page }))} />
       </div>
