@@ -67,6 +67,10 @@ public class CreditService implements CreditOutcomeProcessor {
         return repository.findTransactions(userId, page, size);
     }
 
+    public CreditTransactionPage getAllTransactions(int page, int size) {
+        return repository.findAllTransactions(page, size);
+    }
+
     public ReservationResult reserve(String orderId, String requesterId, long amount) {
         try {
             requireOpaqueId(orderId, "orderId");

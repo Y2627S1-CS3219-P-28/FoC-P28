@@ -102,4 +102,31 @@ class OpenApiDocumentationTest {
                 .contains("Idempotency-Key")
                 .contains("Command-Outcome");
     }
+
+    @Test
+    void adminTransactionEndpointsAreDocumented() throws Exception {
+        JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("paths");
+
+        JsonNode userHistory = paths.path(PREFIX + "/users/{userId}/transactions").path("get");
+        assertThat(userHistory.path("summary").asString()).isNotBlank();
+        assertThat(userHistory.path("parameters").toString())
+                .contains("userId")
+                .contains("page")
+                .contains("size");
+        assertThat(userHistory.path("responses").toString())
+                .contains("200")
+                .contains("403")
+                .contains("404");
+
+        JsonNode allHistory = paths.path(PREFIX + "/all/transactions").path("get");
+        assertThat(allHistory.path("summary").asString()).isNotBlank();
+        assertThat(allHistory.path("parameters").toString())
+                .contains("page")
+                .contains("size");
+        assertThat(allHistory.path("responses").toString())
+                .contains("200")
+                .contains("403");
+    }
 }

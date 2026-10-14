@@ -39,14 +39,17 @@ Credit resolves application roles independently through User Service. Courier as
 hold-for-reopen require `ROLE_COURIER` in addition to their existing identity and reservation
 ownership checks. Local Compose uses mock roles; cloud deployments use
 `GET /api/users/role-context` with the caller's bearer token and fail closed when role lookup is
-unavailable. These remain caller-authenticated gateway endpoints; restricting them to trusted
-Order-to-Credit service calls is separate work.
+unavailable. Administrator transaction queries require `ROLE_ADMIN`. These remain
+caller-authenticated gateway endpoints; restricting them to trusted Order-to-Credit service calls
+is separate work.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/credits/registration-facts` | Idempotently allocate 50 credits after registration. |
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `GET` | `/api/credits/me/transactions?page=1&size=20` | Return the authenticated user's newest credit transactions. |
+| `GET` | `/api/credits/users/{userId}/transactions?page=1&size=20` | Let an administrator view one user's newest credit transactions. |
+| `GET` | `/api/credits/all/transactions?page=1&size=20` | Let an administrator view newest transactions across all users; each item includes `userId`. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
 | `GET` | `/api/credits/orders/{orderId}/reservation` | Recover the authenticated requester's reservation status. |
 | `PUT` | `/api/credits/orders/{orderId}/courier-assignment` | Idempotently associate the authenticated courier before Order persists acceptance. |
@@ -75,7 +78,8 @@ compensated by reconstructing a courier assignment.
 Reservation reversals remain fully recorded in the immutable ledger, including their
 `COMPENSATION` reason and command identity. The authenticated user's transaction-history projection
 suppresses both the compensated reservation and its reversal because the corresponding Order was
-never created. Genuine cancellation and expiry refunds remain visible.
+never created. Administrator transaction-history projections apply the same filtering. Genuine
+cancellation and expiry refunds remain visible.
 
 ## Order outcome events
 

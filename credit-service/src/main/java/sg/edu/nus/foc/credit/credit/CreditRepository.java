@@ -19,6 +19,8 @@ public interface CreditRepository {
 
     CreditTransactionPage findTransactions(String userId, int page, int size);
 
+    CreditTransactionPage findAllTransactions(int page, int size);
+
     ReservationResult reserve(String orderId, String requesterId, long amount);
 
     Optional<CreditReservation> findReservation(String orderId);

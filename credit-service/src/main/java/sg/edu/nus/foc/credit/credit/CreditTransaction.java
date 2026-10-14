@@ -12,6 +12,7 @@ import java.time.Instant;
 
 public record CreditTransaction(
         String transactionId,
+        String userId,
         CreditTransactionType type,
         long amount,
         CreditDirection direction,

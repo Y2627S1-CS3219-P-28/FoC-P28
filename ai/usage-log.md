@@ -2575,3 +2575,33 @@ peer source or deployment changes. Tests and human review pending at start.
   identity/branch/source fingerprints verified. Prior119..124 retained. No new
   fonts/API/backend/models/configuration or Docker/deployment change. Actual
   authenticated mobile/desktop/light/dark visual review remains pending.
+
+## Credit administrator transaction history assistance (Credit Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-14
+- **Mode:** Repository inspection, implementation, test generation, verification,
+  documentation, and AI disclosure maintenance.
+- **Affected locations:** Credit admin controller and response DTOs; transaction
+  domain/service/repository/JPA query flow; Flyway V8 global-history index;
+  Credit API, service, persistence, recovery, and OpenAPI tests; Credit README;
+  new-file disclosure headers; and this usage log.
+- **Prompt:** From `main`, create `feat/credit-admin` and implement admin-only
+  paginated endpoints for one user's Credit transactions and all system Credit
+  transactions. Use `/api/credits/users/{userId}/transactions` and
+  `/api/credits/all/transactions`; include `userId` only in the system-wide
+  response and retain current user-visible compensation filtering. Follow-up:
+  add AI declarations and the AI log.
+- **Key response:** Created `feat/credit-admin` from clean `main`; added both
+  `ROLE_ADMIN` endpoints with one-based pagination, opaque-ID validation,
+  OpenAPI error documentation, stable newest-first ordering, selected-user 404,
+  and system-wide owner identity. Reused the existing selected-user wire shape,
+  added a dedicated admin page/item response, preserved compensation suppression,
+  and added the global ledger ordering index. Added positive and negative API,
+  persistence, service, recovery-filter, and OpenAPI coverage. Focused 52 tests
+  passed, followed by full `./mvnw verify`: 102 tests, zero failures/errors/skips,
+  Flyway V1-V8 validation, and all JaCoCo line/branch checks met.
+- **Author verification:** The user approved the endpoint paths, owner field, and
+  filtering behavior before implementation. Final human code/API/migration review
+  remains pending. No frontend, gateway, environment, cloud, deployment, commit,
+  push, or production-data change was performed.
