@@ -2605,3 +2605,23 @@ peer source or deployment changes. Tests and human review pending at start.
   filtering behavior before implementation. Final human code/API/migration review
   remains pending. No frontend, gateway, environment, cloud, deployment, commit,
   push, or production-data change was performed.
+
+## Credit administrator transaction API handoff assistance (Credit Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-14
+- **Mode:** Source inspection, peer-integration documentation, and disclosure maintenance.
+- **Affected locations:** Credit administrator transaction API handoff, Credit README,
+  and this usage log.
+- **Prompt:** Add a handoff document detailing the Credit Service changes and the two new
+  endpoints so other services know what to call.
+- **Key response:** Added a consumer-focused handoff for the selected-user and system-wide
+  administrator transaction endpoints. It records gateway paths, Firebase administrator
+  authentication, query validation, distinct response shapes, examples, transaction enums,
+  stable ordering, compensation filtering, pagination behavior, standard errors, integration
+  cautions, OpenAPI discovery, and verification evidence. Linked the handoff from the Credit
+  README.
+- **Author verification:** Contract details were checked against the implemented controller,
+  DTOs, service validation, error handling, and previously passing full Credit Service build.
+  Final human documentation review remains pending. No API, application logic, database,
+  frontend, gateway, deployment, commit, push, or production-data change was performed.

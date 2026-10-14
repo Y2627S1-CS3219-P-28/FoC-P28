@@ -30,6 +30,7 @@ FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./mvnw spring-boot:run
 - Swagger UI: `/api/credits/docs`
 - OpenAPI JSON: `/api/credits/v3/api-docs`
 - Health: `/actuator/health`
+- Peer-service handoff: [`docs/admin-transaction-api-handoff.md`](docs/admin-transaction-api-handoff.md)
 
 ## Sprint 1 API
 
