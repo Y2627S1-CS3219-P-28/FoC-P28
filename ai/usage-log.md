@@ -1818,7 +1818,6 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Existing transactional acceptance obtains a PostgreSQL pessimistic row lock before validation and synchronous Credit assignment; no redundant lock added. Current code checks deadline both before and after Credit confirmation, not the earlier chat-only recommendation to check before only. Documented existing FEEDBACK-006 cross-service partial-success risk and absence of a real two-transaction race test. Java 21 offline focused run passed 33 tests with zero failures/errors/skips. No application source, implementation tests, peer contracts, deadline policy, schema or infrastructure changed.
 - **Author verification:** Automated evidence is unit/mock regression only, not real PostgreSQL simultaneous acceptance, live Credit, browser, coverage or Sprint completion. Full historical context reads were truncated; no completed workflow gate claimed. Developer review pending; Sprint remains [~]. No application database, cloud or Git history changes; documentation left for review.
 
-<<<<<<< HEAD
 ## Real PostgreSQL concurrent-transition tests assistance (Order Service)
 
 - **Tool:** OpenAI Codex
@@ -1929,7 +1928,7 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Propose a plan first for frontend-to-Credit consistency across reservation, assignment and abort reset; coordinate user/scheduler retries, show safe retry-attempt messages after timeout/crash, and ask the frontend for renewed authorization when unavailable.
 - **Key response:** Proposed PENDING/COMPLETED commands with immutable actor/input binding, initial committed lease before I/O, fenced claims, per-order unresolved-command guards, atomic peer/local effects plus results, proposed key header/status/resume/discovery contracts, client key persistence and same-key Retry/Check-status. Minute recovery without saved tokens/delegated credentials must wait for user authorization; crash UI reflects durable observation, not an impossible crash reply. Historical Credit replay and compensation remain 003/006 gaps; 005 stays deferred. Source inspection distinguishes existing routes from missing recovery semantics. Primary PostgreSQL/Firebase/AWS docs consulted; no broker or effective contract selected.
 - **Author verification:** Vincent and peer review pending; plan-first request does not approve implementation or resume paused workers. Branch/profile/allocation match. D1/selected Overall manual hashes match; full historical mandatory rehydration incomplete/truncated, full pre-coding gate not claimed. No tests/live calls or cloud writes; final documentation checks in active-work. Existing dirty records preserved; no commit/push.
-=======
+
 ## Compact Order event contract assistance
 
 - **Tool:** OpenAI Codex
@@ -2300,6 +2299,7 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Key response:** c2fe90c adds one profile edit route and two historical records; all backend/Compose/gateway files equal first parent5bf1a15. Earlier reverted main auth-provider dependencies were not automatically reintroduced. Typecheck fails3 TS2339 errors for missing profile/profileLoading/refreshProfile at edit/page.tsx:20; existing103 frontend tests/26 files and29 configuration assertions pass but do not cover new route. Username PUT/me matches existing provider; Firebase email change plus current Mongo-only GET/me has no email-sync guarantee. Documented FEEDBACK-012 and Git revert/remerge lesson. No claim prior FEEDBACK-011 backend defects reentered this merge. Patch check passes; build/backend/live-user/cloud checks not rerun.
 - **Author verification:** Vincent requested inspection only. Matching profile/workstream/branch and scoped context approval; no application/peer/config/schema changes, commit/push/revert/remerge or deployment. Owner-compatible narrow integration and human review required before release.
 
+
 ## Admin UI mock prototype assistance (Order Service / Shared Frontend)
 
 - **Tool:** OpenAI Codex (GPT-6)
@@ -2625,3 +2625,17 @@ peer source or deployment changes. Tests and human review pending at start.
   DTOs, service validation, error handling, and previously passing full Credit Service build.
   Final human documentation review remains pending. No API, application logic, database,
   frontend, gateway, deployment, commit, push, or production-data change was performed.
+
+## 2026-10-14 — Reporting Service implementation and disclosure assistance
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Mode:** Implementation, test generation, verification, infrastructure, documentation, and disclosure maintenance.
+- **Exact prompts:**
+
+  > Create `feat/reporting-service` from `main` and add a dedicated Reporting Service plus its user-facing report form.
+
+  > can you help me add ai declaration on the files and also in the ai log file
+
+- **Key response:** Created `feat/reporting-service` from `main` and implemented the required Reporting Service, multipart report submission, authoritative Order association client, Firestore persistence, private Cloud Storage attachments, admin APIs, authenticated frontend form, all-page/all-status order selector, completion reminder, gateway routing, local emulators, cloud bucket provisioning, OpenAPI, tests, and documentation. Reporting Service verification passes 29 tests and both JaCoCo gates; the frontend passes 132 tests, lint with three unrelated existing warnings, typecheck, and production build; Reporting Service, frontend, and gateway images build; Compose and patch validation pass. Added scoped disclosure headers to AI-assisted text files. Standard Maven wrapper files retain their upstream license text without AI headers, and `infra/firebase-emulator/firebase.json` remains valid strict JSON without comments; their use and modification are covered by this entry. `REPORTING-ORDER-001` remains an external Order Service dependency, so authenticated end-to-end integration is pending its merge and branch rebase.
+- **Affected locations:** `reporting-service/`; `frontend/src/app/reporting/`, `frontend/src/components/reporting/`, shared frontend API/navigation/request-completion files and tests; gateway configuration; Firebase emulator, GCP bootstrap, and infrastructure checks; `.env.example`, `compose.yaml`, root and CI/CD documentation; and this usage log. Order Service source was not changed.
+- **Author verification:** The author supplied the feature contract and requested the disclosures. Automated verification is complete as recorded above. No commit, push, cloud mutation, or peer-service implementation was performed.
