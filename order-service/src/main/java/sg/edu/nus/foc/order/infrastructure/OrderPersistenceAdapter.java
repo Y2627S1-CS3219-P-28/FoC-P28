@@ -19,6 +19,10 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 @Repository
 @RequiredArgsConstructor
 public class OrderPersistenceAdapter implements OrderRepository {
+    private static final List<String> ACTIVE_STATUSES = List.of(
+            OrderStatus.OPEN.name(), OrderStatus.ACCEPTED.name(), OrderStatus.IN_PROGRESS.name(),
+            OrderStatus.PICKED_UP.name(), OrderStatus.DELIVERED.name());
+
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
     private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
@@ -26,6 +30,16 @@ public class OrderPersistenceAdapter implements OrderRepository {
     @org.springframework.beans.factory.annotation.Autowired
     public void setCommandStore(sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands) {
         this.commands = commands;
+    }
+
+    @Override
+    public boolean hasActiveUserInvolvement(String userId) {
+        return repository.existsActiveUserInvolvement(userId, ACTIVE_STATUSES);
+    }
+
+    @Override
+    public boolean hasActiveSupplierInvolvement(String supplierId) {
+        return repository.existsActiveSupplierInvolvement(supplierId, ACTIVE_STATUSES);
     }
 
     @Override

@@ -1,4 +1,38 @@
 # Order Service Permanent Project Context
+CHANGE-132: common enum renamed PenaltySystemPolicy. Static reward query returns
+SUCCESSFUL_DELIVERY; immutable courier-case list excludes cancellation, overdue
+and success; full list contains all6. Order DTO/factory/transition imports migrated,
+completion/direction uses reward helper. Constants/amounts/event JSON unchanged.
+
+CHANGE-131,2026-10-15: D1 NTH2 PDF37-39 mapping complete in foc-common: existing
++2/+1/-1 plus confirmed wrong location4, mishandling/damage4, deliberate
+retention/theft10. Mapping only; no new automatic publication/schema or peer
+implementation. Highest-effective penalty and theft permanent suspension need
+future User/Report enforcement. No extra score invented or source PDF changed.
+
+CHANGE-130 / ADR-043, Yao Xiang2026-10-15: approved ordinary foc-common Maven
+penalty-policy extraction only; common package replaces Order domain enum.
+Same +2/+1/-1, JSON/reasons/IDs/topics/transactions. Root reactor/Order Docker,
+Compose/CI/staging build; shared changes select all Maven backends. No auth,
+sibling implementation, schema/UI/cloud changes; User consumer remains pending.
+
+CHANGE-129 / ADR-042, Yao Xiang2026-10-14: shared-role User/Supplier active
+involvement endpoints, native EXISTS over five states/current relationships;
+traditional mapped ID/boolean DTOs, no names stored. Existing supplier lookup
+empty/missing fallback Deleted supplier; layout unchanged.420 backend/129 frontend,
+coverage/lint/typecheck/build pass with local resource limits only. No peer
+callback/deletion lock; FEEDBACK-015 race/pending-obligation integration remains.
+CHANGE-128 / ADR-041, Yao Xiang2026-10-14: approved explicit courier penalty
++2 abort/+1 overdue/-1 successful. Seven-field add/deduct events; new abort
+legacy emission replaced, Credit events/stored legacy dispatch retained.
+Atomic outbox/stable recipient+reason ID; actual User subscriber pending.
+Topic-only shared configuration approved; no peer implementation/cloud execution.
+
+CHANGE-127 / ADR-040 (Yao Xiang, 2026-10-14): approved requester-owned active
+Order holds via forwarded Firebase PUT; immutable report placement/flag V9;
+manual funding guards, SQL due filters and locked rechecks, requester explanation.
+394 backend/126 frontend tests pass; coverage/typecheck/lint/build pass. Local
+schema9, seven Orders preserved. Report client/release/browser/rollout pending.
 
 CHANGE-110 (Vincent, 2026-10-11): source/test386f58f pauses individual command
 polling during initial submission/local Continue, with an active-ref stale
@@ -474,3 +508,9 @@ remain unchanged.
 Merged main a641836 provides typed Credit routes and matching CI/provisioning paths. Peer feedback now references its decoder/handlers while retaining CHANGE-092 compact payloads and FEEDBACK-009. No consumer compatibility claim. Conflict resolved/staged, all other main index entries untouched. Standard Order verify passed258 tests and coverage; ShellCheck/actionlint pass. Existing restored staging URLs match three typed routes; live recheck result recorded in Yao Xiang active work. Former shared-path repair was based on stale branch state and is superseded. Previous reverted CI helper/-U edits remain reverted.
 
 Final live staging/production infrastructure rerun passed after a transient IAM DNS failure; all typed subscription configurations match merged main. Prior two failures did not reproduce. Merge commit/push and hosted CI remain pending; peer compact consumers remain incompatible.
+
+CHANGE-130 verification: root reactor424 tests (common4/Order420), gates pass; separate root-context Docker image bundles common JAR. Compose/selection/ShellCheck/actionlint/AsyncAPI/patch checks pass. No app recreation/cloud/schema/peer/auth/frontend changes this task; human/hosted CI and User consumer pending.
+
+CHANGE-131 verified:427 tests (common7/Order420), coverage gates and AsyncAPI/patch checks pass. Three report cases remain mapping-only; no new automatic publication or suspension enforcement. No container rebuild/deploy or peer implementation change.
+
+CHANGE-132 verification:431 tests (common11/Order420), gates/AsyncAPI/patch checks pass. New shared class and3 methods verified in JAR; obsolete enum absent. Initial Docker/PATH setup failure recovered by background Desktop startup and process-only exclusion; no machine setting or app deployment.

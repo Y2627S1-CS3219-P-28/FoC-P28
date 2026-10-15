@@ -19,6 +19,10 @@ import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +35,8 @@ public class OrderOutboxDispatcher {
     private final IOrderCompletionTaskPublisher completionPublisher;
     private final IOpenOrderRefundTaskPublisher openRefundPublisher;
     private final IAcceptedOrderCancellationTaskPublisher acceptedCancellationPublisher;
+    private final IPenaltyScoreAdditionPublisher penaltyAdditionPublisher;
+    private final IPenaltyScoreDeductionPublisher penaltyDeductionPublisher;
     private final JsonMapper objectMapper;
 
     @Value("${order.messaging.outbox.batch-size:50}")
@@ -75,6 +81,18 @@ public class OrderOutboxDispatcher {
 
     private void publish(OrderEventOutbox message) {
         switch (message.getEventType()) {
+            case "PenaltyScoreAdditionEvent" -> {
+                PenaltyScoreAdditionEvent event = objectMapper.readValue(message.getPayload(), PenaltyScoreAdditionEvent.class);
+                event.setEventVersion(message.getEventVersion());
+                event.setOrderVersion(message.getOrderVersion());
+                penaltyAdditionPublisher.publishPenaltyScoreAddition(event);
+            }
+            case "PenaltyScoreDeductionEvent" -> {
+                PenaltyScoreDeductionEvent event = objectMapper.readValue(message.getPayload(), PenaltyScoreDeductionEvent.class);
+                event.setEventVersion(message.getEventVersion());
+                event.setOrderVersion(message.getOrderVersion());
+                penaltyDeductionPublisher.publishPenaltyScoreDeduction(event);
+            }
             case "OrderCompletionTaskEvent" -> completionPublisher.publishOrderCompletionTask(
                     readCompletion(message));
             case "OpenOrderRefundTaskEvent" -> openRefundPublisher.publishOpenOrderRefundTask(

@@ -1,5 +1,10 @@
 # Order Service Pub/Sub documentation
 
+CHANGE-130 / ADR-043: penalty appliedReason Java enum is now in the shared
+foc-common Maven library. AsyncAPI reason strings, amounts, payload schemas,
+topics and delivery semantics are unchanged; no schema version bump required.
+
+
 Effective CHANGE-105 / ADR-036: local Docker uses the Pub/Sub emulator with
 demo-foc-local/local-v1 topics, no ADC/tunnel. Cloud keeps injected staging/prod
 topics and authenticated Google push. The same schemas/attributes apply.
@@ -8,7 +13,7 @@ after ten attempts; ADMIN redrive preserves event ID/payload. See
 ../local-live-testing.md for commands. Earlier local-cloud statements are historical.
 
 Open [asyncapi.yaml](asyncapi.yaml) for the machine-readable **AsyncAPI 3.0.0**
-document. It describes Order Service's **three outgoing operations**, not new
+document. It describes **four current outgoing operations and one legacy replay**, not new
 REST endpoints or consumers. REST remains documented by OpenAPI/Swagger.
 Vincent approved this documentation-only addition on 2026-10-10 (CHANGE-103).
 
@@ -36,7 +41,18 @@ See the official [AsyncAPI CLI guide](https://www.asyncapi.com/docs/tools/cli/us
 | --- | --- | --- | --- |
 | `open-order-refund-dev-v1` | `OpenOrderRefundTaskEvent` / v2 | OPEN cancellation, unassigned OPEN expiry, or courier abort resulting in EXPIRED | Credit: release the old reservation |
 | `order-completion-dev-v1` | `OrderCompletionTaskEvent` / v2 | Requester completion or >=48-hour automatic completion of DELIVERED | Credit: settle/transfer its reservation |
-| `accepted-order-cancellation-dev-v1` | `AcceptedOrderCancellationTaskEvent` / v1 | Every successful ACCEPTED-only courier abort, resulting in OPEN or EXPIRED | User: decide penalties for the aborting courier; **not Credit** |
+| `courier-penalty-addition-dev-v1` | `PenaltyScoreAdditionEvent` / v1 | ACCEPTED abort (+2) or overdue manual/automatic completion (+1) | User: deduplicate and add transmitted amount |
+| `courier-penalty-deduction-dev-v1` | `PenaltyScoreDeductionEvent` / v1 | On-time manual/automatic completion (-1) | User: deduplicate and subtract transmitted amount |
+| `accepted-order-cancellation-dev-v1` | `AcceptedOrderCancellationTaskEvent` / v1 | Previously stored outbox replay only | Legacy User cutover; never Credit |
+
+Penalty bodies contain exactly eventId, eventType, orderId, courierId,
+penaltyAmount, occurredAt, appliedReason. Positive amount; event type determines
+direction. The assigned/cancelling courier is the recipient. Enum reasons:
+ACCEPTED_TASK_CANCELLATION, OVERDUE_DELIVERY and SUCCESSFUL_DELIVERY.
+ADR-041 supersedes historical User penalty expectations below. Cross-topic
+ordering is not guaranteed; consumer clamp/ledger policy remains pending.
+Local topic names are courier-penalty-{addition|deduction}-local-v1.
+Variables: ORDER_COURIER_PENALTY_ADDITION_TOPIC / ORDER_COURIER_PENALTY_DEDUCTION_TOPIC.
 
 Actual addresses are `projects/{projectId}/topics/{topicId}`. Read configured
 `PUBSUB_PROJECT_ID`, `ORDER_OPEN_REFUND_TOPIC`, `ORDER_COMPLETION_TOPIC` and

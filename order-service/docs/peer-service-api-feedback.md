@@ -1,5 +1,119 @@
 # Peer Service API Feedback
 
+CHANGE-132 Java library API refinement: common type is PenaltySystemPolicy.
+Reward lookup returns SUCCESSFUL_DELIVERY; getCourierPenaltyCases returns the
+three report-only reasons, not cancellation/overdue/success; full-policy query
+returns all6. Lists are immutable. No HTTP/event field/reason/topic change;
+other services are not migrated by Order's adoption. FEEDBACK-014 remains open.
+
+
+CHANGE-131 (D1 NTH2 PDF37-39): foc-common now additionally maps confirmed
+WRONG_LOCATION_DELIVERY=4, ITEM_MISHANDLING_OR_DAMAGE=4 and
+DELIBERATE_ITEM_RETENTION_OR_THEFT=10. These are shared policy constants for
+future Report/admin resolution; no current Order flow emits them and current
+AsyncAPI reason sets remain unchanged. Extend/verify the report-producer and
+consumer wire contract before publishing those reasons. D1 requires admin
+confirmation, highest applicable effective penalty per errand and permanent
+suspension for deliberate retention/theft; enum lookup does not enforce these.
+User scoring/suspension/report-resolution and FEEDBACK-014 remain pending.
+
+
+CHANGE-130 / ADR-043 (2026-10-15): courier reason/amount mapping now lives in the
+ordinary root foc-common Maven library, package sg.edu.nus.foc.common.penalty.
+Order is the first consumer. This does not implement User's consumer or change
+any HTTP/event contract; FEEDBACK-014 stays OPEN. Services can explicitly adopt
+the shared policy later; consume stored event amounts without recomputing retries.
+
+
+## FEEDBACK-015: Call Order involvement checks before deletion/deactivation
+
+-2026-10-14, OPEN/MISSING deletion integration. User DELETE /api/users/{id}
+  removes User; Supplier DELETE /api/suppliers/{id} soft-deactivates. Actual
+  implementations do not consult Order. No provider source modified.
+- Order supplies GET /api/orders/users/{userId}/active-involvement and
+  GET /api/orders/suppliers/{supplierId}/active-involvement (CHANGE-129/ADR-042).
+  IDs are URI parameters; no JSON body/paging. Forward a caller's Firebase Bearer
+  token in production: Requester, Courier or Admin may query. Existing local
+  authentication split unchanged; this is not trusted service identity proof.
+-200 User JSON: {"userId":"user-id","hasActiveOrders":true}.
+  Supplier JSON: {"supplierId":"supplier-id","hasActiveOrders":false}.
+  Invalid ID400, caller401/403, role dependency503. Unknown IDs with no matching
+  Orders return false, not404; validate entity existence in its owning service.
+- Counts OPEN/ACCEPTED/IN_PROGRESS/PICKED_UP/DELIVERED, including held Orders.
+  User matches requester/current courier; Supplier matches pickup/delivery.
+  Historic aborted courier attempts/terminal Orders do not count; OPEN with a
+  past deadline still counts until lifecycle commits expiry. Queries use SQL EXISTS.
+- Before deletion/deactivation, owner must enforce its own authority and refuse
+  while hasActiveOrders=true. Treat request/auth/dependency failures as unknown,
+  not false. This read is not deletion permission or a reservation; check/delete
+  can race new Order admissions. Pending commands and terminal financial/penalty
+  obligations are not covered. Agree deactivating/admission/reconciliation policy
+  before claiming complete cross-service deletion safety.
+- Existing Supplier lookup includes inactive records and reports missingIds;
+  keep existing names when records remain. Missing/empty results display Deleted
+  supplier in current Order UI, not a persisted Order name. User GET /{id} returns
+  404 on absence; future User-name displays should distinguish this from5xx/network
+  failures. Current branch has no User-name Order rows; none are fabricated.
+
+## FEEDBACK-014: Explicit courier penalty subscribers (CHANGE-128 / ADR-041)
+
+- Date: 2026-10-14; OPEN/MISSING. User has synchronous outcome functions but
+  no Pub/Sub penalty consumer; no separate Penalty Service exists in checkout.
+- Approved Order add/deduct publishers:
+  courier-penalty-addition-{dev|prod}-v1 / courier-penalty-deduction-{dev|prod}-v1.
+- Seven JSON fields: eventId, eventType, orderId, courierId, penaltyAmount,
+  occurredAt, appliedReason. Event types PenaltyScoreAdditionEvent /
+  PenaltyScoreDeductionEvent. Exact enum reasons/positive amounts:
+  ACCEPTED_TASK_CANCELLATION: 2; OVERDUE_DELIVERY: 1; SUCCESSFUL_DELIVERY: 1.
+  Direction comes from event type, not a negative amount. The approved successful
+  deduction is1; do not use the existing HTTP helper's hardcoded deduction2.
+- Target is assigned/cancelling courier, never completing requester/lifecycle.
+  Same-ID retries require atomic consumer deduplication with score mutation.
+  Sample and contract: CHANGE-128, ADR-041 and docs/asyncapi/asyncapi.yaml.
+- User Service should consume both topics, authenticate delivery, decode Pub/Sub
+  data, validate type/reason/amount, and atomically record eventId with score
+  update. Ack only after commit or a known duplicate; retry transient failures.
+- New aborts no longer publish AcceptedOrderCancellationTaskEvent. Legacy stored
+  outbox replay remains; coordinate old-topic drain and avoid penalizing both
+  explicit events and Credit completion events. Credit consumers stay unchanged.
+- Clamp ordering needs explicit User policy: two topics offer no cross-topic
+  ordering; at score0, +1 then -1 yields0 but -1 then +1 yields1. Define deterministic
+  ledger policy or explicitly accept arrival-order semantics. No consumer changes
+  authorized or verified. Order implementation/tests do not verify this absent
+  subscriber. Earlier FEEDBACK-002/009 penalty/overdue-source requests are
+  superseded by this explicit transmitted-decision contract.
+
+## FEEDBACK-013: Report-to-Order completion holds
+
+- Date/owner: 2026-10-14; Report Service owner to be assigned; Order work by Yao Xiang.
+- Status: OPEN. Actual Report caller is MISSING (no Report Service in this checkout).
+- Approved Order placement implemented and tested; release explicitly deferred.
+  [Contract/design](completion-hold-design.md), CHANGE-127 / ADR-040.
+- PUT /api/orders/internal/{orderId}/completion-holds/{reportId}; JSON body
+  {"requesterId":"forwarded-Firebase-UID"}; Firebase Bearer token of requester.
+  Existing JWT/Requester role verification binds this ID to the token and checks
+  ownership under the Order lock. This does not establish service identity or
+  verify report existence. Existing local authentication remains unchanged.
+- 200 DTO: orderId, reportId, isCompletionHold, version. Place on own OPEN,
+  ACCEPTED, IN_PROGRESS, PICKED_UP or DELIVERED Order. 400 invalid input;
+  401/403 caller rejection; 404 missing Order; 409 terminal Order, unresolved
+  command or report-ID binding conflict; 503 role dependency unavailable.
+  Repeated same report/Order/requester placement is a no-op; conflicting binding
+  rejects, including concurrent writes. No DELETE/release endpoint exists yet.
+- Required Report behavior: persist/retry the same report identity, wait for hold
+  confirmation before claiming completion is blocked. Forward requester auth
+  and define durable recovery for failed/uncertain placement. Future release
+  must preserve independent holds and replay safety; placement persists for now.
+- D1 NTH2 PDF38/NTH3 PDF41 prohibit completion and final credit action while
+  investigation is active. Hold placement/release alone does not settle credits,
+  change Order status or apply penalties. General enquiries need no Order hold.
+- Order tests prove SQL filtering and locked rechecks skip held expiry/completion,
+  and domain guards block manual completion/cancellation/abort funding outcomes.
+  No new funding event, status or penalty is produced by placement.
+- Next verification: implement actual Report client, reconcile report/hold failure
+  recovery and later approve release/resolution; drain old Order revisions before
+  enabling Report traffic. No Report/User/Credit/Admin/Supplier source modified.
+
 ## FEEDBACK-011: User merge authorization and recovery safety
 
 Rollback note (2026-10-11): Vincent explicitly requested reverting merge935d16d.

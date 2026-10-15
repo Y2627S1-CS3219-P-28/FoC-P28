@@ -12,7 +12,13 @@ may add their own `AGENTS.md` for service-specific notes; this file still applie
 - A folder becomes part of CI/CD as soon as its `Dockerfile` is non-empty.
 - Shared, cross-cutting files live at the root: `compose.yaml`, `.env.example`,
   `infra/`, `scripts/ci/`, `.github/`, `docs/`.
-- Do not import code from another service's folder. Services talk over HTTP only.
+- Do not import code from another service's folder. Services communicate through
+  approved HTTP/event contracts. Shared library dependencies are allowed only
+  through designated Maven modules: `foc-common/` currently contains courier
+  penalty policy only. No shared entities, repositories or authentication code.
+- Root `pom.xml` builds `foc-common` and its first consumer, `order-service`.
+  Other backends retain standalone builds until explicitly adopting the library.
+  A library has no Dockerfile and is not a deployable service.
 
 ## 2. Tech stack (use these versions)
 
@@ -83,7 +89,10 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 - Use `docs/templates/spring-boot.Dockerfile` unchanged unless you have a reason:
   multi-stage (JDK build → JRE runtime), layered jar, non-root user, `EXPOSE 8080`.
-- `docker build <folder>` must work with no other setup. Tests are **not** run inside
+- Standalone services use `docker build <folder>`. Order depends on `foc-common`
+  and uses `docker build -f order-service/Dockerfile .` from the repo root; Compose,
+  CI and staging use the same root context. Keep root `.dockerignore` restrictive.
+  Tests are **not** run inside
   the image build; CI runs them separately (they need Docker for Testcontainers).
 - Never bake data files or secrets into images. Mount files (e.g. seed CSVs) instead.
 
@@ -155,7 +164,10 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 ## 9. Testing
 
-- `./mvnw verify` must pass locally and in CI (unit + integration tests + JaCoCo gate).
+- Standalone services use `./mvnw verify`. From the repo root, Order/common use
+  `bash ./mvnw -pl order-service -am verify` (PowerShell: `.\mvnw.cmd -pl order-service -am verify`).
+  Unit/integration tests and existing JaCoCo gates must pass. Changes to common or
+  root Maven inputs conservatively select all Maven backends in CI.
 - Integration tests use the Firestore emulator through Testcontainers; no shared or
   real databases in tests. Mock JWTs with `spring-security-test` (`jwt()`).
 - Every test class covers at least one positive and one negative case (NFR3.1.3).

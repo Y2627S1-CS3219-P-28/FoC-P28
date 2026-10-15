@@ -22,7 +22,8 @@ def create(path, body):
             raise
 
 
-for topic in ("order-completion", "open-order-refund", "accepted-order-cancellation"):
+for topic in ("order-completion", "open-order-refund", "accepted-order-cancellation",
+              "courier-penalty-addition", "courier-penalty-deduction"):
     create(f"/topics/{topic}-local-v1", {})
 
 for topic, route in (("order-completion", "completion"), ("open-order-refund", "open-refund")):
@@ -31,4 +32,4 @@ for topic, route in (("order-completion", "completion"), ("open-order-refund", "
         "ackDeadlineSeconds": 30,
         "pushConfig": {"pushEndpoint": f"http://credit-service:8080/api/credits/internal/order-events/{route}"},
     })
-print("Local emulator initialized: refund/completion -> real Credit; no cloud API used.")
+print("Local emulator initialized: refund/completion -> real Credit; penalty topics ready (User consumer pending); no cloud API used.")

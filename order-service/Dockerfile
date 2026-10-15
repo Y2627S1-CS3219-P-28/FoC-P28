@@ -6,12 +6,14 @@ WORKDIR /workspace
 
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
+COPY foc-common/pom.xml foc-common/pom.xml
+COPY order-service/pom.xml order-service/pom.xml
 RUN chmod +x mvnw
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp -q dependency:go-offline
 
-COPY src/ src/
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp -q package -DskipTests \
- && cp target/*.jar app.jar \
+COPY foc-common/src/ foc-common/src/
+COPY order-service/src/ order-service/src/
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp -q -pl order-service -am package -DskipTests \
+ && cp order-service/target/order-service-0.0.1-SNAPSHOT.jar app.jar \
  && java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 # ---- Runtime: JRE only, non-root ---------------------------------------

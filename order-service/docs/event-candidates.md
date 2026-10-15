@@ -1,4 +1,10 @@
 # D1-Supported Event Candidate Registry
+Effective CHANGE-128 / ADR-041: explicit penalty addition/deduction replace new
+accepted-cancellation publications, and carry completion penalty decisions
+separately from Credit. +2 abort/+1 overdue/-1 successful; seven fields and stable
+outbox payload/ID. Legacy abort snapshot replay retained. Numeric mapping is
+Order-owned, score mutation User-owned; subscriber pending. Historical candidate
+discussions below do not supersede this approved amendment.
 
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 

@@ -242,9 +242,9 @@ class OrderConcurrencyPostgresIntegrationTest {
         }
         assertEquals(0, lifecycle.autoCompleteDue(now.plusSeconds(60)));
         assertFalse(transitions.autoComplete(order.getId(), now.plusSeconds(60)));
-        assertCommitted(order, OrderStatus.COMPLETED, "courier-delivered", 1, 1, 1);
+        assertCommitted(order, OrderStatus.COMPLETED, "courier-delivered", 1, 2, 1);
         assertEvent(order, "OrderCompletionTaskEvent");
-        verify(dispatcher, times(1)).dispatch(anyString());
+        verify(dispatcher, times(2)).dispatch(anyString());
         verify(peers, never()).assignCourier(anyString(), anyString(), nullable(String.class));
     }
 
@@ -386,7 +386,7 @@ class OrderConcurrencyPostgresIntegrationTest {
 
     private void assertEvent(Order order, String type) {
         List<OrderEventOutbox> events = outbox.findAll().stream()
-                .filter(event -> event.getOrderId().equals(order.getId())).toList();
+                .filter(event -> event.getOrderId().equals(order.getId()) && type.equals(event.getEventType())).toList();
         assertEquals(1, events.size());
         assertEquals(type, events.getFirst().getEventType());
         assertEquals(OutboxState.PENDING, events.getFirst().getState());

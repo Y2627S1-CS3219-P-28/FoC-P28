@@ -29,6 +29,7 @@ import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
@@ -53,7 +54,8 @@ class OrderAbortTransitionTest {
 
         assertEquals(OrderStatus.OPEN, order.getStatus());
         verify(credits).holdForReopen(order.getId(), AUTH);
-        verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
+        verify(outbox, never()).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
         verify(outbox, never()).enqueue(any(OpenOrderRefundTaskEvent.class));
         ArgumentCaptor<OrderCourierAttempt> history = ArgumentCaptor.forClass(OrderCourierAttempt.class);
         verify(orders).saveAbortedAttempt(history.capture());
@@ -69,16 +71,28 @@ class OrderAbortTransitionTest {
 
         assertEquals(OrderStatus.EXPIRED, order.getStatus());
         verify(credits).holdForReopen(order.getId(), AUTH);
-        verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
+        verify(outbox, never()).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
         verify(outbox).enqueue(any(OpenOrderRefundTaskEvent.class));
         InOrder sequence = inOrder(credits, orders, outbox);
         sequence.verify(credits).holdForReopen(order.getId(), AUTH);
         sequence.verify(orders).saveAbortedAttempt(any(OrderCourierAttempt.class));
         sequence.verify(orders).save(order);
-        sequence.verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        sequence.verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
         ArgumentCaptor<OpenOrderRefundTaskEvent> refund = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
         sequence.verify(outbox).enqueue(refund.capture());
         assertEquals(order.getId(), refund.getValue().getOrderId());
+    }
+
+    @Test
+    void requesterHoldRejectsCourierAbortBeforeCreditResetOrEvents() {
+        Order order = accepted(false);
+        order.placeCompletionHold("requester");
+        assertEquals("ORDER_ON_HOLD", assertThrows(OrderProblem.class,
+                () -> service.cancelAccepted("held-abort", order.getId(), "courier", 0, AUTH)).getCode());
+        verify(credits, never()).holdForReopen(any(), any());
+        verify(outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(orders, never()).save(any(Order.class));
     }
 
     @Test

@@ -316,6 +316,8 @@ class OrderOutboxDispatcherTest {
                 completion,
                 openRefund,
                 mock(IAcceptedOrderCancellationTaskPublisher.class),
+                mock(sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher.class),
+                mock(sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher.class),
                 JsonMapper.builder().build());
     }
 

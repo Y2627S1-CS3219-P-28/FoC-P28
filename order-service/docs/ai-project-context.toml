@@ -1,4 +1,10 @@
 schema_version = 1
+penalty_policy_queries_132 = "PenaltySystemPolicy replaces CourierPenaltyCase; getSuccessfulDeliveryReward enum; getCourierPenaltyCases immutable excludes original3; getFullPenaltyPolicy immutable all6; Order first; wire unchanged"
+full_d1_penalty_cases_131 = "NTH2 PDF37-39; common enum six cases; add wrong location4/damage4/deliberate retention-theft10; existing automatic reasons/wire unchanged; highest penalty and suspension not implemented"
+shared_penalty_policy_130 = "ADR-043; foc-common ordinary Maven JAR; common.penalty.CourierPenaltyCase; Order first consumer; +2/+1/-1 and JSON unchanged; root reactor/Docker/CI/staging; no auth or peer implementation extraction"
+active_involvement_129 = "ADR-042; shared-role users/suppliers active-involvement GET; SQL EXISTS current relationships/5 states including holds; no name storage/deletion lock; Deleted supplier lookup fallback;420 backend/129 frontend pass; FEEDBACK-015 integration/race pending"
+courier_penalty_events_128 = "ADR-041: +2 abort/+1 overdue/-1 successful; seven fields; add/deduct outbox; stable recipient/reason IDs; Credit unchanged; legacy abort replay retained; local/dev/prod configured; User subscriber pending"
+completion_holds_127 = "ADR-040; requester-owned active Order PUT with Firebase; immutable per-report placement/flag V9; SQL filters/locked funding guards/UI;394 backend/126 frontend pass; Report caller/release/rollout pending"
 command_polling_change110 = "source386f58f; pause during submit/local resume; active-ref guard; same-key timeout recovery unchanged;124 frontend tests/typecheck/build pass; lint0errors; browser/rollout pending"
 pending_card_recovery = "CHANGE-108 / ADR-038: source9f2e054/942b790; owner displayDetails/shared cards;373 backend/103 frontend pass; browser/rollout/strict gates open"
 expiry_http_trigger = "CHANGE-107 / ARCH-EVO-043: retired; scheduler-only expiry; all repost routes retained"
@@ -8,7 +14,7 @@ local_transport_decision = "docs/decisions/ADR-036-local-emulator-and-review-har
 local_pubsub = "emulator-only; demo-foc-local; real HTTP peers; no ADC/tunnel"
 legacy_mutation_protocol = "CREATE/ACCEPT/ABORT/manual REPOST durable coordinator; 202 pending"
 outbox_recovery = "bounded async after-commit; 15-minute scan; retained FAILED after 10; ADMIN redrive"
-latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql", "V8__durable_manual_repost.sql"]
+latest_order_migrations = ["V6__retained_failed_outbox.sql", "V7__bind_command_receipts.sql", "V8__durable_manual_repost.sql", "V9__order_completion_holds.sql"]
 cloud_timer_runtime = "config only: min1/no-cpu-throttling; not deployed"
 live_credit_recovery_decision = "docs/decisions/ADR-035-live-credit-command-recovery.md"
 live_credit_recovery_protocol = "credit-command-v1; HTTP gateway; no stored tokens or delegated credentials"
@@ -428,3 +434,9 @@ hosted_ci_rerun_pending = true
 live_staging_production_infrastructure_passed = true
 initial_cloud_run_transient_dns_failure = true
 merge_commit_created = false
+
+shared_penalty_policy_verification_130 = '424 tests/common+Order; coverage gates; root image bundles shared JAR; Compose/selection/ShellCheck/actionlint/AsyncAPI pass; no deployment or peer migration'
+
+full_d1_penalty_verification_131 = '427 tests/common7+Order420 pass; coverage gates/AsyncAPI/patch checks pass; no image rebuild/deploy or Report/User integration'
+
+penalty_policy_queries_verification_132 = '431 tests/common11+Order420; gates pass; JAR API/new class checked; AsyncAPI/patch pass; initial Docker/PATH test failure recovered process-only; no deployment'

@@ -1,6 +1,17 @@
 # Repository Skills
 
+CHANGE-132: PenaltySystemPolicy is the current shared enum. Order uses its
+getSuccessfulDeliveryReward query; getCourierPenaltyCases excludes the original
+three automatic outcomes, getFullPenaltyPolicy returns all six. No wire changes.
+
+
 ## spec-driven-development
+
+CHANGE-130 / ADR-043: shared penalty policy is the ordinary `../foc-common` Maven
+library, package `sg.edu.nus.foc.common.penalty`. Keep auth and other code local.
+Verify common/Order from root with wrapper `-pl order-service -am verify`;
+Order uses root Docker context. Do not recreate a service-local policy enum.
+
 
 Location: `.codex/skills/spec-driven-development/SKILL.md`
 

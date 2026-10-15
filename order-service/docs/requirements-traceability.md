@@ -1,5 +1,72 @@
 # Order Service Requirements Traceability
 
+## CHANGE-132 policy query API
+
+Approved maintainability/API refinement of ADR-043 and NTH2 mapping (CHANGE-131).
+PenaltySystemPolicy name, reward lookup, immutable report subset/full list.
+Same D1 six reasons/values. Common contract tests assert exact membership,
+order/immutability; existing Order tests verify unchanged automatic events.
+No new functional workflow or User/Report implementation/readiness claim.
+
+
+## CHANGE-131: NTH2 full penalty case mapping [~]
+
+D1 PDF37-39/NTH2 explicitly defines +2 accepted cancellation, +1 deadline
+failure, +4 wrong delivery location, +4 mishandling/damage, +10 deliberate
+retention/theft and -1 successful completion without confirmed complaint.
+Shared CourierPenaltyCase represents all six. Common CSV tests protect exact
+names/amounts; existing Order event tests protect the three implemented
+automatic reasons and seven-field wire contract. D1 PDF38-41 requires report
+investigation/hold and admin confirmation; the new mappings alone do not apply
+scores, choose the highest incident, suspend users or implement Report Service.
+Permanent suspension and one-month threshold suspension remain integration gaps.
+
+## CHANGE-130 / ADR-043 penalty policy extraction
+
+Technical maintainability refinement of the user-approved D1 courier penalty
+amendment ADR-041 (+2 accepted abort/+1 overdue/-1 success), not a new FR/NTH.
+One common enum definition; Order factory/DTO imports change only. Shared
+reason/amount tests and existing seven-field/idempotency event tests preserve
+the contract. No new endpoint/schema/UI or completed User integration claim.
+
+## CHANGE-129 / ADR-042 active relationship reads [~]
+
+| Requirement | Implementation | Verification/status |
+| --- | --- | --- |
+| User-requested deletion/deactivation precheck; existing Supplier F6.3 | SQL EXISTS over five active states and both User/location relationships | Real PG every status, hold/past expiry, unknown and aborted-history tests |
+| Approved shared-role read/NFR4 | RequireOrderRole, minimal ID/boolean DTO | Production401/403 and all3 roles; JSON/OpenAPI |
+| NFR3 separation/efficiency | Read-only service -> domain port -> infrastructure query; explicit MapStruct |420 backend0skips; coverage gates pass |
+| Existing Order visibility/NFR2 | Dynamic supplier missing/null fallback, no names stored or new rows |129 frontend tests, typecheck/lint/build pass; browser not verified |
+| Deletion consistency | FEEDBACK-015 provider callbacks and race/obligation policy | Missing integration; no full deletion-safety claim |
+
+Prior completion-hold and explicit penalty slices preserved. Schema/config/peer
+implementations unchanged for129. Full provider integration/Sprint remain partial.
+## CHANGE-128 / ADR-041 explicit penalties [~]
+
+| Requirement | Implementation | Evidence/status |
+| --- | --- | --- |
+| D1 courier outcome/penalty requirements, approved -1 override | CourierPenaltyCase maps accepted cancellation2, overdue1, successful1; direction in event type | Enum/JSON/manual/system/deadline recipient tests |
+| Event-driven integration/NFR4 consistency | Credit and one penalty intent atomically committed with status/receipt; after-commit replay | Real PG injected penalty-write rollback; duplicate receipt no-event |
+| NFR3 reliable at-least-once delivery | Stored payload/ID, independent retry/redrive, retained legacy dispatcher | Publisher topic routing; failed-event retry and later success |
+| Contract/environment isolation | Seven fields, hidden operational versions; local/dev/prod topic settings | AsyncAPI YAML/references, Compose and bootstrap checks |
+| User consumer dependency | FEEDBACK-014: authenticate, atomic dedup/score, transmitted amount, clamp ordering/cutover | Actual consumer absent; no end-to-end score claim |
+
+Full penalty subscriber integration/Sprint remain partial. No Credit behavior or
+frontend change for this penalty milestone. Detailed class/sequence design: ADR-041.
+
+## CHANGE-127 / ADR-040 requester completion holds [~]
+
+| Requirement | Design -> implementation | Verification/status |
+| --- | --- | --- |
+| D1 NTH2 PDF38/NTH3 PDF41 | Per-report immutable placement and Order boolean, active own Order only | Domain/API/PG rollback/binding races pass; actual Report/release pending |
+| NTH2 manual/48-hour completion and final funding freeze | SQL due filters + locked recheck + aggregate guards before Credit/outbox | Held completion/cancel/expiry/abort no effects; independent candidates proceed |
+| NFR4 caller authority | Existing Firebase JWT/Requester role and UID/owner binding | Role/UID/owner denial and forwarding tests |
+| NFR2 requester feedback | OrderResponse isCompletionHold, existing action message/disabled button | Held and stale-browser regression tests; visual/browser confirmation pending |
+| NFR3 persistence/regression | V9 additive migration and insert-only global report ID |394 backend0skips/126 frontend pass; coverage/typecheck/lint/build pass; local9 preserves seven Orders |
+
+Report submission itself, investigation, courier reporting policy, release and
+settlement remain deferred; full NTH2/NTH3/Sprint completion is not claimed.
+
 ## CHANGE-110 command submission polling [~]
 
 | Effective requirement | Existing design -> implementation | Verification |

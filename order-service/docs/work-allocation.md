@@ -1,4 +1,32 @@
 # Order Service Work Allocation
+CHANGE-132, Yao Xiang/current branch2026-10-15: user authorizes shared policy
+rename/lookup methods and Order adoption first. Common and Order tests/docs;
+no sibling implementation, authentication, frontend or deployment changes.
+
+CHANGE-131, Yao Xiang2026-10-15/current branch: user authorizes full D1 NTH
+penalty mapping in foc-common plus affected tests/docs. No Report/User backend,
+authentication, report-resolution producer or deployment change.
+
+Yao Xiang approves CHANGE-130 / ADR-043 on the current penalty-integration branch,
+2026-10-15: shared penalty-only Maven module, Order import/dependency changes and
+necessary root build/Compose/CI/staging/convention updates. No auth extraction
+or sibling backend implementation changes. Existing127/128/129 work retained.
+
+Yao Xiang approves CHANGE-129 on order-service/penalty-integration,2026-10-14:
+Order native active-involvement queries for all3 roles and companion supplier
+missing-label correction, with no name storage/layout or sibling backend changes.
+Existing127/128 edits remain uncommitted and are not reassigned or discarded.
+Yao Xiang approves CHANGE-128 on order-service/penalty-integration,2026-10-14:
+Order penalty enum/events/outbox and topic-only shared environment/bootstrap
+updates. No sibling backend or cloud execution. Existing completion-hold work retained.
+
+## Yao Xiang completion-hold integration - 2026-10-14
+
+User explicitly identifies Yao Xiang on order-service/penalty-integration and
+approves requester-owned placement, persistence, completion/funding guards and
+requester UI. CHANGE-127 / ADR-040 record forwarded Firebase authorization and
+active-Order coverage; release explicitly deferred. Peer implementations and shared
+cloud provisioning are not authorized by this task.
 
 Vincent authorizes CHANGE-110 on2026-10-11: narrow shared command-hook polling
 race fix/tests/records under his existing recovery allocation. No peer/backend,

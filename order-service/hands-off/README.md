@@ -1,4 +1,25 @@
 # Order Service Sprint 1 Sequences 1â€“11 â€” Handoff to Yao Xiang
+## Active involvement handoff - CHANGE-129 / ADR-042
+
+Order provides shared-role GET /api/orders/users/{userId}/active-involvement
+and /api/orders/suppliers/{supplierId}/active-involvement, returning the ID and
+hasActiveOrders. Five active states/current relationships/held Orders count via
+SQL EXISTS; no foreign lookup/name storage/deletion lock.420 backend/129 frontend
+checks pass. Providers must call these checks and handle admission/pending races;
+FEEDBACK-015 remains open. Current Order UI keeps its layout and shows Deleted
+supplier on missing/null successful lookup, unavailable on failure. No User-name
+rows exist here. Actual deletion/browser/container rollout unverified.
+## Current penalty handoff - CHANGE-128 / ADR-041 (2026-10-14)
+
+Order now queues explicit PenaltyScoreAdditionEvent (+2 abort/+1 overdue) or
+PenaltyScoreDeductionEvent (1 successful), including manual/system completion.
+Credit completion/refund events unchanged; new accepted-cancellation emission
+replaced, legacy stored replay retained. Exact seven-field contract and consumer
+requirements: FEEDBACK-014/AsyncAPI. Final403 backend tests and unchanged coverage
+gates pass;3 bootstrap tests and both Compose configs pass. No new frontend edit,
+peer backend or cloud execution. Before cloud CI/deploy, infrastructure owner
+must provision new topics/IAM with configure-order-pubsub.sh for both environments.
+User subscriber, ordering and legacy cutover remain incomplete; no full integration claim.
 
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
@@ -500,3 +521,10 @@ CHANGE-093: lifecycle jobs select due IDs and process each through a separate NO
 ## CHANGE-094 handoff
 
 Yao Xiang requested Order-only5-second polling, Abort errand wording and personal status filters. Reuse mine endpoint with optional status; DB content/count match including courier ABORTED history and requester repost visibility. Both pages default all and reset page 1; existing primitives/auth/clients reused.58 frontend and219 backend tests pass;24DBtests skip without Docker.8 isolated browser scenarios pass at 320-1920; normal frontend build blocked by Google Fonts. Run isolated PostgreSQL filters and real authenticated UI before integrated completion; no peer/retry/schema/event change.
+
+## Shared penalty module handoff - CHANGE-130 / ADR-043
+CourierPenaltyCase moved to foc-common/common.penalty; +2/+1/-1 unchanged. Run root wrapper -pl order-service -am verify. Root-context Order Docker/Compose/CI/staging bundles common; production promotes the same image. No auth/peer backend migration. User event consumer remains pending; no cloud publication/deployment.
+
+CHANGE-131: shared D1 enum now has6 cases (2,1,1,4,4,10 positive amounts). New3 report misconduct reasons require admin confirmation; not emitted by existing Order flows. No schema/topic change. Future User/Report integration must implement highest effective penalty and theft permanent suspension; mapping alone does neither.
+
+CHANGE-132: current common type PenaltySystemPolicy (old Java name CourierPenaltyCase removed). getSuccessfulDeliveryReward returns SUCCESSFUL_DELIVERY; getCourierPenaltyCases returns immutable3 report reasons excluding original3; getFullPenaltyPolicy immutableall6. Order imports migrated and completion/direction uses reward helper. No event wire/state/build/auth/peer change.

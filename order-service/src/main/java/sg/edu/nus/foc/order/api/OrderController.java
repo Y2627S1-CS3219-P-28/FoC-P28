@@ -197,6 +197,8 @@ public class OrderController {
     }
 
     @Operation(summary = "Confirm completion and publish the completion event")
+    @ApiResponse(responseCode = "200", description = "Completion committed, or successful request replayed")
+    @ApiResponse(responseCode = "409", description = "Completion hold, stale version or invalid lifecycle state")
     @PostMapping("/{id}/complete")
     @RequireRequesterRole
     public OrderResponse complete(
@@ -212,6 +214,8 @@ public class OrderController {
     }
 
     @Operation(summary = "Cancel an open order and publish the cancellation event")
+    @ApiResponse(responseCode = "200", description = "Cancellation committed, or successful request replayed")
+    @ApiResponse(responseCode = "409", description = "Report hold freezes funding, stale version or invalid lifecycle state")
     @PostMapping("/{id}/cancel")
     @RequireRequesterRole
     public OrderResponse cancel(

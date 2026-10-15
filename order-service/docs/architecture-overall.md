@@ -1,4 +1,25 @@
 # Overall Architecture
+ADR-043 / CHANGE-130 adds a build-time Maven dependency from Order to the root
+foc-common penalty-policy library. Common is not a deployed microservice and
+has no database or HTTP API. Other services may explicitly adopt later; their
+implementations remain unchanged. Root Maven/Order Docker/CI/staging build the
+same commit; existing production image promotion remains. Authentication local.
+
+ADR-042 exposes Order-owned relationship facts for future User deletion/Supplier
+deactivation clients. Providers own authorization/entity existence/deletion;
+Order supplies only active-row snapshots. No cross-database deletion guarantee
+or admission coordination is implemented. Names stay foreign lookup data; missing
+supplier records receive a frontend display fallback. FEEDBACK-015 owns handoff.
+Effective ADR-041: Order owns penalty reason-to-amount decisions; User Service
+is expected to consume explicit addition/deduction with atomic eventId
+deduplication and score update. Existing Credit events unchanged. Consumer
+implementation/cutover/ordering is not verified by this publisher milestone.
+
+Effective requester-report amendment: ADR-040 / CHANGE-127 implements Order-side
+hold placement and funding guards using forwarded requester Firebase authorization
+and own active Order. Report caller/investigation and release remain future scope.
+Holds do not change lifecycle status or publish new messages; existing Credit/User
+outcome contracts are unchanged. See decisions/ADR-040-requester-report-completion-holds.md.
 
 ADR-038 / CHANGE-108 refines only owned command display and shared frontend
 recovery. No topology/broker/service ownership or financial boundary change.

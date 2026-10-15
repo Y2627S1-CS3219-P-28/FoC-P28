@@ -2299,3 +2299,139 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Prompt:** Check if this merge with main the user service only bring changes that wont affect other services
 - **Key response:** c2fe90c adds one profile edit route and two historical records; all backend/Compose/gateway files equal first parent5bf1a15. Earlier reverted main auth-provider dependencies were not automatically reintroduced. Typecheck fails3 TS2339 errors for missing profile/profileLoading/refreshProfile at edit/page.tsx:20; existing103 frontend tests/26 files and29 configuration assertions pass but do not cover new route. Username PUT/me matches existing provider; Firebase email change plus current Mongo-only GET/me has no email-sync guarantee. Documented FEEDBACK-012 and Git revert/remerge lesson. No claim prior FEEDBACK-011 backend defects reentered this merge. Patch check passes; build/backend/live-user/cloud checks not rerun.
 - **Author verification:** Vincent requested inspection only. Matching profile/workstream/branch and scoped context approval; no application/peer/config/schema changes, commit/push/revert/remerge or deployment. Owner-compatible narrow integration and human review required before release.
+
+## Active involvement and deleted-reference implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-14
+- **Mode:** Workflow/source review, approved TDD implementation and verification.
+- **Affected locations:** CHANGE-129/ADR-042, Order read projection/repository/
+  service/controller/traditional response DTOs/MapStruct, PostgreSQL/service/API/
+  OpenAPI tests; companion supplier-name hook/tests; context/contract/traceability/
+  learning/work records, FEEDBACK-015 and this disclosure. No sibling backend.
+- **Prompt:** Add User/Supplier active Order involvement APIs and missing-record
+  default display; user corrects auth to all3 roles and keeps names lookup-only.
+- **Key response:** Inspected actual User delete (hard), Supplier delete (soft),
+  User404 and Supplier batch lookup contracts; existing Order UI has no user-name
+  rows. Implemented two shared-role GETs, ID/boolean DTOs, SQL EXISTS over five
+  statuses/current relationships including holds. No names stored, layout kept;
+  missing/null/omitted supplier results use Deleted supplier, failures unavailable.
+  Service/UI RED then GREEN; fixed Vitest fixture returning mock as cleanup.
+  PG covers all9 states/hold/history/unknown. Final420 backend0failures/errors/
+  skips, original80% gates pass (95.03%line/80.07%branch),129 frontend/28 files,
+  lint0errors/3 existing warnings, typecheck and standard production build pass.
+  Local default Node/Java worker native-memory failures and omitted timestamp
+  fixture corrected; bounded JVM/Vitest/Rayon/Next workers used only for commands,
+  no source/CI limits or coverage exclusion/threshold changes. No apps stopped.
+- **Author verification:** Yao Xiang's active branch confirmed by existing profile;
+  user explicitly selects Requester/Courier/Admin checks, dynamic lookup and
+  unchanged layout in chat2026-10-14. FEEDBACK-015 records absent provider calls,
+  snapshot check/delete race and pending obligations; no complete deletion safety,
+  live peer, browser or full Sprint claim. No schema/config/infra/cloud changes,
+  image recreation, DB reset/deletion invocation or push. Prior127/128 work retained
+  uncommitted; no broad staging/commit mixing those units.
+
+## Courier penalty event implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-14
+- **Mode:** Workflow/design, approved TDD implementation, PostgreSQL verification
+  and topic configuration/documentation.
+- **Affected locations:** CHANGE-128/ADR-041, Order penalty enum/facts/DTO/mapper/
+  factory/publisher pairs/transition/dispatcher/YAML, backend tests and bootstrap
+  tests; approved topic-only Compose/.env.example/staging/production/deploy/
+  provisioning/infra-check configuration; AsyncAPI and persistent project records.
+- **Prompt:** Enum reason/amount mapping and two add/deduct Pub/Sub events for
+  accepted cancellation and manual/automatic completion, minimal payload.
+- **Key response:** Inspected User existing +2/+1/-2 and0/10 clamps; no penalty Pub/Sub consumer
+  or separate Penalty Service. User approves +2 abort/+1 overdue/-1 successful,
+  replacement of accepted emission, unchanged Credit events and shared topic-only
+  configuration. Implemented atomic explicit add/deduct intents, exact seven
+  fields, correct courier recipient and stable bound ID including reason.
+  Contract/behavior RED then GREEN;37 focused/10 PG-routing tests pass. Full403
+  initially failed three single-event assertions, then coverage; typed single
+  mapper input avoids excessive nullable-input branching. Final403 tests0failure/
+  error/skip; unchanged80% gates pass (95.06%line/80.07%branch). Private-emulator
+  bootstrap3 tests pass; both Compose configs/shell syntax/AsyncAPI YAML refs pass.
+- **Author verification:** Yao Xiang explicitly approves numerical/cutover design
+  and topic-only shared configuration in chat2026-10-14. No coverage exclusions
+  or threshold reductions. Actual User consumer, clamp ordering, legacy cutover
+  and new cloud topic/IAM provisioning remain unverified; FEEDBACK-014. CI infra
+  checks now require new resources. No sibling backend, new frontend, migration,
+  live cloud publication/provisioning, application rebuild/deployment or push.
+  Prior CHANGE-127 work preserved; no full Sprint/integration completion claim.
+
+## Completion-hold implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-14
+- **Mode:** Workflow/PDF/source review, approved design, TDD implementation,
+  PostgreSQL migration and regression verification, documentation.
+- **Affected locations:** CHANGE-127/ADR-040, Order domain/repository/transactional
+  hold service/controller/DTO/mapper, SQL due queries/funding guards, V9, backend
+  tests, companion frontend Order response/actions/tests; context, contracts,
+  traceability, migration/learning/work records and this disclosure.
+- **Prompt:** Add completion-hold checks for requester and automatic completion,
+  with requester messaging; create Report-facing hold/release endpoints and
+  review the project's nice-to-have requirements.
+- **Key response:** Read D1 NTH2 PDF38/NTH3 PDF41 and current providers; recorded
+  decisions before coding. Implemented requester-authorized PUT with body
+  requesterId, immutable report record and flag atomically under Order lock.
+  Completion/cancel/expiry/abort funding guards, SQL filters and locked rechecks;
+  requester message/disabled action. Backend/UI RED then GREEN; deterministic
+  binding-race RED exposed JPA merge overwrite, fixed with insert-only SQL;
+  stale-version RED fixed with owner then hold-before-version. Final394 backend
+  tests0failures/errors/skips and JaCoCo gates pass;126 frontend/28 files pass,
+  typecheck/lint/build pass (three existing login warnings). Initial migration
+  FK and translated rollback fixture assertions corrected; Google Fonts build
+  retried with network after sandbox failure; sequential typecheck passed.
+  Started Docker Desktop hidden and only dedicated Order PostgreSQL, applied
+  Flyway8 ->9 preserving seven Orders/zero holds. No app image recreation,
+  sibling implementation/schema, Compose, cloud, secrets, push or deployment
+  changes. Report client absent (FEEDBACK-013); browser/live Report unverified.
+- **Author verification:** User confirms Yao Xiang on order-service/penalty-integration
+  and explicitly approves forwarded requester Firebase authorization, own active
+  Order holds and funding freeze; release explicitly deferred. Holds persist;
+  actual Report placement/recovery and future release/resolution remain pending.
+  D1/Overall source fingerprints unchanged. Automated checks do not claim human
+  acceptance or full NTH2/NTH3/Sprint completion. Existing workflow retained.
+
+## Shared penalty Maven module assistance (Order Service / shared build)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** Implementation, verification and documentation.
+- **Affected locations:** foc-common; root Maven/wrapper/conventions; Order penalty imports; Compose, CI/staging builds and change detection; Order architecture/context/handoff.
+- **Prompt:** Only share the penalty policy in an ordinary Maven module; authentication-related code is not needed.
+- **Key response:** Extracted the approved +2/+1/-1 enum to the common.penalty package; kept event JSON/IDs/topics and auth unchanged. Root reactor and root-context Order container bundle the common JAR. Added shared policy contract and isolated CI selection regressions. Verification results are recorded in CHANGE-130.
+- **Author verification:** User selects the ordinary monorepo Maven design and explicitly narrows shared code to penalty policy. Automated verification is not human review, hosted CI, deployment or User consumer integration; those remain separate. Existing127/128/129 work preserved.
+
+  Verification evidence: common4/Order420 tests and coverage gates pass; the root
+  validation image bundles the shared JAR. Compose, CI selection fixtures,
+  ShellCheck/actionlint and AsyncAPI checks pass. No application recreation,
+  deployment, cloud or sibling backend/auth/frontend edits in this extraction.
+  Human review, hosted CI and User subscriber remain pending.
+
+## Complete D1 penalty mapping assistance (Order Service / foc-common)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** PDF review, implementation, tests and documentation.
+- **Affected locations:** foc-common enum/test/README/AGENTS; Order automatic event contract test and policy/context/handoff documents.
+- **Prompt:** Add the full penalty cases from Project D1 nice-to-have features; tell the user if anything extra is needed.
+- **Key response:** Read complete D1 NTH2/NTH3 pages and visually checked PDF39 penalty table. Added wrong delivery location4, mishandling/damage4 and deliberate retention/theft10. Preserved approved2/1/-1 automatic flow policy and JSON. RED tests reproduced3 missing enum values. No invented score, Report/User implementation, new event publication, auth/schema/deploy change.
+- **Author verification:** User directly requests full D1 penalty mapping; automated verification is separate from human acceptance. Highest effective penalty, threshold suspension and permanent theft suspension remain future User/Report enforcement, explicitly documented; no integration completion claim.
+
+  Verification: full reactor427 tests (common7/Order420) and original coverage gates pass; AsyncAPI and patch validation pass. No image rebuild/deployment or Report/User enforcement claim. D1 source fingerprints unchanged. Shared enum maps6 cases; current automatic Order event contract still has3 reasons.
+
+## Shared penalty policy rename and queries assistance (Order Service / foc-common)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** Implementation, tests, verification and documentation.
+- **Affected locations:** foc-common enum/test/README/AGENTS; Order penalty factory/transition/event DTO imports and tests; current architecture/context/handoff/workflow records.
+- **Prompt:** Rename the enum to PenaltySystemPolicy; add successful-delivery reward, cases excluding accepted cancellation/overdue/success, and full-policy methods; use in Order first.
+- **Key response:** Added static typed reward and immutable report/full list lookups; migrated Order imports, completion and direction selection. Kept all6 constants/positive amounts and event wire/identity unchanged. RED tests fail on missing new type before implementation. No sibling/auth/schema/build/frontend/deployment code change.
+- **Author verification:** User explicitly requests this API and Order-first scope; exact exclusion of the3 automatic outcomes retained. Tests do not constitute human review or live Report/User integration. Current Yao Xiang branch/profile and PDF source fingerprints agree; previous work preserved.
+
+  Verification evidence:431 tests/common11+Order420 and original coverage gates pass. Initial stopped-Docker/malformed-PATH run failed6/skipped31; background Docker startup and process-only PATH exclusion produced zero failures/errors/skips. No permanent PATH/config change. Common JAR/javap and AsyncAPI/patch checks pass; no deployment or peer integration claim.

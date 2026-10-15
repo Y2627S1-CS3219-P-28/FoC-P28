@@ -1,6 +1,7 @@
 package sg.edu.nus.foc.order.api.dto.response;
 
 import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,6 +21,8 @@ public class OrderResponse {
     private String deliverySupplierId;
     private long offeredCredits;
     private String status;
+    @JsonProperty("isCompletionHold")
+    private boolean completionHold;
     private Instant createdAt;
     private Instant expiresAt;
     private int deliveryTimeLimitMinutes;

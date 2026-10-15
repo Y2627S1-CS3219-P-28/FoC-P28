@@ -74,6 +74,12 @@ class OrderOutboxIsolationJpaIntegrationTest {
     @MockitoBean
     private IAcceptedOrderCancellationTaskPublisher cancellationPublisher;
 
+    @MockitoBean
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher additionPublisher;
+
+    @MockitoBean
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher deductionPublisher;
+
     private Instant now;
     private Order order;
 

@@ -10,7 +10,9 @@ vi.mock("@/components/providers/auth-provider", () => ({
   useAuth: () => ({ user: mocks.user, loading: false }),
 }))
 
-beforeEach(() => mocks.api.mockReset())
+beforeEach(() => {
+  mocks.api.mockReset()
+})
 afterEach(cleanup)
 
 describe("Order supplier names", () => {
@@ -35,7 +37,7 @@ describe("Order supplier names", () => {
     await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.names).toEqual({
       pickup: "Cafe — Block A",
-      delivery: "Location unavailable",
+      delivery: "Deleted supplier",
     })
     expect(result.current.error).toBeNull()
   })
@@ -46,9 +48,31 @@ describe("Order supplier names", () => {
 
     await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.names).toEqual({
-      pickup: "Location unavailable",
-      delivery: "Location unavailable",
+      pickup: "Deleted supplier",
+      delivery: "Deleted supplier",
     })
     expect(result.current.loading).toBe(false)
+  })
+  it("finishes empty lookups even when missingIds is empty", async () => {
+    mocks.api.mockResolvedValue({ items: [], missingIds: [] })
+    const { result } = renderHook(() => useSupplierNames(["removed"]))
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.names.removed).toBe("Deleted supplier")
+  })
+
+  it("does not label a transient lookup failure as deletion or block the list", async () => {
+    mocks.api.mockRejectedValue(new Error("Service unavailable"))
+    const { result } = renderHook(() => useSupplierNames(["pickup"]))
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.names.pickup).toBeUndefined()
+    expect(result.current.error).toBe("Service unavailable")
+  })
+
+  it("uses the deleted label when a successful lookup has no response body", async () => {
+    mocks.api.mockResolvedValue(null)
+    const { result } = renderHook(() => useSupplierNames(["removed"]))
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.names.removed).toBe("Deleted supplier")
+    expect(result.current.error).toBeNull()
   })
 })

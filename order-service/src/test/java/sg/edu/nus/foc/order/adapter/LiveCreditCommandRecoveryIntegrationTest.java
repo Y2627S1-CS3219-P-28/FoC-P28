@@ -222,7 +222,7 @@ class LiveCreditCommandRecoveryIntegrationTest {
         assertEquals(0L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, requester));
         assertEquals(1, orderDb.queryForObject("select count(*) from order_courier_attempts where order_id=?", Integer.class, opened.getId()));
         assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='OpenOrderRefundTaskEvent'", Integer.class, opened.getId()));
-        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='AcceptedOrderCancellationTaskEvent'", Integer.class, opened.getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='PenaltyScoreAdditionEvent'", Integer.class, opened.getId()));
         assertEquals("SUCCESS", commands.submit(abortKey, new CommandRequest("ABORT", courier,
                 accepted.getId(), accepted.getVersion(), null), token(courier)).outcome());
     }

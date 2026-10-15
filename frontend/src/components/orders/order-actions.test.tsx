@@ -43,6 +43,32 @@ const acceptedOrder: Order = {
   repostedOrderId: null,
 }
 
+describe("requester completion holds", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("explains the ongoing report and prevents completion while held", async () => {
+    const held = { ...acceptedOrder, requesterId: "courier-1", status: "DELIVERED", isCompletionHold: true } as unknown as Order
+    render(<OrderActions order={held} mode="requester" onUpdated={vi.fn()} />)
+    await act(async () => {})
+    expect(screen.getByText("This order has an ongoing report. You can complete it after the report is resolved.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm completion" })).toBeDisabled()
+    expect(mocks.api).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }))
+  })
+
+  it("shows a backend hold rejection when the displayed flag was stale", async () => {
+    const onUpdated = vi.fn()
+    const message = "This order has an ongoing report. You can complete it after the report is resolved."
+    mocks.api.mockImplementation(async (path: string) => {
+      if (path.endsWith("complete")) throw new Error(message)
+      return { enabled: false }
+    })
+    render(<OrderActions order={{ ...acceptedOrder, requesterId: "courier-1", status: "DELIVERED" }} mode="requester" onUpdated={onUpdated} />)
+    fireEvent.click(screen.getByRole("button", { name: "Confirm completion" }))
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith(message))
+    expect(onUpdated).not.toHaveBeenCalled()
+  })
+})
+
 describe("OrderActions accepted cancellation", () => {
   beforeEach(() => {
     vi.clearAllMocks()

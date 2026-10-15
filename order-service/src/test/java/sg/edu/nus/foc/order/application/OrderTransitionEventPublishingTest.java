@@ -27,6 +27,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.context.ApplicationEventPublisher;
 import sg.edu.nus.foc.order.domain.CommandReceipt;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderProblem;
@@ -70,6 +73,11 @@ class OrderTransitionEventPublishingTest {
         assertEquals(1, event.getValue().getOrderVersion());
         assertEquals("courier-1", event.getValue().getCourierId());
         assertTrue(history.stream().anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.DELIVERED));
+        ArgumentCaptor<PenaltyScoreDeductionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreDeductionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals(1, penalty.getValue().getPenaltyAmount());
+        assertEquals("courier-1", penalty.getValue().getCourierId());
+        assertEquals(event.getValue().getOccurredAt(), penalty.getValue().getOccurredAt());
     }
 
     @Test
@@ -102,6 +110,10 @@ class OrderTransitionEventPublishingTest {
                 eq("complete-overdue"), eq(order), eq("requester-1"), any(Instant.class),
                 eq(true), eq(START.plusSeconds(15 * 60L)));
         assertEquals("OrderCompletionTaskEvent", event.getValue().getEventType());
+        ArgumentCaptor<PenaltyScoreAdditionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreAdditionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals(1, penalty.getValue().getPenaltyAmount());
+        assertEquals(PenaltySystemPolicy.OVERDUE_DELIVERY, penalty.getValue().getAppliedReason());
     }
 
     @Test
@@ -134,7 +146,11 @@ class OrderTransitionEventPublishingTest {
         assertEquals(autoCompletedAt, event.getValue().getOccurredAt());
         assertEquals("OrderCompletionTaskEvent", event.getValue().getEventType());
         assertEquals(OrderStatus.COMPLETED, event.getValue().getOrderStatus());
-        verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
+        ArgumentCaptor<PenaltyScoreDeductionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreDeductionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals("courier-1", penalty.getValue().getCourierId());
+        assertEquals(1, penalty.getValue().getPenaltyAmount());
+        verify(dependencies.applicationEvents, times(2)).publishEvent(any(OrderOutboxDispatchRequested.class));
         verify(dependencies.users, never()).verifyRequester(any(), any());
     }
 
@@ -156,6 +172,23 @@ class OrderTransitionEventPublishingTest {
         verify(dependencies.checkpoints, never()).save(any(OrderCheckpoint.class));
         verify(dependencies.orders, never()).save(any(Order.class));
         verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+    }
+
+    @Test
+    void holdPlacedAfterCandidateSelectionPreventsCompletionIntentAndReceipt() {
+        Order order = deliveredOrder();
+        order.placeCompletionHold("requester-1");
+        TestDependencies dependencies = dependencies(order, "AUTO_COMPLETE",
+                "AUTO_COMPLETE:" + order.getId(), deliveryHistory(order));
+
+        assertFalse(service(dependencies).autoComplete(order.getId(), START.plusSeconds(49 * 3600)));
+        assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class,
+                () -> service(dependencies).complete("held-complete", order.getId(), "requester-1", 0, AUTHORIZATION));
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        verify(dependencies.checkpoints, never()).save(any(OrderCheckpoint.class));
+        verify(dependencies.receipts, never()).save(any(CommandReceipt.class));
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(dependencies.applicationEvents, never()).publishEvent(any(Object.class));
     }
 
     @Test
@@ -196,7 +229,11 @@ class OrderTransitionEventPublishingTest {
         sequence.verify(dependencies.checkpoints, times(2)).save(any(OrderCheckpoint.class));
         sequence.verify(dependencies.orders).save(order);
         sequence.verify(dependencies.receipts).save(any(CommandReceipt.class));
-        verify(dependencies.outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        ArgumentCaptor<PenaltyScoreAdditionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreAdditionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals("courier-1", penalty.getValue().getCourierId());
+        assertEquals(2, penalty.getValue().getPenaltyAmount());
+        verify(dependencies.outbox, never()).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
         verify(dependencies.outbox, never()).enqueue(any(OpenOrderRefundTaskEvent.class));
         verify(dependencies.applicationEvents).publishEvent(any(OrderOutboxDispatchRequested.class));
     }
@@ -217,11 +254,13 @@ class OrderTransitionEventPublishingTest {
 
         assertEquals(OrderStatus.EXPIRED, result.getStatus());
         verify(dependencies.credits).holdForReopen(order.getId(), AUTHORIZATION);
-        ArgumentCaptor<AcceptedOrderCancellationTaskEvent> event =
-                ArgumentCaptor.forClass(AcceptedOrderCancellationTaskEvent.class);
+        ArgumentCaptor<PenaltyScoreAdditionEvent> event =
+                ArgumentCaptor.forClass(PenaltyScoreAdditionEvent.class);
         verify(dependencies.outbox).enqueue(event.capture());
-        assertEquals(OrderStatus.EXPIRED, event.getValue().getOrder().getStatus());
-        assertEquals(null, event.getValue().getOrder().getCourierId());
+        assertEquals("courier-1", event.getValue().getCourierId());
+        assertEquals(2, event.getValue().getPenaltyAmount());
+        assertEquals(PenaltySystemPolicy.ACCEPTED_TASK_CANCELLATION, event.getValue().getAppliedReason());
+        verify(dependencies.outbox, never()).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
         verify(dependencies.outbox).enqueue(any(OpenOrderRefundTaskEvent.class));
     }
 
@@ -298,6 +337,57 @@ class OrderTransitionEventPublishingTest {
                         checkpoint(order, OrderStatus.DELIVERED, newDelivery)));
         assertFalse(service(dependencies).autoComplete(order.getId(), oldDelivery.plusSeconds(48 * 3600L)));
         verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+    }
+
+    @Test
+    void exactDeliveryDeadlineDeductsOneFromCourierNotCompletingRequester() {
+        Order order = deliveredOrder();
+        TestDependencies dependencies = dependencies(order, "COMPLETE", "boundary-complete",
+                List.of(checkpoint(order, OrderStatus.ACCEPTED, START),
+                        checkpoint(order, OrderStatus.DELIVERED, START.plusSeconds(15 * 60L))));
+
+        service(dependencies).complete("boundary-complete", order.getId(), "requester-1", 0, AUTHORIZATION);
+
+        ArgumentCaptor<PenaltyScoreDeductionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreDeductionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals(1, penalty.getValue().getPenaltyAmount());
+        assertEquals("courier-1", penalty.getValue().getCourierId());
+        assertEquals(PenaltySystemPolicy.SUCCESSFUL_DELIVERY, penalty.getValue().getAppliedReason());
+        verify(dependencies.outbox, never()).enqueue(any(PenaltyScoreAdditionEvent.class));
+    }
+
+    @Test
+    void overdueAutomaticCompletionAddsOneAndStillQueuesCreditTransfer() {
+        Order order = deliveredOrder();
+        Instant deliveredAt = START.plusSeconds(16 * 60L);
+        TestDependencies dependencies = dependencies(order, "AUTO_COMPLETE", "AUTO_COMPLETE:" + order.getId(),
+                List.of(checkpoint(order, OrderStatus.ACCEPTED, START),
+                        checkpoint(order, OrderStatus.DELIVERED, deliveredAt)));
+
+        assertTrue(service(dependencies).autoComplete(order.getId(), deliveredAt.plusSeconds(48 * 3600L)));
+
+        ArgumentCaptor<PenaltyScoreAdditionEvent> penalty = ArgumentCaptor.forClass(PenaltyScoreAdditionEvent.class);
+        verify(dependencies.outbox).enqueue(penalty.capture());
+        assertEquals(1, penalty.getValue().getPenaltyAmount());
+        assertEquals("courier-1", penalty.getValue().getCourierId());
+        assertEquals(PenaltySystemPolicy.OVERDUE_DELIVERY, penalty.getValue().getAppliedReason());
+        verify(dependencies.outbox).enqueue(any(OrderCompletionTaskEvent.class));
+        verify(dependencies.outbox, never()).enqueue(any(PenaltyScoreDeductionEvent.class));
+    }
+
+    @Test
+    void successfulCompletionReceiptReplayDoesNotQueueAnotherPenaltyOrCreditEvent() {
+        Order order = deliveredOrder();
+        TestDependencies dependencies = dependencies(order, "COMPLETE", "replay", deliveryHistory(order));
+        CommandReceipt receipt = new CommandReceipt("COMPLETE", "replay", order.getId(), START)
+                .bind("requester-1", CommandReceipt.fingerprint("COMPLETE", order.getId(), "requester-1", 0L));
+        when(dependencies.receipts.findExisting("COMPLETE", "replay")).thenReturn(Optional.of(receipt));
+        when(dependencies.orders.get(order.getId())).thenReturn(Optional.of(order));
+
+        service(dependencies).complete("replay", order.getId(), "requester-1", 0, AUTHORIZATION);
+
+        verify(dependencies.outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(dependencies.orders, never()).getForUpdate(any());
     }
 
     private TestDependencies dependencies(

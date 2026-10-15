@@ -8,6 +8,10 @@ import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface OrderRepository {
+    boolean hasActiveUserInvolvement(String userId);
+
+    boolean hasActiveSupplierInvolvement(String supplierId);
+
     Optional<Order> get(String id);
 
     Optional<Order> getForUpdate(String id);

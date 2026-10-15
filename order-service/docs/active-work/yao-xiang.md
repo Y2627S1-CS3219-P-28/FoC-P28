@@ -1,5 +1,103 @@
 # Yao Xiang - Sprint 1 Active Work
 
+## Current task - CHANGE-129 active involvement/deleted labels (2026-10-14)
+
+- Workflow/profile/branch/PDF fingerprints and current peers/frontend inspected.
+  User approves both endpoints for all three roles; active SQL predicate and
+  minimal boolean response. Declines new name rows; names remain lookup data.
+- CHANGE-129 captures exact paths/auth/relationships/statuses and snapshot race/
+  pending-obligation limits. Providers currently do not check Order before delete;
+  no peer edits. Supplier missing fallback becomes Deleted supplier, layout kept.
+- Start TDD within Order/companion frontend only; prior127/128 work retained.
+  No admin/person layout exists here; no User-name storage or invented UI.
+
+### CHANGE-129 completion evidence
+
+- Both new read APIs and SQL EXISTS/current relationship predicates implemented,
+  including held Orders and excluding terminal/aborted history. MapStruct DTOs
+  return only ID/boolean. Existing card layout retained; missing/null supplier
+  lookups use Deleted supplier; transient errors keep unavailable labels.
+- Final420 backend tests0failures/errors/skips, original80% coverage gates pass;
+  129 frontend tests/28 files, lint0errors/3 existing warnings, typecheck/standard
+  production build pass. Local worker OOM/fixture issues and successful bounded
+  reruns recorded in CHANGE-129. No app/CI resource config change committed.
+- ADR-042/contracts/traceability/context/peer handoff/disclosure updated.
+  FEEDBACK-015: User/Supplier deletion callbacks still absent, read is not a lock,
+  pending financial/command obligations need coordinated owner policy. No actual
+  deletion, peer backend, new schema/config, app rebuild, cloud deployment or push.
+- Prior127/128 overlapping uncommitted work preserved, no broad staging/commit.
+  No User-name Order rows exist on this branch; no rows or names added/stored.
+  Browser/peer/deployment confirmation pending; full integration/Sprint[~].
+
+## Current task - CHANGE-128 explicit courier penalties (2026-10-14)
+
+- User requests enum amounts and separate add/deduct events for abort and
+  completion. Workflow/profile/branch match; CHANGE-127 edits preserved.
+- Inspected actual User +2 abort/+1 overdue/-2 on-time logic, outcome HTTP APIs,
+  existing Order accepted-cancellation/compact completion events and outbox.
+  No penalty subscriber/separate Penalty Service exists. CHANGE-128 contains
+  concrete topics/payload/recipient/TDD/atomicity and legacy migration proposal.
+- Decisions received2026-10-14: +2 abort/+1 overdue/-1 successful; new addition
+  replaces accepted cancellation publication, Credit events retained. Capture
+  cancelling/assigned courier in one courierId field. Begin Order-side TDD;
+  real subscriber remains absent. Consumer clamp ordering across two topics needs a
+  provider policy; no peer/consumer implementation or cloud provisioning claim.
+- Previous turn inspected/designed only. Current approved implementation retains
+  the prior tested completion-hold work. No sibling backend/cloud changes.
+
+### CHANGE-128 completion evidence
+
+- User approves +2 accepted cancellation/+1 overdue/-1 successful and replacement
+  of new accepted-cancellation emission, Credit events unchanged. Shared topic-only
+  configuration approved separately. Implemented enum/facts/MapStruct/DTO/publisher
+  pairs, transitions and existing outbox dispatcher; IDs bind recipient/reason.
+- Final403 backend tests0failures/errors/skips and original80% coverage gates pass
+  (95.06%line/80.07%branch). Three bootstrap tests, both Compose config checks,
+  Bash syntax and AsyncAPI YAML/reference checks pass. RED/intermediate assertion/
+  coverage failures and correction recorded in CHANGE-128; thresholds unchanged.
+- No sibling backend/new frontend/migration/live cloud/app rollout/push changes.
+  Existing CHANGE-127 edits preserved. CI owner must provision new topic/IAM using
+  updated configure-order-pubsub.sh before infra check; User subscriber, ordering
+  and legacy cutover remain FEEDBACK-014. End-to-end scoring/Sprint still[~].
+
+## Current task - CHANGE-127 completion holds (2026-10-14)
+
+- User confirms Yao Xiang on order-service/penalty-integration. Workflow loaded;
+  initial clean tree, source fingerprints unchanged. Requested persisted hold,
+  scheduler/manual completion guards, requester explanation, and Report-facing
+  place/release endpoints. Other backend services remain read-only.
+- D1 NTH2 PDF38 and NTH3 PDF41 require report-triggered completion hold, no
+  manual/48-hour completion and no final credit action before investigation ends.
+  Submission itself must not change Order status or settle money.
+- Current source has no hold flag/rows/endpoints; Report Service is absent,
+  Admin Service a placeholder, existing prod auth accepts Firebase caller JWTs.
+  Existing shared Order locks/outbox/receipt transactions must be retained.
+- Proposal: docs/completion-hold-design.md. User decisions pending for Report
+  service identity vs forwarded Firebase caller, and full active-order/final-
+  credit coverage vs DELIVERED/completion-only scope. No application/schema/test
+  edits until these material contracts are agreed; no live integration claim.
+- Decisions received: requester Firebase forwarding/ownership and active-Order
+  funding freeze; release deferred. Effective contract recorded before coding.
+  Implement V9 per-report placement/boolean, guards before all funding outcomes,
+  query filtering and locked rechecks, requester message and negative/race tests.
+
+### CHANGE-127 completion evidence
+
+- Effective decisions above supersede the initial pending proposal: forwarded
+  requester Firebase auth, own active Order, funding freeze, no release endpoint.
+- Implemented immutable per-report records/boolean V9, transactional locked PUT,
+  explicit DTO/mapper, requester message and SQL/locked lifecycle guards. Race
+  tests reproduced/fixed JPA merge rebinding and stale-version report messaging.
+- Final394 backend tests0failures/errors/skips and coverage gates pass;126
+  frontend tests/28 files, typecheck/lint/build pass (three existing warnings).
+  Intermediate RED/assertion/build failures documented in CHANGE-127.
+- Dedicated local Order DB migrated8 ->9 preserving seven Orders, zero held.
+  Only Order PostgreSQL started; application containers and peers not recreated,
+  generic postgres-dev untouched. No secrets, cloud, deployment or push changes.
+- ADR-040/design/traceability/context/contracts/migration/AI records synchronized.
+  FEEDBACK-013 retains absent Report caller; release explicitly deferred. Browser
+  confirmation and actual Report/cloud integration unverified; NTH2/NTH3[~].
+
 ## Current request - explain authorization change scope (2026-10-08)
 
 - Request: explain error handling and why the central role-annotation change touched many files. Advisory review only; no code change requested.
@@ -534,3 +632,21 @@ User reverted the prior CI repair and merged main a641836. Yao Xiang identity/br
 - Verification so far: Standard online wrapper-selected Maven3.9.16/Java21 -B -ntp verify, without -U/offline mode, passed 258 tests, zero failures/errors/skips, including isolated PostgreSQL Testcontainers; coverage gates pass. Current161 POM/src/resource files equal the fresh tested copy. ShellCheck0.11.0 on all CI/infra shell scripts, actionlint1.7.12 on workflows, staged/unstaged diff checks and conflict/index/source/contract checks pass. Logs/reports target/main-merge-ci-verify.log and target/main-merge-ci-source-check/target/. First live cloud run reported two IAM failures while showing a concrete Google IAM DNS NameResolutionError; no deleted account/removed IAM inference. Repeat live infrastructure result pending; all three typed subscription predicates passed during first run. Current Maven artifact resolution passes but arbitrary hosted runner/network failures cannot be guaranteed absent. Reverted CI/helper changes were not reintroduced.
 
 - Finished merge/CI verification: Final live scripts/ci/check-infra.sh staging production rerun PASSED with all identities, databases, access, all three event-specific push subscriptions/DLQ/OIDC and buckets; production push stays intentionally disabled. The first-run two false-negative IAM checks were transient DNS failures and cleared on rerun. The prior subscription mismatch and Maven model failure did not reproduce on the merged tree. Hosted/WIF CI must still run after the user completes/pushes the merge; no arbitrary remote-network guarantee. Merge conflict remains resolved/staged, MERGE_HEAD intentionally present; no merge commit/push or application-container rebuild. FEEDBACK-009 and other peer business/semantic gaps remain open.
+
+## CHANGE-130 start - 2026-10-15
+User approves ordinary root foc-common Maven penalty-policy extraction and necessary build/CI/Docker integration. Yao Xiang/current branch match; no auth or sibling backend implementation changes. Existing127/128/129 work preserved. Shared RED tests precede enum extraction; ADR-043 records design. No schema/API/UI or cloud change planned.
+
+## CHANGE-130 completion - 2026-10-15
+Extracted only CourierPenaltyCase to root foc-common Maven JAR; root reactor/wrapper and Order build imports/Docker/Compose/CI/staging/conventions updated. Existing +2/+1/-1 and event JSON remain. Common4 plus Order420 tests pass, original gates; root validation image includes common JAR and no old Order enum. Compose base/HTTP, isolated selection regression, ShellCheck/actionlint, AsyncAPI and patch checks pass. Docker Desktop started hidden for tests; no app recreation/deploy/cloud/schema/peer/auth/frontend edits this task. User consumer still pending. Existing127/128/129 work retained; no stage/commit/push. Details/evidence in CHANGE-130; human/hosted CI pending.
+
+## CHANGE-131 start - 2026-10-15
+User requests all D1 NTH penalty mappings in foc-common. NTH2 PDF37-39 and NTH3 PDF40-41 read; PDF39 table visually verified. Add confirmed wrong location4, mishandling/damage4, deliberate retention/theft10. Existing +2/+1/-1 retained. No report workflow, User suspension/scoring, event contract, schema, auth or deployment change. Policy RED first; D1 highest-case/permanent-suspension requirements documented as future enforcement, not implemented by enum.
+
+## CHANGE-131 completion - 2026-10-15
+D1 NTH2 shared mapping now complete: existing +2/+1/-1 plus wrong location4, mishandling/damage4 and deliberate retention/theft10. D1 PDF37-41 read;39 rendered/checked. Three missing cases RED, full reactor427 tests GREEN (common7/Order420), gates unchanged/pass. Current automatic reason set/JSON and AsyncAPI unchanged; validation/patch checks pass. No peer/auth/schema/UI/infra/cloud edits or image rebuild/deploy. Highest-effective penalty and one-month/permanent suspension remain future User/Report logic; no extra score invented. Evidence/change record CHANGE-131; previous127-130 work retained, no stage/commit/push.
+
+## CHANGE-132 start - 2026-10-15
+User approves PenaltySystemPolicy rename and three policy lookup methods, Order adoption first. Shared test rename/helper tests precede source change; exact immutable report subset excludes original3. All amounts/reason names/wire/schema remain; no peer/auth/UI/build/cloud change. Existing127-131 work preserved.
+
+## CHANGE-132 completion - 2026-10-15
+PenaltySystemPolicy rename and3 static queries complete; reward returns SUCCESSFUL_DELIVERY, report list excludes original3, full list all6, immutable/order tested. Order imports/DTOs/completion/direction migrated; wire/amount/identity unchanged. RED compile then11 common tests; first full run hit stopped Docker/malformed PATH (6 errors/31 skipped). Started Desktop hidden and excluded only bad entry for new test process; no machine PATH/config edits. Final431 tests (11+420), zero failures/errors/skips, original gates pass. JAR/javap confirms new class/API and no old enum. AsyncAPI/patch checks pass. No peer/auth/UI/build/schema/deploy/image recreation this task; previous work retained; no stage/commit/push. Hosted CI/review and existing Report/User integration pending. Details CHANGE-132.

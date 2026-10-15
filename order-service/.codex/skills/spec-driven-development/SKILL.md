@@ -5,6 +5,12 @@ description: Enforce the Order Service's persistent specification-driven and tes
 
 # Spec-Driven Development
 
+Effective CHANGE-130 / ADR-043: `PenaltySystemPolicy` is shared only through the
+ordinary root `foc-common` Maven library, package `sg.edu.nus.foc.common.penalty`.
+Use root wrapper `-pl order-service -am verify` and root-context Order image
+build. No auth/role/persistence extraction or sibling implementation is approved.
+
+
 Treat repository documents as permanent memory and target zero unapproved deviation.
 
 ## Load context

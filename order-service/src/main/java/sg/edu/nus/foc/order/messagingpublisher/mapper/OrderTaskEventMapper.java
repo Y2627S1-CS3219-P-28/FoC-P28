@@ -7,6 +7,9 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.ReportingPolicy;
 import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.messagingpublisher.dto.CourierPenaltyEventFacts;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent;
 import sg.edu.nus.foc.order.domain.RepostPlan;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
@@ -18,6 +21,31 @@ import sg.edu.nus.foc.order.messagingpublisher.dto.RepostPlanEventSnapshot;
         componentModel = MappingConstants.ComponentModel.SPRING,
         unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface OrderTaskEventMapper {
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "eventId", source = "eventId")
+    @Mapping(target = "eventType", constant = "PenaltyScoreAdditionEvent")
+    @Mapping(target = "eventVersion", constant = "1")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "orderVersion", source = "orderVersion")
+    @Mapping(target = "courierId", source = "courierId")
+    @Mapping(target = "penaltyAmount", source = "penaltyAmount")
+    @Mapping(target = "occurredAt", source = "occurredAt")
+    @Mapping(target = "appliedReason", source = "appliedReason")
+    PenaltyScoreAdditionEvent toPenaltyAdditionEvent(CourierPenaltyEventFacts facts);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "eventId", source = "eventId")
+    @Mapping(target = "eventType", constant = "PenaltyScoreDeductionEvent")
+    @Mapping(target = "eventVersion", constant = "1")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "orderVersion", source = "orderVersion")
+    @Mapping(target = "courierId", source = "courierId")
+    @Mapping(target = "penaltyAmount", source = "penaltyAmount")
+    @Mapping(target = "occurredAt", source = "occurredAt")
+    @Mapping(target = "appliedReason", source = "appliedReason")
+    PenaltyScoreDeductionEvent toPenaltyDeductionEvent(CourierPenaltyEventFacts facts);
+
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "order.id")
     @Mapping(target = "requesterId", source = "order.requesterId")

@@ -1,4 +1,42 @@
 # Order Service Architecture
+CHANGE-132 renames the common type to PenaltySystemPolicy and adds static reward,
+report-subset and full-list queries. Order completion and event direction use
+the reward helper; event DTO/facts types use the renamed enum. Names/amounts/JSON
+and lifecycle behaviour remain unchanged. The subset excludes the original3;
+returned lists are immutable. No authentication/peer/build/schema changes.
+
+CHANGE-131 completes shared D1 penalty data with three confirmed-report reasons
+(4/4/10). No new Order flow selects them; only accepted abort, overdue completion
+and successful completion continue to publish. Report resolution/suspension and
+highest-incident aggregation remain future work; current wire schema unchanged.
+
+ADR-043 / CHANGE-130 moves only PenaltySystemPolicy to foc-common's
+sg.edu.nus.foc.common.penalty package. OrderTaskEventFactory and penalty DTOs
+import the shared enum. Same signed policy/positive event amount, stable enum
+names and wire JSON. Root Maven builds the library before the independent Order
+application image. No auth, persistence, state, API or runtime-service change.
+
+ADR-042 / CHANGE-129 adds a read-only involvement service/domain projection,
+use-case repository ports, native EXISTS adapter queries and separate mapped
+User/Supplier response DTOs. All three roles may query booleans; no foreign
+lookup, entity mutation, paging, name persistence, row lock or schema change.
+Held active Orders count. Deletion admission/race policy remains peer work.
+Companion existing supplier-name hook uses deleted labels for missing data,
+preserves real names and uses unavailable labels on failure; no layout changes.
+ADR-041 / CHANGE-128 centralizes amounts in PenaltySystemPolicy (+2/+1/-1).
+Typed addition/deduction DTOs, publisher/interface pairs and one internal facts
+DTO/MapStruct mapping use existing outbox infrastructure. New aborts replace
+accepted-cancellation publication; legacy replay stays. Completion atomically
+queues Credit transfer plus exactly one courier penalty. Holds/rollback/replay
+create no new penalty. User subscriber and clamp ordering remain peer work.
+
+ADR-040 / CHANGE-127 adds requester-authorized placement of per-report holds on
+active Orders, plus persisted completion_hold and ordinary response isCompletionHold.
+Held completion, expiry, cancellation and accepted-abort funding paths produce
+no final outcome. Hold records/flag are transactional under the same Order lock;
+insert-only report keys prevent cross-Order rebind races. Query filtering and
+locked rechecks preserve independent scheduler jobs. Release and the actual
+Report client remain deferred. Detailed components/sequence/data: ADR-040.
 
 ADR-038 / CHANGE-108 adds an owner-only CommandView display projection and a
 shared frontend discovery provider. ACCEPT/ABORT show actual committed target

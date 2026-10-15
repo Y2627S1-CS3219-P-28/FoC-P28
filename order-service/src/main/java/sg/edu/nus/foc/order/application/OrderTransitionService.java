@@ -18,7 +18,8 @@ import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
-import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 
@@ -77,7 +78,7 @@ public class OrderTransitionService {
 
         Order order = orders.getForLifecycleUpdate(id)
                 .orElseThrow(() -> OrderProblem.notFound("Order not found."));
-        if (order.getStatus() != OrderStatus.DELIVERED) {
+        if (order.getStatus() != OrderStatus.DELIVERED || order.isCompletionHold()) {
             return false;
         }
 
@@ -168,8 +169,8 @@ public class OrderTransitionService {
         Order saved = orders.save(order);
         receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), cancelledAt)
                 .bind(authenticatedActor, CommandReceipt.fingerprint("CANCEL_ACCEPTED", id, authenticatedActor, version)));
-        AcceptedOrderCancellationTaskEvent event = eventFactory.acceptedCancellation(
-                commandId, saved, authenticatedActor, cancelledAt);
+        OrderTaskEvent event = eventFactory.penalty(
+                commandId, saved, authenticatedActor, cancelledAt, PenaltySystemPolicy.ACCEPTED_TASK_CANCELLATION);
         outbox.enqueue(event);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
         if (saved.getStatus() == OrderStatus.EXPIRED) {
@@ -270,8 +271,12 @@ public class OrderTransitionService {
                 completedAt,
                 overdue,
                 overdueAt);
+        OrderTaskEvent penalty = eventFactory.penalty(commandId, saved, saved.getCourierId(), completedAt,
+                overdue ? PenaltySystemPolicy.OVERDUE_DELIVERY : PenaltySystemPolicy.getSuccessfulDeliveryReward());
         outbox.enqueue(event);
+        outbox.enqueue(penalty);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
+        applicationEvents.publishEvent(new OrderOutboxDispatchRequested(penalty.getEventId()));
         audit.action(operation, saved.getId(), actorId, commandId, "accepted");
         return saved;
     }

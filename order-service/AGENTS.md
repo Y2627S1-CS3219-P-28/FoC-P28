@@ -1,5 +1,20 @@
 # Order Service Agent Instructions
 
+CHANGE-132, approved 2026-10-15: shared enum is PenaltySystemPolicy, replacing
+CourierPenaltyCase. Its reward/report-subset/full-list queries are pure lookup;
+Order is the first consumer. Use getSuccessfulDeliveryReward for successful
+completion. Enum constants/amounts/event wire remain unchanged; no peer changes.
+
+
+Effective CHANGE-130 / ADR-043, approved by Yao Xiang 2026-10-15: penalty reason/
+amount policy lives only in `../foc-common/src/main/java/sg/edu/nus/foc/common/penalty/`.
+Order depends on the ordinary Maven library; no authentication is extracted.
+Use root wrapper `-pl order-service -am verify` (PowerShell `.\mvnw.cmd`, Bash
+`bash ./mvnw`). Root-context Order image/Compose/CI build includes that library.
+No other service implementation is authorized by the extraction. Historical
+Order-owned enum references are superseded only for Java placement, not behavior.
+
+
 These instructions apply to the entire `order-service` repository. Repository files are the permanent project memory; chat history is not authoritative.
 
 ## Scope and authority

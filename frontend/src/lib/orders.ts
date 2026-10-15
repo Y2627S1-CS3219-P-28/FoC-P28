@@ -21,6 +21,7 @@ export type Order = {
   deliverySupplierId: string
   offeredCredits: number
   status: OrderStatus
+  isCompletionHold?: boolean
   createdAt: string
   expiresAt: string
   deliveryTimeLimitMinutes: number

@@ -49,6 +49,8 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
+    @Column(name = "completion_hold", nullable = false)
+    private boolean completionHold;
     @Column(nullable = false)
     private Instant createdAt;
     @Column(nullable = false)
@@ -168,14 +170,46 @@ public class Order {
     public void completeAutomatically(long expectedVersion) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.DELIVERED);
+        requireCompletionAllowed();
         status = OrderStatus.COMPLETED;
     }
 
     public void validateCompletion(String actor, long expectedVersion) {
-        requireVersion(expectedVersion);
-        requireStatus(OrderStatus.DELIVERED);
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may confirm completion.");
+        }
+        // A report changes the stored version; still explain the hold to its owner with a stale browser.
+        requireCompletionAllowed();
+        requireVersion(expectedVersion);
+        requireStatus(OrderStatus.DELIVERED);
+    }
+
+    public void placeCompletionHold(String actor) {
+        validateCompletionHoldPlacement(actor);
+        completionHold = true;
+    }
+
+    public void validateCompletionHoldPlacement(String actor) {
+        if (!requesterId.equals(actor)) {
+            throw OrderProblem.forbidden("Only the requester may place a report hold on their order.");
+        }
+        if (status == OrderStatus.COMPLETED || status == OrderStatus.CANCELLED
+                || status == OrderStatus.EXPIRED || status == OrderStatus.ABORTED) {
+            throw OrderProblem.conflict("A completion hold can only be placed on an active order.");
+        }
+    }
+
+    private void requireCompletionAllowed() {
+        if (completionHold) {
+            throw new OrderProblem("COMPLETION_ON_HOLD",
+                    "This order has an ongoing report. You can complete it after the report is resolved.");
+        }
+    }
+
+    private void requireFundingOutcomeAllowed() {
+        if (completionHold) {
+            throw new OrderProblem("ORDER_ON_HOLD",
+                    "This order has an ongoing report. Credit actions are paused until the report is resolved.");
         }
     }
 
@@ -190,6 +224,7 @@ public class Order {
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may cancel.");
         }
+        requireFundingOutcomeAllowed();
     }
 
     public void reopenAfterAcceptedCancellation(String actor, long expectedVersion, Instant now) {
@@ -216,6 +251,7 @@ public class Order {
         if (courierId == null || !courierId.equals(actor)) {
             throw OrderProblem.forbidden("Only the assigned courier may cancel an accepted order.");
         }
+        requireFundingOutcomeAllowed();
     }
 
     public void expire(long expectedVersion, Instant now) {
@@ -224,6 +260,7 @@ public class Order {
         if (now.isBefore(expiresAt)) {
             throw OrderProblem.conflict("Order is not due for expiry.");
         }
+        requireFundingOutcomeAllowed();
         status = OrderStatus.EXPIRED;
     }
 

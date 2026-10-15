@@ -6,8 +6,8 @@
 # Usage: infra/gcp/configure-order-pubsub.sh <staging|production>
 #
 # Each environment has its own topics (infra/environments/<env>.env), so local runs, staging and
-# production never deliver events to each other. Local runs publish to the *-dev-v1 topics, which
-# no cloud environment subscribes to.
+# production never deliver events to each other. Local Docker uses only *-local-v1 topics.
+# ADR-041 explicitly names staging penalty topics *-dev-v1, production penalties *-prod-v1.
 set -euo pipefail
 (( BASH_VERSINFO[0] >= 4 )) || { echo "bash 4+ is required" >&2; exit 2; }
 
@@ -33,6 +33,8 @@ topics=(
   "$ORDER_COMPLETION_TOPIC"
   "$ORDER_OPEN_REFUND_TOPIC"
   "$ORDER_ACCEPTED_CANCELLATION_TOPIC"
+  "$ORDER_COURIER_PENALTY_ADDITION_TOPIC"
+  "$ORDER_COURIER_PENALTY_DEDUCTION_TOPIC"
 )
 
 echo "Configuring Order Service Pub/Sub topics for $environment"

@@ -1,5 +1,17 @@
 # Order Service Database Migration Workflow
 
+## Current handoff - V9 / CHANGE-127
+
+V9__order_completion_holds.sql adds default-false orders.completion_hold and
+per-report order_completion_holds (immutable report ID, Order FK, requester,
+placed time). Expected schema9. Existing V1..V8 unchanged. Clean/upgrade PG tests
+pass. Local dedicated Order database migrated8 ->9, seven Orders preserved,
+zero held; application images not rebuilt. Matching Order startup applies Flyway
+normally. Release not implemented. Preserve hold records, disable placement for
+rollback and use reviewed forward corrections; old revisions ignore this flag.
+
+Historical V8 handoff follows; its pending Docker status is superseded locally.
+
 Latest approved handoff: V8__durable_manual_repost.sql. Add nullable candidate_order_id
 and REPOST kind; preserve prior commands/IDs and pending-target index. Expected
 schema8. Normal matching Order startup applies Flyway; six clean/upgrade PG tests

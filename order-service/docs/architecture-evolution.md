@@ -1,5 +1,61 @@
 # Order Service Architecture Evolution
 
+## CHANGE-132 shared policy API refinement
+
+User-approved 2026-10-15 rename to PenaltySystemPolicy and static reward/report
+subset/full policy lookups. Common retains selection/data; Order adopts the
+new Java type and uses reward lookup in completion/event direction. Lists are
+immutable, report subset excludes the original3 exactly. Same six wire names,
+amounts, event IDs and state logic. ADR-043 amended; no new peer integration,
+database/HTTP/event schema or deployment decision.
+
+
+## CHANGE-131 D1 penalty mapping completeness
+
+User-approved policy-data extension of ADR-041/043, 2026-10-15. Add wrong location4,
+mishandling/damage4 and deliberate retention/theft10 from D1 NTH2 PDF38-39 to the
+existing shared enum. Values/reasons for automatic Order flows stay unchanged;
+no new event producer, JSON/schema, API, state or service integration. Full D1
+highest-effective-penalty and suspension enforcement remain future User/Report
+logic, including permanent suspension for theft. No invented scores needed.
+
+## CHANGE-130 / ADR-043 shared penalty Maven policy
+
+Approved architecture/build refinement by Yao Xiang2026-10-15. Move the ADR-041
+enum to a plain shared JAR; root reactor/Order Docker/CI compile the same source.
+Alternatives: separate Git repository or published artifact add operations;
+copied enums drift. User selects ordinary monorepo module. Existing policy and
+wire/state/schema/security/UI are unchanged. No sibling migration or cloud action.
+
+## CHANGE-129 / ADR-042 shared involvement and missing reference labels
+
+Approved2026-10-14 by Yao Xiang: change initial admin-only idea to shared-role
+boolean reads. Native EXISTS checks active current relationships, including
+report-held Orders; terminal/history excluded. No query fetch-all or row locking.
+Future peer callbacks still missing; snapshot race and pending obligations
+explicitly excluded from deletion authorization. Preserve ID-only Order data.
+Existing supplier lookup completes empty/null/omitted results with Deleted
+supplier, keeping unavailable labels for failures and preserving card layout.
+## CHANGE-128 / ADR-041 explicit courier penalty decisions
+
+User approved2026-10-14: +2 accepted cancellation, +1 overdue delivery, -1
+successful delivery; explicit seven-field add/deduct events. Replace new
+accepted-cancellation publication and retain stored legacy replay/Credit events.
+Outbox rows commit with lifecycle state/receipt and dispatch after commit.
+Stable identity also binds recipient/reason to distinguish abort and completion.
+User approves topic-only shared configuration; no sibling backend/cloud writes.
+Single typed mapper input replaces several nullable inputs; coverage gate unchanged.
+
+## CHANGE-127 / ADR-040 requester report holds
+
+Approved 2026-10-14 by Yao Xiang: requester Firebase/role/owner authorization,
+active Orders, atomic per-report placement and boolean; no status or event
+change. SQL due filters and locked rechecks preserve independent lifecycle
+transactions. Funding guards precede Credit/outbox effects; UI explains holds.
+Deterministic tests expose/fix assigned-ID JPA merge rebinding across different
+Order locks with insert-only SQL, and stale-version messaging with owner then
+hold-before-version. Additive V9; release/Report integration deferred.
+
 ## Implementation detail - CHANGE-110 command submission polling
 
 Vincent explicitly authorizes the fix on2026-10-11. Browser intent persistence

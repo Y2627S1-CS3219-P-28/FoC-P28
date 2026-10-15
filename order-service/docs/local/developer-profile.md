@@ -1,5 +1,26 @@
 # Current Developer Profile
 
+CHANGE-130 approval, 2026-10-15: Yao Xiang/current penalty-integration branch;
+ordinary foc-common penalty policy module and necessary root build/CI/Docker
+integration. No authentication or sibling backend implementation extraction.
+
+
+## Effective current profile - Yao Xiang, 2026-10-14
+
+- Name: Yao Xiang (Developer 1).
+- Branch: order-service/penalty-integration.
+- Approval: explicit current developer/branch confirmation in chat, 2026-10-14.
+- Current scope: approved Order-owned completion-hold placement persistence,
+  funding/completion/scheduler guards and requester UI/tests/documents. Forwarded
+  requester Firebase identity; own active Order only; release deferred explicitly.
+  Report/peer services and cloud provisioning remain read-only.
+- This supersedes the current identity below while preserving its history.
+- CHANGE-129 scope approved2026-10-14: shared-role User/Supplier active EXISTS
+  queries and existing Order supplier missing-name fallback, layout unchanged.
+- CHANGE-128 scope also approved2026-10-14: Order-owned +2/+1/-1 penalty enum,
+  separate add/deduct event publishers/outbox, Credit events retained and new
+  accepted-cancellation publications replaced. Consumer/cloud work not included.
+
 ## Effective current profile — Vincent, 2026-10-10
 
 - Name: Vincent

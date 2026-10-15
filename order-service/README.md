@@ -1,5 +1,69 @@
 # Order Service
 
+CHANGE-132: shared enum is now `PenaltySystemPolicy`. Order successful completion
+and event direction use `getSuccessfulDeliveryReward()`. Common also provides
+immutable `getCourierPenaltyCases()` (report cases excluding cancellation,
+overdue and success) and `getFullPenaltyPolicy()` (all six). Wire JSON unchanged.
+
+
+CHANGE-131 completes the shared D1 NTH2 mapping: wrong-location delivery4,
+mishandling/damage4, deliberate retention/theft10, alongside existing2/1/-1.
+These are future confirmed-report mappings, not new automatic Order flows.
+See [policy and integration limits](../foc-common/README.md).
+
+
+## Shared penalty policy build (CHANGE-130 / ADR-043)
+
+`PenaltySystemPolicy` now lives in `../foc-common`, package
+`sg.edu.nus.foc.common.penalty`. It is the only shared application code in this
+slice: +2 accepted cancellation, +1 overdue delivery, -1 successful delivery.
+Authentication and event JSON are unchanged. From the repository root:
+
+```powershell
+.\mvnw.cmd -pl order-service -am verify
+docker compose up -d --build order-service
+```
+
+Linux/macOS: `bash ./mvnw -pl order-service -am verify`.
+Direct image build: `docker build -f order-service/Dockerfile .`.
+The root reactor builds the shared JAR first; no local `mvn install` is needed.
+This supersedes standalone Order-folder build commands below. Other services
+keep their standalone builds. See [common library](../foc-common/README.md).
+
+CHANGE-129 / ADR-042 adds shared-role active involvement reads:
+GET /api/orders/users/{userId}/active-involvement and
+GET /api/orders/suppliers/{supplierId}/active-involvement. Return userId or
+supplierId plus hasActiveOrders. Production accepts Requester/Courier/Admin
+Firebase callers; local split unchanged. SQL EXISTS covers five active statuses,
+held Orders and either current User/location relationship. Not a deletion lock.
+Peer owners must integrate the checks; FEEDBACK-015 records race/pending limits.
+Missing/empty supplier lookups display Deleted supplier without storing names
+or changing Order card layout. Temporary errors remain Location unavailable.
+CHANGE-128 / ADR-041: penalty events use PenaltySystemPolicy (+2 accepted
+cancellation/+1 overdue/-1 successful). Manual/system completion keeps the Credit
+event and queues one courier addition/deduction. New aborts replace the legacy
+accepted-cancellation publication; old outbox dispatch remains. Contracts/examples:
+[AsyncAPI](docs/asyncapi/asyncapi.yaml), [peer handoff](docs/peer-service-api-feedback.md).
+User subscription/score mutation is not implemented in this Order milestone.
+
+Topic variables: ORDER_COURIER_PENALTY_ADDITION_TOPIC and
+ORDER_COURIER_PENALTY_DEDUCTION_TOPIC. Local Docker pins *-local-v1 and creates
+both topics without Credit penalty subscriptions. Staging uses
+courier-penalty-{addition|deduction}-dev-v1; production uses *-prod-v1.
+Before cloud CI/deploy, the infrastructure owner runs existing
+infra/gcp/configure-order-pubsub.sh staging and production from the repo root
+with appropriate gcloud permissions. This provisions topics and Order's publisher
+IAM; it does not provision User subscribers. check-infra now validates both new
+topics, so absent resources/IAM will correctly block CI. No cloud command ran here.
+
+CHANGE-127 / ADR-040: requester-owned report holds block completion and final
+funding. PUT /api/orders/internal/{orderId}/completion-holds/{reportId}, JSON
+requesterId, forwarded requester Firebase Bearer token in production. Ordinary
+responses expose isCompletionHold; requester UI explains ongoing reports and
+disables completion. SQL scheduler filters and locked rechecks skip held Orders.
+V9 adds the boolean/per-report table. Release is deferred; Report client absent.
+See [contract](docs/completion-hold-design.md) and [verification](changes/CHANGE-127-completion-holds.md).
+
 CHANGE-107: expiry runs directly inside the minute lifecycle scheduler; there is
 no expiry HTTP trigger or Swagger operation. All repost routes are retained.
 

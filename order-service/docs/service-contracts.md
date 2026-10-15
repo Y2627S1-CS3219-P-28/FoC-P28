@@ -1,4 +1,38 @@
 # Service Contracts
+CHANGE-132 Java-only API refinement: PenaltySystemPolicy replaces the previous
+enum name. getSuccessfulDeliveryReward returns SUCCESSFUL_DELIVERY;
+getCourierPenaltyCases excludes cancellation/overdue/success; full-policy query
+returns all6. Lists immutable/declaration ordered. Order is the first consumer;
+HTTP/event JSON/reason strings/IDs are unchanged. No sibling migration or alias.
+
+CHANGE-131: common penalty enum includes three future confirmed-report cases
+(wrong location4, mishandling/damage4, deliberate retention/theft10). No current
+Order API/event schema/reason-set expansion or automatic publication. Coordinate
+future Report producer/consumer contracts and suspension/highest-penalty logic.
+
+Effective CHANGE-130 / ADR-043: penalty enum Java ownership moves to the
+foc-common Maven library (`sg.edu.nus.foc.common.penalty.PenaltySystemPolicy`).
+No public penalty JSON, reason string/amount, event ID, topic or HTTP change.
+No authentication API shared. Other services must explicitly adopt the library;
+existing HTTP outcomes/User subscriber remain governed by FEEDBACK-014.
+
+Effective CHANGE-129 / ADR-042:
+GET /api/orders/users/{userId}/active-involvement -> {userId,hasActiveOrders}.
+GET /api/orders/suppliers/{supplierId}/active-involvement -> {supplierId,hasActiveOrders}.
+No body/paging; existing production Firebase/any recognized Order role.
+Active = OPEN/ACCEPTED/IN_PROGRESS/PICKED_UP/DELIVERED, including holds. Match
+requester/current courier or pickup/delivery; exclude terminal/history attempts.
+Unknown/no matching Order returns false; invalid ID400, caller401/403, role
+dependency503. SQL EXISTS snapshot is not deletion permission; peer integration
+and admission/obligation coordination pending (FEEDBACK-015).
+Effective penalty amendment CHANGE-128 / ADR-041: new accepted cancellation
+queues PenaltyScoreAdditionEvent (+2) instead of AcceptedOrderCancellationTaskEvent.
+Completion queues its unchanged Credit event plus addition (+1 overdue delivery)
+or deduction (1 successful delivery). Both manual/system completion use actual
+delivery deadline facts. AsyncAPI/FEEDBACK-014 specify seven fields, positive
+amounts, courier recipient, User cutover/deduplication and ordering gap.
+Legacy accepted dispatch stays only for stored rows; earlier penalty expectations
+below are historical where they differ. Actual User consumer remains missing.
 
 Effective ADR-038/CHANGE-108: owned CommandView adds nullable displayDetails with
 itemDescription, pickupSupplierId, deliverySupplierId, offeredCredits,
@@ -218,7 +252,16 @@ CHANGE-068/ADR-017 adds the Order-side courier-assignment contract stub: Credit 
   `requestManualRepost`. The legacy `configureReposting` route is retained for
   compatibility but rejects post-creation mutation.
 - Internal lifecycle services: `processExpiry`, `processAutoRepost`, and `autoCompleteDue`; expiry has no HTTP trigger (CHANGE-107). Spring scheduler selects `DELIVERED` orders with a delivered checkpoint at or before `now - 48 hours`; the transition rechecks under lock and commits the ordinary completion checkpoint/receipt and `OrderCompletionTaskEvent` outbox row atomically.
-- Admin integration: `placeCompletionHold`, `releaseCompletionHold`, `applyAdministrativeResolution`.
+- Requester report placement (CHANGE-127 / ADR-040): PUT
+  /api/orders/internal/{orderId}/completion-holds/{reportId}, JSON requesterId,
+  forwarded requester Firebase Bearer token. Verified own active Order only;
+  200 orderId/reportId/isCompletionHold/version DTO. Atomic per-report insertion
+  and Order flag under lock; identical replay no-op, conflicting binding409.
+  SQL lifecycle selection/locked recheck and domain funding guards honor holds.
+  Actual Report client is absent; FEEDBACK-013. Placement uses reportId, not
+  the financial command/receipt protocol, and produces no settlement event.
+- Future integration: `releaseCompletionHold`, `applyAdministrativeResolution`.
+  Release is explicitly deferred; no release endpoint exists in this milestone.
 - Facts: `subscribeToOrderOutcomes`, including typed completion, shared OPEN-refund, and accepted cancellation event contracts.
 
 Only approved active-workstream contracts are implementable. See `sprints/sprint-2-3/README.md` for the current slice and `sprints/sprint-1/contracts.md` for historical scope.

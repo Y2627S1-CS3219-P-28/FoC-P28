@@ -84,6 +84,12 @@ class OrderLifecycleIsolationJpaIntegrationTest {
     @MockitoBean
     private IAcceptedOrderCancellationTaskPublisher cancellationPublisher;
 
+    @MockitoBean
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher additionPublisher;
+
+    @MockitoBean
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher deductionPublisher;
+
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry properties) {
         properties.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -129,7 +135,10 @@ class OrderLifecycleIsolationJpaIntegrationTest {
         assertEquals(OrderStatus.COMPLETED, orders.findById(successful.getId()).orElseThrow().getStatus());
         assertFalse(checkpoints.findByOrderIdOrderByOccurredAtAsc(failed.getId()).stream()
                 .anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.COMPLETED));
-        assertEquals(List.of(successful.getId()), outbox.findAll().stream().map(event -> event.getOrderId()).toList());
+        assertEquals(2, outbox.count());
+        assertTrue(outbox.findAll().stream().allMatch(event -> successful.getId().equals(event.getOrderId())));
+        assertEquals(java.util.Set.of("OrderCompletionTaskEvent", "PenaltyScoreAdditionEvent"),
+                new java.util.HashSet<>(outbox.findAll().stream().map(event -> event.getEventType()).toList()));
     }
 
     @Test

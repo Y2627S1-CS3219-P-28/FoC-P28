@@ -1,4 +1,27 @@
 # Active Sprint
+CHANGE-132: shared PenaltySystemPolicy rename/queries and Order-only adoption;
+no new score or Report integration. Existing NTH2/NTH3/Sprint [~] unchanged.
+
+CHANGE-131: D1 NTH2 six-case shared mapping only; no new report/publication
+workflow. Highest-penalty and suspension requirements remain unimplemented;
+this does not mark NTH2/NTH3 or the Sprint complete.
+
+CHANGE-130 / ADR-043: approved shared penalty-policy library extraction and
+root-aware Order build. No new product feature or peer readiness claim; existing
+Sprint2-3 [~] and FEEDBACK-014 remain. No authentication/other shared code.
+
+CHANGE-129 / ADR-042: approved shared-role involvement reads and existing
+supplier deleted-reference labels.420 backend/129 frontend checks pass. Provider
+deletion/deactivation integration and coordination remain FEEDBACK-015; no new
+User-name rows/storage, schema, shared config or full Sprint completion.
+CHANGE-128 / ADR-041: approved Order-side explicit courier penalties (+2/+1/-1),
+new add/deduct outbox events and configured local/dev/prod topics. User subscriber
+is still MISSING (FEEDBACK-014); overall penalty integration/Sprint remains[~].
+
+CHANGE-127 / ADR-040: Yao Xiang approves requester-owned active-Order hold
+placement/funding guards/UI under D1 NTH2/NTH3. Order implementation tested:
+394 backend/126 frontend pass; local V9 applied preserving seven Orders. Actual
+Report client and release deferred; NTH2/NTH3 remain[~], Sprint not complete.
 
 CHANGE-110: Vincent-approved frontend-only command polling race fix,
 source386f58f; pause individual GET during initial submission/local Continue,

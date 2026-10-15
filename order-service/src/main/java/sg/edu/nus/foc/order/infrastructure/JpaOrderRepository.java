@@ -17,6 +17,16 @@ import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
+    @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
+            + "and (requester_id = :userId or courier_id = :userId))", nativeQuery = true)
+    boolean existsActiveUserInvolvement(@Param("userId") String userId,
+            @Param("activeStatuses") List<String> activeStatuses);
+
+    @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
+            + "and (pickup_supplier_id = :supplierId or delivery_supplier_id = :supplierId))", nativeQuery = true)
+    boolean existsActiveSupplierInvolvement(@Param("supplierId") String supplierId,
+            @Param("activeStatuses") List<String> activeStatuses);
+
     @Query("select o from Order o where o.id = :id")
     Optional<Order> findById(@Param("id") String id);
 
@@ -74,10 +84,11 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
 
     @Query("select o.id from Order o where o.status = :status "
-            + "and o.expiresAt <= :now and o.courierId is null order by o.createdAt, o.id")
+            + "and o.completionHold = false and o.expiresAt <= :now and o.courierId is null order by o.createdAt, o.id")
     List<String> findDueUnassignedIds(@Param("status") OrderStatus status, @Param("now") Instant now);
 
     @Query("select o.id from Order o where o.status = :status "
+            + "and o.completionHold = false "
             + "and (select max(c.occurredAt) from OrderCheckpoint c "
             + "where c.orderId = o.id and c.status = :status) <= :deliveredAtOrBefore "
             + "order by o.createdAt, o.id")
@@ -95,6 +106,7 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
     @Query("select o from Order o, OrderCheckpoint c "
             + "where c.orderId = o.id "
             + "and o.status = :status "
+            + "and o.completionHold = false "
             + "and c.status = :status "
             + "and c.occurredAt <= :deliveredAtOrBefore")
     List<Order> findDueForAutoCompletion(

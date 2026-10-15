@@ -110,7 +110,14 @@ function LiveOrderActions({ order, mode, onUpdated }: { order: Order; mode: Orde
   }
 
   if (mode === "requester" && order.status === "DELIVERED") {
-    return <Button size="sm" onClick={() => void perform("complete", "Order completed")} disabled={busy}>{busy ? "Saving…" : "Confirm completion"}</Button>
+    return <div className="space-y-2">
+      {order.isCompletionHold && <p role="status" className="text-sm text-muted-foreground">
+        This order has an ongoing report. You can complete it after the report is resolved.
+      </p>}
+      <Button size="sm" onClick={() => void perform("complete", "Order completed")} disabled={busy || order.isCompletionHold}>
+        {busy ? "Saving…" : "Confirm completion"}
+      </Button>
+    </div>
   }
 
   if (mode === "requester" && order.status === "OPEN") {

@@ -6,6 +6,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.CourierPenaltyEventFacts;
 import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderEventSnapshot;
@@ -16,6 +19,24 @@ import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 @RequiredArgsConstructor
 public class OrderTaskEventFactory {
     private final OrderTaskEventMapper mapper;
+
+    public OrderTaskEvent penalty(String commandId, Order order, String courierId,
+                                  Instant occurredAt, PenaltySystemPolicy reason) {
+        PenaltySystemPolicy successfulDeliveryReward = PenaltySystemPolicy.getSuccessfulDeliveryReward();
+        String type = reason == successfulDeliveryReward
+                ? "PenaltyScoreDeductionEvent" : "PenaltyScoreAdditionEvent";
+        byte[] identity = sg.edu.nus.foc.order.domain.CommandReceipt
+                .fingerprint(type, commandId, order.getId(), courierId, reason.name())
+                .getBytes(StandardCharsets.UTF_8);
+        String eventId = UUID.nameUUIDFromBytes(identity).toString();
+        long resultingVersion = order.getVersion() + 1;
+        CourierPenaltyEventFacts facts = new CourierPenaltyEventFacts(eventId, order.getId(), courierId,
+                reason.getPenaltyAmount(), occurredAt, reason, resultingVersion);
+        if (reason == successfulDeliveryReward) {
+            return mapper.toPenaltyDeductionEvent(facts);
+        }
+        return mapper.toPenaltyAdditionEvent(facts);
+    }
 
     public OrderCompletionTaskEvent completion(
             String commandId,

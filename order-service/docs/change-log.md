@@ -1,4 +1,33 @@
 # Approved Change Log
+CHANGE-132 (Yao Xiang2026-10-15): shared enum renamed PenaltySystemPolicy,
+three static selection methods, Order imports and reward-helper adoption.
+Tests/docs amended; constants/amounts/JSON unchanged, no peer/deploy change.
+
+CHANGE-131 (Yao Xiang2026-10-15): D1 NTH2 shared enum complete with wrong
+location4, mishandling/damage4, deliberate retention/theft10. Original3 cases,
+automatic events and wire contracts retained. No Report/User enforcement added.
+
+CHANGE-130 (Yao Xiang2026-10-15, ADR-043): ordinary foc-common Maven penalty
+enum extraction only, Order first consumer; root wrapper/reactor, root-context
+Order Docker/Compose/CI/staging and shared-change detection. Policy/event JSON
+unchanged; no auth, peer implementation, database, frontend or cloud operation.
+
+CHANGE-129 (Yao Xiang2026-10-14, ADR-042): shared-role User/Supplier active
+involvement endpoints, SQL EXISTS/current relationships including held Orders;
+two-field mapped responses. Missing/null supplier lookups show Deleted supplier.
+420 backend/129 frontend tests, original coverage gates, lint/typecheck/build pass.
+Peer callbacks/deletion coordination/browser rollout pending; no schema/config change.
+CHANGE-128 (Yao Xiang2026-10-14, ADR-041): approved +2 accepted cancellation,
++1 overdue delivery and -1 successful delivery, explicit add/deduct events.
+New abort publication replaced; Credit events and legacy outbox replay retained.
+Exact courier payload/stable retry ID; actual User subscriber remains FEEDBACK-014.
+
+CHANGE-127 (Yao Xiang, 2026-10-14): approved requester-owned active-Order holds,
+forwarded Firebase auth, funding guards, SQL filters/locked rechecks and UI.
+ADR-040/V9 implemented; immutable report insert prevents rebinding races;
+stale completion returns report message.394 backend/126 frontend tests pass,
+coverage/typecheck/lint/build pass. Local schema9 preserves seven Orders.
+Report caller/release/browser/cloud rollout pending; full NTH2/NTH3 partial.
 
 CHANGE-110 (Vincent, 2026-10-11): approved command polling race correction under
 ADR-033/035/037/038; source/test386f58f. Pause individual status reads during

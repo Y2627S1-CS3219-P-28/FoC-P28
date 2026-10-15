@@ -188,7 +188,7 @@ fi
 
 echo "Order Service Pub/Sub topics"
 for env in "${environments[@]}"; do
-  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_ACCEPTED_CANCELLATION_TOPIC; do
+  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_ACCEPTED_CANCELLATION_TOPIC ORDER_COURIER_PENALTY_ADDITION_TOPIC ORDER_COURIER_PENALTY_DEDUCTION_TOPIC; do
     topic=$(environment_value "$env" "$key")
     if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
       problem "order-service: Pub/Sub topic '$topic' ($env) does not exist"

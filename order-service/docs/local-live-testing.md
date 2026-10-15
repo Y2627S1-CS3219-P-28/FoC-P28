@@ -1,4 +1,11 @@
 # Local Docker: real services with the Pub/Sub emulator
+CHANGE-128: local Compose pins courier-penalty-addition-local-v1 and
+courier-penalty-deduction-local-v1; private init creates both. Existing two Credit
+push subscriptions remain unchanged; no User penalty subscriber is fabricated.
+Rebuild Order and rerun pubsub-init after pulling this change. Published penalty
+does not imply applied score until User implements FEEDBACK-014.
+Bootstrap contract tests: py -3 order-service/deploy/local-emulator/test_init.py
+from repo root. No ADC/cloud credentials needed for local emulator.
 
 CHANGE-105 / ADR-036, Vincent, 2026-10-11 supersedes ADR-029's local ADC/Google
 Pub/Sub/tunnel setup only. Old cloud resources are not removed.

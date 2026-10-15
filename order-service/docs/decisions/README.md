@@ -4,6 +4,9 @@ ADRs preserve approved business and architecture decisions that supersede or cla
 
 | ADR | Status | Summary |
 |---|---|---|
+| [ADR-040](ADR-040-requester-report-completion-holds.md) | Approved placement/guard milestone; release deferred | Requester-owned report holds, funding freeze, immutable per-report placement, SQL filtering and locked rechecks; V9 |
+| [ADR-041](ADR-041-explicit-courier-penalty-events.md) | Approved2026-10-14; consumer pending | Order enum +2/+1/-1, explicit add/deduct topics, seven courier fields; Credit events/legacy replay retained |
+| [ADR-042](ADR-042-active-involvement-read-contract.md) | Approved2026-10-14; peer deletion clients pending | Shared-role User/Supplier SQL EXISTS snapshots; missing supplier UI label; no name storage/deletion lock |
 | [ADR-033](ADR-033-durable-credit-command-stub.md) | Approved contract-stub milestone, Vincent 2026-10-10; live recovery disabled | Durable foreground CREATE/ACCEPT/ABORT command claims/results and pending/auth-only UI; Credit historical protocol awaits owner agreement |
 | [ADR-030](ADR-030-field-errors-and-new-repost-minimum.md) | Accepted, Vincent 2026-10-09 | Actual field errors; new auto due-to-expiry/manual submit-to-expiry min30; saved explicit plans grandfathered |
 | [ADR-029](ADR-029-local-live-credit-push.md) | Accepted; local connector tested, cloud integration pending | Isolated financial push through exact-path authenticated local ingress; existing peer source/security/ledger ownership retained |
@@ -42,3 +45,5 @@ Create a new ADR for a later decision; do not rewrite historical decisions witho
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
 
 - ADR-032: [Order polling and personal status filters](ADR-032-order-polling-and-personal-status-filters.md), user-approved CHANGE-094; existing personal API, five-second Order-only refresh, Abort errand UI terminology.
+
+- ADR-043: [Shared Maven penalty policy](ADR-043-shared-maven-penalty-policy.md), CHANGE-130; ordinary root foc-common, Order first consumer, no auth/event contract change.
