@@ -66,21 +66,6 @@ class CompactOrderEventContractTest {
         }
     }
 
-    @Test
-    void acceptedCancellationRetainsItsExistingEnvelopeAndSnapshot() {
-        Order order = order();
-        order.accept("courier", 0, CREATED.plusSeconds(1));
-        JsonNode event = json.valueToTree(factory.acceptedCancellation(
-                "abort", order, "courier", CREATED.plusSeconds(2)));
-        assertEquals(Set.of("eventId", "eventType", "eventVersion", "orderId", "orderVersion",
-                "occurredAt", "actorId", "order"), names(event));
-        assertEquals(1, event.path("eventVersion").asInt());
-        assertEquals("courier", event.path("actorId").asString());
-        assertEquals("requester", event.path("order").path("requesterId").asString());
-        assertEquals("courier", event.path("order").path("courierId").asString());
-        assertFalse(event.path("order").has("checkpoints"));
-    }
-
     private void assertFields(JsonNode event) {
         assertEquals(FIELDS, names(event));
     }

@@ -1,5 +1,27 @@
 # Current Developer Profile
 
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134 approved2026-10-16: Yao Xiang/current penalty-integration branch;
+admin active/held cancellation, all addition cases/highest only, common
+COURIER_UNRESPONSIVE=3 and nullable isOverdue. No peer backend/Report UI work.
+
+
+CHANGE-133 authorization2026-10-15: Yao Xiang on order-service/penalty-integration;
+resolve merge and link existing profile Credit history only. No global tab,
+sibling backend changes or cloud actions. Current identity below retained.
+
 CHANGE-130 approval, 2026-10-15: Yao Xiang/current penalty-integration branch;
 ordinary foc-common penalty policy module and necessary root build/CI/Docker
 integration. No authentication or sibling backend implementation extraction.
@@ -20,6 +42,15 @@ integration. No authentication or sibling backend implementation extraction.
 - CHANGE-128 scope also approved2026-10-14: Order-owned +2/+1/-1 penalty enum,
   separate add/deduct event publishers/outbox, Credit events retained and new
   accepted-cancellation publications replaced. Consumer/cloud work not included.
+## Historical Admin dashboard profile - Yao Xiang, 2026-10-11
+
+- Name: Yao Xiang (Developer 1).
+- Branch: order-service/admin-dashboard.
+- Approval: explicit identity/current-branch confirmation in chat on 2026-10-11.
+- Current scope: CHANGE-111 mock Admin UI, shared frontend shell/navigation and
+  CHANGE-112 refinements and Order-owned sample endpoints/contracts/tests/documentation. Other backend
+  services are read-only. No cloud role, real account, schema or peer mutation.
+- This supersedes the current identity paragraph below, preserving its history.
 
 ## Effective current profile — Vincent, 2026-10-10
 

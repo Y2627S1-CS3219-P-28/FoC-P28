@@ -28,13 +28,14 @@ class OrderCompletionHoldTest {
     }
 
     @Test
-    void onlyTheOwnerOfAnActiveOrderCanPlaceAHold() {
+    void onlyTheOwnerOfANonCompletedOrderCanPlaceAHold() {
         Order order = open();
         assertEquals("FORBIDDEN", assertThrows(OrderProblem.class,
                 () -> order.placeCompletionHold("other-requester")).getCode());
-        order.cancelOpen("requester", 0);
-        assertThrows(OrderProblem.class, () -> order.placeCompletionHold("requester"));
-        assertFalse(order.isCompletionHold());
+        Order completed = delivered();
+        completed.confirmCompletion("requester", 0);
+        assertThrows(OrderProblem.class, () -> completed.placeCompletionHold("requester"));
+        assertFalse(completed.isCompletionHold());
     }
 
     @Test
@@ -50,6 +51,19 @@ class OrderCompletionHoldTest {
         accepted.placeCompletionHold("requester");
         assertThrows(OrderProblem.class, () -> accepted.validateAcceptedCancellation("courier", 0));
         assertEquals(OrderStatus.ACCEPTED, accepted.getStatus());
+    }
+
+    @Test void heldOrderCanContinueDeliveryButStillCannotComplete() {
+        Order order = open();
+        order.placeCompletionHold("requester");
+        order.accept("courier", 0, START.plusSeconds(60));
+        order.start("courier", 0, START.plusSeconds(120));
+        order.markPickedUp("courier", 0);
+        order.markDelivered("courier", 0, START.plusSeconds(300));
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertTrue(order.isCompletionHold());
+        assertEquals("COMPLETION_ON_HOLD", assertThrows(OrderProblem.class,
+                () -> order.confirmCompletion("requester", 0)).getCode());
     }
 
     private static Order open() {

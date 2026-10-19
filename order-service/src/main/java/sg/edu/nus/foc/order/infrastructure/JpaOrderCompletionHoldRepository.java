@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import sg.edu.nus.foc.order.domain.OrderCompletionHold;
 
 public interface JpaOrderCompletionHoldRepository extends JpaRepository<OrderCompletionHold, String> {
+    boolean existsByOrderIdAndReleasedAtIsNull(String orderId);
 
     @Modifying
     @Query(value = "insert into order_completion_holds (report_id,order_id,requester_id,placed_at) "

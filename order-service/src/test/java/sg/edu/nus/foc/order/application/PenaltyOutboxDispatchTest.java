@@ -26,7 +26,6 @@ import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher;
@@ -41,8 +40,7 @@ class PenaltyOutboxDispatchTest {
     private final IPenaltyScoreAdditionPublisher addition = mock(IPenaltyScoreAdditionPublisher.class);
     private final IPenaltyScoreDeductionPublisher deduction = mock(IPenaltyScoreDeductionPublisher.class);
     private final OrderOutboxDispatcher dispatcher = new OrderOutboxDispatcher(outbox,
-            mock(IOrderCompletionTaskPublisher.class), mock(IOpenOrderRefundTaskPublisher.class),
-            mock(IAcceptedOrderCancellationTaskPublisher.class), addition, deduction, json);
+            mock(IOrderCompletionTaskPublisher.class), mock(IOpenOrderRefundTaskPublisher.class), addition, deduction, json);
 
     @Test
     void routesBothDirectionsWithStoredAmountAndOperationalMetadata() {

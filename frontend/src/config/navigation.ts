@@ -7,6 +7,7 @@
  */
 import {
   BikeIcon,
+  FlagIcon,
   CircleUserRound,
   ClipboardListIcon,
   LayoutDashboardIcon,
@@ -77,3 +78,10 @@ export const POST_REQUEST_ITEM: NavItem = {
   description: "Ask someone on campus to complete an errand.",
   icon: PlusIcon,
 }
+
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { href: "/admin/reports", label: "Reports", description: "Review delivery reports.", icon: FlagIcon },
+  { href: "/admin/orders", label: "Orders", description: "View and search all orders.", icon: ClipboardListIcon },
+  { href: "/admin/users", label: "Users", description: "Manage user access.", icon: CircleUserRound },
+  { href: "/admin/suppliers", label: "Suppliers", description: "Manage campus locations.", icon: StoreIcon },
+]

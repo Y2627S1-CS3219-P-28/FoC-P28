@@ -64,9 +64,10 @@ does not create a missing Credit account.
 | --- | --- |
 | open-order-refund-local-v1 | Credit typed refund push |
 | order-completion-local-v1 | Credit typed completion push |
-| accepted-order-cancellation-local-v1 | User penalty facts; NO Credit subscription |
+| courier-penalty-addition-local-v1 | User score addition; consumer pending |
+| courier-penalty-deduction-local-v1 | User score deduction; consumer pending |
 
-pubsub-init creates three topics/two Credit subscriptions idempotently after
+pubsub-init creates four topics/two Credit subscriptions idempotently after
 broker/Credit health checks; it exits 0 before Order starts.
 Unsigned push requires explicit local-emulator mode plus both Firebase Auth and
 Pub/Sub demo/emulator settings. Other Credit APIs still require user JWTs.

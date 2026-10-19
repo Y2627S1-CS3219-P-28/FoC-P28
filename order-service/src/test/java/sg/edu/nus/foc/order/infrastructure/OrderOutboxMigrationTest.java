@@ -178,6 +178,8 @@ class OrderOutboxMigrationTest {
                 .locations("classpath:db/migration");
         if (target != null) {
             configuration.target(target);
+        } else {
+            configuration.target("9"); // Historical V1–V9 characterization; V10 has its own upgrade tests.
         }
         return configuration.load();
     }

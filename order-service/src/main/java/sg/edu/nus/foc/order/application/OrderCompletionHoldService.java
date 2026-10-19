@@ -31,7 +31,6 @@ public class OrderCompletionHoldService {
         String actor = users.verifyRequester(requesterId, authorization);
         Order order = orders.getForUpdate(orderId)
                 .orElseThrow(() -> OrderProblem.notFound("Order not found."));
-        order.validateCompletionHoldPlacement(actor);
 
         Optional<OrderCompletionHold> previous = holds.findByReportId(reportId);
         if (previous.isPresent()) {
@@ -43,6 +42,24 @@ public class OrderCompletionHoldService {
         holds.save(new OrderCompletionHold(reportId, orderId, actor, Instant.now()));
         Order saved = orders.save(order);
         audit.action("PLACE_COMPLETION_HOLD", orderId, actor, reportId, "accepted");
+        return saved;
+    }
+
+    @Transactional
+    public Order release(String orderId, String reportId, String adminId) {
+        Order order = orders.getForLifecycleUpdate(orderId)
+                .orElseThrow(() -> OrderProblem.notFound("Order not found."));
+        OrderCompletionHold hold = holds.findByReportId(reportId)
+                .orElseThrow(() -> OrderProblem.notFound("Report hold not found."));
+        if (!orderId.equals(hold.getOrderId())) {
+            throw OrderProblem.conflict("Report hold belongs to a different order.");
+        }
+        if (hold.getReleasedAt() != null) return order;
+        hold.release(adminId, Instant.now());
+        holds.release(hold);
+        order.reconcileReportHolds(holds.hasActiveForOrder(orderId));
+        Order saved = orders.save(order);
+        audit.action("RELEASE_COMPLETION_HOLD", orderId, adminId, reportId, "accepted");
         return saved;
     }
 }

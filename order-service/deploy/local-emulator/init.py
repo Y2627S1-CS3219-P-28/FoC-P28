@@ -22,7 +22,7 @@ def create(path, body):
             raise
 
 
-for topic in ("order-completion", "open-order-refund", "accepted-order-cancellation",
+for topic in ("order-completion", "open-order-refund",
               "courier-penalty-addition", "courier-penalty-deduction"):
     create(f"/topics/{topic}-local-v1", {})
 

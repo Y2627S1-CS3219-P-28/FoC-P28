@@ -1,4 +1,28 @@
 # Order Service Work Allocation
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134, Yao Xiang2026-10-16/current penalty-integration: user confirms
+active/held admin cancellation, all addition cases/highest only, unresponsive3
+and nullable overdue read. Order/common code/tests/docs and optional frontend
+type only; no sibling backend, new UI control, cloud or root config change.
+
+
+CHANGE-133, Yao Xiang/current penalty-integration branch2026-10-15: authorized
+merge resolution and existing selected-user Admin history linking only. Credit
+read/test verification; no sibling backend source changes or new global tab.
+
 CHANGE-132, Yao Xiang/current branch2026-10-15: user authorizes shared policy
 rename/lookup methods and Order adoption first. Common and Order tests/docs;
 no sibling implementation, authentication, frontend or deployment changes.
@@ -27,6 +51,38 @@ approves requester-owned placement, persistence, completion/funding guards and
 requester UI. CHANGE-127 / ADR-040 record forwarded Firebase authorization and
 active-Order coverage; release explicitly deferred. Peer implementations and shared
 cloud provisioning are not authorized by this task.
+
+## Yao Xiang Compose Admin selection - 2026-10-13
+
+CHANGE-122 on order-service/admin-dashboard: user explicitly authorizes shared
+Compose files and .env.example for Admin UI mock/live selection. Frontend runtime
+config/hook/tests and Order docs only; no sibling backend or credential changes.
+
+## Yao Xiang Admin environment refinement - 2026-10-13
+
+CHANGE-119 continues order-service/admin-dashboard under explicit user approval:
+shared Admin frontend adapter/UI/tests and Order-owned documentation only.
+Matching actual Order/Supplier/role/summary calls outside local; no sibling
+backend edits. Missing User/Credit APIs remain placeholders, not assumed ready.
+
+## Yao Xiang Admin UI prototype extension - 2026-10-11
+
+CHANGE-114 is the same user's 2026-10-12 map/layout continuation. Shared frontend
+dependencies/map components and optional SupplierForm mode are approved by the
+specific map request; normal supplier/backend owner behavior remains unchanged.
+
+CHANGE-113 is the user's UI-only continuation: dedicated Order/Supplier pages
+and upward action placement. Same developer/branch; no backend write expansion.
+
+The same user explicitly authorizes CHANGE-112 presentation/navigation and
+Order-owned mock history refinements. Existing Profile history presentation may
+be shared while its current-user data loader/authorization remain unchanged.
+
+Yao Xiang explicitly confirms order-service/admin-dashboard and requests the
+complete mock Admin UI in CHANGE-111, including coordinated shared shell,
+navigation and admin-mode provider changes. Only frontend and Order Service
+implementation are authorized; peers remain read-only. Vincent's recovery and
+other shared feature behavior must be preserved. No schema/cloud changes.
 
 Vincent authorizes CHANGE-110 on2026-10-11: narrow shared command-hook polling
 race fix/tests/records under his existing recovery allocation. No peer/backend,

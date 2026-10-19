@@ -42,4 +42,19 @@ public class OrderQueryService {
     public OrderPage allOrders(OrderStatus status, int page, int size) {
         return orders.findAllOrders(status, page, size);
     }
+
+    public OrderPage allOrders(OrderStatus status, String orderId, Instant createdFrom, Instant createdBefore, int page, int size) {
+        validateCreatedRange(createdFrom, createdBefore);
+        if (orderId != null && orderId.length() > 128) {
+            throw new OrderProblem("VALIDATION_ERROR", "Order ID must not exceed 128 characters.");
+        }
+        return orders.findAllOrders(status, orderId == null || orderId.isBlank() ? null : orderId.strip(),
+                createdFrom, createdBefore, page, size);
+    }
+
+    public static void validateCreatedRange(Instant from, Instant before) {
+        if (from != null && before != null && !from.isBefore(before)) {
+            throw new OrderProblem("VALIDATION_ERROR", "createdFrom must be before createdBefore.");
+        }
+    }
 }

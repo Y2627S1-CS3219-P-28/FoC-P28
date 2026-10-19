@@ -25,7 +25,7 @@ import sg.edu.nus.foc.order.security.annotation.RequireRequesterRole;
 @RequestMapping("/api/orders/internal")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Order report holds", description = "Requester-authorized report placement; release is deferred")
+@Tag(name = "Order report holds", description = "Requester-authorized report hold placement on non-completed orders; administrator release is in AdminOrderController")
 public class OrderCompletionHoldController {
 
     private final OrderCompletionHoldService holds;
@@ -33,14 +33,14 @@ public class OrderCompletionHoldController {
 
     @RequireRequesterRole
     @PutMapping("/{orderId}/completion-holds/{reportId}")
-    @Operation(summary = "Place an idempotent report completion hold on the requester's active order",
-            description = "Report Service forwards the requester's Firebase token. Order verifies role, UID and ownership. The hold prevents completion and funding outcomes without changing Order status.")
+    @Operation(summary = "Place an idempotent report hold on a requester-owned non-completed order",
+            description = "Report Service forwards the requester's Firebase token. Order verifies role, UID and ownership. Any status except COMPLETED is eligible. The hold prevents normal completion, cancellation, expiry and courier-abort funding outcomes without changing Order status; delivery progression remains allowed.")
     @ApiResponse(responseCode = "200", description = "Hold placement committed, or the same report already placed its hold")
     @ApiResponse(responseCode = "400", description = "Invalid requester or report ID")
     @ApiResponse(responseCode = "401", description = "Authentication required")
     @ApiResponse(responseCode = "403", description = "Requester role, token identity or Order ownership does not match")
     @ApiResponse(responseCode = "404", description = "Order not found")
-    @ApiResponse(responseCode = "409", description = "Order is terminal, has unresolved work, or report binding conflicts")
+    @ApiResponse(responseCode = "409", description = "Order is COMPLETED, has unresolved work, or report binding conflicts")
     @ApiResponse(responseCode = "503", description = "User role verification is unavailable")
     public CompletionHoldResponse place(
             @Parameter(description = "Order business ID") @PathVariable String orderId,

@@ -1,7 +1,6 @@
 package sg.edu.nus.foc.order.application;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,6 +34,7 @@ public class OrderTransitionService {
     private final ApplicationEventPublisher applicationEvents;
     private final OrderTaskEventFactory eventFactory;
     private final OrderAuditLogger audit;
+    private final PenaltyOutcomeRecorder penaltyOutcomes;
 
     @Transactional
     public Order start(String commandId, String id, String actor, long version, String authorization) {
@@ -43,7 +43,8 @@ public class OrderTransitionService {
 
     @Transactional
     public Order pickup(String commandId, String id, String actor, long version, String authorization) {
-        return courier("PICKUP", commandId, id, actor, version, authorization, Order::markPickedUp);
+        return courier("PICKUP", commandId, id, actor, version, authorization,
+                (order, courier, expectedVersion, occurredAt) -> order.markPickedUp(courier, expectedVersion));
     }
 
     @Transactional
@@ -63,9 +64,8 @@ public class OrderTransitionService {
         Order order = findForUpdate(id);
         order.validateCompletion(authenticatedActor, version);
         Instant completedAt = Instant.now();
-        List<OrderCheckpoint> history = checkpoints.findByOrderId(order.getId());
         return persistCompletion(
-                "COMPLETE", commandId, order, authenticatedActor, completedAt, version, false, history);
+                "COMPLETE", commandId, order, authenticatedActor, completedAt, version, false);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -82,9 +82,9 @@ public class OrderTransitionService {
             return false;
         }
 
-        List<OrderCheckpoint> history = checkpoints.findByOrderId(order.getId());
-        Instant deliveredAt = checkpointTime(history, OrderStatus.DELIVERED);
-        if (deliveredAt.plus(Order.AUTOMATIC_COMPLETION_DELAY).isAfter(completedAt)) {
+        Instant deliveredAt = order.getDeliveredAt();
+        if (deliveredAt == null || order.getDeliveryDeadlineAt() == null
+                || deliveredAt.plus(Order.AUTOMATIC_COMPLETION_DELAY).isAfter(completedAt)) {
             return false;
         }
 
@@ -95,8 +95,7 @@ public class OrderTransitionService {
                 "lifecycle",
                 completedAt,
                 order.getVersion(),
-                true,
-                history);
+                true);
         return true;
     }
 
@@ -151,6 +150,7 @@ public class OrderTransitionService {
 
         Order order = findForUpdate(id);
         order.validateAcceptedCancellation(authenticatedActor, version);
+        PenaltySystemPolicy finalPenalty = Order.higherPenalty(order.getAppliedPenalty(), PenaltySystemPolicy.ACCEPTED_TASK_CANCELLATION);
         if (!confirmed) credits.holdForReopen(order.getId(), authorization);
         Instant cancelledAt = Instant.now();
         orders.saveAbortedAttempt(new OrderCourierAttempt(order, authenticatedActor, version, cancelledAt));
@@ -170,7 +170,8 @@ public class OrderTransitionService {
         receipts.save(new CommandReceipt("CANCEL_ACCEPTED", commandId, saved.getId(), cancelledAt)
                 .bind(authenticatedActor, CommandReceipt.fingerprint("CANCEL_ACCEPTED", id, authenticatedActor, version)));
         OrderTaskEvent event = eventFactory.penalty(
-                commandId, saved, authenticatedActor, cancelledAt, PenaltySystemPolicy.ACCEPTED_TASK_CANCELLATION);
+                commandId, saved, authenticatedActor, cancelledAt, finalPenalty);
+        penaltyOutcomes.record(saved, authenticatedActor, finalPenalty, event.getEventId(), cancelledAt, authenticatedActor, "Accepted task cancellation");
         outbox.enqueue(event);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
         if (saved.getStatus() == OrderStatus.EXPIRED) {
@@ -209,29 +210,22 @@ public class OrderTransitionService {
         }
 
         Order order = findForUpdate(id);
-        action.apply(order, actor, version);
+        Instant occurredAt = Instant.now();
+        action.apply(order, actor, version, occurredAt);
 
         if (checkpointRequired) {
             checkpoints.save(new OrderCheckpoint(
                     order.getId(),
                     order.getStatus(),
-                    Instant.now(),
+                    occurredAt,
                     actor,
                     null));
         }
 
         Order saved = orders.save(order);
-        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), Instant.now())
+        receipts.save(new CommandReceipt(operation, commandId, saved.getId(), occurredAt)
                 .bind(actor, CommandReceipt.fingerprint(operation, id, actor, version)));
         return saved;
-    }
-
-    private Instant checkpointTime(List<OrderCheckpoint> history, OrderStatus status) {
-        return history.stream()
-                .filter(checkpoint -> checkpoint.getStatus() == status)
-                .map(OrderCheckpoint::getOccurredAt)
-                .max(Instant::compareTo)
-                .orElseThrow(() -> OrderProblem.conflict("Order checkpoint history is incomplete."));
     }
 
     private Order persistCompletion(
@@ -241,12 +235,13 @@ public class OrderTransitionService {
             String actorId,
             Instant completedAt,
             long expectedVersion,
-            boolean automatic,
-            List<OrderCheckpoint> history) {
-        Instant acceptedAt = checkpointTime(history, OrderStatus.ACCEPTED);
-        Instant deliveredAt = checkpointTime(history, OrderStatus.DELIVERED);
-        Instant overdueAt = acceptedAt.plusSeconds(order.getDeliveryTimeLimitMinutes() * 60L);
-        boolean overdue = deliveredAt.isAfter(overdueAt);
+            boolean automatic) {
+        Instant overdueAt = order.getDeliveryDeadlineAt();
+        Instant deliveredAt = order.getDeliveredAt();
+        if (overdueAt == null || deliveredAt == null || order.getOverdue() == null) {
+            throw OrderProblem.conflict("Delivery timing is unavailable. This order requires timing reconciliation before completion.");
+        }
+        boolean overdue = Boolean.TRUE.equals(order.getOverdue());
 
         if (automatic) {
             order.completeAutomatically(expectedVersion);
@@ -271,12 +266,14 @@ public class OrderTransitionService {
                 completedAt,
                 overdue,
                 overdueAt);
-        OrderTaskEvent penalty = eventFactory.penalty(commandId, saved, saved.getCourierId(), completedAt,
-                overdue ? PenaltySystemPolicy.OVERDUE_DELIVERY : PenaltySystemPolicy.getSuccessfulDeliveryReward());
+        PenaltySystemPolicy finalPolicy = saved.penaltyAtCompletion();
+        OrderTaskEvent penalty = finalPolicy == null ? null
+                : eventFactory.penalty(commandId, saved, saved.getCourierId(), completedAt, finalPolicy);
+        penaltyOutcomes.record(saved, saved.getCourierId(), finalPolicy, penalty == null ? null : penalty.getEventId(), completedAt, actorId, automatic ? "Automatic completion" : "Requester completion");
         outbox.enqueue(event);
-        outbox.enqueue(penalty);
+        if (penalty != null) outbox.enqueue(penalty);
         applicationEvents.publishEvent(new OrderOutboxDispatchRequested(event.getEventId()));
-        applicationEvents.publishEvent(new OrderOutboxDispatchRequested(penalty.getEventId()));
+        if (penalty != null) applicationEvents.publishEvent(new OrderOutboxDispatchRequested(penalty.getEventId()));
         audit.action(operation, saved.getId(), actorId, commandId, "accepted");
         return saved;
     }
@@ -288,6 +285,6 @@ public class OrderTransitionService {
 
     @FunctionalInterface
     private interface OrderTransition {
-        void apply(Order order, String actor, Long version);
+        void apply(Order order, String actor, Long version, Instant occurredAt);
     }
 }

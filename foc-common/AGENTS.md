@@ -1,5 +1,10 @@
 # Shared penalty policy library
 
+CHANGE-134, approved2026-10-16: add COURIER_UNRESPONSIVE(3). Full policy now7;
+report subset includes this case while still excluding the original3 automatic
+outcomes. Order admin cancellation can select any addition and emits only its
+highest requested case. Original reason names/values unchanged.
+
 Follow root AGENTS.md. This ordinary Maven JAR currently shares only
 sg.edu.nus.foc.common.penalty.PenaltySystemPolicy, per Order ADR-043 / CHANGE-130.
 
@@ -21,3 +26,12 @@ sg.edu.nus.foc.common.penalty.PenaltySystemPolicy, per Order ADR-043 / CHANGE-13
 - Verify with root `bash ./mvnw -pl foc-common verify` or PowerShell
   `.\mvnw.cmd -pl foc-common verify`; retain 80% line/branch coverage gates.
 - Policy/wire changes require team agreement and consumer compatibility review.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.

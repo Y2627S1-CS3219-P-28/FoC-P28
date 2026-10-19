@@ -1,4 +1,93 @@
+
+
+## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
+
+User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.
+
+Removed the legacy DTO, publisher/interface, factory/mapper methods, now-unused snapshot DTOs and dispatcher branch. The four current channels remain OpenOrderRefundTaskEvent, OrderCompletionTaskEvent, PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent. Courier abort still uses synchronous Credit hold/reopen and the existing final addition (plus refund when expired); no lifecycle, hold, penalty policy, idempotency or financial rules change. Historical database rows and immutable migrations remain intact. Other older refund/expiration normalization remains supported.
+
+The retired topic setting is removed from Order config, deployment templates, local Compose/bootstrap, environment examples/staging/production settings, topic provisioning and CI topic checks. These scripts no longer require or create the old topic; they do not delete existing cloud topics or subscriptions. User Service consumes only the new scoring channels. Existing admin-provider authorization requests remain open. AsyncAPI1.3.0 describes four outgoing operations; earlier statements requiring accepted-cancellation replay/configuration are superseded by this amendment.
+
+An unexpected non-published legacy row after deployment is unsupported and follows the existing bounded failure/recovery path, never automatic financial conversion. This is why the pre-deployment backlog check is required. Live User penalty processing, production backlog and cloud deletion are not verified here.
+
+
+## Effective delivered-report review amendment — CHANGE-141 / ADR-048 (2026-10-18)
+
+Approved Yao Xiang: new requester reports require own DELIVERED order; one damage/wrong-location category. Reports have AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW and one RESOLVED final status. Courier response window is eight hours; server owns deadlines. Report Service is MISSING: the Report UI is a local-only isolated demo; HTTP-peer/staging/production show Coming soon and never fetch sample reports. Existing real Order financial actions remain separate from resolving a report.
+
+Order stores deliveryOverdue at actual delivery, comparing deliveredAt against stored START plus duration deadline. isOverdue remains null before delivery or if historical timing is unknown; no runtime status refresh or new overdue scheduler. Admin waiver only before completion on DELIVERED late orders preserves the true lateness and saves actor/time/reason. Normal waived-late completion funds the courier but emits neither overdue addition nor successful-delivery reward. Explicit admin-selected penalties remain separate.
+
+AdminOrderController adds PUT /api/orders/admin/{orderId}/completion-holds/{reportId}/release (no body) and POST /api/orders/admin/{orderId}/overdue-waiver ({reason}). Both verify admin role, use the verified principal, NOWAIT locked Order and the pending-command guard; all local writes are transactional. Release retains its report binding/audit and any other active holds. It may follow admin cancellation/completion and emits no funding event. Report Service must durably retry its release intent using forwarded admin Firebase authorization; no browser-only live orchestration exists. See FEEDBACK-015. V12 backfills only known delivery facts and adds waiver/release audit fields and an active-hold index; V1–V11 remain immutable.
+
+Frontend uses existing theme/components, compact toolbar, darker selected rows and no redundant selection count. Normal/admin Reports poll every five seconds while visible; sample ownership, deadline and evidence checks are server-side in the gated prototype, which has no production identity authority or financial effects.
+
 # Order Service Requirements Traceability
+
+## CHANGE-140: Admin table density
+
+D1 NTH1 oversight; user-selected20-row pages are a presentation/request-size detail within existing contracts, not a new business rule. Existing mock/live adapter assertions cover20-row Orders, mock Users, exact-search metadata and retained supplier-card behavior; admin page/action regressions cover existing pagination/navigation. No new backend or peer implementation.
+
+
+## CHANGE-139: Compact oversight date filters [~]
+
+D1 NTH1 admin oversight; user-selected reference toolbar/calendar presentation, no new domain or penalty behavior. AdminOrderDateRange owns native date UX, adminOrderDateBounds converts local days, API adapters send explicit instants, AdminOrderController binds/authenticates, OrderQueryService validates and OrderPersistenceAdapter/JPA Criteria filter/count/page in SQL. Existing samples remain isolated. UI/date/adapter regressions cover refresh preservation, range validation and navigation; MVC guards/date binding and PostgreSQL boundary/count/pagination tests verify the real path. Diagram: diagrams/admin-order-query-filters.mmd. Additional per-column ID/name filters/history/export/report actions remain outside this increment; no fabricated unavailable controls.
+
+
+## CHANGE-138: Admin resolution actions UI [~]
+
+D1 NTH1 admin oversight, NTH2 selected courier penalty and NTH3 explicit report resolution reuse approved ADR-044/046 transitions. No new financial/scoring requirement. Row/radio/keyboard selection, state-aware toolbar, retained links, penalty/no-penalty, maximum preview and required preset/custom reason are exercised by admin-order-actions.test.tsx. API adapters verify real routes and mock isolation. Domain/MVC/PostgreSQL regressions cover saved explanation, optional legacy clients, binding, rollback, role lookup and policy discovery; migration test covers clean/V10 upgrade. AdminOrderController maps the request, transaction services own atomic writes, Order owns state/participant/decision invariants and existing outbox owns publication. Diagram: diagrams/admin-order-resolution-ui.mmd. Increment verified locally; peer scoring/cloud integration remain pending, no whole-Sprint completion claim.
+
+
+## CHANGE-137: Admin completion / held funding resolution [~]
+
+D1 NTH1 oversight, NTH2 explicit penalties and NTH3 report resolution; approved
+ADR-046 extends ADR-044 cancellation/ADR-045 timing/decisions. Four assigned active
+states -> COMPLETED, held override only through admin action; ordinary guards kept.
+Domain tests cover states/participants/holds/timing/decision; service tests cover
+funding-only waiver, max/tie/no automatic score, replay and write failure; MVC
+tests verify401/403/identity/400/409 and existing local bypass. PostgreSQL tests
+verify actual rollback/receipt/outbox/hold preservation, NOWAIT retry and competing
+admin cancel/complete. Generated OpenAPI includes the new route.
+Order increment verification belongs to CHANGE-137; Report/User/deployed scoring
+and financial confirmation remain pending, not a complete NTH/Sprint claim.
+
+
+## CHANGE-136: Existing admin oversight organization
+
+D1 NTH1 / ADR-044 behavior retained. Admin cancellation/list now share the
+AdminOrderController; existing authorization, wire/validation/OpenAPI and lock
+conflict regressions verify the move. No new requirement or peer interaction.
+
+
+## CHANGE-135: Start-based overdue consistency and decision audit [~]
+
+D1 F4 courier progress/delivery/completion, NTH2 penalties and NTH3 holds; approved
+START-deadline and admin resolution amendment. Domain Order owns timestamps and
+nullable observation; transition service persists timestamp/checkpoint atomically.
+Tests cover delayed START, actual delivery boundary, missing legacy evidence, held
+completion/abort, waiver/highest decision, SQL due selection and independent rollback.
+V10 clean/V9 upgrade preserves statuses/versions/checkpoints/outbox; Report/User
+integration and deployed confirmation remain pending. See CHANGE-135/ADR-045.
+
+
+## CHANGE-134: Admin cancellation and overdue observation [~]
+
+D1 NTH1 administrator oversight, NTH2 highest selected incident and NTH3 report
+resolution, user-confirmed active/held cancellation. User adds unresponsive3
+beyond original six cases. No global per-Order scoring/suspension claim.
+Tests cover roles, participants, highest/null/reward, terminal states, exact
+replay, real rollback/locking and grouped overdue timing. Report/User subscriber
+implementation and deployed verification remain pending. See ADR-044/CHANGE-134.
+
+
+## CHANGE-133: Admin account oversight integration [~]
+
+Existing D1 administrative oversight/ADR-039 provider boundary: selected-user
+history uses completed Credit contract; mock Compose retained. Regressions cover
+selected UID/paging/abort/error propagation, profile independence and retry.
+OpenAPI merge preserves AdminMock, holds and involvement coverage. Balance/User
+management and live deployment confirmation remain pending; no new lifecycle rule.
+
 
 ## CHANGE-132 policy query API
 
@@ -66,6 +155,123 @@ frontend change for this penalty milestone. Detailed class/sequence design: ADR-
 
 Report submission itself, investigation, courier reporting policy, release and
 settlement remain deferred; full NTH2/NTH3/Sprint completion is not claimed.
+## CHANGE-125 Admin typography/theme consistency [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: same overall font/size/colour; NFR2.1 and shared style baseline | Central Admin layout policy, regular identifiers, semantic shared tokens; hierarchy and numeric metrics retained | Existing203 frontend regressions, typecheck/lint/build pass; authenticated visual/theme review pending |
+
+Normal-profile shared presenter source and data/contracts unchanged. Style guide
+records the approved Admin scope; no new CSS implementation-detail tests.
+
+## CHANGE-124 consistent Order table typography [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: consistent sizes and regular IDs; NFR2.1/UI baseline | Regular14px Order table body, scoped link weight and matching badge/date size | Existing34 Admin regressions, TypeScript/scoped lint/build pass; authenticated visual review pending |
+
+No API/data/interaction change or new CSS implementation-detail tests.
+
+## CHANGE-123 compact table Order IDs [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User: truncate table IDs without losing full copy/detail; NFR2.1 | Optional CopyId compact mode only in Admin Order table; bounded width/ellipsis | Existing Admin copy/navigation/detail tests and typecheck/lint/build in123; authenticated visual check pending |
+
+Identifier values/search/API contracts unchanged. No CSS-class-only tests added.
+
+## CHANGE-122 Compose-selectable Admin providers [~]
+
+| Approved requirement / invariant | Implementation | Verification |
+|---|---|---|
+| User: base Compose mock UI, HTTP override actual local endpoints with staging-equivalent capabilities | FOC_ADMIN_API_MODE -> runtime public config -> existing Admin adapter; base/override mode flags | Config/mode/auth regression matrix and resolved Compose projection assertions |
+| NFR4 / authoritative role checks | Mock allowed only local+emulator+mock flag; cloud/invalid flags live; HTTP demo routes disabled | Non-admin local-live denial; cloud mock-flag rejection; no fallback/peer impersonation |
+| NFR3.1.3 / runtime contract | New variable in .env.example and README; request-time rather than built-in mode | RED then GREEN tests, frontend/typecheck/lint/build and Compose checks in122 |
+
+Existing119 provider matching/missing APIs and121 layouts retained; local real
+data differs from staging. Live authenticated rollout is not proven by these tests.
+
+## CHANGE-121 consistent Admin responsive searches [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User-requested consistent mobile controls; NFR2.1 | Shared AdminFilterForm/AdminFilterActions used by all Admin searches | Existing34 Admin tests, typecheck and scoped lint pass; production build recorded in121; actual mobile visual check pending |
+
+Existing search/reset/query handlers and provider contracts remain unchanged.
+
+## CHANGE-120 mobile Order filter alignment [~]
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| User-requested aligned fields; NFR2.1 responsive web | Single responsive AdminOrders form/grid, equal first-row fields and mobile action row | Existing34 Admin interaction tests and TypeScript/scoped lint pass; production build in CHANGE-120; browser visual check pending |
+
+Presentation-only implementation detail; existing API handlers and119 provider
+behavior unchanged. No CSS-class-only tests added for this reversible fix.
+
+## CHANGE-119 environment-aware Admin integration [~]
+
+| Approved requirement / invariant | Implementation | Evidence |
+|---|---|---|
+| Explicit user amendment: mocks locally, completed APIs outside local, unfinished sections/placeholders | Runtime useAdminApi; live/mock adapter capabilities; Coming soon cards and disabled User actions | Mode matrix, real route/method/search/404/error tests and unavailable-operation no-call assertions |
+| NFR4 / existing provider authorization | Real role-context with current UID/admin comparison; no mock fallback or credit impersonation | AdminGate role/identity/failure regressions and live non-admin denial |
+| NFR2.1 / existing Admin layouts/navigation | Reused wrapping controls/cards; UID summary lookup and linked details; labels independent of Order loading | UI no-call/placeholder/navigation/pending-label regressions; authenticated visual check pending |
+| NFR3.1.3 regression | Existing local prototype tests retained; additional live capability tests | Full frontend verification recorded in CHANGE-119 |
+
+Matching API contracts reused; ADMIN-API-001..006 remain incomplete. No claims of
+full NTH1/Admin integration or peer implementation completion; local demo and
+live capability verification are separate.
+
+CHANGE-116 is the effective clarification of CHANGE-115's Order UI amendment:
+original card widths/two columns, Version/Item Description swapped and requester
+above courier. Existing regression now checks the ordinary grid and no wide span.
+Supplier placement/map assertions remain; no requirement/API scope expansion.
+
+## CHANGE-115 Admin presentation clarification [~]
+
+User's explicit follow-up under the same Admin amendment/NFR2.1/NFR3: metadata
+then credits/wide description; requester above courier; no list overview map;
+status in Location details. Regressions check reordered response keys, field
+order/span and status/map placement. Detail/creation maps and confirmations stay.
+
+## CHANGE-114 Admin map/layout amendment [~]
+
+| User-approved behavior / existing requirements | Implementation | Evidence |
+| --- | --- | --- |
+| Maps/pins/suggestions/drag/manual coordinates; NTH1-supporting mock Admin scope | LocationMap/LeafletMap/AddressSearch/map-provider; optional SupplierForm mode | Real Leaflet synthetic drag/lifecycle, GeoJSON/anonymous request/race/error/form sync tests |
+| Detail-only confirmed Supplier deactivation; NFR4 retained | AdminSupplierDetails existing action; removed card control | Confirmation/error/inactive regressions; cards still navigate |
+| Grouped complete Order details, name navigation and separate IDs | Logical cards including Repost/Other, RecordLink + CopyId | Repost/unknown-field completeness and exact User/Supplier route assertions |
+| Separate User columns; NFR2.1/NFR3 | Horizontally scrollable single-field columns | Header/cell regressions; typecheck/lint/build; visual review pending |
+
+No actual backend integration completion is claimed. Maps depend on external
+public providers; service data/actions retain the approved local mock milestone.
+
+## CHANGE-113 dedicated Admin pages [~]
+
+User-approved continuation of NTH1-supporting Admin prototype. Dedicated Order/
+Supplier routes show the selected complete record; existing User/Supplier actions
+appear before details/history. Existing page/ID/status search remains. Regression
+tests check actual route links, exact-ID requests, full detail rendering, back/
+retry controls, action ordering and confirmed deactivation. NFR2.1/NFR3/NFR4
+remain applicable; browser verification/real provider integration remain pending.
+
+## CHANGE-112 Admin profile/navigation refinement [~]
+
+| Effective approved amendment / existing requirement | Implementation | Evidence |
+| --- | --- | --- |
+| User's Admin UI refinements; existing NTH1 prototype | Selected Admin routes, full profile, copy UID and existing actions | Deep-link/off-page/late-response tests; provider integration remains pending |
+| Existing Profile credit history, admin-selected sample user | Shared TransactionHistoryView; separate mock history loader/DTO | Paging/identity/failure-isolation UI tests and mock wire-contract tests |
+| NFR2.1 responsive web, NFR3 regression | Equal-height wrapping controls, separate scrollable Order columns, SupplierBadges | Typecheck/lint/build/tests; authenticated visual check still required |
+| NFR4 security and approved mock gate | Existing AdminGate and local condition retained; ADMIN-API-006 | Existing role/gate regressions; no impersonation or sibling service writes |
+
+## CHANGE-111 Admin UI prototype [~]
+
+| Effective requirement | Implementation | Verification |
+| --- | --- | --- |
+| User-approved admin mock amendment; NTH1 support | AppShell switch, guarded admin routes/three pages, dedicated adapter | Permission/identity/navigation tests; real NTH1 integration not claimed |
+| All statuses/latest/paging/ID search; existing ADR-012 | AdminOrders, sample query, all response fields/details, names/copy controls | Backend search/page/latest contract and UI status/page/copy tests |
+| Sample user profile/suspend/promote/confirmed deactivate | AdminUsers, future UTC end instant, sample store | Profile/mutation/validation/confirmation tests; real peer APIs pending |
+| Sample suppliers; existing Supplier F6 support | AdminSuppliers, reused SupplierForm and DTO wire fields | Search/create/deactivation tests; real Supplier APIs already exist |
+| NFR2.1 responsive web, NFR3 regression, NFR4 security | Shared sidebar/mobile sheet/primitives; local-only backend gate | Tests/lint/typecheck/build/condition checks; browser evidence in CHANGE-111 |
 
 ## CHANGE-110 command submission polling [~]
 
@@ -457,3 +663,38 @@ Parent AGENTS OpenAPI documentation requirement and NFR2/NFR3/NFR6: explicit cur
 
 Business/API/architecture unchanged. Documentation and regression coverage only;
 manual/automatic ADR-030 behavior and unresolved peer integration gates retained.
+
+
+CHANGE-142 (2026-10-18), user-directed presentation refinement: Report detail and submission use one continuous panel, with Order summary before report metadata and aligned definition-list rows. Admin clicks the Order summary to navigate to existing /admin/orders/{id}; no separate View full order details button and no financial actions on Report pages. Only Mark report resolved remains. Existing Order page actions, API/mocks/auth/statuses/polling and DB stay unchanged. GOV.UK summary-list structure informed layout; FoC theme retained.
+
+
+CHANGE-143 (2026-10-18): Report Order summary has labelled Description and requester/courier display names. Status label sits above one equal-height select/refresh row. Admin Orders live list/details resolve distinct User summary and Supplier detail IDs independently via existing gateway/token transport; never block Orders on name failure or substitute sample data. Loading labels, Deleted labels for404/empty, unavailable for transient errors; copy/navigation IDs preserved. No global name cache, DB-owned names or API/config changes. Live Reports remains Coming soon until FEEDBACK-015 provider exists.
+
+
+CHANGE-144 / ADR-049: D1 nice-to-have report/penalty system refined by user approval: one current courier-attempt contribution, synchronous admin replacement, local Report open/closed/reply prototype. Live replacement blocked on FEEDBACK-016; Report Service still missing. Delivery-stored overdue and completion-hold guards retained. Acceptance evidence in CHANGE-144; no claim of real User score mutation.
+
+
+CHANGE-146: D1 NTH report/penalty investigation refined by explicit user request. Held active Order may receive non-waivable highest report policy without funding/score side effects; only requester/scheduler complete; final scoring highest vs overdue; admin cancel explicit/stored only. Negative/rollback/event tests in OrderDeferredPenaltyTest, AdminApplyPenaltyServiceTest, AdminApplyPenaltyControllerTest, DeferredPenaltyJpaIntegrationTest and DeferredPenaltyMigrationTest. Report provider still missing; no new User dependency.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+
+## Report list filters — CHANGE-149
+
+The local Report list GET accepts optional orderId (exact related Order ID, trimmed, max128) and reportStatus (AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW, RESOLVED). Existing status=OPEN or RESOLVED remains the grouping selector; reportStatus intersects it. Empty filters mean all within the group. Scope/filters apply before pagination and totals; filters reset both page counters. The future Report Service must support equivalent filtering on its existing list contract and derive participants/admin from verified identity; this prototype's sample identity flags are never production authority. UI uses the same shared AdminFilterForm/Actions, Select and Input as Order search; normal user and Admin Reports retain their respective scopes. No refresh icon; existing visible five-second polling and error retry remain. HTTP-peer/staging/production Reports still show Coming soon, with no mock fallback.
+
+
+## Effective CHANGE-153 — Hold eligibility and paused funding (2026-10-19)
+
+Yao Xiang approved placing a requester-owned completion hold on any Order status except COMPLETED. This supersedes delivered-only placement and the old blanket terminal-state rejection for new holds. Preserve status, ownership/role checks, bound report IDs, locked transaction and release history. A hold placed after cancellation/expiry records a hold only; it does not restore lifecycle state or reverse settled funding.
+
+The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
+
+No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.

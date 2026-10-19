@@ -1,5 +1,10 @@
 # ADR-040: Requester report completion holds
 
+Effective exception2026-10-16: ADR-044 permits admin cancellation of active
+held Orders as report resolution. It retains the hold flag/placement history.
+Requester/courier/scheduler guards and deferred generic release remain unchanged.
+
+
 Status: approved Order-side placement/guard milestone, Yao Xiang, 2026-10-14.
 Related: CHANGE-127, Project D1 NTH2 PDF38/NTH3 PDF41, ADR-013/026/034/036.
 

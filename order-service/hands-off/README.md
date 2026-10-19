@@ -1,4 +1,46 @@
 # Order Service Sprint 1 Sequences 1â€“11 â€” Handoff to Yao Xiang
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+## Admin cancellation and overdue handoff — CHANGE-134
+
+CHANGE-134 / ADR-044 (Yao Xiang2026-10-16): POST /api/orders/admin/{orderId}/cancel
+accepts requesterId, nullable courierId and optional appliedPenalties. Admin-only;
+all active/held states -> CANCELLED; locked stored participants, maximum one
+addition, no successful reward; refund and optional penalty commit in outbox.
+Common adds COURIER_UNRESPONSIVE=3. OrderResponse nullable isOverdue is calculated
+from grouped checkpoint timings (actual delivery freezes result). Existing
+roles/topics/schedulers unchanged; Report/User integration remains pending.
+
+Report must call GET Order using existing admin/participant authorization;
+isOverdue null means unknown. Do not derive lateness from expiresAt or time of
+completion. Cancel retries use identical participants/reasons; conflicting
+replays409. Success means intent commit; Credit/User effects are asynchronous.
+
+## Current Admin Credit history handoff — CHANGE-133
+
+Nine merge conflicts resolved retaining both branches. Live Admin user profiles
+now load GET /api/credits/users/{userId}/transactions?page=1&size=20 through
+useApi/gateway with the administrator's Firebase token; Credit verifies ADMIN.
+Existing responsive history card/pagination reused; failures show retry while
+profile remains visible. Base Compose still uses sample history. Balance005 is
+still missing and remains Coming soon. Completed request006 removed from open
+peer requests. No global Credit tab per user decision; no sibling backend edits.
+Common/Order438 + Credit102 tests and coverage gates pass; frontend212 tests,
+build/typecheck pass; lint0 errors/3 existing warnings. Authenticated deployed
+browser verification and human review pending. No commit/push or deployment.
+
 ## Active involvement handoff - CHANGE-129 / ADR-042
 
 Order provides shared-role GET /api/orders/users/{userId}/active-involvement

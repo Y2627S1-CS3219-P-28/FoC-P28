@@ -34,6 +34,8 @@ public interface OrderRepository {
 
     OrderPage findAllOrders(OrderStatus status, int page, int size);
 
+    OrderPage findAllOrders(OrderStatus status, String orderId, Instant createdFrom, Instant createdBefore, int page, int size);
+
     List<Order> findDueUnassigned(OrderStatus status, Instant now);
 
     List<String> findDueUnassignedIds(OrderStatus status, Instant now);

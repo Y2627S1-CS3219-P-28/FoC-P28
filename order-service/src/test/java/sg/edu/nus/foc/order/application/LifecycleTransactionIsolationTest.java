@@ -96,9 +96,9 @@ class LifecycleTransactionIsolationTest {
         Order successful = Order.open("requester", "item", "pickup", "delivery", 2, 15,
                 deliveredAt.minusSeconds(3600), deliveredAt.plusSeconds(3600));
         successful.accept("courier", 0, deliveredAt.minusSeconds(1800));
-        successful.start("courier", 0);
+        successful.start("courier", 0, deliveredAt.minusSeconds(600));
         successful.markPickedUp("courier", 0);
-        successful.markDelivered("courier", 0);
+        successful.markDelivered("courier", 0, deliveredAt);
         when(orders.findDueForAutoCompletionIds(deliveredAt)).thenReturn(List.of("failed", successful.getId()));
         when(orders.getForLifecycleUpdate("failed")).thenThrow(new IllegalStateException("lock unavailable"));
         when(orders.getForLifecycleUpdate(successful.getId())).thenReturn(Optional.of(successful));
@@ -112,7 +112,7 @@ class LifecycleTransactionIsolationTest {
                 orders, checkpoints, mock(CommandReceiptRepository.class), mock(UserServicePort.class),
                 mock(CreditServicePort.class), mock(OrderEventOutboxRepository.class),
                 mock(ApplicationEventPublisher.class),
-                new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)), mock(OrderAuditLogger.class));
+                new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)), mock(OrderAuditLogger.class), org.mockito.Mockito.mock(sg.edu.nus.foc.order.application.PenaltyOutcomeRecorder.class));
         ProxyFactory proxy = new ProxyFactory(target);
         proxy.addAdvice(new TransactionInterceptor(manager, new AnnotationTransactionAttributeSource()));
         OrderTransitionService transitions = (OrderTransitionService) proxy.getProxy();

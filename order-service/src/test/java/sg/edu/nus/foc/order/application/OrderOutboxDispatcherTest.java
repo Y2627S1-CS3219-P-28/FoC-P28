@@ -23,12 +23,28 @@ import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 
 class OrderOutboxDispatcherTest {
     private static final Instant CREATED_AT = Instant.parse("2026-10-01T10:00:00Z");
+
+    @Test
+    void retiredAcceptedCancellationIsNotPublished() {
+        OrderEventOutboxRepository repository = mock(OrderEventOutboxRepository.class);
+        IOrderCompletionTaskPublisher completion = mock(IOrderCompletionTaskPublisher.class);
+        OrderEventOutbox retired = OrderEventOutbox.pending("retired", "order-1",
+                "AcceptedOrderCancellationTaskEvent", 1, 1, "{}", CREATED_AT);
+        retired.claim(CREATED_AT, CREATED_AT.plusSeconds(30));
+        when(repository.claim(eq("retired"), any(), any())).thenReturn(Optional.of(retired));
+
+        dispatcher(repository, completion).dispatch("retired");
+
+        verify(repository, never()).markPublished(eq("retired"), any());
+        verify(repository).scheduleRetry(eq("retired"), any(),
+                eq("Unsupported Order event type: AcceptedOrderCancellationTaskEvent"));
+        verify(completion, never()).publishOrderCompletionTask(any());
+    }
 
     @Test
     void dispatchesClaimedCompletionAndMarksItPublished() {
@@ -315,7 +331,6 @@ class OrderOutboxDispatcherTest {
                 repository,
                 completion,
                 openRefund,
-                mock(IAcceptedOrderCancellationTaskPublisher.class),
                 mock(sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher.class),
                 mock(sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher.class),
                 JsonMapper.builder().build());

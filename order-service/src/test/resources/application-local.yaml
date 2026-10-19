@@ -9,4 +9,3 @@ order:
     topics:
       order-completion: order-completion-test-v1
       open-order-refund: open-order-refund-test-v1
-      accepted-order-cancellation: accepted-order-cancellation-test-v1

@@ -9,9 +9,7 @@ import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.CourierPenaltyEventFacts;
-import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.dto.OrderEventSnapshot;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
@@ -60,22 +58,6 @@ public class OrderTaskEventFactory {
                 eventId("OpenOrderRefundTaskEvent", commandId, order.getId(), actorId), order, resultingVersion, occurredAt);
     }
 
-    public AcceptedOrderCancellationTaskEvent acceptedCancellation(
-            String commandId,
-            Order order,
-            String actorId,
-            Instant occurredAt) {
-        long resultingVersion = order.getVersion() + 1;
-        OrderEventSnapshot snapshot = snapshot(order, resultingVersion);
-        return mapper.toAcceptedCancellationEvent(
-                eventId("AcceptedOrderCancellationTaskEvent", commandId, order.getId(), actorId),
-                order,
-                resultingVersion,
-                actorId,
-                occurredAt,
-                snapshot);
-    }
-
     public OpenOrderRefundTaskEvent openRefund(
             String commandId,
             Order order,
@@ -83,10 +65,6 @@ public class OrderTaskEventFactory {
         long resultingVersion = order.getVersion() + 1;
         return mapper.toOpenRefundEvent(
                 eventId("OpenOrderRefundTaskEvent", commandId, order.getId(), "lifecycle"), order, resultingVersion, occurredAt);
-    }
-
-    private OrderEventSnapshot snapshot(Order order, long resultingVersion) {
-        return mapper.toSnapshot(order, resultingVersion);
     }
 
     private String eventId(String eventType, String commandId, String orderId, String actorId) {

@@ -36,6 +36,7 @@ import sg.edu.nus.foc.order.security.RoleProvider;
 @Import({SecurityConfiguration.class, ProductionMethodSecurityConfiguration.class, OrderMapperImpl.class})
 class OrderCompletionHoldControllerTest {
 
+
     private static final String PATH = "/api/orders/internal/order-1/completion-holds/report-1";
 
     @Autowired

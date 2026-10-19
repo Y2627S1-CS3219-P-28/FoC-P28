@@ -48,7 +48,6 @@ x-order-pubsub-topics: &order-pubsub-topics
   PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
   ORDER_COMPLETION_TOPIC: order-completion-local-v1
   ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
-  ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-local-v1
   ORDER_COURIER_PENALTY_ADDITION_TOPIC: courier-penalty-addition-local-v1
   ORDER_COURIER_PENALTY_DEDUCTION_TOPIC: courier-penalty-deduction-local-v1
 
@@ -99,6 +98,8 @@ services:
       - "${FRONTEND_PORT:-3000}:8080"
     environment:
       FOC_ENVIRONMENT: local
+      # Base Compose is the Admin UI demo; compose.http-peers.yaml selects live APIs.
+      FOC_ADMIN_API_MODE: mock
       # The browser reaches the frontend on :3000, while APIs are exposed by
       # the host gateway on :8080. Keep this explicit for direct frontend use.
       # Explicit IPv4 avoids broken localhost IPv6 forwarding on Docker Desktop.
@@ -248,6 +249,8 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       ORDER_PEERS_MODE: http
       SPRING_PROFILES_ACTIVE: prod
+      # Sample Admin UI endpoints require local environment and Firebase emulator.
+      ORDER_ADMIN_MOCK_ENABLED: ${ORDER_ADMIN_MOCK_ENABLED:-true}
       ORDER_USER_SERVICE_MODE: http
       USER_SERVICE_MODE: http
       USER_SERVICE_URL: http://user-service:8080

@@ -152,6 +152,6 @@ public class CreditLedgerEntity {
             case RESERVATION, PAYMENT_SENT -> CreditDirection.DEBIT;
             default -> CreditDirection.CREDIT;
         };
-        return new CreditTransaction(entryId.toString(), type, amount, direction, occurredAt, orderId);
+        return new CreditTransaction(entryId.toString(), userId, type, amount, direction, occurredAt, orderId);
     }
 }

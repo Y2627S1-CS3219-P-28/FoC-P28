@@ -10,4 +10,8 @@ public interface OrderCompletionHoldRepository {
 
     /** Insert-only placement: an existing report ID must never be rebound by an update. */
     void save(OrderCompletionHold hold);
+
+    void release(OrderCompletionHold hold);
+
+    boolean hasActiveForOrder(String orderId);
 }

@@ -1,6 +1,30 @@
 # Order Service Database Migration Workflow
 
-## Current handoff - V9 / CHANGE-127
+## V11 handoff — saved admin explanation
+
+V11__admin_resolution_reason.sql adds nullable orders.admin_resolution_reason varchar(1000). Old rows remain null; V1–V10 unchanged, no guessed backfill or table rewrite. Code reads/writes the field only through explicit admin resolution. Startup Flyway migrates before Hibernate validate. Required verification: root PowerShell .\mvnw.cmd -B -ntp -pl order-service -am verify; expected schema11. Rebuild both Order and frontend images for rollout. No manual schema edits or ddl-auto update.
+
+AdminResolutionReasonMigrationTest verifies clean11 and upgrade10->11, column length/nullability and preservation of existing Order state/version. AdminCompletionJpaIntegrationTest verifies persisted reason and rollback with receipt/outbox. Local foc-order-postgres-1 was backed up to ignored order-service/target/change138-before-v11.dump before startup migrated10->11; no volume reset. Do not roll back by dropping the column or edit an applied migration. The prior image can ignore this additive nullable column; use the backup only for a deliberate full recovery if needed. Cloud migration follows normal deployment startup, not performed here.
+
+
+## Current handoff — V10 / CHANGE-135
+
+V10__persist_delivery_timing_and_admin_decisions.sql adds nullable orders timing
+and admin decision fields plus a partial auto-completion index. Expected schema10.
+START + duration is the delivery deadline; only current-attempt/current-courier
+checkpoint evidence is backfilled. Missing start evidence remains null and needs
+reviewed timing reconciliation before completion; no guessed acceptance fallback.
+Existing statuses, versions, holds and event payloads/IDs remain. Admin historical
+decisions stay unknown; cancellation time is backfilled from ADMIN_CANCEL receipts.
+Back up, pull matching source, rebuild/start Order normally; Flyway applies V10.
+Do not edit V1–V9, reset volumes, or use ORM auto-update. Forward correction or a
+reviewed backup recovery only. Clean/V9 upgrade tests2/2 pass. Local Compose Order
+DB upgraded9 ->10 after backup; all7 Orders/statuses/versions preserved,3 timings
+backfilled. Only Order PostgreSQL was started; rebuild matching Order image before
+use. Tests/local application evidence: CHANGE-135. Peer/cloud consumption pending.
+
+
+## Historical handoff - V9 / CHANGE-127
 
 V9__order_completion_holds.sql adds default-false orders.completion_hold and
 per-report order_completion_holds (immutable report ID, Order FK, requester,
@@ -141,3 +165,12 @@ A database-backed feature cannot be marked complete when its schema change exist
 ## Cloud and environment boundary
 
 Cloud infrastructure provisioning and application schema migration are separate concerns. `bootstrap.sh` may provision an approved database instance/database and IAM resources; it must not silently replace the application's versioned migration process. The same reviewed migration history must be applied and verified for staging and production through an approved deployment process.
+
+
+CHANGE-141: V12 adds orders.delivery_overdue, overdue_penalty_waived and waiver actor/time/reason; order_completion_holds.released_at/released_by with paired audit constraint and active order_id partial index. Known delivered_at/deadline rows backfill, unknown stays null; no lifecycle/version/history/outbox rewrite. Use clean and V11-upgrade PostgreSQL tests before local backup/apply. Rollback application requires compatibility review: do not remove columns or released hold history; prefer forward fix.
+
+
+CHANGE-144 adds forward-only V13__courier_penalty_outcomes_and_adjustments.sql: nullable orders.courier_assignment_id, indexed order_penalty_outcomes and pending/confirmed order_penalty_adjustments, one pending request per attempt, unique revision/request identity. No legacy score backfill. Clean and V12 upgrade tests required; preserve V1-V12 and existing historical waiver columns.
+
+
+Current CHANGE-146 handoff: forward-only V14__deferred_courier_penalty.sql adds nullable policy/audit fields to orders and order_courier_attempts, with policy/audit consistency checks. Derived amount is not separately persisted. No terminal-history backfill or adjustment-table drop. V1-V13 remain immutable. Old replacement records require operator review if previously enabled; no automatic score changes. Normal startup applies V14; existing database not migrated by this coding task. Clean/V13 upgrade verification required.

@@ -1,4 +1,103 @@
+## Effective deferred-penalty amendment — CHANGE-146 / ADR-050 (2026-10-19)
+
+## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
+
+User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.
+
+Removed the legacy DTO, publisher/interface, factory/mapper methods, now-unused snapshot DTOs and dispatcher branch. The four current channels remain OpenOrderRefundTaskEvent, OrderCompletionTaskEvent, PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent. Courier abort still uses synchronous Credit hold/reopen and the existing final addition (plus refund when expired); no lifecycle, hold, penalty policy, idempotency or financial rules change. Historical database rows and immutable migrations remain intact. Other older refund/expiration normalization remains supported.
+
+The retired topic setting is removed from Order config, deployment templates, local Compose/bootstrap, environment examples/staging/production settings, topic provisioning and CI topic checks. These scripts no longer require or create the old topic; they do not delete existing cloud topics or subscriptions. User Service consumes only the new scoring channels. Existing admin-provider authorization requests remain open. AsyncAPI1.3.0 describes four outgoing operations; earlier statements requiring accepted-cancellation replay/configuration are superseded by this amendment.
+
+An unexpected non-published legacy row after deployment is unsupported and follows the existing bounded failure/recovery path, never automatic financial conversion. This is why the pre-deployment backlog check is required. Live User penalty processing, production backlog and cloud deletion are not verified here.
+
+
+Approved Yao Xiang: remove penalty adjustment/replacement and the admin mark-completed API/UI. No synchronous User replacement call, setting, replacement topic, waiver or retroactive score modification exists in the current flow. User Service consumes only the existing final addition/deduction events. Requester and the auto-completion scheduler remain the completion actors.
+
+Admin Apply penalty stores the highest report-case policy on the current assigned active Order, including held Orders. It cannot decrease/clear a stored penalty and emits no event or Credit/User penalty call. New POST /api/orders/admin/{orderId}/apply-penalty accepts {commandId, courierId, expectedVersion, policy, reason}; verified admin identity comes from the principal. NOWAIT locked transaction, pending-command guard and bound command receipt protect stale/concurrent/repeated calls. OrderResponse exposes appliedPenalty, derived appliedPenaltyAmount and actor/reason/time audit. Only report cases from getCourierPenaltyCases() are selectable. Terminal/unassigned/stale/wrong-courier requests409; invalid400; unauthorized401/403; missing404.
+
+Requester/automatic completion chooses the highest stored report penalty or factual delivery overdue (1). If neither applies, it emits SUCCESSFUL_DELIVERY deduction (1); it never emits a reward plus a penalty. Previously persisted legacy waivers suppress only their overdue candidate; they cannot erase a stored report penalty, and no new waiver is allowed. Courier abort chooses max(stored policy, accepted cancellation2); archive retains stored policy/audit and reopening clears the current fields before another courier assignment. Admin cancellation chooses max(stored policy, explicitly selected policies) and never compares overdue; no stored/selected penalty means refund only. Existing initial outbox events and final per-attempt outcome recording remain atomic with the transition. Event wire schemas/topics are unchanged.
+
+V14 adds Order and abort-archive policy/audit columns; V1-V13 and historical adjustment data remain untouched. Retired replacement records are historical only, with no runtime coordinator/gateway. No sibling backend, shared env/topic/CI/cloud changes. Report UI Open/Closed cards, required replies, no deadline and live Coming soon remain unchanged. Live Apply penalty uses the real Order API; local mode uses the isolated mock. Details and acceptance evidence: CHANGE-146/ADR-050.
+
+## Effective penalty replacement and Report queue amendment — CHANGE-144 / ADR-049 (2026-10-18)
+
+Approved Yao Xiang on order-service/penalty-integration: one current outcome per courier attempt, including No penalty or successful-delivery reward. Delivery stores factual overdue; completion/auto-completion read the stored flag. Initial outcomes are recorded atomically with completion/courier abort/admin resolution and existing event intents; original initial penalty/Credit topics and schemas are unchanged. A new acceptance has a new attempt identity, and an abort archive keeps the preceding identity.
+
+Admin replacement is synchronous, not a new Pub/Sub topic. Order commits a stable-ID PENDING adjustment, calls User Service using fresh verified admin authorization, then confirms the current outcome in a second atomic transaction only after a matching reply. Another adjustment to that attempt is blocked while pending; exact same-ID authorized retry recovers timeouts/crashes. No bearer token is stored. User replacement endpoint is MISSING (FEEDBACK-016), so order.penalty-adjustment.enabled defaults false and live UI clearly disables writes. Local mock is isolated. Initial outbox publication never proves score application. New V13 tables preserve request audit/revision and current outcome; historical outcomes are not fabricated. Existing V1-V12 stay immutable.
+
+Old overdue-waiver HTTP/UI is removed; V12 historical audit fields and previously saved decisions remain readable. Reports use Open/Closed cards with counts/pagination and visible five-second polling. No response deadline or deadline timer: courier may respond once while unresolved, and admin may resolve any open report with a required reply saved in resolutionNote. Case detail retains Order-first layout and links to separate Order financial actions. Report Service remains MISSING; HTTP-peer/staging/production Reports remain Coming soon. No sibling backend, shared environment/topic, CI or cloud configuration changes.
+
+
+
+## Effective delivered-report review amendment — CHANGE-141 / ADR-048 (2026-10-18)
+
+Approved Yao Xiang: new requester reports require own DELIVERED order; one damage/wrong-location category. Reports have AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW and one RESOLVED final status. Courier response window is eight hours; server owns deadlines. Report Service is MISSING: the Report UI is a local-only isolated demo; HTTP-peer/staging/production show Coming soon and never fetch sample reports. Existing real Order financial actions remain separate from resolving a report.
+
+Order stores deliveryOverdue at actual delivery, comparing deliveredAt against stored START plus duration deadline. isOverdue remains null before delivery or if historical timing is unknown; no runtime status refresh or new overdue scheduler. Admin waiver only before completion on DELIVERED late orders preserves the true lateness and saves actor/time/reason. Normal waived-late completion funds the courier but emits neither overdue addition nor successful-delivery reward. Explicit admin-selected penalties remain separate.
+
+AdminOrderController adds PUT /api/orders/admin/{orderId}/completion-holds/{reportId}/release (no body) and POST /api/orders/admin/{orderId}/overdue-waiver ({reason}). Both verify admin role, use the verified principal, NOWAIT locked Order and the pending-command guard; all local writes are transactional. Release retains its report binding/audit and any other active holds. It may follow admin cancellation/completion and emits no funding event. Report Service must durably retry its release intent using forwarded admin Firebase authorization; no browser-only live orchestration exists. See FEEDBACK-015. V12 backfills only known delivery facts and adds waiver/release audit fields and an active-hold index; V1–V11 remain immutable.
+
+Frontend uses existing theme/components, compact toolbar, darker selected rows and no redundant selection count. Normal/admin Reports poll every five seconds while visible; sample ownership, deadline and evidence checks are server-side in the gated prototype, which has no production identity authority or financial effects.
+
 # Order Service
+
+## Admin table page size — CHANGE-140
+
+CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.
+
+
+## Compact calendar toolbar — CHANGE-139
+
+CHANGE-139, user-directed2026-10-17: Admin Orders toolbar is a compact41px desktop table-top row, with existing RefreshCwIcon-only refresh and two native calendar-icon date fields (DD/MM/YYYY to DD/MM/YYYY), no visible Created-from label. Wrap on mobile; keep existing Order-ID/status search and financial dialogs/navigation. Creation-date bounds are local calendar days converted to explicit instants (start inclusive, day after end exclusive). Refresh retains filters and clears stale selection. Additive admin list filters execute in SQL before sorting/count/pagination; samples filter only isolated fixtures. No schema/financial/event/peer/config change. See changes/CHANGE-139-compact-admin-toolbar-date-filter.md.
+
+
+## Current admin resolution UI — CHANGE-138
+
+CHANGE-138 / ADR-047 (Yao Xiang,2026-10-17): Admin Orders now support single-row selection, shaded state, a top Cancel/Complete action bar and shared full-detail actions. The dialog requires an explicit penalty/no-penalty choice and a preset/custom explanation. Backend policy discovery supplies amounts; only the highest addition is selected. Optional resolutionReason is normalized, persisted atomically in V11 and bound into new receipts; absent/null preserves legacy fingerprints. OrderResponse exposes saved admin decision/time/explanation. Existing auth, active-state/held override, participant locks, credit/penalty events and ordinary hold guards remain. Mock mode mutates sample memory only; live mode calls existing protected endpoints without fallback. No sibling backend, root config or cloud change.
+
+
+CHANGE-137 / ADR-046, approved Yao Xiang2026-10-17: AdminOrderController adds
+POST /api/orders/admin/{orderId}/complete. Assigned ACCEPTED/IN_PROGRESS/PICKED_UP/
+DELIVERED may become COMPLETED, including held Orders. Stored participant IDs must
+match. Publish existing Credit completion event plus at most one highest selected
+penalty addition; null/empty means WAIVED, no automatic overdue penalty or reward.
+Locked atomic decision/checkpoint/receipt/outbox and bound ADMIN_COMPLETE replay;
+hold history and actual timing preserved, no fabricated delivery. Ordinary hold
+guards remain. Reuses V10 columns/topics; no migration, UI, peer or cloud change.
+HTTP200 confirms local intents, not Credit settlement or User score application.
+
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134 / ADR-044 (Yao Xiang2026-10-16): POST /api/orders/admin/{orderId}/cancel
+accepts requesterId, nullable courierId and optional appliedPenalties. Admin-only;
+all active/held states -> CANCELLED; locked stored participants, maximum one
+addition, no successful reward; refund and optional penalty commit in outbox.
+Common adds COURIER_UNRESPONSIVE=3. OrderResponse nullable isOverdue is calculated
+from persisted START deadline/delivery timing under CHANGE-135. Existing
+roles/topics/schedulers unchanged; Report/User integration remains pending.
+
+CHANGE-135 verification: fresh470 common/Order tests and coverage gates pass;
+frontend typecheck passes. Local database upgraded9 ->10 after backup, seven
+Orders preserved. Rebuild matching Order image to use the updated timing logic.
+
+
+CHANGE-133: selected-user Admin Credit history is linked in live/HTTP-peer mode
+through GET /api/credits/users/{userId}/transactions. Base Compose keeps mocks;
+balances and unfinished User actions remain Coming soon. Nine merge conflicts
+resolved preserving both workstreams. See changes/CHANGE-133-admin-credit-history-merge.md.
+
 
 CHANGE-132: shared enum is now `PenaltySystemPolicy`. Order successful completion
 and event direction use `getSuccessfulDeliveryReward()`. Common also provides
@@ -63,6 +162,115 @@ responses expose isCompletionHold; requester UI explains ongoing reports and
 disables completion. SQL scheduler filters and locked rechecks skip held Orders.
 V9 adds the boolean/per-report table. Release is deferred; Report client absent.
 See [contract](docs/completion-hold-design.md) and [verification](changes/CHANGE-127-completion-holds.md).
+## Admin UI: local demo and partial staging/production
+
+CHANGE-125 centralizes consistent Admin presentation: Geist Sans, regular14px
+data, shared heading/helper sizes and semantic colours. Technical IDs and map
+popups match; missing balance values use muted helper text. Existing normal-mode
+components/state colours and all data/provider behaviour stay unchanged.
+
+CHANGE-124 uses consistent regular14px text in the Orders table body, including
+IDs/names, statuses and dates. Headers remain distinct; other pages stay unchanged.
+
+CHANGE-123 keeps long table Order IDs on one line with an ellipsis. Clicking copies
+the whole ID; hovering or View details exposes the full ID. Other IDs unchanged.
+
+CHANGE-122 makes Compose choose the Admin UI provider:
+
+| Run configuration | Admin UI |
+|---|---|
+| compose.yaml | Order-owned mock endpoints and sample roles/data |
+| compose.yaml + compose.http-peers.yaml | Actual local peer APIs and genuine admin role verification; same partial capabilities/placeholders as staging |
+| Staging / production | Actual APIs; mock UI cannot be enabled |
+
+Choose one command from the project root:
+
+~~~powershell
+# Sample Admin UI
+docker compose -f compose.yaml up -d --build
+
+# Actual local Admin APIs (a real admin role in local User Service is required)
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build
+~~~
+
+The new request-time FOC_ADMIN_API_MODE is pinned to mock/live by those Compose
+files. Mock is allowed only locally with the Auth emulator. HTTP override disables
+Order's Admin demo routes. Both runs retain local databases and Auth/Pub/Sub
+emulators; neither reads staging databases. Order backend peers already use HTTP
+in base Compose under ADR-036, and this independent setting is unchanged.
+
+CHANGE-121 shares the same responsive search layout across Admin Orders, Users
+and Suppliers: fields first/actions below on mobile, inline on larger screens.
+
+CHANGE-120 aligns Status and Order ID on the same row on phones, with Search/Clear
+below; larger screens keep controls inline. Search/filter behavior is unchanged.
+
+CHANGE-119 keeps the existing sample Admin UI locally with the Auth emulator.
+Staging/production now use actual Order and Supplier APIs and actual User admin
+role verification. Supplier creation/deactivation outside local changes real
+Supplier data and retains the existing confirmation/authorization.
+
+Unfinished User directory and credit history show **Coming soon** cards. User
+links and exact UID lookup reuse existing User summaries; missing profile fields
+and credit balances show **Coming soon** rather than invented values. User
+suspension/promotion/deactivation remain disabled outside local. Existing layout,
+maps, ID/status search and pagination are retained. An actual admin account is
+required on staging; local sample roles do not grant real production access.
+CHANGE-122 adds FOC_ADMIN_API_MODE; no peer backend changes are needed. Runtime
+mode, FOC_ENVIRONMENT and Auth emulator config select the adapter; live errors never
+fall back to sample data. See [capability/API handoff](docs/admin-peer-api-request.md).
+
+CHANGE-116 restores the original Order detail card sizes/two-column arrangement.
+Version and Item Description exchange positions, leaving description last;
+requester remains above courier. Supplier map/status changes from115 remain.
+
+CHANGE-115 removes the Supplier list overview map; maps remain in View Details
+and the create form. Supplier status is beside Location details, outside actions.
+Order Information has metadata first and credits/wider description in the final
+row; People shows requester before courier.
+
+CHANGE-114 adds supplier maps in the list/details and address suggestions with
+a draggable pin in Admin creation. You can still type coordinates manually.
+Pins link to Google Maps. Deactivation is in View Details only. User columns
+are separate; Order details have logical cards, including repost information,
+and related names navigate while separate ID controls copy.
+Maps use Leaflet/OSM/Photon and require internet, without an API key. Public
+providers may be unavailable; coordinate entry and Google Maps links remain.
+No backend contract changed; see admin-peer-api-request.md for provider limits.
+
+CHANGE-113: **View** opens full Order/Supplier detail pages. User and Supplier
+admin actions are below the heading, above details/history. Existing mock APIs
+are reused; Order detail is read-only. Back buttons return to the relevant tab.
+
+CHANGE-112 refines this prototype: Orders names open selected Admin users or
+locations directly; Users now has a full profile with copyable UID, balances,
+sample transaction history and the existing admin actions. Suppliers reuse
+normal open/closed/inactive badges. Search controls align; the header has only
+the mode switch. Order description remains available through View details.
+The sample history endpoint is local-only; ADMIN-API-006 documents the actual
+Credit Service admin history needed for future integration.
+
+CHANGE-111 adds a top-right **Admin Mode** button and Orders, Users and Suppliers
+tabs. Sign in with an existing local user and click Admin Mode; a sample role
+lookup permits the demo without a real admin account. Normal Mode returns to the
+existing user tabs. This describes the initial local sample milestone; CHANGE-119
+above is the effective staging/production behavior.
+
+Rebuild only the changed images from the project root:
+
+~~~powershell
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build order-service frontend
+~~~
+
+Use the existing gateway at http://localhost:8080 and refresh the page.
+The sample API requires ORDER_ADMIN_MOCK_ENABLED=true (local Compose default),
+FOC_ENVIRONMENT=local and FIREBASE_AUTH_EMULATOR_HOST. Cloud defaults exclude
+these mocks. Real endpoint authentication is unchanged. Local demo updates reset on
+Order restart; the local demo makes no real database/account/role/supplier/credit
+mutations. Live Supplier actions use their existing real provider contracts.
+See [peer API requests](docs/admin-peer-api-request.md),
+[design](docs/decisions/ADR-039-admin-ui-local-mock-prototype.md) and
+[verification](changes/CHANGE-111-admin-ui-mock-prototype.md).
 
 CHANGE-107: expiry runs directly inside the minute lifecycle scheduler; there is
 no expiry HTTP trigger or Swagger operation. All repost routes are retained.
@@ -126,6 +334,10 @@ default local/non-production profile does not require authentication or enforce
 the admin role. Page numbers start at 1 and sizes are capped at 100. This API
 supports a future Admin Service dashboard; the current frontend and Admin
 Service do not implement that dashboard.
+
+### Historical local-cloud setup (superseded by ADR-036 and CHANGE-155)
+
+Use docs/local-live-testing.md for current local commands. The following ADC/topic instructions describe an older configuration; local Compose now uses the emulator and the accepted-cancellation topic is retired.
 
 Order outcome events use real Google Cloud Pub/Sub in local Compose and Cloud
 Run. Local Compose uses the existing project `protean-vigil-509704-q4` and the
@@ -233,3 +445,24 @@ expiresAt >= server current time + 30 minutes. Invalid deadlines return HTTP 400
 VALIDATION_ERROR with an expiresAt detail, before Supplier/Credit calls or Order
 writes. This does not depend on the browser validation. Exactly 30 minutes from
 the backend's validation instant is allowed; allow for request transit time.
+
+
+CHANGE-142 (2026-10-18), user-directed presentation refinement: Report detail and submission use one continuous panel, with Order summary before report metadata and aligned definition-list rows. Admin clicks the Order summary to navigate to existing /admin/orders/{id}; no separate View full order details button and no financial actions on Report pages. Only Mark report resolved remains. Existing Order page actions, API/mocks/auth/statuses/polling and DB stay unchanged. GOV.UK summary-list structure informed layout; FoC theme retained.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+
+## Effective CHANGE-153 — Hold eligibility and paused funding (2026-10-19)
+
+Yao Xiang approved placing a requester-owned completion hold on any Order status except COMPLETED. This supersedes delivered-only placement and the old blanket terminal-state rejection for new holds. Preserve status, ownership/role checks, bound report IDs, locked transaction and release history. A hold placed after cancellation/expiry records a hold only; it does not restore lifecycle state or reverse settled funding.
+
+The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
+
+No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.

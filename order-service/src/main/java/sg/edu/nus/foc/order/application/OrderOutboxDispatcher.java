@@ -13,10 +13,8 @@ import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
-import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher;
@@ -34,7 +32,6 @@ public class OrderOutboxDispatcher {
     private final OrderEventOutboxRepository outbox;
     private final IOrderCompletionTaskPublisher completionPublisher;
     private final IOpenOrderRefundTaskPublisher openRefundPublisher;
-    private final IAcceptedOrderCancellationTaskPublisher acceptedCancellationPublisher;
     private final IPenaltyScoreAdditionPublisher penaltyAdditionPublisher;
     private final IPenaltyScoreDeductionPublisher penaltyDeductionPublisher;
     private final JsonMapper objectMapper;
@@ -97,8 +94,6 @@ public class OrderOutboxDispatcher {
                     readCompletion(message));
             case "OpenOrderRefundTaskEvent" -> openRefundPublisher.publishOpenOrderRefundTask(
                     readOpenRefund(message));
-            case "AcceptedOrderCancellationTaskEvent" -> acceptedCancellationPublisher.publishAcceptedOrderCancellationTask(
-                    objectMapper.readValue(message.getPayload(), AcceptedOrderCancellationTaskEvent.class));
             case "OpenOrderCancellationTaskEvent", "OrderExpirationTaskEvent" -> publishLegacyOpenRefund(message);
             default -> throw new IllegalArgumentException("Unsupported Order event type: " + message.getEventType());
         }

@@ -1,5 +1,18 @@
 # Order Service Pub/Sub documentation
 
+CHANGE-155 / ADR-053: accepted-cancellation publisher, replay and snapshot schema removed. AsyncAPI1.3.0 retains four channels; published history is preserved. Check each deployment database for outstanding legacy rows before rollout. No schema migration or GCP deletion is performed. This supersedes older replay instructions below.
+
+CHANGE-137 / ADR-046: admin completion of assigned active/held Orders reuses the
+completion channel and optional highest selected addition. Null/empty penalties
+emit no scoring event; normal requester/automatic scoring remains unchanged.
+AsyncAPI document1.2.1 updates producer triggers only; payload versions/topics stay.
+
+CHANGE-134 / ADR-044: admin cancellation reuses the refund/addition channels.
+Addition schema now permits all six addition cases (including unresponsive3),
+with one highest selected reason/amount. Seven-field envelopes, event versions,
+topics and existing automatic flows stay unchanged. AsyncAPI document version1.2.0.
+Consumers must support the expanded reason set; User subscriber remains pending.
+
 CHANGE-130 / ADR-043: penalty appliedReason Java enum is now in the shared
 foc-common Maven library. AsyncAPI reason strings, amounts, payload schemas,
 topics and delivery semantics are unchanged; no schema version bump required.
@@ -13,7 +26,7 @@ after ten attempts; ADMIN redrive preserves event ID/payload. See
 ../local-live-testing.md for commands. Earlier local-cloud statements are historical.
 
 Open [asyncapi.yaml](asyncapi.yaml) for the machine-readable **AsyncAPI 3.0.0**
-document. It describes **four current outgoing operations and one legacy replay**, not new
+document. It describes **four current outgoing operations**, not new
 REST endpoints or consumers. REST remains documented by OpenAPI/Swagger.
 Vincent approved this documentation-only addition on 2026-10-10 (CHANGE-103).
 
@@ -40,10 +53,9 @@ See the official [AsyncAPI CLI guide](https://www.asyncapi.com/docs/tools/cli/us
 | Default topic ID | Message / schema | When Order queues it | Intended consumer |
 | --- | --- | --- | --- |
 | `open-order-refund-dev-v1` | `OpenOrderRefundTaskEvent` / v2 | OPEN cancellation, unassigned OPEN expiry, or courier abort resulting in EXPIRED | Credit: release the old reservation |
-| `order-completion-dev-v1` | `OrderCompletionTaskEvent` / v2 | Requester completion or >=48-hour automatic completion of DELIVERED | Credit: settle/transfer its reservation |
-| `courier-penalty-addition-dev-v1` | `PenaltyScoreAdditionEvent` / v1 | ACCEPTED abort (+2) or overdue manual/automatic completion (+1) | User: deduplicate and add transmitted amount |
-| `courier-penalty-deduction-dev-v1` | `PenaltyScoreDeductionEvent` / v1 | On-time manual/automatic completion (-1) | User: deduplicate and subtract transmitted amount |
-| `accepted-order-cancellation-dev-v1` | `AcceptedOrderCancellationTaskEvent` / v1 | Previously stored outbox replay only | Legacy User cutover; never Credit |
+| `order-completion-dev-v1` | `OrderCompletionTaskEvent` / v2 | Requester completion, >=48-hour automatic completion of DELIVERED | Credit: settle/transfer its reservation |
+| `courier-penalty-addition-dev-v1` | `PenaltyScoreAdditionEvent` / v1 | ACCEPTED abort (+2), overdue requester/automatic completion (+1), or the highest stored/selected addition on admin cancellation | User: deduplicate and add transmitted amount |
+| `courier-penalty-deduction-dev-v1` | `PenaltyScoreDeductionEvent` / v1 | On-time requester/automatic completion (-1); never admin resolution | User: deduplicate and subtract transmitted amount |
 
 Penalty bodies contain exactly eventId, eventType, orderId, courierId,
 penaltyAmount, occurredAt, appliedReason. Positive amount; event type determines
@@ -56,7 +68,7 @@ Variables: ORDER_COURIER_PENALTY_ADDITION_TOPIC / ORDER_COURIER_PENALTY_DEDUCTIO
 
 Actual addresses are `projects/{projectId}/topics/{topicId}`. Read configured
 `PUBSUB_PROJECT_ID`, `ORDER_OPEN_REFUND_TOPIC`, `ORDER_COMPLETION_TOPIC` and
-`ORDER_ACCEPTED_CANCELLATION_TOPIC` for the target run. Defaults describe source
+`ORDER_COURIER_PENALTY_ADDITION_TOPIC` / `ORDER_COURIER_PENALTY_DEDUCTION_TOPIC` for the target run. Defaults describe source
 configuration, not verified deployed resources. Local-live isolation overrides
 these names; production must configure its own approved topics. A topic name
 ending in `v1` does **not** imply message schema v1.
@@ -76,22 +88,16 @@ Refund/completion bodies contain exactly seven fields:
 ```
 
 The publisher sets **three string-valued Pub/Sub attributes** alongside data:
-`eventId`, `eventType`, `eventVersion` (`"2"` for compact messages, `"1"` for abort).
+`eventId`, `eventType`, `eventVersion` (`"2"` for compact messages, `"1"` for penalty events).
 AsyncAPI `headers` models that attribute map, not browser HTTP headers.
 Compact `eventVersion`/`orderVersion` are internal/outbox metadata, not body fields.
 
-Abort keeps its eight-field v1 envelope including numeric `eventVersion`,
-`orderVersion`, `actorId` and the fifteen-field current Order snapshot. Its
-snapshot status is OPEN/EXPIRED, not the courier's immutable ABORTED attempt;
-`actorId` identifies that courier after `order.courierId` becomes null.
-The optional repost-plan snapshot has exactly five fields and **does not carry
-the domain/UI explicit repost expiry**. This documents the existing mapper; it
-does not extend the accepted event. Full examples are in the YAML.
+Accepted-cancellation replay and snapshot schemas are removed by CHANGE-155.
 
 ## Publication, delivery and acknowledgment
 
 1. The Order transaction commits state, checkpoint/receipt and durable outbox
-   intent together. The outbox covers **all three** event types.
+   intent together. The outbox covers **all four** event types.
 2. `OrderOutboxAfterCommitListener` tries immediate after-commit dispatch.
 3. `GoogleCloudPubSubEventPublisher` serializes UTF-8 JSON into
    `PubsubMessage.data`, sets attributes and waits up to the configured timeout
@@ -142,10 +148,9 @@ Order's publication response. Push identity uses the approved Google token
 validation, not a requester Firebase token. These routes belong in Credit's
 OpenAPI; they are not invented receive operations in Order's AsyncAPI.
 
-No matching accepted-cancellation Pub/Sub consumer was found in the inspected
-User source. Its subscriber/authentication/processing agreement remains peer work.
-Compact completion deliberately omits overdue facts; User completion/overdue
-penalties require an agreed authoritative source. Preserve peer feedback/history
+The User penalty addition/deduction consumer remains pending. Compact Credit
+completion omits overdue facts; User receives the explicit scoring decision
+through the penalty events instead of recalculating it from Credit completion. Preserve peer feedback/history
 and do not interpret the older snapshot-consumer wording as current source proof.
 No peer code or cloud resource was changed for CHANGE-103.
 
@@ -172,8 +177,8 @@ zero document errors/warnings and a non-blocking suggestion to use newer AsyncAP
 3.1.0. This document deliberately uses supported 3.0.0; schema versions 1/2 are
 independent of the AsyncAPI format version.
 
-The Python checker checks five DTO field sets, three topic defaults/variables, three send-only
-operations, attribute/version shapes, five examples, negative schema cases and
+The Python checker checks four DTO field sets, four topic defaults/variables, four send-only
+operations, attribute/version shapes, current examples, negative schema cases and
 source metadata/cadence parity. It reads files only. This is not a live broker,
 consumer, financial ledger, authentication or end-to-end test. No CI job was added.
 
@@ -191,7 +196,7 @@ actual transport. AsyncAPI is a description, not runtime schema enforcement.
 - [ADR-025: abort history/repost IDs](../decisions/ADR-025-sprint-2-3-abort-history-and-repost-visibility.md)
 - [Service contracts](../service-contracts.md) and [peer feedback](../peer-service-api-feedback.md)
 - Source: `messagingpublisher/dto/`, `messagingpublisher/mapper/OrderTaskEventMapper`,
-  three typed publishers, `GoogleCloudPubSubEventPublisher`,
+  four typed publishers, `GoogleCloudPubSubEventPublisher`,
   `GoogleCloudPubSubPublisherFactory`, `OrderTaskEventFactory`, `OrderOutboxDispatcher`,
   `OrderOutboxScheduler`, and `src/main/resources/application.yaml`.
 - Existing runtime tests: `CompactOrderEventContractTest`, `OrderTaskEventFactoryTest`,
@@ -203,3 +208,9 @@ F4.1.5 completion, F4.1.7 cancellation, F4.1.8/F10 expiry, F11 credit outcomes,
 F11.2/ADR-025 abort facts, F12's approved completion-time overdue amendment and
 NFR consistency/verification remain traced through existing ADRs and tests.
 This representation changes none of their behavior; Sprint stays `[~]`.
+
+
+CHANGE-141 / ADR-048 producer refinement: ordinary completion reads the stored actual delivery outcome. A late delivery with an audited overdue waiver emits the unchanged Credit completion event only, with neither penalty addition nor successful-delivery deduction. On-time completion still emits the reward; unwaived late completion still emits overdue addition. Existing explicit admin resolution emits only its selected highest penalty. Event DTOs, IDs, versions, topics and subscriber contracts are unchanged.
+
+
+CHANGE-146: addition/deduction topics and payloads unchanged. Apply penalty emits nothing. Completion/auto-completion emits only the highest stored/overdue addition, or successful reward if no penalty; admin cancellation only stored/explicit maximum, never overdue/reward. No replacement topic or consumer.

@@ -24,7 +24,7 @@ class OrderCompletionHoldMigrationTest {
 
     @Test
     void cleanDatabaseReachesVersionNineWithAnEmptyHoldTable() throws Exception {
-        Flyway flyway = database("hold_clean", null);
+        Flyway flyway = database("hold_clean", "9");
         flyway.migrate();
         assertEquals("9", flyway.info().current().getVersion().getVersion());
         try (Connection connection = connection(); Statement statement = connection.createStatement();
@@ -43,7 +43,7 @@ class OrderCompletionHoldMigrationTest {
                     + "delivery_time_limit_minutes, version) values "
                     + "('legacy-order','owner','books','p','d',5,'DELIVERED',now(),now()+interval '1 hour',30,7)");
         }
-        Flyway upgraded = database("hold_upgrade", null);
+        Flyway upgraded = database("hold_upgrade", "9");
         upgraded.migrate();
         assertEquals("9", upgraded.info().current().getVersion().getVersion());
         try (Connection connection = connection(); Statement statement = connection.createStatement();

@@ -1,5 +1,7 @@
 # FoC common penalty policy
 
+CHANGE-147 (2026-10-19): six active policies. Courier unresponsive is no longer selectable or accepted for new admin penalties. The deprecated enum value remains readable for historical rows and pending events; do not use values() as an active-choice API. Existing historical penalties are not erased.
+
 Ordinary Maven library in the monorepo. No Git submodule, separate repository,
 server or container. Currently contains only `PenaltySystemPolicy` under
 `sg.edu.nus.foc.common.penalty`.
@@ -11,7 +13,7 @@ amounts and serialized event reasons remain unchanged. The shared query API is:
 | --- | --- |
 | `getSuccessfulDeliveryReward()` | `SUCCESSFUL_DELIVERY` policy, amount1 |
 | `getCourierPenaltyCases()` | Immutable wrong-location, damage and theft list; excludes accepted cancellation, overdue delivery and successful delivery |
-| `getFullPenaltyPolicy()` | Immutable list of all six policies in declaration order |
+| `getFullPenaltyPolicy()` | Immutable list of all six active policies in declaration order |
 
 For example, `PenaltySystemPolicy.getSuccessfulDeliveryReward().getPenaltyAmount()`
 returns1. Order completion and penalty event direction use the reward helper.
@@ -24,9 +26,10 @@ events. The methods do not publish, mutate user scores or enforce suspension.
 | ACCEPTED_TASK_CANCELLATION | 2 | Addition |
 | OVERDUE_DELIVERY | 1 | Addition |
 | SUCCESSFUL_DELIVERY | 1 | Deduction |
-| WRONG_LOCATION_DELIVERY | 4 | Future confirmed-report addition |
-| ITEM_MISHANDLING_OR_DAMAGE | 4 | Future confirmed-report addition |
-| DELIBERATE_ITEM_RETENTION_OR_THEFT | 10 | Future confirmed-report addition |
+| WRONG_LOCATION_DELIVERY | 4 | Admin cancellation addition |
+| ITEM_MISHANDLING_OR_DAMAGE | 4 | Admin cancellation addition |
+| DELIBERATE_ITEM_RETENTION_OR_THEFT | 10 | Admin cancellation addition; suspension enforcement belongs to User Service |
+| COURIER_UNRESPONSIVE (retired) | 3 | Historical compatibility only; no new selection |
 
 Direction stays in the existing event type; the enum does not apply scores.
 Order is the first consumer. User's old HTTP outcome handlers and the pending

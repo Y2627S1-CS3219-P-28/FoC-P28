@@ -1,4 +1,5 @@
 <!--
+
 AI Assistance Disclosure:
 Tool: OpenAI Codex (GPT-5), date: 2026-09-26
 Mode: Documentation generation.
@@ -1818,7 +1819,6 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Key response:** Existing transactional acceptance obtains a PostgreSQL pessimistic row lock before validation and synchronous Credit assignment; no redundant lock added. Current code checks deadline both before and after Credit confirmation, not the earlier chat-only recommendation to check before only. Documented existing FEEDBACK-006 cross-service partial-success risk and absence of a real two-transaction race test. Java 21 offline focused run passed 33 tests with zero failures/errors/skips. No application source, implementation tests, peer contracts, deadline policy, schema or infrastructure changed.
 - **Author verification:** Automated evidence is unit/mock regression only, not real PostgreSQL simultaneous acceptance, live Credit, browser, coverage or Sprint completion. Full historical context reads were truncated; no completed workflow gate claimed. Developer review pending; Sprint remains [~]. No application database, cloud or Git history changes; documentation left for review.
 
-<<<<<<< HEAD
 ## Real PostgreSQL concurrent-transition tests assistance (Order Service)
 
 - **Tool:** OpenAI Codex
@@ -1929,7 +1929,6 @@ This log records the AI exchanges. The team remains responsible for validating a
 - **Prompt:** Propose a plan first for frontend-to-Credit consistency across reservation, assignment and abort reset; coordinate user/scheduler retries, show safe retry-attempt messages after timeout/crash, and ask the frontend for renewed authorization when unavailable.
 - **Key response:** Proposed PENDING/COMPLETED commands with immutable actor/input binding, initial committed lease before I/O, fenced claims, per-order unresolved-command guards, atomic peer/local effects plus results, proposed key header/status/resume/discovery contracts, client key persistence and same-key Retry/Check-status. Minute recovery without saved tokens/delegated credentials must wait for user authorization; crash UI reflects durable observation, not an impossible crash reply. Historical Credit replay and compensation remain 003/006 gaps; 005 stays deferred. Source inspection distinguishes existing routes from missing recovery semantics. Primary PostgreSQL/Firebase/AWS docs consulted; no broker or effective contract selected.
 - **Author verification:** Vincent and peer review pending; plan-first request does not approve implementation or resume paused workers. Branch/profile/allocation match. D1/selected Overall manual hashes match; full historical mandatory rehydration incomplete/truncated, full pre-coding gate not claimed. No tests/live calls or cloud writes; final documentation checks in active-work. Existing dirty records preserved; no commit/push.
-=======
 ## Compact Order event contract assistance
 
 - **Tool:** OpenAI Codex
@@ -2435,3 +2434,653 @@ peer source or deployment changes. Tests and human review pending at start.
 - **Author verification:** User explicitly requests this API and Order-first scope; exact exclusion of the3 automatic outcomes retained. Tests do not constitute human review or live Report/User integration. Current Yao Xiang branch/profile and PDF source fingerprints agree; previous work preserved.
 
   Verification evidence:431 tests/common11+Order420 and original coverage gates pass. Initial stopped-Docker/malformed-PATH run failed6/skipped31; background Docker startup and process-only PATH exclusion produced zero failures/errors/skips. No permanent PATH/config change. Common JAR/javap and AsyncAPI/patch checks pass; no deployment or peer integration claim.
+## Admin UI mock prototype assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-11
+- **Mode:** Design recording, implementation, testing, verification and documentation.
+- **Affected locations:** frontend admin pages/components/hooks/adapter/tests,
+  shared shell/navigation, Order sample API/DTO/mapper/store/condition/tests,
+  Order docs/ADR-039/CHANGE-111/learning/context/allocation, Order-only Compose
+  flag and root .env.example.
+- **Prompt:** User's pasted Admin UI request: top-right mode switch, Orders/
+  Users/Suppliers tabs, Order-owned mock role/data endpoints and admin-peer-api-
+  request.md; do not change other backend services. Follow-up explicitly confirmed
+  Yao Xiang on order-service/admin-dashboard.
+- **Key response:** Implemented isolated local sample milestone with existing
+  UI primitives and replaceable adapter. Actual peer inspection avoids duplicate
+  Supplier/Order requests. Local prod-security Compose requires explicit flag,
+  local environment and Firebase emulator; real auth preserved. Initial RED
+  tests then green;379 backend full verify plus final10 contract tests,146
+  frontend tests, typecheck/build, lint0errors/3 existing warnings and both changed
+  Docker builds pass. Local stack healthy; routes200 and unauthenticated mock
+  API401. Browser automation unavailable, so visual verification remains pending.
+- **Author verification:** Yao Xiang selected the complete mock prototype and
+  confirmed identity/scope; implementation review and authenticated responsive
+  browser confirmation remain pending. No actual peer/admin/credit/cloud mutation,
+  volume reset or Git staging/commit/push was performed.
+
+## Admin profile/navigation refinement assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-11
+- **Mode:** Workflow/context loading, implementation, regression testing and documentation.
+- **Affected locations:** frontend Admin tables/profiles/detail routes/adapter/tests,
+  shared AppShell and TransactionHistory presenter; Order mock transaction DTO,
+  mapper/store/controller/tests and CHANGE-112/ADR-039/context/contract records.
+- **Prompt:** Align Admin searches/filters; retain only header mode switching;
+  show supplier status; replace user popup with full profile/history/copy ID and
+  existing actions; link Order users/locations to selected Admin records; separate
+  Order fields and retain description in View; keep mocks, only Order backend,
+  document additional APIs in admin-peer-api-request.md.
+- **Key response:** Reused SupplierBadges/Profile Cards and shared only credit
+  history presentation, keeping current-user and selected-user loaders separate.
+  Direct record routes fetch by ID independently of list pagination. New local
+  history follows existing Credit wire fields; missing real admin read recorded
+  ADMIN-API-006. RED then GREEN regressions,154 frontend/380 backend tests,
+  coverage/typecheck/build pass; lint0errors/3 existing warnings. Only changed
+  images rebuilt and frontend/Order containers recreated; no volume/peer mutation.
+- **Author verification:** Yao Xiang explicitly chose these refinements under the
+  existing mock scope. Automated evidence is recorded in CHANGE-112; human
+  implementation review and authenticated responsive visual checking remain
+  pending. No real provider integration, cloud change or Git commit/push claimed.
+
+## Dedicated Admin detail pages assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow/context loading, implementation, regression testing and documentation.
+- **Affected locations:** frontend Admin Order/Supplier detail routes/components,
+  user action-card placement, existing admin adapter/tests; Order CHANGE-113,
+  ADR-039 diagrams and relevant context/index/traceability/learning/disclosure.
+- **Prompt:** Should we make order and supplier also like user profile open a new
+  dedicated page instead of a card. And can u move the admin actions upward
+  instead of at the bottom.
+- **Key response:** Replaced Order/Supplier detail modals with dedicated pages;
+  moved existing user/supplier actions directly below headings. Reused existing
+  exact-ID sample reads without adding a backend endpoint. Kept read-only Order,
+  role gate, copy IDs, search/pagination and mutation confirmation/error handling.
+  Regression assertions failed before the change, then passed. Final automated
+  and container evidence is recorded in CHANGE-113 and active work.
+- **Author verification:** User explicitly requested this refinement within the
+  existing mock scope; same Yao Xiang branch/profile. Human visual review remains
+  pending. No backend source, real provider, schema, config, cloud or Git history
+  changes; frontend-only image rebuild.
+
+## Admin supplier maps and detail grouping assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow/context loading, provider research, implementation, testing,
+  verification and documentation.
+- **Affected locations:** frontend map components/provider/dependencies/tests,
+  optional SupplierForm picker, Admin supplier/user/order layouts/tests;
+  Order CHANGE-114/ADR-039/contract/context/traceability/index/learning records.
+- **Prompt:** Add supplier maps, address suggestions and draggable/manual
+  coordinates; move card deactivation to details; make related names navigate
+  instead of copy; separate User fields; split Order details with a repost card.
+  Reuse UI, keep mocks, do not change other backend services; document API needs.
+- **Key response:** Leaflet1.9.4/attributed OSM plus bounded anonymous Photon
+  suggestions isolated from authenticated mock service calls. Existing coordinates/
+  locationDescription suffice, no backend change. Details/card maps and optional
+  creation picker, copy/navigation separation, logical detail groups/unknown-field
+  preservation implemented. Initial RED then173 full frontend tests and final28
+  Admin regressions pass; typecheck/build and lint0errors/3 existing warnings.
+  Generic geocoder/CORS and one tile smoke pass. Only frontend recreated/healthy;
+  Admin routes200. Browser inventory empty; visual confirmation still pending.
+- **Author verification:** User explicitly selected these map/layout capabilities
+  in the existing prototype scope. Human review/visual checking and actual peer
+  integration remain pending. No tokens/secrets sent to public providers, no
+  sibling/backend/config/schema/cloud/volume or Git history changes performed.
+
+## Admin detail row ordering assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow loading, layout implementation, regression verification and documentation.
+- **Affected locations:** frontend Admin Order/Supplier/detail-grid components and
+  tests; Order CHANGE-115/context/ADR-039/traceability/readme/active-work records.
+- **Prompt:** Put item description in the last row with more space; offered credit
+  and description left-to-right in the second row; requester above courier;
+  remove Locations on this page and put supplier status beside Location details.
+- **Key response:** Metadata first, then credit/wide-description final row in a
+  full-width card; explicit requester/courier ordering independent of JSON keys.
+  Removed only list map, preserved detail/create maps, moved status out of actions.
+  Three RED regressions then175 tests/typecheck pass; lint0errors/3 existing
+  warnings. Build/runtime evidence is recorded in CHANGE-115 and active work.
+- **Author verification:** User explicitly requested this presentation refinement
+  under the same Yao Xiang mock scope. Human visual review pending; no backend,
+  provider contract, schema, permission/config or Git history changes.
+
+## Admin internal-field correction assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-12
+- **Mode:** Workflow loading, scoped layout correction, regression verification and documentation.
+- **Affected locations:** frontend Admin Order/detail-grid source and existing
+  regression expectation; Order CHANGE-116/ADR/context/README/active-work records.
+- **Prompt:** Revert back the Order details layout; only change internal People
+  and Order Information arrangement, swapping Version with Item Description.
+- **Key response:** Restored original card widths and two-column fields, removed
+  unused custom grid/span options, retained Version/Description swap and requester
+  first. Supplier edits preserved. Adjusted the existing regression (RED before
+  correction); final checks/runtime are recorded in CHANGE-116 and active work.
+- **Author verification:** User corrected the interpretation explicitly; same
+  Yao Xiang branch/profile. Human visual review remains pending. No API/backend,
+  data model, provider, permission/config or Git history change.
+
+## Environment-aware Admin integration assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, contract inspection, approved implementation, tests and documentation.
+- **Affected locations:** frontend Admin adapter/hook/pages/auth fixtures and new
+  live/mode tests; Order CHANGE-119/ADR-039/context/traceability/API handoff records.
+- **Prompt:** Can u do that ? Maybe for the unfinished one, ui will display credits
+  transaction coming soon with headers like credit transactions for the card.
+  Then for a specific value only, just put a placeholder on staging. Then for
+  local usage, we use the mock one.
+- **Key response:** Local emulator retains the sample prototype; outside local
+  completed real role/Order/Supplier/limited User summary APIs are linked.
+  Unfinished User/Credit features are cards/value placeholders/disabled controls,
+  never fake data or missing API calls. Order labels cannot hide the primary
+  results. Six contract and seven runtime/UI tests observed RED before changes;
+  seventeen added overall. Final 192 tests / 38 files, typecheck and production
+  build pass; lint 0 errors / 3 existing login warnings; patch check passes.
+- **Author verification:** Yao Xiang explicitly chose partial live integration
+  with placeholders while retaining local mocks. Existing peer contracts were
+  inspected; no sibling backend, env/IAM/persistence changes or deployment.
+  Human authenticated staging and responsive visual review remain pending.
+
+## Admin mobile Order filter alignment assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped layout correction, verification and documentation.
+- **Affected locations:** frontend/src/components/admin/admin-orders.tsx;
+  Order CHANGE-120/active-work/README/context/traceability/change-log records.
+- **Prompt:** The search by order id and status is not at same level in phone
+  render mode (with the supplied screenshot).
+- **Key response:** Replaced outer/nested flex alignment with one responsive form
+  grid. Status and Order ID share the first mobile row; Search/Clear sit below,
+  inline on larger screens. Existing 34 Admin tests, TypeScript, scoped lint and
+  production build pass; patch check passes. Existing119 edits retained.
+- **Author verification:** User identifies the phone layout error; implementation
+  stays within the approved Admin responsive UI scope. Actual visual confirmation
+  remains pending because no browser is connected. No backend/API/configuration
+  or container/deployment changes; no class-name-only tests added.
+
+## Consistent Admin search layout assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, layout refinement, verification and documentation.
+- **Affected locations:** frontend Admin shared form, Orders and Users components;
+  Order CHANGE-121/README/context/traceability/current-sprint/active-work/change-log.
+- **Prompt:** I feel like there' s not consistency like in order page in admin mode,
+  the search and clear is at the second row. But the rest is different.
+- **Key response:** Shared responsive form/action wrappers now give Orders,
+  Users/Suppliers directory searches and live UID lookup the same field-first,
+  action-second mobile layout and inline larger-screen pattern. Existing 34
+  Admin tests, TypeScript, scoped lint and production build pass; patch clean.
+- **Author verification:** User requests consistent presentation; existing
+  Yao Xiang scope/branch/source fingerprints confirmed. No backend/API/mode/config
+  changes or new tests; previous119/120 work preserved. Authenticated visual
+  confirmation remains pending; no container recreation or deployment performed.
+
+## Compose Admin provider selection assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, runtime/Compose implementation, test-first verification and documentation.
+- **Affected locations:** compose.yaml, compose.http-peers.yaml, .env.example;
+  frontend runtime config/Admin hook/tests; Order CHANGE-122/ADR-039/context/
+  traceability/README/API handoff/active-work and allocation records.
+- **Prompt:** Can u make it when we have compose.http-peers.yaml. Then we will use
+  the actual endpoint. We will see what we see in the staging. Then for compose
+  just use mock endpoint cuz local endpoint. I think we also did that like compose
+  use local or mock endpoint then compose.http-peers.yaml use the actual endpoint.
+- **Key response:** Added request-time FOC_ADMIN_API_MODE, pinned mock in base and
+  live in HTTP override; override disables local Order Admin sample controllers.
+  Cloud/invalid modes stay live. Existing backend HTTP peer mode and local
+  emulators/data remain unchanged; actual User admin role required in live mode.
+  Eleven tests observed RED first; final203 tests/39 files, TypeScript/build pass;
+  lint0 errors/3 existing login warnings. Both Compose config checks and resolved
+  mode projections pass; patch clean. Initial missing NODE_ENV test fixture fixed.
+- **Author verification:** User explicitly authorizes shared Compose selection
+  and actual Admin endpoint behavior while retaining local mocks. Scope clarified
+  as Admin UI, not a rollback of ADR-036 backend HTTP/emulator settings. No peer
+  source/credentials/IAM/data changes or service recreation/deployment. Human
+  authenticated local-live/staging verification remains pending.
+
+## Compact Admin Order ID presentation assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped presentation fix, verification and documentation.
+- **Affected locations:** frontend Admin CopyId and Order table;
+  Order CHANGE-123/README/context/sprint/traceability/active-work/change-log records.
+- **Prompt:** Long actual Order IDs make the table boxes too big; truncate the
+  table display but still copy the whole ID and show the full ID in View details.
+- **Key response:** Added optional compact display only in the table's Order ID
+  cell, with bounded width and single-line ellipsis. Full title/accessibility,
+  clipboard value, View route and detail text retained. Other IDs unchanged.
+  Existing34 Admin regressions, TypeScript/scoped lint/production build pass;
+  patch check passes. No implementation-mirroring CSS tests added.
+- **Author verification:** User requests this precise presentation change;
+  Yao Xiang branch/profile/source fingerprints confirmed. Prior119..122 preserved.
+  No API/backend/model/config/container/deployment changes; authenticated visual
+  review remains pending. Identifier and clipboard correctness inspected in source.
+
+## Consistent Admin Order table typography assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, scoped styling correction, verification and documentation.
+- **Affected locations:** frontend Admin Orders table;
+  Order CHANGE-124/README/context/sprint/traceability/change-log/active-work records.
+- **Prompt:** I feel like order table. The font size is not consistent. And some
+  of the id bold but some of them not. Then might as well make it not.
+- **Key response:** Normalized table body to regular14px, with scoped regular link
+  weight, matching status badge size/weight and dates inheriting body size.
+  Headers and other pages/details remain unchanged. Existing34 Admin tests,
+  TypeScript/scoped lint/production build pass; patch clean. No CSS-detail tests.
+- **Author verification:** User explicitly requests table font consistency and
+  non-bold IDs. Current Yao Xiang branch/profile and sources confirmed; prior
+  work preserved. No API/backend/model/configuration or Docker/deployment change.
+  Authenticated visual confirmation remains pending.
+
+## Shared Admin font and theme consistency assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-13
+- **Mode:** Workflow loading, styling consistency inspection/implementation, verification and documentation.
+- **Affected locations:** frontend Admin layout and copy/record/profile components;
+  Order CHANGE-125/style baseline/README/context/sprint/traceability/log/active-work.
+- **Prompt:** Please ensure we are using the overall same font type font size,
+  colouring for consistency.
+- **Key response:** Centralized Admin Geist Sans/body14px/theme scope, matching
+  regular data/IDs/badges, retained heading/helper hierarchy and existing state
+  colours. Admin technical/history IDs and map popup text/surfaces adapt to shared
+  tokens. Missing balances use muted helper text. Normal-profile presenter source
+  and all data/contracts unchanged. Existing203 tests/39 files, TypeScript/build
+  pass; lint0 errors/3 pre-existing login warnings; scoped lint/patch checks pass.
+- **Author verification:** User requests consistent presentation; same Yao Xiang
+  identity/branch/source fingerprints verified. Prior119..124 retained. No new
+  fonts/API/backend/models/configuration or Docker/deployment change. Actual
+  authenticated mobile/desktop/light/dark visual review remains pending.
+
+## Credit administrator transaction history assistance (Credit Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-14
+- **Mode:** Repository inspection, implementation, test generation, verification,
+  documentation, and AI disclosure maintenance.
+- **Affected locations:** Credit admin controller and response DTOs; transaction
+  domain/service/repository/JPA query flow; Flyway V8 global-history index;
+  Credit API, service, persistence, recovery, and OpenAPI tests; Credit README;
+  new-file disclosure headers; and this usage log.
+- **Prompt:** From `main`, create `feat/credit-admin` and implement admin-only
+  paginated endpoints for one user's Credit transactions and all system Credit
+  transactions. Use `/api/credits/users/{userId}/transactions` and
+  `/api/credits/all/transactions`; include `userId` only in the system-wide
+  response and retain current user-visible compensation filtering. Follow-up:
+  add AI declarations and the AI log.
+- **Key response:** Created `feat/credit-admin` from clean `main`; added both
+  `ROLE_ADMIN` endpoints with one-based pagination, opaque-ID validation,
+  OpenAPI error documentation, stable newest-first ordering, selected-user 404,
+  and system-wide owner identity. Reused the existing selected-user wire shape,
+  added a dedicated admin page/item response, preserved compensation suppression,
+  and added the global ledger ordering index. Added positive and negative API,
+  persistence, service, recovery-filter, and OpenAPI coverage. Focused 52 tests
+  passed, followed by full `./mvnw verify`: 102 tests, zero failures/errors/skips,
+  Flyway V1-V8 validation, and all JaCoCo line/branch checks met.
+- **Author verification:** The user approved the endpoint paths, owner field, and
+  filtering behavior before implementation. Final human code/API/migration review
+  remains pending. No frontend, gateway, environment, cloud, deployment, commit,
+  push, or production-data change was performed.
+
+## Credit administrator transaction API handoff assistance (Credit Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-14
+- **Mode:** Source inspection, peer-integration documentation, and disclosure maintenance.
+- **Affected locations:** Credit administrator transaction API handoff, Credit README,
+  and this usage log.
+- **Prompt:** Add a handoff document detailing the Credit Service changes and the two new
+  endpoints so other services know what to call.
+- **Key response:** Added a consumer-focused handoff for the selected-user and system-wide
+  administrator transaction endpoints. It records gateway paths, Firebase administrator
+  authentication, query validation, distinct response shapes, examples, transaction enums,
+  stable ordering, compensation filtering, pagination behavior, standard errors, integration
+  cautions, OpenAPI discovery, and verification evidence. Linked the handoff from the Credit
+  README.
+- **Author verification:** Contract details were checked against the implemented controller,
+  DTOs, service validation, error handling, and previously passing full Credit Service build.
+  Final human documentation review remains pending. No API, application logic, database,
+  frontend, gateway, deployment, commit, push, or production-data change was performed.
+
+
+## Admin Credit history and merge resolution assistance (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** Approved merge resolution, contract inspection, TDD integration and verification.
+- **Affected locations:** Nine conflicted files; frontend Admin adapter/profile/tests;
+  CHANGE-133 and Order context/contracts/API-gap/ADR039/traceability/allocation/handoff
+  records. Credit source inspected/tested, not modified; incoming staged peers preserved.
+- **Prompt:** Fix merge conflicts and verify/link completed Admin Credit APIs;
+  user explicitly chose existing profile history only, no global Credit tab.
+- **Key response:** Preserved both branches including OpenAPI controllers/mocks;
+  kept current Yao Xiang identity and historical Admin profile; removed pre-existing
+  orphan AI-log markers retaining entries. Live profile history uses selected-user
+  Credit API and current admin bearer transport, server pagination, independent
+  error/retry. Base Compose mock retained, balances still unavailable;006 completed.
+- **Author verification:** Human review pending. Four red assertions,45 focused then
+ 212 frontend tests pass; build/typecheck pass, lint0errors/3 existing warnings.
+ Common11/Order427 and Credit clean102 tests pass with coverage gates/no skips.
+ Initial Credit non-clean53 context failures traced to stale compiled Firestore
+ class; clean fixed without source change. One old UI error-copy assertion updated
+ after initial full-suite failure and full suite rerun passed. Python unavailable;
+ TOML uniqueness checked, not full parser validation. No authenticated deployed
+ browser verification, cloud action, application recreation, commit or push.
+## Admin balance API request clarification (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** Documentation-only contract clarification.
+- **Affected locations:** Order docs/admin-peer-api-request.md, Yao Xiang active
+  work and this disclosure. No application, peer backend or configuration edits.
+- **Prompt:** Update the peer service API request after confirming the selected
+  user's admin balance endpoint is missing.
+- **Key response:** Clarified005 as the remaining Credit gap; specified selected
+  UID path, admin Firebase bearer/no body, existing BalanceResponse and updatedAt
+  timestamp, role/error/read-only semantics and provider verification obligations.
+  Existing transaction history remains implemented/linked, /me caller-only and
+  live balances Coming soon until provider implementation and integration.
+- **Author verification:** Human review pending. Compared current provider source
+  and DTO with the request; documentation/whitespace checked. No tests rerun,
+  implementation, deployment or live verification claimed. Existing merge work
+  preserved; no commit/push.
+## Remove manual Admin suspension action (Order Service / Shared Frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-15
+- **Mode:** User-authorized UI removal and existing-test maintenance.
+- **Affected locations:** frontend Admin user profile/component tests; Order
+  Admin peer requests, ADR039, current context, Yao Xiang active work and disclosure.
+- **Prompt:** Delete Suspend User; keep Deactivate and Promote to Admin only.
+- **Key response:** Removed suspension button/form/state/handler; retained both
+  other actions and existing readiness/confirmation. Courier standing stays
+  read-only. Withdrew002 manual suspension API request; backend/mock APIs and
+  automatic policy unchanged. Existing history/merge changes preserved.
+- **Author verification:**35 Admin tests pass, typecheck passes, lint0 errors/3
+  existing login warnings, whitespace check passes. Existing tests updated and
+  obsolete suspension cases removed; no new test suite for a reversible removal.
+  No backend tests/build/image recreation/deployment/commit/push. Browser/human
+  review pending; previous missing peer integrations remain pending.
+## Admin cancellation proposal and response compatibility assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-16
+- **Mode:** Workflow/source review and concrete implementation proposal.
+- **Affected locations:** CHANGE-134 proposal, Yao Xiang active work and this
+  disclosure only. Order/Common/Credit/User/frontend source inspected unchanged.
+- **Prompt:** Add admin cancellation accepting Order/participant IDs and policy
+  list; refund and highest optional penalty addition; assess nullable response field.
+- **Key response:** Proposed admin-guarded POST, locked participant/state checks,
+  atomic state/checkpoint/receipt/outbox, stable replay and existing post-commit
+  publishing. Credit permits CANCELLED refunds with matching assigned courier;
+  preserve that ID. User penalty consumer remains pending. Asked for allowed
+  active/held states, penalty subset and response field name/type/purpose.
+  Current frontend tolerates additive fields but Admin details renders unknown
+  keys; strict clients and all-args constructors may differ. Mapping required.
+- **Author verification:** Human business decisions/review pending. Source
+  inspection and proposal whitespace checks only; no implementation/tests/live
+  requests/deployment/commit/push. Existing dirty merge work preserved. Two
+  guessed source filenames were absent; actual classes were located/read.
+## Admin cancellation and overdue implementation assistance (Order Service / Common)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-16
+- **Mode:** User-approved implementation, regression/security/PostgreSQL testing and documentation.
+- **Affected locations:** Common penalty enum/tests/docs; Order admin controller/
+  request DTO/service/domain cancellation, timing projection/repository/query,
+  response/MapStruct, tests and ADR044/CHANGE134/context/contract/diagram/AsyncAPI/
+  workflow/peer/handoff records; frontend optional nullable type; this disclosure.
+- **Prompt:** User confirms active including held admin cancellation; all addition
+  policies/highest only; adds unresponsive courier3; wants nullable overdue flag.
+- **Key response:** Implemented admin-protected POST with verified caller identity,
+  locked stored-participant checks, atomic CANCELLED/checkpoint/receipt/outbox,
+  exact replay and highest one addition or refund only. Reuses existing NOWAIT
+  lock/command guard and publishers; holds retained as history. Added shared
+  COURIER_UNRESPONSIVE3. Batched checkpoint SQL supplies isOverdue using latest
+  acceptance/deadline and delivery/current/cancellation time; null for unavailable
+  timing/unassigned/history. Existing authorized GET is Report's source.
+- **Author verification:** Human review pending. Final common12/Order455 tests,
+  no failures/errors/skips; coverage gates pass. New PG4 proves rollback/replay/
+  NOWAIT/timing. Frontend211 tests/typecheck pass; lint0 errors/3 existing warnings.
+  YAML/Ajv six-reason positive/negative checks and whitespace pass; TOML uniqueness
+  only (Python unavailable). Initial common RED3 errors, test assertion5 failures,
+  quoted Maven argument issue, Docker-off error and initial full2 failures fixed
+  as recorded in CHANGE134; blocking API lock was replaced only in the new caller.
+  No peer backend/config/schema/topic change, live publish/consumer/browser claim,
+  application recreation/deployment, stage/commit/push. Existing merge work retained.
+  User/Report subscriber and historical scoring/suspension remain pending.
+  Final review added a new-endpoint-only lock exception handler; actual PostgreSQL
+  exception family and409 route response tested. Complete467 tests/gates pass.
+
+## START-based timing and admin decision persistence assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, verification, documentation
+- **Affected locations:** Order domain/application/repository/DTO/mapper, V10 migration, tests and workflow records; frontend optional Order timing types.
+- **Prompt:** "deliverydeadline is the moment the courier start + delivery duration. I agreed with storing the new two fields"; retain implemented holds, allow decision storage on Order, defer immediate feedback.
+- **Key response:** Persist START deadline and actual delivery time; remove response checkpoint queries; reuse completion/abort holds and atomic outbox; persist admin waiver or requested addition without claiming score application. Fresh common12 + Order458 =470 tests pass, both coverage gates/JAR, frontend typecheck and AsyncAPI checks pass. Backed-up local DB9 ->10 preserves7 Orders and backfills3 timings. Verification details in CHANGE-135. No sibling backend, topic, event schema, app-image or cloud change.
+- **Author verification:** Yao Xiang approved timing/storage direction and deferral; implementation/migration review and deployed checks pending.
+
+## Admin controller consolidation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, verification, documentation
+- **Affected locations:** AdminOrderController, cancellation advice, OrderResponse, route/security/OpenAPI fixtures and Order context/architecture records.
+- **Prompt:** "If we really need, then just import at the front. If not need then remove"; "move to admin controller instead".
+- **Key response:** Retain JsonProperty for existing wire names and Schema for nullable timing documentation; import Schema. Move cancellation into existing admin controller and delete redundant controller without changing URI/auth/transactional service. Repointed controller slice tests first: five expected404 failures before the move. Fresh verify: common12 + Order458 =470 tests pass, zero failures/errors/skips, both coverage gates/JAR pass. Generated Swagger groups both routes under admin-order-controller. Verification evidence: CHANGE-136. No frontend, schema, topic or peer implementation change.
+- **Author verification:** Yao Xiang explicitly requested the refactor; human/deployed review pending.
+
+## Admin completion design and peer verification assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Design, inspection, verification
+- **Affected locations:** Order CHANGE-137 proposal and Yao Xiang active-work record; existing Credit tests executed without source edits.
+- **Prompt:** "Make a similar admin mark as completed endpoint. Then mark as completed. And can mark a completion hold order as completed can complete funding. Can specify the penalty as well"
+- **Key response:** Inspected existing admin cancellation, hold guards, receipt/outbox/timing and actual compact Credit completion/settlement contracts. Eight existing Credit decoder/handler/service tests pass. Proposed same-controller admin completion with locked atomic state/events and replay-safe explicit penalties; starting states and automatic-versus-admin scoring remain pending questions. No new endpoint or application code implemented until those financial behavior choices are answered.
+- **Author verification:** User explicitly requests admin completion including held-order funding. Starting-state/scoring decisions and implementation review remain pending; no claim of new end-to-end settlement.
+
+## Admin held-order completion implementation assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, verification, documentation
+- **Affected locations:** Order admin controller/request/service/advice, domain resolution helpers, tests, ADR-046 and context/contracts/diagrams/disclosure.
+- **Prompt:** Approved "ACCEPTED, IN_PROGRESS, PICKED_UP and DELIVERED" and "use only the admin-selected penalty"; implement admin completion including held funding.
+- **Key response:** New same-controller completion endpoint, locked atomic COMPLETED/decision/checkpoint/receipt/funding outbox and optional highest penalty, canonical replay and preserved ordinary holds/timing. RED domain compilation confirmed absent admin behavior; focused53 tests pass including actual PostgreSQL rollback/NOWAIT/cancel-complete race. Fresh root verify: common12 + Order486 =498 tests pass, zero failures/errors/skips; both coverage gates/JAR pass. New PG5 prove rollback/holds/replay/NOWAIT/admin race, prod/local route and OpenAPI pass; existing Credit tests8 pass separately. Swagger and packaged JAR verified. AsyncAPI doc1.2.1 changes triggers only; YAML/Ajv checks pass. Full evidence belongs to CHANGE-137. No sibling backend, UI, migration, topic or cloud change.
+- **Author verification:** Yao Xiang explicitly approves starting states and manual-only scoring. Code/deployed review pending; no claim subscriber settled funds/applied scores.
+
+## 2026-10-17 — Admin Orders row actions and saved reasons (CHANGE-138)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, test generation, verification and documentation.
+- **Affected locations:** frontend/src/components/admin/admin-order-actions*, admin-orders.tsx, lib/admin-api*/orders.ts; Order controllers/DTOs/mapper/domain/admin services/mock service, V11, tests and context/ADR-047/diagram/change record; this disclosure. No sibling backend/root config edits for this task.
+- **Prompt:** Add UI for admin cancel/complete: click a row to shade/select it and show top actions; preserve details; modal penalty/no-penalty with preset/custom reason, matching current UI; screenshot reference only.
+- **Key response:** Added single-row keyboard/radio selection, protected live endpoints plus isolated sample counterparts, shared-policy discovery and maximum preview, explicit penalty choice and required UI explanation, saved nullable reason/admin decision response and V11. Optional API reason preserves old clients and legacy receipt hashes; changed explanation conflicts. No automatic additional scoring, altered holds, broker schemas/topics or sibling financial implementation. Test-first UI/domain RED captured. Full common12+Order494 verify/coverage/JAR passed; final PostgreSQL reason/rollback6 passed; frontend218/typecheck/lint/build passed (3 existing login warnings). Built browser smoke1440/390 passed selection, reason/policy, sample completion/details and unclipped mobile controls. CUA failed initialization; hidden Edge plus temporary target-only gateway relay used. Local DB backed up then V10->V11 with7 Orders retained; no real funds/scores/events changed.
+- **Author verification:** Yao Xiang requested and selected the UI direction/financial rules; AI supported implementation/testing, not independent architecture approval. Developer review and deployment image rebuild remain; real User subscriber/cloud verification not claimed. Existing work preserved, no commit/push.
+
+## Compact admin toolbar and filtering advice
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Read-only design advice and documentation.
+- **Affected locations:** Yao Xiang active work and this disclosure only; current admin UI/API/query inspected. Earlier CHANGE-138 disclosure moved outside the file-header HTML comment without changing its content.
+- **Prompt:** Admin action bar is too thick; propose table-height actions/date range, per-column filters and useful extra admin functions.
+- **Key response:** Recommend compact action row, default Created-date range, column-aligned ID/status controls and existing View/Refresh/Clear utilities. Additional history/export/report features are proposals, not implemented. Current backend list has status/page only; new date/column criteria need DB predicates before paging and consistent timezone day boundaries. No application/test/schema/config changes or fresh tests.
+- **Author verification:** User requests advice; product/filter scope and implementation remain pending agreement. AI supports options, not independent approval. Existing branch work preserved.
+
+## Compact calendar toolbar implementation assistance (CHANGE-139)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, test generation, verification and documentation.
+- **Affected locations:** Frontend admin action/table/date controls and date/API helpers/tests; Order admin list/mock controller, query/port/JPA adapter, tests and context/diagram/CHANGE-139/ADR-047 refinement; this disclosure. No sibling backend/shared config changes.
+- **Prompt:** "for refresh just use the icon we always use like and I dont like the created from. Can u just make it like the pic reference put the calendar icon there"
+- **Key response:** Compact41px table-top toolbar, existing RefreshCwIcon-only refresh, two native calendar controls with DD/MM/YYYY labels and accessible hidden creation-date bounds; no visible Created-from text. Added optional exact-ID/Instant date criteria to existing admin query, SQL before pagination/count, browser-local inclusive dates via exclusive next-day boundary and isolated demo parity. Filters retained on refresh; stale selection cleared. RED UI/query regressions captured. Final common12+Order499 verify/coverage/JAR pass, frontend224/typecheck/build pass, lint0 errors/3 existing warnings; real PostgreSQL/filter auth and desktop1440/mobile390 browser checks pass. Initial full run had stale reflection signature plus6 recovery assertions; signature fixture fixed, recovery/full reruns pass without financial-code changes; transient cause not established. Existing Compose left running and preview cleaned up.
+- **Author verification:** Yao Xiang directs the compact reference calendar/refresh presentation following the date-search proposal; AI supports implementation/testing, not independent architecture approval. Rebuild chosen Order/frontend images for rollout; cloud/staging UI not verified, no extra admin financial function or peer/schema/GCP change.
+
+## Twenty-row admin table pages (CHANGE-140)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-17
+- **Mode:** Implementation, regression verification and documentation.
+- **Affected locations:** frontend/src/lib/admin-api.ts and existing mock/live adapter tests; Order CHANGE-140/context/traceability/style/contracts/active work; this disclosure only.
+- **Prompt:** Increase admin Order/User table rows from10 to15 or20 because the page has room and can scroll.
+- **Key response:** Set one shared20-row table request size for live/mock Orders and sample Users; exact Order results report consistent page size. Preserve supplier cards10, Credit history20, server totals and scroll/navigation; no filler rows or live-user capability change. Existing assertions RED3 then admin regression58 passed; TypeScript/lint pass (3 existing login warnings). No backend/schema/auth/config/peer changes or backend/build/browser/cloud rerun.
+- **Author verification:** Yao Xiang selects a larger table and permits15/20;20 chosen as routine implementation detail. AI supports implementation/checks, not independent architecture approval. Frontend rebuild/user visual confirmation pending; running stack and prior work preserved, no commit/push.
+
+
+## Delivered report review and overdue waiver assistance (Order Service)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-18
+- **Mode:** Architecture refinement, implementation, testing, documentation and browser verification.
+- **Affected locations:** Order domain/services/admin APIs/V12/review tests and documentation; frontend Reports/admin Reports/nav/waiver UI/tests; this log. No sibling backend/root configuration changes.
+- **Prompt:** Requester delivered-item reports, single category and evidence, courier response within eight hours, admin case and Order actions; remove selection count/darken shade; store overdue at delivery; report-specific hold release and revert overdue. Confirmed: “Use one Resolved status instead” and “Waive overdue penalty only, before completion”.
+- **Key response:** Implemented local-only report prototype, live Coming soon, real admin hold-release/waiver endpoints, stored actual lateness and no reward for waived late completion. FEEDBACK-015 records missing Report Service contract/recovery. Final540 backend/shared tests and233 frontend tests pass, coverage unchanged/pass, TypeScript/lint/build and desktop/mobile sample-only browser checks completed. Local V11 DB backed up then V12 applied; user Compose stack preserved. Initial coverage failure corrected with validation/recovery tests.
+- **Author verification:** Yao Xiang approved status/waiver semantics and implementation scope. Automated and isolated browser evidence recorded in CHANGE-141; human review and actual Report provider integration remain pending. No real balances/penalties changed.
+
+
+## Report summary layout assistance (Order Service frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-18
+- **Mode:** UI refinement, reference research, testing and documentation.
+- **Affected locations:** frontend/src/components/reports/reports-page.tsx and its test; Order CHANGE-142, UI/context/decision/traceability/index records; this log. No backend code/config/migration changes.
+- **Prompt:** “Too many card is not good” — one long form-like report panel; Order first and clickable; remove View full order details and financial actions from report; keep only Mark report resolved.
+- **Key response:** Adapted GOV.UK summary-list structure to existing FoC styling, aligned definition-list rows/section dividers, direct Admin Order route, separate existing Order actions. All233 frontend tests, typecheck, lint and production build pass. Initial font-download build failure resolved by retrying with network access. Desktop1440/mobile390 sample-only browser checks and screenshot inspection passed; resolution still works.
+- **Author verification:** User requested/approved layout/action separation. Automated and browser checks recorded in CHANGE-142; final human visual review pending. No live Report integration claimed.
+
+
+## Order record display names and report alignment assistance (Order Service frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-18
+- **Mode:** Existing-provider inspection, implementation, regression testing and browser verification.
+- **Affected locations:** frontend Reports/admin Orders/admin-api client/new use-order-display-names hook and tests; Order CHANGE-143/context/style/contracts/traceability/change records; this log. No sibling backend, schema or Compose changes.
+- **Prompt:** Label Order description, show user names, retrieve actual User/Supplier names in compose.http-peers live mode and align Reports status/refresh.
+- **Key response:** Added labelled Description and participant names; per-view distinct-ID asynchronous label resolution through existing authenticated gateway endpoints; loading/deleted/unavailable labels preserve IDs for navigation/copy. Reports remains gated live Coming soon. Full238 frontend tests and final focused checks, TypeScript/build/lint (three existing warnings) pass; sample1440/390 browser confirms names and32px equal-height controls. Corrected lint immutability error. Read-only actual peer smoke was not verified (preview account/fixture limitation, Supplier503); no claim of real deployment integration.
+- **Author verification:** User directed the name/alignment changes; approved existing endpoints inspected and regression-tested. Automated/sample browser evidence recorded in CHANGE-143. Human UI review and actual account/provider end-to-end confirmation remain pending.
+
+
+## Synchronous penalty replacement and Report queue assistance (Order Service / shared frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-18
+- **Mode:** Design, implementation, test generation, verification and documentation
+- **Affected locations:** order-service source/tests/V13/docs and frontend Admin/Reports components/API/tests; no sibling backend or shared deployment edits.
+- **Prompt:** “Make it synchronous call”; approved durable pending request, same-ID confirmation recovery and disabled-live contract stub. Earlier request: one current penalty per courier attempt, replace rewards too, remove overdue waiver, Open/Closed Report cards, no response deadline and required admin reply.
+- **Key response:** AI assisted design comparison, typed synchronous contract, per-attempt persistence, local mock/Admin dialog, Report refinements and regression tests. Superseded event draft withdrawn after automatic review; synchronous design then explicitly approved. Full verification results remain in CHANGE-144; no real User replacement integration claim.
+- **Author verification:** Yao Xiang selected synchronous communication and confirmed recovery/per-attempt/reward semantics. Final implementation review pending; User provider remains missing and live disabled.
+
+- **Verification follow-up (CHANGE-144):** Final verification 2026-10-18: the full run executed544 Order +12 common tests; all have passing results after the corrected six-test rerun, with no skips. Full run passed all except one new multi-courier fixture that omitted its mock Credit reservation; after fixture correction, all six PenaltyAdjustmentJpaIntegrationTest cases and Maven verify/unchanged coverage gate pass. No production logic changed for that final rerun. 241 frontend tests pass; final focused16 tests pass after final text/label changes. TypeScript and production build pass; lint0 errors/3 pre-existing login warnings. Visual isolated preview at1440x1000 and390x844 confirms Open/Closed cards, required reply/resolved movement, old waiver removal, reward -> No penalty and retained revision/reason. No real User score was changed. Temporary processes, emulator-only account and change144_preview DB were removed; existing Compose services/application DBs retained. git diff --check passes. No commit/staging/push/cloud action or sibling backend/shared environment edits. Live User replacement and Report provider integration remain MISSING, deliberately disabled/Coming soon.
+- **Author verification follow-up:** Synchronous contract/recovery approved by Yao Xiang; final source review remains pending.
+
+
+## Report card status alignment assistance (Order Service / shared frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-18
+- **Mode:** Implementation and verification
+- **Affected locations:** frontend/src/components/reports/reports-page.tsx; CHANGE-145 and Order change/active-work records.
+- **Prompt:** “Make the status at the right corner of card”
+- **Key response:** Right-aligned the existing status row using justify-end; no backend/API/config change or new mirrored test. Existing Report regression verification pending.
+- **Author verification:** Yao Xiang explicitly requested this layout; visual review of the rebuilt UI remains pending.
+
+- **Verification follow-up:** CHANGE-145 verification: all6 existing Report component tests pass; git diff --check passes. CSS-only class change, no new test or backend/config change. Existing running frontend was not rebuilt; browser visual confirmation after rebuild remains pending.
+
+- **Exact follow-up prompt (CHANGE-145):** “The status tag should be at the same level as the first line of word. And move the tirle up”
+- **Key response follow-up:** Placed title first and badge second within the same top-aligned row; allowed bounded badge wrapping for narrow cards. No backend/API/config change. Existing Report tests pending.
+
+- **Verification follow-up:** CHANGE-145 same-row follow-up complete: all6 existing Report tests and git diff --check pass. Frontend container not rebuilt; browser confirmation pending rebuild.
+
+
+## Deferred penalty and admin-action retirement assistance (Order Service / shared frontend)
+
+- **Tool:** OpenAI Codex (GPT-6)
+- **Date:** 2026-10-19
+- **Mode:** Design, implementation, tests, verification and documentation
+- **Affected locations:** order-service domain/application/API/tests/V14/docs; frontend Admin Order actions/API/dialog/tests. No sibling backend/shared deployment change.
+- **Prompt:** User requests removing penalty adjustment including synchronous User call/UI, storing only the highest applied policy until final scoring, comparing overdue only at completion, and retaining existing two penalty topics. Follow-up: “Remove the mark as completed endpoint and its ui. I feel like we shouldn't let admin complete on their behalf”.
+- **Key response:** AI assisted replacement comparison and implementation of the user-selected deferred monotonic policy, removal of replacement/admin completion paths, existing-event scoring and local mock/live Apply Penalty UI. Preserved applied migration/audit history with forward V14. Regression/rollback/security/event/migration checks in progress; no real score change or cloud deployment.
+- **Author verification:** Yao Xiang chose these semantics and explicitly removed admin completion. Final source review remains pending; verification evidence is in CHANGE-146.
+
+- **Verification follow-up (CHANGE-146):** CHANGE-146 verification,2026-10-19: full root Maven verify passes517 Order tests and12 common tests,0 failures/errors/skips; unchanged coverage gate passes. Final focused API/security/OpenAPI verify also passes after documentation clarification and adding an admin hold-release authorization test. Frontend full241 tests pass, then final11 focused tests include the additional stored-penalty cancellation regression (242 total current frontend tests across those runs). TypeScript and final production build pass; lint0 errors/3 existing login warnings. Local sample preview at1440/390 confirms no admin completion/adjustment, Apply4 then3 keeps4 and original reason, cancellation cannot waive it, and terminal Apply is disabled. Visual screenshots were inspected; a final cancellation summary copy refinement explicitly displays the stored policy/amount and omits overdue timing, with a passing regression/build. Preview processes/account/change146_preview database removed; existing services/application databases preserved. No cloud/sibling/shared-env/CI action or commit/staging. V14 is verified on isolated clean/V13 upgrade databases; existing application DB not migrated. Historical V13 rows retained, no replacement runtime remains. LINE 94.91%, BRANCH 81.99%.
+- **Author verification follow-up:** Yao Xiang selected the deferred highest-only semantics and removal of admin completion; final implementation review remains pending.
+
+
+2026-10-19 — OpenAI Codex (GPT-6), Yao Xiang, order-service/penalty-integration. CHANGE-147: implement approved Admin Reports privacy/layout, retire unresponsive policy for new selections while preserving historical deserialization, radio cancellation and bounded table values. Read repository/Order/frontend/common instructions and local Next client docs; regression tests reproduced four UI failures and inactive-policy list failure before implementation. No sibling backend, shared runtime configuration, cloud mutation, commit or staging. Verification in CHANGE-147.
+
+CHANGE-147 verification (2026-10-19): full root Maven verify passed 520 Order tests and12 common tests,0 failures/errors/skips; final focused verify passed45 Order plus12 common tests, including the subsequently added cancellation-retired-case test (521 current Order tests across runs). Unchanged coverage gate passed. Frontend full243 tests and final18 focused tests pass; TypeScript, final production build and lint pass (0 errors/3 existing login warnings). Order and frontend Docker images built successfully as change147-check tags; no existing containers replaced. Automated Edge preview1440x1000 and390x844 plus screenshot inspection confirmed private-reply copy, separate name/profile and ID/copy rows, muted closed cards remain navigable, three radio cases with one selected, and no unresponsive option. Extreme name/email/user-ID fixture measured columns176/224/192px; full ID remains in copy/title, no service record changed. Found/fixed existing multiline status badge clipping; final measured41px height, scrollHeight=clientHeight39. Temporary account/processes/isolated change147_preview DB removed; existing Compose data untouched. git diff --check passes. Full peer-service CI/cloud checks and real Report integration were not run; Reports remain local-only/Coming soon live. No commit or staging.
+
+
+CHANGE-148 (2026-10-19), Yao Xiang: presentation-only refinement in existing Admin/reports components. Completion hold displays Yes/No. Refresh icon shares Open reports heading row; normal participant section controls remain available. Cancellation uses muted Choose one penalty case/highest-selected guidance and requested stored-penalty warning. Remove score-event/overdue-comparison implementation details from Apply Penalty description. No API, backend, data, scoring, authentication, navigation, schema or deployment behavior change. Reuse existing components/theme. Existing component tests/typecheck/build and frontend image verification pending; no new tests for reversible copy/CSS edits.
+
+
+CHANGE-148 verification:18 existing focused UI tests pass; production Next build including TypeScript passes; lint0 errors/3 pre-existing login warnings; frontend Docker image foc-frontend:change148-check builds successfully; git diff --check passes. Reviewed responsive flex heading placement in source; no new browser session for this copy/layout-only change. Backend tests/image not rerun because no backend source, contract or schema changed. No existing container restarted, commit or staging. Reports remain local mock/live Coming soon.
+
+
+CHANGE-148 follow-up,2026-10-19: user requested removal of the entire lower cancellation warning paragraph beginning Only the highest selected amount is requested. Removed that paragraph only; the separate Choose one penalty case helper stays. No backend/penalty/contract behavior change. OpenAI Codex (GPT-6), Yao Xiang; verification pending.
+
+
+CHANGE-148 warning-removal verification:9 cancellation UI tests pass; frontend Docker build including TypeScript/production build passes; git diff --check passes. No new tests for copy-only removal; no running containers replaced. No backend change or backend verification needed.
+
+
+CHANGE-149 (2026-10-19), Yao Xiang: Reports reuse existing Order-style Status/Order ID/Search/Clear form, remove manual refresh icon, retain visible five-second polling and Open/Closed groups. Status means report status (Awaiting courier response, Ready for review, Resolved). Exact trimmed Order ID plus report status filter on local mock before pagination/counts; independent page counters reset on filter changes. Preserve participant scoping/reply privacy. Extend existing gated sample GET with optional orderId/reportStatus; no real Report endpoint, sibling backend, scoring, database or deployment changes. Live Reports remain Coming soon. TDD and verification pending.
+
+
+CHANGE-149 verification,2026-10-19: full root Maven verify SUCCESS,522 Order +12 common tests,0 failures/errors/skips, unchanged coverage gates pass. Frontend full245 tests plus final12 focused report/transport tests pass (final test explicitly exercises page2 -> search reset to page1). Production build/TypeScript and Order/frontend Docker image builds pass; lint0 errors/3 existing login warnings; git diff --check passes. Isolated browser HTTP checks at1440x1000 and390x844 pass exact search, report status intersection, clear restoration, no refresh button, aligned controls (0px vertical delta) and no overflow. Sample server filters before page/counts and retains privacy/scoping. Preview account/processes/verified change149_preview database removed; existing containers/data preserved. No cloud, peer backend, schema, CI configuration, commit or staging change. Real Report Service remains unavailable; live Reports remain Coming soon. Full peer CI/cloud IAM not run.
+
+
+CHANGE-150 (2026-10-19), Yao Xiang: remove separate Open/Closed report sections. One server-paginated card list under the existing Order ID/report-status filters; one five-second polling query with blank grouping selector (all statuses). Preserve grey styling and View report for RESOLVED cards. Filters and participant-tab changes reset the single page. Existing backend supports this query; no backend, endpoint, data or scoring change. TDD regressions cover mixed active/resolved results, one query, filtering/page reset and retained navigation. Verification pending.
+
+
+CHANGE-150 verification:245 frontend tests pass; new expectations first reproduced the two-query/grouped-list mismatch, then passed after implementation. TypeScript/production build and frontend Docker image foc-frontend:change150-check pass; lint0 errors/3 existing login warnings; git diff --check passes. Isolated sample browser1440x1000 and390x844 verified a single mixed active/resolved grid, no group headings, grey resolved card with working View link and Resolved filtering; screenshots inspected. Single page reset/search remains covered. Backend source/API/schema unchanged, backend suite not repeated. No sibling service, shared infrastructure, existing containers/data, commit or staging change. Reports remain local sample/live Coming soon.
+
+
+CHANGE-151 (2026-10-19), Yao Xiang: replace floating Base UI status-filter popups with one Order-owned native HTML StatusSelect. Covers My Requests, My Errands, Admin Orders and normal/Admin Reports in mock/live modes. Existing role-specific option sets, labels, selected values, search/Clear, page resets and polling remain. Native browser keyboard/touch dropdown; consistent existing theme/height/borders. No global Select changes, creation/reason controls, sibling service, backend, API, score, schema or deployment change. Regression tests use native change events and verify actual select controls. Verification pending.
+
+
+CHANGE-151 verification: full245 frontend tests pass; final8 personal-list tests also pass after removing an obsolete tuple label. Native SELECT assertions/requester-courier option sets, selected-status requests, page reset and pending-command visibility verified. Initial build exposed stale test tuple typing (fixed); separate host build encountered existing Google Fonts fetch/network failure, then network-enabled retry passed without source/config/font changes. Final TypeScript/production build, frontend Docker build and lint pass (0 errors/3 existing login warnings); git diff --check passes. Isolated Edge browser1440x1000/390x844 checked Admin Orders(10 options), Admin Reports(4), normal Reports(4), My Requests(9), My Errands(7): actual native select, keyboard End/Home changes, no phone overflow. Screenshots inspected. Preview-only account/processes/change151_preview database removed, existing application data/containers unchanged. No backend/contract/schema/shared configuration/peer service changes; backend suite not repeated for this frontend-only change. No commit or staging.
+
+
+CHANGE-152 (2026-10-19), Yao Xiang: remove all normal-mode Reports UI: /reports, /reports/new, /reports/[id], normal sidebar entry, submit/response/evidence-upload forms, participant tabs/branches and unused frontend submission helpers/types. Retain only AdminReportsPage under existing RequireAuth/AdminGate layout, Admin list/search/status/pagination/polling, grey resolved cards, linked Order/user details, evidence/response viewing and resolve-with-reply. Local admin sample/live Coming soon unchanged. Backend sample fixtures/endpoints, report/hold/domain rules and future Report Service requirements remain; this is UI-scope removal only. No sibling/backend/config/data changes. User explicitly authorized removal; deleted source backed up under ignored target for recovery. Verification pending.
+
+
+CHANGE-152 verification:245 frontend tests pass, including new no-normal-Reports navigation/no-submission-client-helper regressions (both reproduced failures before removal), retained admin search/page reset/mixed/resolved/details/reply tests and existing admin-role gates. Production build/TypeScript, frontend Docker image foc-frontend:change152-check, lint(0 errors/3 existing login warnings) and git diff --check pass. Built route manifest retains only /admin/reports and /admin/reports/[id]. Isolated HTTP/browser confirms /reports,/reports/new,/reports/sample-report each404, normal sidebar has no Reports, Admin Reports list/details and resolve-with-reply succeed; no courier input/upload forms. Desktop1440x1000/phone390x844 screenshots inspected. Normal navigation screenshot captured while unrelated Order data still loading; Credit balance unavailable in the Order-only preview (no Credit proxy), not an application regression claim. Preview-only account/processes/change152_preview DB removed, existing application data/containers preserved. No backend/schema/config/peer service change, so backend suite not repeated. Live Admin Reports remains Coming soon until Report Service integration. No commit or staging.
+
+
+CHANGE-153 (2026-10-19), Yao Xiang: allow a NEW requester-owned report completion hold on any Order status except COMPLETED, including cancelled/expired/aborted historical states. Placing a hold preserves status and cannot undo previously committed funds. START/PICKUP/DELIVER (and existing acceptance behavior) continue; requester/automatic completion, normal cancellation, expiry and courier abort remain paused while held. Admin cancellation remains the prior explicit override. Preserve locking, report-ID binding/idempotency, release/multiple-hold history, auth, SQL exclusions and event rules. No schema, frontend, peer backend or shared config change. Report Service integration is still pending. TDD and verification next.
+
+
+CHANGE-153 verification: full reactor Maven verify passed (531 Order Service tests plus 12 foc-common tests, zero failures/errors/skips; JaCoCo coverage checks passed). New eligibility cases reproduced seven old-rule failures before the implementation. Updated the obsolete delivered-only PostgreSQL regression to reject COMPLETED instead; new OPEN placement and held delivery progression are covered alongside existing funding, rollback and concurrency guards. Docker image foc-order-service:change153-check built successfully; git diff --check passed. No application containers/data changed, frontend edits, schema changes, cloud calls, staging or commits. Live Report Service integration remains pending.
+
+
+CHANGE-154 (2026-10-19), Yao Xiang: documentation-only peer coordination. Clarify new penalty addition/deduction events supersede new accepted-cancellation scoring; preserve old outbox/backlog support pending owner reconciliation. Request provider-enforced Firebase/admin-role checks for admin directory/profile/promotion/deactivation and separately document Credit balance readiness. Existing self-service contracts preserved; exact new admin routes not finalized. No sibling service, runtime, frontend, schema, topic/config or cloud edits. Verification: documentation consistency review and git diff --check; no tests required for prose-only change. User consumer/live admin readiness remain pending. No commit or staging.
+
+
+CHANGE-155 (2026-10-19), Yao Xiang: retire accepted-cancellation producer/replay/snapshot types and topic keys/provisioning/CI requirements under explicit cleanup approval. Preserve financial transitions, four current event channels, published history and immutable migrations. Staging user query showed eight PUBLISHED rows only; other deployment databases require backlog checks before rollout. No database/cloud/sibling backend edits; no frontend impact. TDD: bootstrap expectations failed2 cases and retired-event dispatch failed1 case before implementation. Verification in progress; no staging/commit.
+
+
+CHANGE-155 verification: final full reactor verify passed: 531 Order tests +12 common tests, zero failures/errors/skips; coverage checks passed with fresh execution data and no class-mismatch warning. First full run also passed but accumulated old mapper coverage, so only jacoco.exec was backed up/cleared before the final run (no Maven clean). Local bootstrap3 tests pass; base/http-peers/http-peers+local-live Compose config checks pass; shell syntax and stubbed staging/production provisioning pass (four topics each; no live gcloud calls). AsyncAPI checker passes four channels/operations, four DTO field sets, six examples, negative schemas and source/config/cadence parity; initial stale validator/missing example attributes were corrected. AsyncAPI parses and all local refs resolve. Docker foc-order-service:change155-check built; packaged JAR contains no retired event/publisher/snapshot classes; git diff --check passes. Production backlog and deployed User scoring remain unverified. No DB/GCP modifications, app-container recreation, commit or staging.

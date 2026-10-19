@@ -19,7 +19,11 @@ public enum PenaltySystemPolicy {
     ITEM_MISHANDLING_OR_DAMAGE(4),
 
     // D1 additionally requires permanent suspension; this enum does not enforce it.
-    DELIBERATE_ITEM_RETENTION_OR_THEFT(10);
+    DELIBERATE_ITEM_RETENTION_OR_THEFT(10),
+
+    // Read compatibility only: existing persisted penalties and pending events must remain readable.
+    @Deprecated
+    COURIER_UNRESPONSIVE(3);
 
     // Positive magnitude; successful delivery deducts, all other cases add.
     private final int penaltyAmount;
@@ -34,12 +38,15 @@ public enum PenaltySystemPolicy {
         cases.removeAll(EnumSet.of(
                 ACCEPTED_TASK_CANCELLATION,
                 OVERDUE_DELIVERY,
-                SUCCESSFUL_DELIVERY));
+                SUCCESSFUL_DELIVERY,
+                COURIER_UNRESPONSIVE));
 
         return List.copyOf(cases);
     }
 
     public static List<PenaltySystemPolicy> getFullPenaltyPolicy() {
-        return List.of(values());
+        EnumSet<PenaltySystemPolicy> active = EnumSet.allOf(PenaltySystemPolicy.class);
+        active.remove(COURIER_UNRESPONSIVE);
+        return List.copyOf(active);
     }
 }

@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
@@ -16,7 +17,7 @@ import org.springframework.data.repository.query.Param;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
-public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
+public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
     @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
             + "and (requester_id = :userId or courier_id = :userId))", nativeQuery = true)
     boolean existsActiveUserInvolvement(@Param("userId") String userId,
@@ -89,8 +90,7 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
 
     @Query("select o.id from Order o where o.status = :status "
             + "and o.completionHold = false "
-            + "and (select max(c.occurredAt) from OrderCheckpoint c "
-            + "where c.orderId = o.id and c.status = :status) <= :deliveredAtOrBefore "
+            + "and o.deliveryDeadlineAt is not null and o.deliveredAt <= :deliveredAtOrBefore "
             + "order by o.createdAt, o.id")
     List<String> findDueForAutoCompletionIds(
             @Param("status") OrderStatus status,
@@ -103,12 +103,9 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
-    @Query("select o from Order o, OrderCheckpoint c "
-            + "where c.orderId = o.id "
-            + "and o.status = :status "
+    @Query("select o from Order o where o.status = :status "
             + "and o.completionHold = false "
-            + "and c.status = :status "
-            + "and c.occurredAt <= :deliveredAtOrBefore")
+            + "and o.deliveryDeadlineAt is not null and o.deliveredAt <= :deliveredAtOrBefore")
     List<Order> findDueForAutoCompletion(
             @Param("status") OrderStatus status,
             @Param("deliveredAtOrBefore") Instant deliveredAtOrBefore);

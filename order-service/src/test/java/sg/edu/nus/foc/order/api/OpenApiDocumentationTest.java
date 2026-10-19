@@ -44,7 +44,9 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>This MVC slice intentionally mocks the application collaborators so the
  * documentation check does not require PostgreSQL, peer services, or Docker.
  */
-@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class, OrderCommandController.class, OrderOutboxAdminController.class, OrderCompletionHoldController.class, OrderInvolvementController.class},
+@WebMvcTest(controllers = {OrderController.class, AdminOrderController.class,
+        OrderCommandController.class, OrderOutboxAdminController.class,
+        OrderCompletionHoldController.class, OrderInvolvementController.class, AdminMockController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -58,9 +60,16 @@ import tools.jackson.databind.json.JsonMapper;
 })
 @TestPropertySource(properties = {
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
+    "order.admin-mock.enabled=true",
+    "FOC_ENVIRONMENT=local",
+    "order.security.auth.emulator-host=localhost:9099",
     "order.lifecycle-token=test-lifecycle-token"
 })
 class OpenApiDocumentationTest {
+    @MockitoBean private sg.edu.nus.foc.order.application.AdminApplyPenaltyService penalties;
+
+
+    @MockitoBean private sg.edu.nus.foc.order.application.AdminOrderCancellationService adminCancellations;
 
     private static final String PREFIX = "/api/orders";
     private static final Set<String> METHODS = Set.of("get", "post", "put", "patch", "delete");
@@ -78,6 +87,8 @@ class OpenApiDocumentationTest {
     @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderCompletionHoldService completionHolds;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderInvolvementService involvement;
+    @MockitoBean private sg.edu.nus.foc.order.application.adminmock.AdminMockService adminSamples;
+
 
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper mapper;
@@ -129,6 +140,13 @@ class OpenApiDocumentationTest {
 
         JsonNode paths = mapper.readTree(json).path("paths");
         assertThat(paths.has("/api/orders/commands/create")).isTrue();
+        assertThat(paths.path("/api/orders/admin/{orderId}/cancel").path("post").path("responses").has("403")).isTrue();
+        assertThat(paths.has("/api/orders/admin/{orderId}/complete")).isFalse();
+        assertThat(paths.has("/api/orders/admin/{orderId}/penalties/{penaltyId}")).isFalse();
+        assertThat(paths.path("/api/orders/admin/{orderId}/apply-penalty").path("post").path("responses").has("403")).isTrue();
+        assertThat(paths.path("/api/orders/admin/{orderId}/apply-penalty").path("post").path("responses").has("409")).isTrue();
+        assertThat(paths.has("/api/orders/admin-mock/orders")).isTrue();
+        assertThat(paths.has("/api/orders/admin-mock/users/{id}/transactions")).isTrue();
         assertThat(paths.path("/api/orders/users/{userId}/active-involvement").path("get").path("responses").has("403")).isTrue();
         assertThat(paths.path("/api/orders/suppliers/{supplierId}/active-involvement").path("get").path("parameters").toString()).contains("supplierId");
         assertThat(paths.has("/api/orders/commands/{key}/resume")).isTrue();
@@ -163,6 +181,9 @@ class OpenApiDocumentationTest {
         assertThat(personal.path("responses").has("400")).isTrue();
         JsonNode schemas = mapper.readTree(json).path("components").path("schemas");
         assertThat(schemas.path("OrderResponse").path("properties").has("isCompletionHold")).isTrue();
+        assertThat(schemas.path("OrderResponse").path("properties").has("isOverdue")).isTrue();
+        assertThat(schemas.path("OrderResponse").path("properties").has("deliveryDeadlineAt")).isTrue();
+        assertThat(schemas.path("OrderResponse").path("properties").has("deliveredAt")).isTrue();
         assertThat(schemas.path("CompletionHoldResponse").path("properties").has("isCompletionHold")).isTrue();
         assertThat(schemas.path("CommandView").path("properties").has("displayDetails")).isTrue();
         assertThat(schemas.path("DisplayDetails").path("properties").propertyNames()).containsExactlyInAnyOrder(

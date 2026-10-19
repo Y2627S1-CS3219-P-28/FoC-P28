@@ -20,7 +20,7 @@ class LocalPubSubSetupTest(unittest.TestCase):
         calls = [call.args[0] for call in request.call_args_list]
         topics = {call.full_url.rsplit("/", 1)[-1] for call in calls if "/topics/" in call.full_url}
         self.assertEqual({"order-completion-local-v1", "open-order-refund-local-v1",
-                          "accepted-order-cancellation-local-v1", "courier-penalty-addition-local-v1",
+                          "courier-penalty-addition-local-v1",
                           "courier-penalty-deduction-local-v1"}, topics)
         subscriptions = [json.loads(call.data) for call in calls if "/subscriptions/" in call.full_url]
         self.assertEqual(2, len(subscriptions))
@@ -33,7 +33,7 @@ class LocalPubSubSetupTest(unittest.TestCase):
         with patch.dict(os.environ, {"PUBSUB_EMULATOR_HOST": "pubsub-emulator:8085"}, clear=True), \
                 patch("urllib.request.urlopen", side_effect=conflict) as request:
             runpy.run_path(str(self.script))
-        self.assertEqual(7, request.call_count)
+        self.assertEqual(6, request.call_count)
 
     def test_rejects_non_private_host_before_network_access(self):
         with patch.dict(os.environ, {"PUBSUB_EMULATOR_HOST": "pubsub.googleapis.com"}, clear=True), \

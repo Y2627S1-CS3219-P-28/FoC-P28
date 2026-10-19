@@ -47,7 +47,7 @@ def main():
     require(spec["asyncapi"] == "3.0.0", "Unexpected AsyncAPI version")
     schemas = spec["components"]["schemas"]
     for name in ("OpenOrderRefundTaskEvent", "OrderCompletionTaskEvent",
-                 "AcceptedOrderCancellationTaskEvent", "OrderEventSnapshot", "RepostPlanEventSnapshot"):
+                 "PenaltyScoreAdditionEvent", "PenaltyScoreDeductionEvent"):
         require(set(schemas[name]["properties"]) == fields(name), f"{name}: DTO field drift")
 
     config = (ROOT / "src/main/resources/application.yaml").read_text(encoding="utf-8")
@@ -55,10 +55,11 @@ def main():
     expected = {
         "openRefund": ("OpenOrderRefundTaskEvent", "open-order-refund", "ORDER_OPEN_REFUND_TOPIC", "open-order-refund-dev-v1", "2"),
         "completion": ("OrderCompletionTaskEvent", "order-completion", "ORDER_COMPLETION_TOPIC", "order-completion-dev-v1", "2"),
-        "acceptedCancellation": ("AcceptedOrderCancellationTaskEvent", "accepted-order-cancellation", "ORDER_ACCEPTED_CANCELLATION_TOPIC", "accepted-order-cancellation-dev-v1", "1"),
+        "penaltyAddition": ("PenaltyScoreAdditionEvent", "courier-penalty-addition", "ORDER_COURIER_PENALTY_ADDITION_TOPIC", "courier-penalty-addition-dev-v1", "1"),
+        "penaltyDeduction": ("PenaltyScoreDeductionEvent", "courier-penalty-deduction", "ORDER_COURIER_PENALTY_DEDUCTION_TOPIC", "courier-penalty-deduction-dev-v1", "1"),
     }
-    require(set(spec["channels"]) == set(expected), "Expected exactly three current channels")
-    require(len(spec["operations"]) == 3, "Expected exactly three send operations")
+    require(set(spec["channels"]) == set(expected), "Expected exactly four current channels")
+    require(len(spec["operations"]) == 4, "Expected exactly four send operations")
     checked_examples = 0
     for channel_id, (event_type, config_key, env_key, topic, version) in expected.items():
         channel = spec["channels"][channel_id]
@@ -85,11 +86,6 @@ def main():
             validator.validate(example["payload"])
             header_validator.validate(example["headers"])
             require(example["headers"]["eventId"] == example["payload"]["eventId"], "Event ID attribute mismatch")
-            if event_type == "AcceptedOrderCancellationTaskEvent":
-                payload = example["payload"]
-                require(payload["eventVersion"] == int(version), "Body/attribute version mismatch")
-                require(payload["orderId"] == payload["order"]["id"], "Snapshot order ID mismatch")
-                require(payload["orderVersion"] == payload["order"]["version"], "Snapshot version mismatch")
             checked_examples += 1
         # Negative checks catch extra compact fields and invalid versions/statuses.
         invalid = copy.deepcopy(message["examples"][0]["payload"])
@@ -99,8 +95,8 @@ def main():
         invalid_headers["eventVersion"] = "999"
         require(not header_validator.is_valid(invalid_headers), "Invalid version was accepted")
         invalid_status = copy.deepcopy(message["examples"][0]["payload"])
-        if event_type == "AcceptedOrderCancellationTaskEvent":
-            invalid_status["order"]["status"] = "ABORTED"
+        if event_type.startswith("PenaltyScore"):
+            invalid_status["penaltyAmount"] = 0
         else:
             invalid_status["orderStatus"] = "OPEN"
         require(not validator.is_valid(invalid_status), "Invalid outcome status was accepted")
@@ -114,7 +110,7 @@ def main():
     require("setOrderingKey" not in publisher, "Ordering behavior changed; review documentation")
     scheduler = (JAVA / "application/OrderOutboxScheduler.java").read_text(encoding="utf-8")
     require("0 */15 * * * *" in scheduler, "Outbox default cadence drift")
-    print(f"PASS: 3 send operations/channels, 5 DTO field sets, {checked_examples} examples, negative schema checks, source metadata/topics/cadence parity.")
+    print(f"PASS: 4 send operations/channels, 4 DTO field sets, {checked_examples} examples, negative schema checks, source metadata/topics/cadence parity.")
 
 
 if __name__ == "__main__":

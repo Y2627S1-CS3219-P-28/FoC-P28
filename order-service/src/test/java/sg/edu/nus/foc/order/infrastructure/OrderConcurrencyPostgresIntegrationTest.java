@@ -75,6 +75,8 @@ class OrderConcurrencyPostgresIntegrationTest {
     private final java.util.concurrent.ConcurrentMap<String, RuntimeException> lifecycleLockFailures =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    @Autowired private JpaPenaltyOutcomeRepository penaltyOutcomes;
+
     @BeforeEach
     void authenticationOnly() {
         // Each race has its own isolated state, even when an earlier assertion fails.
@@ -83,6 +85,7 @@ class OrderConcurrencyPostgresIntegrationTest {
         receipts.deleteAll();
         checkpoints.deleteAll();
         jdbc.update("delete from order_courier_attempts");
+        penaltyOutcomes.deleteAll();
         orders.deleteAll();
         lifecycleLockFailures.clear();
         doAnswer(call -> {
@@ -265,9 +268,9 @@ class OrderConcurrencyPostgresIntegrationTest {
         Order order = Order.open("requester-" + UUID.randomUUID(), "completed race",
                 "pickup", "delivery", 5, 15, deliveredAt.minusSeconds(3600), deliveredAt.plusSeconds(3600));
         order.accept("courier-delivered", order.getVersion(), deliveredAt.minusSeconds(600));
-        order.start("courier-delivered", order.getVersion());
+        order.start("courier-delivered", order.getVersion(), deliveredAt.minusSeconds(600));
         order.markPickedUp("courier-delivered", order.getVersion());
-        order.markDelivered("courier-delivered", order.getVersion());
+        order.markDelivered("courier-delivered", order.getVersion(), deliveredAt);
         return new TransactionTemplate(transactionManager).execute(tx -> {
             Order saved = orders.saveAndFlush(order);
             checkpoints.saveAllAndFlush(List.of(

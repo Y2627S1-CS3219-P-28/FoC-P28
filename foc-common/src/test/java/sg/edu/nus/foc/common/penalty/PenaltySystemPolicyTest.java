@@ -18,7 +18,8 @@ class PenaltySystemPolicyTest {
             "SUCCESSFUL_DELIVERY, 1",
             "WRONG_LOCATION_DELIVERY, 4",
             "ITEM_MISHANDLING_OR_DAMAGE, 4",
-            "DELIBERATE_ITEM_RETENTION_OR_THEFT, 10"
+            "DELIBERATE_ITEM_RETENTION_OR_THEFT, 10",
+            "COURIER_UNRESPONSIVE, 3"
     })
     void preservesPublishedReasonNamesAndApprovedPositiveAmounts(String reason, int amount) {
         PenaltySystemPolicy policy = PenaltySystemPolicy.valueOf(reason);
@@ -50,7 +51,7 @@ class PenaltySystemPolicyTest {
     }
 
     @Test
-    void fullPenaltyPolicyIncludesAllSixCasesInDeclarationOrder() {
+    void fullPenaltyPolicyIncludesAllCasesInDeclarationOrder() {
         assertEquals(List.of(
                 PenaltySystemPolicy.ACCEPTED_TASK_CANCELLATION,
                 PenaltySystemPolicy.OVERDUE_DELIVERY,

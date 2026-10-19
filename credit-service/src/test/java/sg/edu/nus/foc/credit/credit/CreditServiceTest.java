@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure:
+ * Tool: OpenAI Codex (GPT-5), date: 2026-10-14
+ * Mode: Test generation and verification assistance.
+ * Scope: Extended Credit service delegation coverage for system-wide transaction history.
+ * Author review: Pending final human review; automated verification passed.
+ */
 package sg.edu.nus.foc.credit.credit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,10 +37,13 @@ class CreditServiceTest {
         assertThat(service.initializeAccount(eventId, "user-1", occurredAt)).isSameAs(repository.registration);
         assertThat(service.getAccount("user-1")).isEqualTo(repository.account);
         assertThat(service.getTransactions("user-1", 2, 10)).isSameAs(repository.transactions);
+        assertThat(service.getAllTransactions(3, 25)).isSameAs(repository.transactions);
         assertThat(service.reserve("order-1", "user-1", 5)).isSameAs(repository.reservation);
         assertThat(service.getReservation("order-1", "user-1")).isEqualTo(repository.creditReservation);
         assertThat(repository.historyPage).isEqualTo(2);
         assertThat(repository.historySize).isEqualTo(10);
+        assertThat(repository.allHistoryPage).isEqualTo(3);
+        assertThat(repository.allHistorySize).isEqualTo(25);
         assertThat(output).contains("credit_account_initialized").contains("credits_reserved");
     }
 
@@ -111,6 +121,8 @@ class CreditServiceTest {
         private Optional<CreditAccount> accountFound = Optional.of(account);
         private int historyPage;
         private int historySize;
+        private int allHistoryPage;
+        private int allHistorySize;
         private String assignedCourier;
         private String holdCaller;
         private CreditOutcomeEvent refund;
@@ -119,6 +131,7 @@ class CreditServiceTest {
         @Override public RegistrationResult initializeAccount(UUID eventId, String userId, Instant occurredAt) { return registration; }
         @Override public Optional<CreditAccount> findAccount(String userId) { return accountFound; }
         @Override public CreditTransactionPage findTransactions(String userId, int page, int size) { historyPage = page; historySize = size; return transactions; }
+        @Override public CreditTransactionPage findAllTransactions(int page, int size) { allHistoryPage = page; allHistorySize = size; return transactions; }
         @Override public ReservationResult reserve(String orderId, String requesterId, long amount) { return reservation; }
         @Override public Optional<CreditReservation> findReservation(String orderId) { return found; }
         @Override public void assignCourier(String orderId, String courierId) { assignedCourier = courierId; }

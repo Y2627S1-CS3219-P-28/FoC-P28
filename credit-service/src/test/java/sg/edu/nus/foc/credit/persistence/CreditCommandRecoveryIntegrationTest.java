@@ -307,6 +307,13 @@ class CreditCommandRecoveryIntegrationTest {
                 .andExpect(jsonPath("$.totalItems").value(1))
                 .andExpect(jsonPath("$.items[0].type").value("INITIAL_ALLOCATION"))
                 .andExpect(jsonPath("$.items[?(@.orderId == 'reverse-order')]").isEmpty());
+        mvc.perform(get("/api/credits/all/transactions")
+                        .with(jwt().jwt(token -> token.subject("admin-user"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].userId").value(REQUESTER))
+                .andExpect(jsonPath("$.items[?(@.orderId == 'reverse-order')]").isEmpty());
     }
 
     @Test

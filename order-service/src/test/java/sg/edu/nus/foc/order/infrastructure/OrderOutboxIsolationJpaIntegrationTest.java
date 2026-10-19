@@ -31,7 +31,6 @@ import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderEventOutbox;
 import sg.edu.nus.foc.order.domain.OutboxState;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderCompletionTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 
@@ -71,8 +70,6 @@ class OrderOutboxIsolationJpaIntegrationTest {
     @MockitoBean
     private IOpenOrderRefundTaskPublisher refundPublisher;
 
-    @MockitoBean
-    private IAcceptedOrderCancellationTaskPublisher cancellationPublisher;
 
     @MockitoBean
     private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher additionPublisher;
@@ -90,9 +87,12 @@ class OrderOutboxIsolationJpaIntegrationTest {
         properties.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
+    @Autowired private JpaPenaltyOutcomeRepository penaltyOutcomes;
+
     @BeforeEach
     void setupIsolatedRows() {
         repository.deleteAll();
+        penaltyOutcomes.deleteAll();
         orders.deleteAll();
         now = Instant.now();
         order = orders.saveAndFlush(Order.open("requester", "item", "pickup", "delivery", 2, 15,

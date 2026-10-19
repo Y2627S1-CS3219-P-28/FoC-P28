@@ -34,4 +34,20 @@ interface CreditLedgerJpaRepository extends JpaRepository<CreditLedgerEntity, UU
             @Param("outcome") CreditCommandOutcome outcome,
             @Param("code") String code,
             Pageable pageable);
+
+    @Query("""
+            select entry from CreditLedgerEntity entry
+            where entry.commandId is null or not exists (
+                select command.commandId from CreditCommandRecordEntity command
+                where command.commandId = entry.commandId
+                  and command.operation = :operation
+                  and command.outcome = :outcome
+                  and command.code = :code
+            )
+            """)
+    Page<CreditLedgerEntity> findAllUserVisible(
+            @Param("operation") CreditCommandOperation operation,
+            @Param("outcome") CreditCommandOutcome outcome,
+            @Param("code") String code,
+            Pageable pageable);
 }

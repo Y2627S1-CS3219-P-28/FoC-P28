@@ -38,7 +38,6 @@ import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderCompletionHold;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 import sg.edu.nus.foc.order.domain.OrderStatus;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 
@@ -77,7 +76,8 @@ class OrderCompletionHoldJpaIntegrationTest {
     @MockitoBean private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher deductionPublisher;
     @MockitoBean private IOrderCompletionTaskPublisher completionPublisher;
     @MockitoBean private IOpenOrderRefundTaskPublisher refundPublisher;
-    @MockitoBean private IAcceptedOrderCancellationTaskPublisher cancellationPublisher;
+
+    @Autowired private JpaPenaltyOutcomeRepository penaltyOutcomes;
 
     @BeforeEach
     void clearIsolatedDatabase() {
@@ -85,6 +85,7 @@ class OrderCompletionHoldJpaIntegrationTest {
         receipts.deleteAll();
         holds.deleteAll();
         checkpoints.deleteAll();
+        penaltyOutcomes.deleteAll();
         orders.deleteAll();
     }
 
@@ -231,7 +232,7 @@ class OrderCompletionHoldJpaIntegrationTest {
             invocation.callRealMethod();
             throw new IllegalStateException("injected penalty persistence failure");
         }).when(penaltyOutboxAdapter).enqueue(org.mockito.ArgumentMatchers.isA(
-                sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent.class));
+                sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent.class));
 
         assertThrows(RuntimeException.class,
                 () -> transitions.complete("penalty-rollback", order.getId(), "owner", version, null));
@@ -242,13 +243,76 @@ class OrderCompletionHoldJpaIntegrationTest {
                 .anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.COMPLETED));
     }
 
+    @Test
+    void releaseIsReportSpecificAuditedAndIdempotent() {
+        Order order = delivered();
+        holdService.place(order.getId(), "first-report", "owner", null);
+        holdService.place(order.getId(), "second-report", "owner", null);
+        assertTrue(holdService.release(order.getId(), "first-report", "admin").isCompletionHold());
+        Instant released = holds.findById("first-report").orElseThrow().getReleasedAt();
+        holdService.release(order.getId(), "first-report", "another-admin");
+        assertEquals(released, holds.findById("first-report").orElseThrow().getReleasedAt());
+        assertEquals("admin", holds.findById("first-report").orElseThrow().getReleasedBy());
+        assertFalse(holdService.release(order.getId(), "second-report", "admin").isCompletionHold());
+        assertEquals(2, holds.count());
+        assertEquals(0, outbox.count());
+    }
+
+    @Test
+    void failedReleaseRollsBackAuditAndFlagAndCannotMoveAnotherOrdersHold() {
+        Order order = delivered();
+        holdService.place(order.getId(), "release-report", "owner", null);
+        Order other = delivered();
+        assertThrows(OrderProblem.class, () -> holdService.release(other.getId(), "release-report", "admin"));
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new IllegalStateException("after hold release flush");
+        }).when(holdAdapter).release(any(OrderCompletionHold.class));
+        assertThrows(RuntimeException.class, () -> holdService.release(order.getId(), "release-report", "admin"));
+        assertTrue(orders.findById(order.getId()).orElseThrow().isCompletionHold());
+        org.junit.jupiter.api.Assertions.assertNull(holds.findById("release-report").orElseThrow().getReleasedAt());
+    }
+
+    @Test
+    void waiverPersistsButCompletionPublishesOnlyFundingWithoutRewardOrPenalty() {
+        Order order = open();
+        Instant deliveredAt = NOW.minusSeconds(49 * 3600L);
+        order.accept("courier", 0, NOW.minusSeconds(3 * 86400L).plusSeconds(60));
+        order.start("courier", 0, deliveredAt.minusSeconds(3600));
+        order.markPickedUp("courier", 0);
+        order.markDelivered("courier", 0, deliveredAt);
+        orders.saveAndFlush(order);
+        // Reproduce a previously persisted V12 waiver; no new waiver HTTP/service exists.
+        order.waiveOverdue("admin", "Valid exceptional delay", NOW);
+        orders.saveAndFlush(order);
+        Order reviewed = orders.findById(order.getId()).orElseThrow();
+        assertTrue(reviewed.getOverdue());
+        assertTrue(reviewed.isOverduePenaltyWaived());
+        transitions.complete("waived-completion", order.getId(), "owner", reviewed.getVersion(), null);
+        assertEquals(OrderStatus.COMPLETED, orders.findById(order.getId()).orElseThrow().getStatus());
+        assertEquals(1, outbox.count());
+        org.mockito.Mockito.verifyNoInteractions(additionPublisher, deductionPublisher);
+    }
+
+    @Test
+    void completedOrdersRejectNewReportsEvenForOwner() {
+        Order order = delivered();
+        order.confirmCompletion("owner", order.getVersion());
+        order = orders.saveAndFlush(order);
+        String orderId = order.getId();
+        assertThrows(OrderProblem.class, () -> holdService.place(orderId, "completed-report", "owner", null));
+        assertFalse(holds.existsById("completed-report"));
+        assertFalse(orders.findById(order.getId()).orElseThrow().isCompletionHold());
+    }
+
     private Order delivered() {
         Order order = open();
         Instant start = NOW.minusSeconds(3 * 86400L);
         order.accept("courier", 0, start.plusSeconds(60));
-        order.start("courier", 0);
+        Instant deliveredAt = NOW.minusSeconds(49 * 3600L);
+        order.start("courier", 0, deliveredAt.minusSeconds(600));
         order.markPickedUp("courier", 0);
-        order.markDelivered("courier", 0);
+        order.markDelivered("courier", 0, deliveredAt);
         Order saved = orders.saveAndFlush(order);
         checkpoints.saveAndFlush(new OrderCheckpoint(saved.getId(), OrderStatus.ACCEPTED,
                 start.plusSeconds(60), "courier", null));

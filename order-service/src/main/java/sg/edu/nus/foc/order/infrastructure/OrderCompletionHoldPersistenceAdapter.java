@@ -17,6 +17,16 @@ public class OrderCompletionHoldPersistenceAdapter implements OrderCompletionHol
     private final JpaOrderCompletionHoldRepository repository;
 
     @Override
+    public void release(OrderCompletionHold hold) {
+        repository.saveAndFlush(hold);
+    }
+
+    @Override
+    public boolean hasActiveForOrder(String orderId) {
+        return repository.existsByOrderIdAndReleasedAtIsNull(orderId);
+    }
+
+    @Override
     public Optional<OrderCompletionHold> findByReportId(String reportId) {
         return repository.findById(reportId);
     }
