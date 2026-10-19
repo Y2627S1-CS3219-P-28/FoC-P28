@@ -1,5 +1,28 @@
 # Instruction Map
 
+## Compact date-filter implementation
+
+CHANGE-139 and service-contracts.md define the current calendar/date-search boundary; diagrams/admin-order-query-filters.mmd records query flow. This is an implementation/design refinement, not a workflow/skill amendment.
+
+
+## Admin resolution UI context
+
+CHANGE-138 / ADR-047, service-contracts.md, database-migration-workflow.md and diagrams/admin-order-resolution-ui.mmd are effective for row selection, saved reasons and V11. No new workflow/skill rule.
+
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
 Current pending-display authority: [ADR-038](decisions/ADR-038-server-discovered-pending-card-recovery.md),
 CHANGE-108 and ARCH-EVO-044. Vincent approved owner-only command display details,
 shared discovery/card binding and separate creation/repost summaries. No schema,
@@ -51,3 +74,9 @@ No nested `AGENTS.md` files exist inside `order-service/`. The shared sibling `.
 The parent project `../AGENTS.md` requires Java 21/Spring Boot 4.1.1, Firestore defaults, Docker/Cloud Run conventions, OpenAPI, Firebase authentication, and repository-wide tests. ADR-008 records the user-approved Order Service exception: PostgreSQL on Cloud SQL and Cloud Run. The parent file was not modified; sibling-service Firestore conventions remain unchanged.
 
 CHANGE-092 / ADR-031 updates event guidance in AGENTS.md, skills.md and the spec-driven-development skill: compact refund/completion vs unchanged accepted envelope. FEEDBACK-009 records explicit approval of the Order-only milestone, not compatible peer integration.
+
+
+CHANGE-141 / ADR-048: delivered-item report review, single Resolved status, stored delivery overdue, report-specific release and precompletion penalty waiver. See changes/CHANGE-141-delivered-reports-and-review.md and docs/decisions/ADR-048-delivered-report-review.md. No workflow or skill changes.
+
+
+CHANGE-142 refines Report presentation only; see changes/CHANGE-142-report-summary-layout.md and frontend-ui-style-guide.md. No workflow or skill change.

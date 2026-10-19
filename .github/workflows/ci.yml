@@ -53,6 +53,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Shellcheck CI and infra scripts
         run: shellcheck -x scripts/ci/*.sh infra/gcp/*.sh
+      - name: Verify shared-library change detection
+        run: bash scripts/ci/test-list-services.sh
       - name: Lint workflows (actionlint)
         env:
           ACTIONLINT_VERSION: "1.7.12"
@@ -138,7 +140,12 @@ jobs:
           exit $missing
       - if: steps.kind.outputs.kind == 'maven'
         name: Test (mvn verify)
-        run: ./mvnw -B -ntp verify
+        run: |
+          if [[ -f ../pom.xml ]] && grep -q '<artifactId>foc-common</artifactId>' pom.xml; then
+            bash ../mvnw -f ../pom.xml -B -ntp -pl "${PWD##*/}" -am verify
+          else
+            ./mvnw -B -ntp verify
+          fi
       - if: always() && steps.kind.outputs.kind == 'maven'
         name: Publish OpenAPI spec
         uses: actions/upload-artifact@v7
@@ -174,7 +181,8 @@ jobs:
       - name: Docker build
         uses: docker/build-push-action@v7
         with:
-          context: ${{ matrix.service }}
+          context: ${{ matrix.service == 'order-service' && '.' || matrix.service }}
+          file: ${{ format('{0}/Dockerfile', matrix.service) }}
           push: false
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}

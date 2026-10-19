@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from "vitest"
 import { createAdminApi } from "@/lib/admin-api"
 
 describe("Admin mock API adapter", () => {
+  it("keeps sample resolutions isolated while reading shared policy amounts", async () => {
+    const request = vi.fn().mockResolvedValue({})
+    const api = createAdminApi(request)
+    const input = { requesterId: "owner", courierId: null, appliedPenalties: [], resolutionReason: "Requester requested cancellation" }
+    await api.resolveOrder("order/1", "cancel", input)
+    expect(request).toHaveBeenLastCalledWith("/api/orders/admin-mock/orders/order%2F1/cancel", { method: "POST", body: input })
+    await api.penaltyPolicies()
+    expect(request).toHaveBeenLastCalledWith("/api/orders/admin/penalty-policies", { signal: undefined })
+  })
   it("uses the existing exact-ID Order query and rejects an empty or mismatched result", async () => {
     const request = vi.fn().mockResolvedValue({ items: [{ id: "order/1" }] })
     const admin = createAdminApi(request)
@@ -27,12 +36,12 @@ describe("Admin mock API adapter", () => {
     const admin = createAdminApi(request)
     await admin.orders({ page: 2, status: "COMPLETED", orderId: "id/with spaces" })
     expect(request).toHaveBeenCalledWith(
-      "/api/orders/admin-mock/orders?page=2&size=10&status=COMPLETED&orderId=id%2Fwith+spaces",
+      "/api/orders/admin-mock/orders?page=2&size=20&status=COMPLETED&orderId=id%2Fwith+spaces",
       { signal: undefined },
     )
     await admin.users({ page: 1, searchBy: "id", q: "user-1" })
     expect(request).toHaveBeenLastCalledWith(
-      "/api/orders/admin-mock/users?page=1&size=10&searchBy=id&q=user-1", { signal: undefined },
+      "/api/orders/admin-mock/users?page=1&size=20&searchBy=id&q=user-1", { signal: undefined },
     )
   })
 

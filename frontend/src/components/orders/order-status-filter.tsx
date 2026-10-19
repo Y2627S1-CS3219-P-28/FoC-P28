@@ -3,7 +3,7 @@
 import { useId } from "react"
 
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StatusSelect } from "./status-select"
 import { formatOrderStatus, type OrderMode, type OrderStatus } from "@/lib/orders"
 
 const ALL_STATUSES = "all"
@@ -29,18 +29,10 @@ export function OrderStatusFilter({ mode, value, label, onChange }: {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Label htmlFor={id}>Status</Label>
-      <Select
-        items={items}
-        value={value ?? ALL_STATUSES}
-        onValueChange={(selected) => onChange(!selected || selected === ALL_STATUSES ? null : selected as OrderStatus)}
-      >
-        <SelectTrigger id={id} aria-label={label} className="min-w-40">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(items).map(([status, text]) => <SelectItem key={status} value={status}>{text}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <StatusSelect id={id} aria-label={label} className="min-w-40" value={value ?? ALL_STATUSES}
+        onChange={event => onChange(event.target.value === ALL_STATUSES ? null : event.target.value as OrderStatus)}>
+        {Object.entries(items).map(([status, text]) => <option key={status} value={status}>{text}</option>)}
+      </StatusSelect>
     </div>
   )
 }

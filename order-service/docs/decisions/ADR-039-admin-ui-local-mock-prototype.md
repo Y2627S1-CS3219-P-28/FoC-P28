@@ -1,5 +1,21 @@
 # ADR-039: Local Admin UI mock prototype
 
+## Approved user-action refinement — 2026-10-15
+
+Remove manual Suspend User action/form from the Admin dashboard. Only promotion
+and deactivation remain, retaining current provider readiness gates and
+deactivation confirmation. Suspension status/end-time remain read-only. This
+does not alter automatic suspension policy or remove existing peer/mock APIs.
+
+## Effective history integration — CHANGE-133,2026-10-15
+
+User approves linking only existing selected-user history to completed Credit
+admin API. Live capability enabled with real admin bearer request, server paging,
+independent error/retry; no mock fallback. Base Compose remains sample-based.
+Balance005 remains unavailable;006 is complete. Global Credit tab not requested.
+This refines provider readiness, not dashboard layout or authentication.
+
+
 Status: user-approved prototype scope, Yao Xiang, 2026-10-11; partial live refinement approved2026-10-13 (CHANGE-119).
 Change: [CHANGE-111](../../changes/CHANGE-111-admin-ui-mock-prototype.md).
 

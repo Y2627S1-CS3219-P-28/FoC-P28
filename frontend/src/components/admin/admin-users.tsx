@@ -20,6 +20,10 @@ function AdminUserTransactions({ userId }: { userId: string }) {
   const [page, setPage] = useState(1)
   const load = useCallback((signal: AbortSignal) => api.userTransactions(userId, page, signal), [api, userId, page])
   const { data, loading, error, refresh } = useAdminPage(load)
+  if (error) return <Card>
+    <CardHeader><CardTitle className="text-xl">Credit transactions</CardTitle></CardHeader>
+    <CardContent><AdminLoadState loading={loading} error={error} empty={false} retry={refresh} /></CardContent>
+  </Card>
   return <TransactionHistoryView items={data?.items ?? []} totalItems={data?.totalItems ?? 0}
     totalPages={data?.totalPages ?? 0} page={page} onPage={setPage} error={!!error}
     loading={loading} refreshing={loading} refresh={refresh} />
@@ -31,8 +35,6 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
   const { data, loading, error, refresh } = useAdminPage(load)
   const [updated, setUpdated] = useState<AdminUser | null>(null)
   const selected = updated ?? data
-  const [showSuspend, setShowSuspend] = useState(false)
-  const [suspensionEnd, setSuspensionEnd] = useState("")
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -44,20 +46,10 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
     try {
       setUpdated(await action())
       setConfirmDeactivate(false)
-      setShowSuspend(false)
       toast.success(message)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Could not update the user.")
     } finally { setBusy(false) }
-  }
-
-  function suspend() {
-    const end = new Date(suspensionEnd)
-    if (!suspensionEnd || !Number.isFinite(end.getTime()) || end.getTime() <= Date.now()) {
-      setActionError("Choose a suspension end date and time in the future.")
-      return
-    }
-    if (selected) void mutate(() => api.suspendUser(selected.userId, end.toISOString()), "User suspended.")
   }
 
   return <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:py-10">
@@ -70,18 +62,12 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
         <CardContent className="space-y-4">
           {!api.capabilities.userActions && <p className="text-sm text-muted-foreground">User management is coming soon.</p>}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={!api.capabilities.userActions || busy || !selected.active} onClick={() => { setShowSuspend(!showSuspend); setActionError(null) }}>Suspend User</Button>
             <Button variant="outline" disabled={!api.capabilities.userActions || busy || !selected.active || selected.roles.includes("admin")}
               onClick={() => void mutate(() => api.promoteUser(selected.userId), "User promoted to admin.")}>
               {selected.roles.includes("admin") ? "Already an admin" : "Promote to Admin"}</Button>
             <Button variant="destructive" disabled={!api.capabilities.userActions || busy || !selected.active}
               onClick={() => { setActionError(null); setConfirmDeactivate(true) }}>Deactivate User</Button>
           </div>
-          {showSuspend && <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <Label htmlFor="suspension-end">Suspension end (your local time)</Label>
-            <Input id="suspension-end" type="datetime-local" value={suspensionEnd} onChange={(event) => setSuspensionEnd(event.target.value)} disabled={busy} />
-            <Button disabled={busy} onClick={suspend}>{busy ? "Applying…" : "Confirm suspension"}</Button>
-          </div>}
           {actionError && !confirmDeactivate && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
         </CardContent>
       </Card>
@@ -158,10 +144,10 @@ function AdminUserDirectory() {
         <Table className="min-w-[1300px]"><TableHeader><TableRow>{["Name", "Email", "User ID", "Roles", "Account status", "Courier status", "Available credits", "Reserved credits", "Total credits", ""].map((title, index) =>
           <TableHead key={index}>{title || <span className="sr-only">Profile</span>}</TableHead>)}</TableRow></TableHeader>
           <TableBody>{data.items.map((user) => <TableRow key={user.userId}>
-            <TableCell><button type="button" className="text-left font-normal hover:underline" onClick={() => setSelectedId(user.userId)}>{user.username}</button></TableCell>
-            <TableCell>{user.email}</TableCell>
-            <TableCell><CopyId id={user.userId} /></TableCell>
-            <TableCell>{user.roles.join(", ")}</TableCell>
+            <TableCell><button type="button" className="block max-w-40 truncate text-left font-normal hover:underline" title={user.username} onClick={() => setSelectedId(user.userId)}>{user.username}</button></TableCell>
+            <TableCell><span className="block max-w-52 truncate" title={user.email}>{user.email}</span></TableCell>
+            <TableCell><CopyId id={user.userId} compact /></TableCell>
+            <TableCell><span className="block max-w-40 truncate" title={user.roles.join(", ")}>{user.roles.join(", ")}</span></TableCell>
             <TableCell><Badge variant="outline">{user.active ? "Active" : "Inactive"}</Badge></TableCell>
             <TableCell><Badge variant="outline">{user.isCourierSuspended ? "Suspended" : "Active"}</Badge></TableCell>
             <TableCell>{user.usableBalance}</TableCell>

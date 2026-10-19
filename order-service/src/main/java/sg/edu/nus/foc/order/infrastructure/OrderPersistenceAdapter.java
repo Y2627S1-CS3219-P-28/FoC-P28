@@ -2,6 +2,9 @@ package sg.edu.nus.foc.order.infrastructure;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,6 +22,10 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 @Repository
 @RequiredArgsConstructor
 public class OrderPersistenceAdapter implements OrderRepository {
+    private static final List<String> ACTIVE_STATUSES = List.of(
+            OrderStatus.OPEN.name(), OrderStatus.ACCEPTED.name(), OrderStatus.IN_PROGRESS.name(),
+            OrderStatus.PICKED_UP.name(), OrderStatus.DELIVERED.name());
+
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
     private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
@@ -26,6 +33,16 @@ public class OrderPersistenceAdapter implements OrderRepository {
     @org.springframework.beans.factory.annotation.Autowired
     public void setCommandStore(sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands) {
         this.commands = commands;
+    }
+
+    @Override
+    public boolean hasActiveUserInvolvement(String userId) {
+        return repository.existsActiveUserInvolvement(userId, ACTIVE_STATUSES);
+    }
+
+    @Override
+    public boolean hasActiveSupplierInvolvement(String supplierId) {
+        return repository.existsActiveSupplierInvolvement(supplierId, ACTIVE_STATUSES);
     }
 
     @Override
@@ -129,6 +146,21 @@ public class OrderPersistenceAdapter implements OrderRepository {
                 ? repository.findAll(pageable)
                 : repository.findByStatusOrderByCreatedAtDesc(status, pageable);
         return toOrderPage(result);
+    }
+
+    @Override
+    public OrderPage findAllOrders(OrderStatus status, String orderId, Instant createdFrom, Instant createdBefore, int page, int size) {
+        Specification<Order> filter = (root, query, criteria) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) predicates.add(criteria.equal(root.get("status"), status));
+            if (orderId != null) predicates.add(criteria.equal(root.get("id"), orderId));
+            if (createdFrom != null) predicates.add(criteria.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));
+            if (createdBefore != null) predicates.add(criteria.lessThan(root.get("createdAt"), createdBefore));
+            return criteria.and(predicates.toArray(Predicate[]::new));
+        };
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id")));
+        return toOrderPage(repository.findAll(filter, pageable));
     }
 
     @Override

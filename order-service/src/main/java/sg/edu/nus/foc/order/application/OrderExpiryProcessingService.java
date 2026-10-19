@@ -37,6 +37,7 @@ public class OrderExpiryProcessingService {
 
         Order order = candidate.get();
         if (order.getStatus() != OrderStatus.OPEN
+                || order.isCompletionHold()
                 || order.getCourierId() != null
                 || order.getExpiresAt().isAfter(now)) {
             return false;

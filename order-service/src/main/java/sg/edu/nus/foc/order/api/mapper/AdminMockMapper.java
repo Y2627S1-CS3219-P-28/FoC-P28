@@ -12,6 +12,8 @@ import sg.edu.nus.foc.order.api.dto.response.AdminMockTransactionResponse;
 /** Response copies prevent HTTP serialization or callers mutating the demo store. */
 @Mapper(componentModel = "spring")
 public interface AdminMockMapper {
+    sg.edu.nus.foc.order.api.dto.response.ReportDemoResponse copyReport(sg.edu.nus.foc.order.api.dto.response.ReportDemoResponse source);
+    sg.edu.nus.foc.order.api.dto.request.ReportEvidence copyEvidence(sg.edu.nus.foc.order.api.dto.request.ReportEvidence source);
 
     AdminMockUserResponse copyUser(AdminMockUserResponse source);
 

@@ -1,8 +1,32 @@
 # Admin Peer API Requests
 
-Date: 2026-10-13. Owner: Yao Xiang. Scope: CHANGE-111 prototype, CHANGE-119 partial live integration and CHANGE-122 Compose selection.
+## Current provider authorization request - CHANGE-154 (2026-10-19)
+
+For admin-related operations, provide provider-enforced admin authorization, not only an Admin UI gate. User search/directory and cross-user profile access (001), promotion (003) and safe deactivation (004) must validate the Firebase caller and authoritative admin role; return401 for invalid authentication and403 for a non-admin. Reuse/harden compatible existing routes without silently breaking ordinary self-service callers; agree a dedicated admin route where necessary. Exact new route names remain proposals until provider agreement. No manual suspension or penalty-replacement endpoint is requested. Credit history already has an admin route; cross-user balance005 remains pending. Never substitute a caller's own balance or ordinary mutation endpoint for missing admin capabilities.
+
+User penalty scoring must use the explicit addition/deduction subscribers, not new legacy accepted-cancellation scoring. These are authenticated broker deliveries, not human-admin HTTP calls. FEEDBACK-014 and the current CHANGE-154 section in peer-service-api-feedback.md specify topics, payload, duplicate handling and legacy backlog reconciliation. This request changes no provider, UI wiring, cloud subscription or runtime behavior.
+
+
+## Calendar filters are Order-owned — CHANGE-139
+
+Admin list date filtering extends existing Order GET endpoints; no new Credit/User/Supplier API required. Existing peer gaps are unchanged. Real SQL search and isolated demo fixture filtering are linked through the existing environment-selected frontend adapter.
+
+
+## Order admin actions linked — CHANGE-138
+
+Order-owned cancellation/completion are linked in the Admin Orders list and details. No missing peer API for these actions. Real mode uses POST /api/orders/admin/{orderId}/cancel or /complete with stored participant IDs, optional selected enum cases and saved resolutionReason; selection does not bypass backend admin checks. GET /api/orders/admin/penalty-policies supplies scores from foc-common. Demo mode uses isolated local admin-mock mutations. Existing balance/User-management requests remain pending; this change does not mark them completed. Credit and User event schemas/topics are unchanged (User subscriber FEEDBACK-014 remains pending).
+
+
+CHANGE-134 (2026-10-16): Order-owned POST /api/orders/admin/{orderId}/cancel
+is implemented with admin verification, active/held state checks and optional
+highest penalty/refund outbox. See ADR-044 and Swagger for its request. This is
+not a missing peer API. Existing balance005 and User management gaps below remain.
+Order detail responses now expose nullable isOverdue for authorized Report reads.
+
+Date: 2026-10-15. Owner: Yao Xiang. Scope: CHANGE-111 prototype, CHANGE-119 partial live integration, CHANGE-122 Compose selection and CHANGE-133 selected-user Credit history.
 Evidence: current repository controllers, request/response models and services;
-source inspection only, not live integration verification.
+source inspection and automated provider/adapter/UI verification (results in
+CHANGE-133), not deployed authenticated integration verification.
 
 Base Compose UI with Firebase Auth emulator retains Order-owned sample endpoints
 under /api/orders/admin-mock, including sample role lookup. HTTP-peer override and staging/production use
@@ -21,9 +45,9 @@ or successful adapter tests as completed peer implementation/live verification.
 | User directory / name search / pagination | Sample pages | User directory card: Coming soon; no unprotected/unpaged real list call |
 | Selected user / exact UID lookup | Complete sample profile | Existing UserSummary only: userId, username, email, roles, penalty, isCourierSuspended, suspensionEndDate |
 | Profile ID / phone / address / account active | Sample projections | Null placeholders: Coming soon; unavailable is never represented as inactive |
-| Suspension / promotion / safe user deactivation | Sample mutations | Disabled; no calls to missing endpoints or existing hard-delete operation |
+| Promotion / safe user deactivation | Sample mutations | Disabled; no calls to missing endpoints or existing hard-delete operation |
 | Another user's Credit balance | Sample numbers | Available/reserved/total each Coming soon; never substituted with zero or caller balance |
-| Another user's Credit history | Sample history page | Credit transactions card: Coming soon; no missing endpoint call |
+| Another user's Credit history | Sample history page | Real admin-only GET /api/credits/users/{userId}/transactions?page=1&size=20; independent loading/error/retry and server pagination |
 
 Under CHANGE-122, runtime ConfigProvider selects mocks only when the requested
 FOC_ADMIN_API_MODE is mock, FOC_ENVIRONMENT is local and an Auth emulator URL is
@@ -38,7 +62,8 @@ one record into a page and only a provider404 into empty results; 401/403/5xx
 remain visible. Supplier q search also matches building/location, as its existing
 contract specifies. No client fetch-all/filter directory workaround is used.
 
-ADMIN-API-001..006 below remain requests to the owning teams. Completing their
+ADMIN-API-001/003/004/005 below remain requests to the owning teams;002 was
+withdrawn when the user removed manual suspension from the dashboard. Completing their
 contracts later allows the central adapter/capability flags to replace the
 placeholders; no page-layout redesign is required. Source/adapter/UI tests pass
 as recorded in CHANGE-119; deployed authenticated integration is not yet verified.
@@ -58,6 +83,8 @@ as recorded in CHANGE-119; deployed authenticated integration is not yet verifie
 | Supplier | POST /api/suppliers | Admin-only creation; 201 SupplierResponse. Reuse existing CreateSupplierRequest. |
 | Supplier | DELETE /api/suppliers/{id} | Admin-only soft deactivation; 200 SupplierResponse with active false. |
 | Supplier | PATCH /api/suppliers/{id} | Existing admin field/active update; not a missing API. |
+| Credit | GET /api/credits/users/{userId}/transactions?page=1&size=20 | Completed ADMIN-API-006; selected profile history, administrator's bearer token, no body. User-filtered DB paging; missing account is 404, not an empty success. |
+| Credit | GET /api/credits/all/transactions?page=1&size=20 | Completed system-wide history API, with userId per item. No global UI tab requested; not called by this dashboard change. |
 
 Supplier creation already accepts name, type, building, floor,
 locationDescription, latitude, longitude, openingTime, closingTime, imageUrl.
@@ -118,31 +145,13 @@ existing profile endpoint. Otherwise return null/Not provided until the owner
 agrees the model, privacy and migration. Credit balances must come from Credit,
 not be invented or independently maintained by User Service.
 
-## ADMIN-API-002: Explicit suspension end date/time
+## ADMIN-API-002: Manual suspension request withdrawn (2026-10-15)
 
-- Responsible service: User Service.
-- Status: missing administrative mutation; current penalty operations are not
-  a substitute and must not be invoked to implement manual suspension.
-- Proposed operation: PUT /api/users/{userId}/suspension.
-- Purpose: administrator chooses a future UTC ending instant; User Service owns
-  eligibility, enforcement and eventual suspension restoration.
-
-Expected request:
-
-~~~json
-{ "suspensionEndDate": "2026-11-01T04:00:00Z" }
-~~~
-
-Expected response: 200 updated User profile, including
-isCourierSuspended=true and the precise suspensionEndDate. Reapplying the same
-ending instant is safe. Invalid/past instant -> 400, missing user -> 404,
-missing/invalid token -> 401, non-admin -> 403.
-
-The demo models the repository's courier suspension fields. Account-wide versus
-courier-only suspension needs the User owner's explicit policy agreement; do not
-assume requester capabilities are disabled merely because a courier is suspended.
-Also agree how already assigned orders and pending financial commands can finish
-or recover. Storage must preserve timezone/instant precision, not date alone.
+The user removed Suspend User from the Admin dashboard. Only Promote to Admin
+and Deactivate User remain as user actions, so no manual-suspension API is
+requested for this UI. Existing courier suspension status/end-time fields stay
+read-only in profiles. Automatic penalty/suspension rules and the retained mock
+endpoint are unchanged; the dashboard no longer calls that endpoint.
 
 ## ADMIN-API-003: Promote an existing user to administrator
 
@@ -208,48 +217,67 @@ Verify an authoritative admin role; 401 invalid token, 403 non-admin,
 projection should not hide the user profile; show Credits unavailable and retry.
 No balance mutation is requested.
 
-## ADMIN-API-006: Administrator reads another user's credit transactions
+### Credit team implementation request (confirmed source review, 2026-10-15)
 
-- Responsible service: Credit Service. Status: MISSING in the inspected checkout.
-- Existing implementation: GET /api/credits/me/transactions uses the verified
-  caller's UID. It cannot load an arbitrary selected admin profile. Keep its
-  ownership rules; do not impersonate the selected user or pass their token.
-- Required operation: GET /api/credits/users/{userId}/transactions?page=1&size=20.
-- Request: selected Firebase UID in the path, one-based page and size 1..100
-  in query parameters, administrator's bearer token; no request body.
-- Expected response: existing TransactionPageResponse / TransactionResponse
-  wire format, filtered by selected user before paging, newest occurredAt first,
-  stable transactionId tie-breaker. Example:
+The remaining Credit API gap for the current Admin profile is **selected-user
+balance only**. Both selected-user and system-wide transaction history endpoints
+are already implemented; do not recreate them. The selected-user history card
+is already linked under CHANGE-133.
 
-~~~json
-{
-  "items": [{
-    "transactionId": "transaction-id",
-    "type": "RECEIVED",
-    "amount": 10,
-    "direction": "CREDIT",
-    "occurredAt": "2026-10-11T12:00:00Z",
-    "orderId": "order-id"
-  }],
-  "page": 1,
-  "size": 20,
-  "totalItems": 1,
-  "totalPages": 1
-}
+Please add the admin-protected read to the existing Credit administrative API:
+
+~~~http
+GET /api/credits/users/{userId}/balance
+Authorization: Bearer <signed-in-administrator-firebase-id-token>
+Accept: application/json
 ~~~
 
-`amount` is a nonnegative credit magnitude; direction is CREDIT or DEBIT.
-Existing type values: INITIAL_ALLOCATION, RESERVATION, PAID, RECEIVED,
-REFUNDED_CANCELLATION, REFUNDED_EXPIRY, REFUNDED. orderId may be null for
-initial allocation; occurredAt is an ISO-8601 UTC instant. Empty existing
-accounts return an empty items page. Invalid paging=400, invalid/missing
-token=401, non-admin=403, missing account=404, role lookup unavailable=503.
-Verify admin authorization and selected-user isolation in provider tests.
+- `userId` is the selected user's Firebase UID in the path. No JSON body or
+  balance query parameter is needed.
+- Validate the caller's Firebase token and require the authoritative `ADMIN`
+  role, consistent with `AdminCreditController`'s transaction-history endpoints.
+  The selected user's token is not supplied.
+- Reuse `BalanceResponse` and Credit's existing account lookup. Return the
+  selected account's `userId`, `totalBalance`, `reservedBalance`, `usableBalance`
+  and `asOf`, as shown above. Existing `asOf` means the account's last-update
+  instant (`updatedAt`), not an invented current query timestamp.
+- Use existing error envelopes:400 invalid selected UID,401 missing/invalid
+  token,403 non-admin,404 account not provisioned,503 role lookup unavailable.
+  This read must not initialize an account or change balances.
+- Keep `GET /api/credits/me` caller-only. Calling it with the administrator's
+  token returns the administrator's balance and cannot populate another profile.
+- Provider tests should verify admin access to another account, correct selected
+  UID/balances, rejection of non-admin/unauthenticated calls, invalid UID and
+  missing account. Preserve existing caller-only `/me` behavior.
 
-The prototype uses only Order-owned sample history, with the same wire fields.
-Its fixture allocations and transactions are illustrative, not actual Credit
-records or policy. Profile and history failures are independent: show history
-retry while retaining the selected profile and admin actions.
+Until this endpoint is implemented and verified, live Admin balance fields remain
+**Coming soon**. Base Compose keeps its clearly sample balances. Do not derive
+balances from transaction pages, substitute the administrator's balance or turn
+an unavailable balance into zero. Linking this new read is future work; this
+documentation update does not implement it or modify Credit Service.
+
+## Completed selected-user Credit history — CHANGE-133
+
+ADMIN-API-006 is removed from the open requests: Credit now implements the
+required operation, and the existing Admin profile card calls it in live mode.
+
+- GET /api/credits/users/{userId}/transactions?page=1&size=20, no body.
+- The signed-in administrator's Firebase bearer token authorizes the request;
+  selected userId is only the record selector. Credit enforces ADMIN itself.
+- Response: {items,page,size,totalItems,totalPages}; items contain transactionId,
+  type, amount, direction, occurredAt and nullable orderId. There is no per-item
+  userId in this selected-user response. Existing shared history presentation fits.
+- One-based page, size1..100; SQL filters selected user and visibility before
+  counting/paging, newest occurredAt/createdAt/transactionId first.
+- Types: INITIAL_ALLOCATION, RESERVATION, PAID, RECEIVED, REFUNDED_CANCELLATION,
+  REFUNDED_EXPIRY, REFUNDED. Positive amount; CREDIT or DEBIT direction; UTC instant.
+- Errors:400 invalid request,401 invalid token,403 non-admin,404 unprovisioned
+  account,503 role provider unavailable. Show error/retry without hiding profile
+  or presenting an empty success. Real errors never fall back to sample history.
+- Provider contract: [Credit handoff](../../credit-service/docs/admin-transaction-api-handoff.md).
+  Source and automated checks do not imply deployed authenticated verification.
+- Base Compose keeps sample history. Selected balances still require005.
+  GET /api/credits/all/transactions also exists; user explicitly chose no global tab.
 
 ## Prototype contracts and replacement checklist
 
@@ -334,3 +362,46 @@ check only controls UI: every actual backend operation must enforce admin too.
 Do not fall back to sample data when a real dependency fails. Verify actual
 contracts, errors, authorization, mutation semantics and integration tests before
 calling real Admin UI complete. No sibling backend implementation was changed.
+
+
+## Delivered report review — pending Report Service (FEEDBACK-015)
+
+See peer-service-api-feedback.md FEEDBACK-015 for full proposed Report APIs and evidence schema. Local sample lists/cases/response/resolution are implemented, but live Reports remain Coming soon. Admin financial actions and overdue waiver use real Order APIs separately. Report Service must call the report-specific admin hold release after durably recording resolution, with forwarded resolving-admin Firebase authorization and durable retry/continuation. Do not clear a shared boolean without verifying remaining active report holds.
+
+
+CHANGE-144: User replacement requires the synchronous admin-authorized PUT contract and exact confirmation in FEEDBACK-016; no new adjustment topic. Existing fixed score PUTs are unsuitable. Live Admin adjustment is disabled pending provider verification. Report APIs remain missing; FEEDBACK-015 amendment removes response deadline, adds Open/Closed grouping and required reply on resolution.
+
+
+CHANGE-146 supersedes CHANGE-144: no User penalty replacement endpoint is requested now. Apply penalty is supplied by Order Service and only stores highest policy; final addition/deduction events use the existing contract. Admin completion is removed. Report resolution still needs report-specific hold release; Report Service remains missing. Existing Credit/profile API requests are unchanged.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+
+CHANGE-149 (2026-10-19), Yao Xiang: Reports reuse existing Order-style Status/Order ID/Search/Clear form, remove manual refresh icon, retain visible five-second polling and Open/Closed groups. Status means report status (Awaiting courier response, Ready for review, Resolved). Exact trimmed Order ID plus report status filter on local mock before pagination/counts; independent page counters reset on filter changes. Preserve participant scoping/reply privacy. Extend existing gated sample GET with optional orderId/reportStatus; no real Report endpoint, sibling backend, scoring, database or deployment changes. Live Reports remain Coming soon. TDD and verification pending.
+
+
+## Report list filters — CHANGE-149
+
+The local Report list GET accepts optional orderId (exact related Order ID, trimmed, max128) and reportStatus (AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW, RESOLVED). Existing status=OPEN or RESOLVED remains the grouping selector; reportStatus intersects it. Empty filters mean all within the group. Scope/filters apply before pagination and totals; filters reset both page counters. The future Report Service must support equivalent filtering on its existing list contract and derive participants/admin from verified identity; this prototype's sample identity flags are never production authority. UI uses the same shared AdminFilterForm/Actions, Select and Input as Order search; normal user and Admin Reports retain their respective scopes. No refresh icon; existing visible five-second polling and error retry remain. HTTP-peer/staging/production Reports still show Coming soon, with no mock fallback.
+
+
+CHANGE-150 (2026-10-19), Yao Xiang: remove separate Open/Closed report sections. One server-paginated card list under the existing Order ID/report-status filters; one five-second polling query with blank grouping selector (all statuses). Preserve grey styling and View report for RESOLVED cards. Filters and participant-tab changes reset the single page. Existing backend supports this query; no backend, endpoint, data or scoring change. TDD regressions cover mixed active/resolved results, one query, filtering/page reset and retained navigation. Verification pending.
+
+
+CHANGE-152 (2026-10-19), Yao Xiang: remove all normal-mode Reports UI: /reports, /reports/new, /reports/[id], normal sidebar entry, submit/response/evidence-upload forms, participant tabs/branches and unused frontend submission helpers/types. Retain only AdminReportsPage under existing RequireAuth/AdminGate layout, Admin list/search/status/pagination/polling, grey resolved cards, linked Order/user details, evidence/response viewing and resolve-with-reply. Local admin sample/live Coming soon unchanged. Backend sample fixtures/endpoints, report/hold/domain rules and future Report Service requirements remain; this is UI-scope removal only. No sibling/backend/config/data changes. User explicitly authorized removal; deleted source backed up under ignored target for recovery. Verification pending.
+
+
+## Effective CHANGE-153 — Hold eligibility and paused funding (2026-10-19)
+
+Yao Xiang approved placing a requester-owned completion hold on any Order status except COMPLETED. This supersedes delivered-only placement and the old blanket terminal-state rejection for new holds. Preserve status, ownership/role checks, bound report IDs, locked transaction and release history. A hold placed after cancellation/expiry records a hold only; it does not restore lifecycle state or reverse settled funding.
+
+The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
+
+No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.

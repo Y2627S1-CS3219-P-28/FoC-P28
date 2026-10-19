@@ -16,7 +16,6 @@ import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
 
@@ -121,7 +120,7 @@ class OrderApplicationServicesTest {
             mock(OrderEventOutboxRepository.class),
             mock(ApplicationEventPublisher.class),
             new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
-            audit);
+            audit, org.mockito.Mockito.mock(sg.edu.nus.foc.order.application.PenaltyOutcomeRecorder.class));
         Order order = Order.open("requester", "item", "p", "d", 2, 15, START, START.plusSeconds(1800));
         order.accept("courier", 0, START.plusSeconds(1));
         when(users.verifyCourier("courier", AUTH)).thenReturn("courier");
@@ -170,7 +169,7 @@ class OrderApplicationServicesTest {
             mock(OrderEventOutboxRepository.class),
             mock(ApplicationEventPublisher.class),
             new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)),
-            mock(OrderAuditLogger.class));
+            mock(OrderAuditLogger.class), org.mockito.Mockito.mock(sg.edu.nus.foc.order.application.PenaltyOutcomeRecorder.class));
         assertSame(existing, service.complete("same", existing.getId(), "requester", 0, AUTH));
     }
 

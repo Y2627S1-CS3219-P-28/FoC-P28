@@ -13,7 +13,6 @@ services:
       PUBSUB_PROJECT_ID: demo-foc-local
       ORDER_COMPLETION_TOPIC: order-completion-local-v1
       ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
-      ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-local-v1
 
   credit-service:
     environment:

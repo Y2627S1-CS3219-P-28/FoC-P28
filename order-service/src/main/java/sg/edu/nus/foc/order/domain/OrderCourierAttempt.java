@@ -3,6 +3,9 @@ package sg.edu.nus.foc.order.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -49,12 +52,25 @@ public class OrderCourierAttempt {
     @Column(length = 36)
     private String repostedOrderId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 64)
+    private PenaltySystemPolicy appliedPenalty;
+    private Instant appliedPenaltyAt;
+    @Column(length = 128)
+    private String appliedPenaltyBy;
+    @Column(length = 1000)
+    private String appliedPenaltyReason;
+
     public OrderCourierAttempt(Order order, String courier, long expectedVersion, Instant abortedAt) {
         order.validateAcceptedCancellation(courier, expectedVersion);
-        this.id = UUID.randomUUID();
+        this.id = order.ensureCourierAssignmentId();
         this.orderId = order.getId();
         this.requesterId = order.getRequesterId();
         this.courierId = courier;
+        this.appliedPenalty = order.getAppliedPenalty();
+        this.appliedPenaltyAt = order.getAppliedPenaltyAt();
+        this.appliedPenaltyBy = order.getAppliedPenaltyBy();
+        this.appliedPenaltyReason = order.getAppliedPenaltyReason();
         this.itemDescription = order.getItemDescription();
         this.pickupSupplierId = order.getPickupSupplierId();
         this.deliverySupplierId = order.getDeliverySupplierId();

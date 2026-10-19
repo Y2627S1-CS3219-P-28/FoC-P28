@@ -1,5 +1,68 @@
 # Order Service Sprint 1 Sequences 1â€“11 â€” Handoff to Yao Xiang
 
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+## Admin cancellation and overdue handoff — CHANGE-134
+
+CHANGE-134 / ADR-044 (Yao Xiang2026-10-16): POST /api/orders/admin/{orderId}/cancel
+accepts requesterId, nullable courierId and optional appliedPenalties. Admin-only;
+all active/held states -> CANCELLED; locked stored participants, maximum one
+addition, no successful reward; refund and optional penalty commit in outbox.
+Common adds COURIER_UNRESPONSIVE=3. OrderResponse nullable isOverdue is calculated
+from grouped checkpoint timings (actual delivery freezes result). Existing
+roles/topics/schedulers unchanged; Report/User integration remains pending.
+
+Report must call GET Order using existing admin/participant authorization;
+isOverdue null means unknown. Do not derive lateness from expiresAt or time of
+completion. Cancel retries use identical participants/reasons; conflicting
+replays409. Success means intent commit; Credit/User effects are asynchronous.
+
+## Current Admin Credit history handoff — CHANGE-133
+
+Nine merge conflicts resolved retaining both branches. Live Admin user profiles
+now load GET /api/credits/users/{userId}/transactions?page=1&size=20 through
+useApi/gateway with the administrator's Firebase token; Credit verifies ADMIN.
+Existing responsive history card/pagination reused; failures show retry while
+profile remains visible. Base Compose still uses sample history. Balance005 is
+still missing and remains Coming soon. Completed request006 removed from open
+peer requests. No global Credit tab per user decision; no sibling backend edits.
+Common/Order438 + Credit102 tests and coverage gates pass; frontend212 tests,
+build/typecheck pass; lint0 errors/3 existing warnings. Authenticated deployed
+browser verification and human review pending. No commit/push or deployment.
+
+## Active involvement handoff - CHANGE-129 / ADR-042
+
+Order provides shared-role GET /api/orders/users/{userId}/active-involvement
+and /api/orders/suppliers/{supplierId}/active-involvement, returning the ID and
+hasActiveOrders. Five active states/current relationships/held Orders count via
+SQL EXISTS; no foreign lookup/name storage/deletion lock.420 backend/129 frontend
+checks pass. Providers must call these checks and handle admission/pending races;
+FEEDBACK-015 remains open. Current Order UI keeps its layout and shows Deleted
+supplier on missing/null successful lookup, unavailable on failure. No User-name
+rows exist here. Actual deletion/browser/container rollout unverified.
+## Current penalty handoff - CHANGE-128 / ADR-041 (2026-10-14)
+
+Order now queues explicit PenaltyScoreAdditionEvent (+2 abort/+1 overdue) or
+PenaltyScoreDeductionEvent (1 successful), including manual/system completion.
+Credit completion/refund events unchanged; new accepted-cancellation emission
+replaced, legacy stored replay retained. Exact seven-field contract and consumer
+requirements: FEEDBACK-014/AsyncAPI. Final403 backend tests and unchanged coverage
+gates pass;3 bootstrap tests and both Compose configs pass. No new frontend edit,
+peer backend or cloud execution. Before cloud CI/deploy, infrastructure owner
+must provision new topics/IAM with configure-order-pubsub.sh for both environments.
+User subscriber, ordering and legacy cutover remain incomplete; no full integration claim.
+
 ## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
 
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
@@ -500,3 +563,10 @@ CHANGE-093: lifecycle jobs select due IDs and process each through a separate NO
 ## CHANGE-094 handoff
 
 Yao Xiang requested Order-only5-second polling, Abort errand wording and personal status filters. Reuse mine endpoint with optional status; DB content/count match including courier ABORTED history and requester repost visibility. Both pages default all and reset page 1; existing primitives/auth/clients reused.58 frontend and219 backend tests pass;24DBtests skip without Docker.8 isolated browser scenarios pass at 320-1920; normal frontend build blocked by Google Fonts. Run isolated PostgreSQL filters and real authenticated UI before integrated completion; no peer/retry/schema/event change.
+
+## Shared penalty module handoff - CHANGE-130 / ADR-043
+CourierPenaltyCase moved to foc-common/common.penalty; +2/+1/-1 unchanged. Run root wrapper -pl order-service -am verify. Root-context Order Docker/Compose/CI/staging bundles common; production promotes the same image. No auth/peer backend migration. User event consumer remains pending; no cloud publication/deployment.
+
+CHANGE-131: shared D1 enum now has6 cases (2,1,1,4,4,10 positive amounts). New3 report misconduct reasons require admin confirmation; not emitted by existing Order flows. No schema/topic change. Future User/Report integration must implement highest effective penalty and theft permanent suspension; mapping alone does neither.
+
+CHANGE-132: current common type PenaltySystemPolicy (old Java name CourierPenaltyCase removed). getSuccessfulDeliveryReward returns SUCCESSFUL_DELIVERY; getCourierPenaltyCases returns immutable3 report reasons excluding original3; getFullPenaltyPolicy immutableall6. Order imports migrated and completion/direction uses reward helper. No event wire/state/build/auth/peer change.

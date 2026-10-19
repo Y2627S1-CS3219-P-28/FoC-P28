@@ -226,9 +226,9 @@ class OrderOutboxJpaIntegrationTest {
                 createdAt,
                 createdAt.plusSeconds(7200));
         order.accept("courier-" + requesterId, order.getVersion(), deliveredAt.minusSeconds(1800));
-        order.start("courier-" + requesterId, order.getVersion());
+        order.start("courier-" + requesterId, order.getVersion(), deliveredAt.minusSeconds(600));
         order.markPickedUp("courier-" + requesterId, order.getVersion());
-        order.markDelivered("courier-" + requesterId, order.getVersion());
+        order.markDelivered("courier-" + requesterId, order.getVersion(), deliveredAt);
         return order;
     }
 }

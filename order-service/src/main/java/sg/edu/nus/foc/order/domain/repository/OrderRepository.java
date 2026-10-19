@@ -8,6 +8,10 @@ import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface OrderRepository {
+    boolean hasActiveUserInvolvement(String userId);
+
+    boolean hasActiveSupplierInvolvement(String supplierId);
+
     Optional<Order> get(String id);
 
     Optional<Order> getForUpdate(String id);
@@ -29,6 +33,8 @@ public interface OrderRepository {
     OrderPage findCourierOrders(String courierId, OrderStatus status, int page, int size);
 
     OrderPage findAllOrders(OrderStatus status, int page, int size);
+
+    OrderPage findAllOrders(OrderStatus status, String orderId, Instant createdFrom, Instant createdBefore, int page, int size);
 
     List<Order> findDueUnassigned(OrderStatus status, Instant now);
 

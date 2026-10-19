@@ -1,4 +1,9 @@
 # Sprint 2-3: Order-owned effective design and verification
+CHANGE-128 / ADR-041: approved explicit courier penalty enum +2/+1/-1 and
+add/deduct events, replacing new accepted-cancellation publication. Credit
+messages unchanged; legacy stored replay remains. Order403 tests/coverage pass,
+but User subscriber/cutover/ordering still FEEDBACK-014; Sprint remains[~].
+Completion and abort sequence/class Markdown diagrams now reflect this contract.
 
 CHANGE-107: expiry is a direct minute-scheduler phase, without an HTTP adapter.
 Recovery/expiry/completion sequence and all repost APIs remain unchanged.
@@ -299,3 +304,5 @@ Requester dropdown excludes ABORTED. Courier dropdown excludes OPEN, EXPIRED and
 ## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
 
 The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.
+
+CHANGE-130 / ADR-043: shared Maven penalty-policy extraction only. Root reactor builds common and Order; Docker/CI/staging aligned. Same policy/wire contract, no new sprint product capability or User consumer readiness claim.

@@ -18,6 +18,7 @@ import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
 
 @Entity
 @Table(name = "orders", uniqueConstraints = @UniqueConstraint(name = "ux_order_repost_original", columnNames = "original_order_id"))
@@ -38,6 +39,16 @@ public class Order {
     private String requesterId;
     @Column(length = 128)
     private String courierId;
+    private UUID courierAssignmentId;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 64)
+    private PenaltySystemPolicy appliedPenalty;
+    private Instant appliedPenaltyAt;
+    @Column(length = 128)
+    private String appliedPenaltyBy;
+    @Column(length = 1000)
+    private String appliedPenaltyReason;
+
     @Column(nullable = false, length = 100)
     private String itemDescription;
     @Column(nullable = false, length = 128)
@@ -49,12 +60,34 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
+    @Column(name = "completion_hold", nullable = false)
+    private boolean completionHold;
     @Column(nullable = false)
     private Instant createdAt;
     @Column(nullable = false)
     private Instant expiresAt;
     @Column(nullable = false)
     private int deliveryTimeLimitMinutes;
+    private Instant deliveryDeadlineAt;
+    private Instant deliveredAt;
+    private Boolean deliveryOverdue;
+    @Column(nullable = false)
+    private boolean overduePenaltyWaived;
+    private Instant overdueWaivedAt;
+    @Column(length = 128)
+    private String overdueWaivedBy;
+    @Column(length = 1000)
+    private String overdueWaiverReason;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 24)
+    private AdminPenaltyDecision adminPenaltyDecision;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 64)
+    private PenaltySystemPolicy adminPenaltyReason;
+    private Integer adminPenaltyAmount;
+    private Instant adminResolutionAt;
+    @Column(length = 1000)
+    private String adminResolutionReason;
     @Version
     private long version;
     @Column(name = "original_order_id", length = 36)
@@ -119,7 +152,64 @@ public class Order {
     public void accept(String courierId, long expectedVersion, Instant now) {
         validateAcceptance(courierId, expectedVersion, now);
         this.courierId = courierId;
+        this.courierAssignmentId = UUID.randomUUID();
+        clearAppliedPenalty();
+        this.deliveryDeadlineAt = null;
+        this.deliveredAt = null;
         this.status = OrderStatus.ACCEPTED;
+    }
+
+    public void applyPenalty(String expectedCourier, long expectedVersion, PenaltySystemPolicy policy,
+            String adminId, String reason, Instant now) {
+        requireVersion(expectedVersion);
+        if (courierId == null || !courierId.equals(expectedCourier)) throw OrderProblem.conflict("The assigned courier changed.");
+        if (status != OrderStatus.ACCEPTED && status != OrderStatus.IN_PROGRESS
+                && status != OrderStatus.PICKED_UP && status != OrderStatus.DELIVERED) {
+            throw OrderProblem.conflict("Penalties can only be recorded for assigned active orders.");
+        }
+        if (policy == null || !PenaltySystemPolicy.getCourierPenaltyCases().contains(policy)) {
+            throw new OrderProblem("VALIDATION_ERROR", "Choose a report penalty; it cannot be cleared or replaced with a reward.");
+        }
+        String explanation = normalizeAdminResolutionReason(reason);
+        if (explanation == null || adminId == null || adminId.isBlank() || adminId.length() > 128) {
+            throw new OrderProblem("VALIDATION_ERROR", "Administrator and penalty reason are required.");
+        }
+        if (appliedPenalty == null || policy.getPenaltyAmount() > appliedPenalty.getPenaltyAmount()) {
+            appliedPenalty = policy;
+            appliedPenaltyAt = java.util.Objects.requireNonNull(now);
+            appliedPenaltyBy = adminId;
+            appliedPenaltyReason = explanation;
+        }
+    }
+
+    public int getAppliedPenaltyAmount() {
+        return appliedPenalty == null ? 0 : appliedPenalty.getPenaltyAmount();
+    }
+
+    public PenaltySystemPolicy penaltyAtCompletion() {
+        PenaltySystemPolicy overduePenalty = Boolean.TRUE.equals(deliveryOverdue) && !overduePenaltyWaived
+                ? PenaltySystemPolicy.OVERDUE_DELIVERY : null;
+        PenaltySystemPolicy highest = higherPenalty(appliedPenalty, overduePenalty);
+        if (highest != null) return highest;
+        // Preserve previously persisted historical waivers without granting a reward for a late delivery.
+        return Boolean.TRUE.equals(deliveryOverdue) ? null : PenaltySystemPolicy.getSuccessfulDeliveryReward();
+    }
+
+    public static PenaltySystemPolicy higherPenalty(PenaltySystemPolicy first, PenaltySystemPolicy second) {
+        if (first == null) return second;
+        return second != null && second.getPenaltyAmount() > first.getPenaltyAmount() ? second : first;
+    }
+
+    private void clearAppliedPenalty() {
+        appliedPenalty = null;
+        appliedPenaltyAt = null;
+        appliedPenaltyBy = null;
+        appliedPenaltyReason = null;
+    }
+
+    public UUID ensureCourierAssignmentId() {
+        if (courierAssignmentId == null) courierAssignmentId = UUID.randomUUID();
+        return courierAssignmentId;
     }
 
     public void validateAcceptance(String courierId, long expectedVersion, Instant now) {
@@ -140,7 +230,13 @@ public class Order {
     }
 
     public void start(String courierId, long expectedVersion) {
+        start(courierId, expectedVersion, Instant.now());
+    }
+
+    public void start(String courierId, long expectedVersion, Instant startedAt) {
+        Instant deadline = startedAt.plusSeconds(deliveryTimeLimitMinutes * 60L);
         progress(courierId, expectedVersion, OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS);
+        deliveryDeadlineAt = deadline;
     }
 
     public void markPickedUp(String courierId, long expectedVersion) {
@@ -148,7 +244,47 @@ public class Order {
     }
 
     public void markDelivered(String courierId, long expectedVersion) {
+        markDelivered(courierId, expectedVersion, Instant.now());
+    }
+
+    public void markDelivered(String courierId, long expectedVersion, Instant deliveredAt) {
+        java.util.Objects.requireNonNull(deliveredAt);
         progress(courierId, expectedVersion, OrderStatus.PICKED_UP, OrderStatus.DELIVERED);
+        this.deliveredAt = deliveredAt;
+        this.deliveryOverdue = deliveryDeadlineAt == null ? null : deliveredAt.isAfter(deliveryDeadlineAt);
+    }
+
+    @Transient
+    public Boolean getOverdue() {
+        return attemptId == null ? deliveryOverdue : null;
+    }
+
+    public Boolean overdueAt(Instant observedAt) {
+        return getOverdue();
+    }
+
+    public void waiveOverdue(String adminId, String reason, Instant now) {
+        String explanation = normalizeAdminResolutionReason(reason);
+        if (explanation == null || adminId == null || adminId.isBlank() || adminId.length() > 128) {
+            throw new OrderProblem("VALIDATION_ERROR", "Administrator and waiver reason are required.");
+        }
+        if (overduePenaltyWaived) {
+            if (!adminId.equals(overdueWaivedBy) || !explanation.equals(overdueWaiverReason)) {
+                throw OrderProblem.conflict("This order already has a different overdue waiver.");
+            }
+            return;
+        }
+        if (status != OrderStatus.DELIVERED || !Boolean.TRUE.equals(deliveryOverdue)) {
+            throw OrderProblem.conflict("Only overdue DELIVERED orders can receive a waiver before completion.");
+        }
+        overduePenaltyWaived = true;
+        overdueWaivedAt = java.util.Objects.requireNonNull(now);
+        overdueWaivedBy = adminId;
+        overdueWaiverReason = explanation;
+    }
+
+    public void reconcileReportHolds(boolean hasActiveReports) {
+        completionHold = hasActiveReports;
     }
 
     private void progress(String actor, long expectedVersion, OrderStatus from, OrderStatus to) {
@@ -168,14 +304,45 @@ public class Order {
     public void completeAutomatically(long expectedVersion) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.DELIVERED);
+        requireCompletionAllowed();
         status = OrderStatus.COMPLETED;
     }
 
     public void validateCompletion(String actor, long expectedVersion) {
-        requireVersion(expectedVersion);
-        requireStatus(OrderStatus.DELIVERED);
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may confirm completion.");
+        }
+        // A report changes the stored version; still explain the hold to its owner with a stale browser.
+        requireCompletionAllowed();
+        requireVersion(expectedVersion);
+        requireStatus(OrderStatus.DELIVERED);
+    }
+
+    public void placeCompletionHold(String actor) {
+        validateCompletionHoldPlacement(actor);
+        completionHold = true;
+    }
+
+    public void validateCompletionHoldPlacement(String actor) {
+        if (!requesterId.equals(actor)) {
+            throw OrderProblem.forbidden("Only the requester may place a report hold on their order.");
+        }
+        if (status == OrderStatus.COMPLETED) {
+            throw OrderProblem.conflict("A completion hold cannot be placed on a completed order.");
+        }
+    }
+
+    private void requireCompletionAllowed() {
+        if (completionHold) {
+            throw new OrderProblem("COMPLETION_ON_HOLD",
+                    "This order has an ongoing report. You can complete it after the report is resolved.");
+        }
+    }
+
+    private void requireFundingOutcomeAllowed() {
+        if (completionHold) {
+            throw new OrderProblem("ORDER_ON_HOLD",
+                    "This order has an ongoing report. Credit actions are paused until the report is resolved.");
         }
     }
 
@@ -184,12 +351,66 @@ public class Order {
         status = OrderStatus.CANCELLED;
     }
 
+    /** Admin report resolution may cancel active held orders without releasing report history. */
+    public void cancelByAdmin(String expectedRequesterId, String expectedCourierId) {
+        cancelByAdmin(expectedRequesterId, expectedCourierId, Instant.now(), null);
+    }
+
+    public void cancelByAdmin(String expectedRequesterId, String expectedCourierId,
+                              Instant resolvedAt, PenaltySystemPolicy penalty) {
+        cancelByAdmin(expectedRequesterId, expectedCourierId, resolvedAt, penalty, null);
+    }
+
+    public void cancelByAdmin(String expectedRequesterId, String expectedCourierId,
+                              Instant resolvedAt, PenaltySystemPolicy penalty, String resolutionReason) {
+        requireAdminParticipants(expectedRequesterId, expectedCourierId, "cancellation");
+        if (status != OrderStatus.OPEN && status != OrderStatus.ACCEPTED
+                && status != OrderStatus.IN_PROGRESS && status != OrderStatus.PICKED_UP
+                && status != OrderStatus.DELIVERED) {
+            throw OrderProblem.conflict("Only active orders can be cancelled by an administrator.");
+        }
+        penalty = higherPenalty(appliedPenalty, penalty);
+        recordAdminDecision(resolvedAt, penalty, "cancellation", resolutionReason);
+        status = OrderStatus.CANCELLED;
+    }
+
+    private void requireAdminParticipants(String expectedRequesterId, String expectedCourierId, String action) {
+        if (!java.util.Objects.equals(requesterId, expectedRequesterId)
+                || !java.util.Objects.equals(courierId, expectedCourierId)) {
+            throw OrderProblem.conflict("Order participants do not match the " + action + " request.");
+        }
+    }
+
+    private void recordAdminDecision(Instant resolvedAt, PenaltySystemPolicy penalty, String action, String resolutionReason) {
+        java.util.Objects.requireNonNull(resolvedAt);
+        if (penalty == PenaltySystemPolicy.getSuccessfulDeliveryReward()
+                || (penalty != null && courierId == null)) {
+            throw new OrderProblem("VALIDATION_ERROR", "Admin " + action + " requires a courier penalty addition case.");
+        }
+        String explanation = normalizeAdminResolutionReason(resolutionReason);
+        adminResolutionReason = explanation;
+        adminResolutionAt = resolvedAt;
+        adminPenaltyDecision = penalty == null ? AdminPenaltyDecision.WAIVED : AdminPenaltyDecision.ADDITION_REQUESTED;
+        adminPenaltyReason = penalty;
+        adminPenaltyAmount = penalty == null ? 0 : penalty.getPenaltyAmount();
+    }
+
+    public static String normalizeAdminResolutionReason(String reason) {
+        if (reason == null) return null;
+        String normalized = reason.strip();
+        if (normalized.isBlank() || reason.length() > 1000) {
+            throw new OrderProblem("VALIDATION_ERROR", "Admin resolution reason must contain 1 through 1000 characters.");
+        }
+        return normalized;
+    }
+
     public void validateOpenCancellation(String actor, long expectedVersion) {
         requireVersion(expectedVersion);
         requireStatus(OrderStatus.OPEN);
         if (!requesterId.equals(actor)) {
             throw OrderProblem.forbidden("Only the requester may cancel.");
         }
+        requireFundingOutcomeAllowed();
     }
 
     public void reopenAfterAcceptedCancellation(String actor, long expectedVersion, Instant now) {
@@ -199,6 +420,7 @@ public class Order {
         }
         status = OrderStatus.OPEN;
         courierId = null;
+        clearAppliedPenalty();
     }
 
     public void abortAfterAcceptedCancellation(String actor, long expectedVersion, Instant now) {
@@ -216,6 +438,7 @@ public class Order {
         if (courierId == null || !courierId.equals(actor)) {
             throw OrderProblem.forbidden("Only the assigned courier may cancel an accepted order.");
         }
+        requireFundingOutcomeAllowed();
     }
 
     public void expire(long expectedVersion, Instant now) {
@@ -224,6 +447,7 @@ public class Order {
         if (now.isBefore(expiresAt)) {
             throw OrderProblem.conflict("Order is not due for expiry.");
         }
+        requireFundingOutcomeAllowed();
         status = OrderStatus.EXPIRED;
     }
 
@@ -329,6 +553,10 @@ public class Order {
         history.rowId = attempt.getId();
         history.attemptId = attempt.getId();
         history.courierId = attempt.getCourierId();
+        history.appliedPenalty = attempt.getAppliedPenalty();
+        history.appliedPenaltyAt = attempt.getAppliedPenaltyAt();
+        history.appliedPenaltyBy = attempt.getAppliedPenaltyBy();
+        history.appliedPenaltyReason = attempt.getAppliedPenaltyReason();
         history.status = OrderStatus.ABORTED;
         history.version = attempt.getOrderVersion();
         history.repostedOrderId = attempt.getRepostedOrderId();

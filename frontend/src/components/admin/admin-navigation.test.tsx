@@ -26,6 +26,7 @@ describe("Admin navigation", () => {
   it("replaces normal user tabs and Post Request with only admin tabs", () => {
     mocks.pathname = "/admin/orders"
     render(<AppShell>Admin content</AppShell>)
+    expect(screen.getByRole("link", { name: "Reports" })).toHaveAttribute("href", "/admin/reports")
     expect(screen.getByRole("link", { name: "Orders" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Suppliers" })).toBeInTheDocument()
@@ -39,6 +40,7 @@ describe("Admin navigation", () => {
     mocks.pathname = "/"
     render(<AppShell>Normal content</AppShell>)
     expect(screen.getByRole("link", { name: "My Requests" })).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Reports" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Admin Mode" })).toBeInTheDocument()
   })

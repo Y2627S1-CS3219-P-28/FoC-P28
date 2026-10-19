@@ -1,5 +1,172 @@
+## Completed approved local slice — CHANGE-141 (2026-10-18)
+
+Approved: local delivered-item Report prototype, single Resolved final status, real report-specific admin hold release and delivered-only overdue penalty waiver; factual overdue stored at delivery. User accepted no reward on waived late completion. No Report Service exists: live Reports stay Coming soon; sibling backends untouched. RED tests captured for selection count and missing review domain API. Order/admin review APIs, local report UI/prototype and V12 implemented. Final common12+Order528=540 and frontend233 tests pass; coverage gates, typecheck, lint (3 existing warnings), build and1440/390 browser checks pass. Local Order DB backed up and V12 applied. Live Report integration remains blocked/MISSING (FEEDBACK-015); no integration-complete claim.
+
 # Yao Xiang - Sprint 1 Active Work
 
+## CHANGE-140 admin table pages verified — 2026-10-17
+
+User requests15/20 visible table rows; choose20 for Orders and Users, retaining server paging/scroll and actual smaller result counts. Current matching owner/branch/context/PDFs/frontend inspected. Implementation detail; no new endpoint or backend/schema/config change. Existing adapter assertions updated first (3 RED failures), then58 focused admin tests pass; TypeScript/lint pass (3 existing login warnings). Orders live/mock and sample Users20; actual fewer records stay fewer; live User directory pending unchanged. No backend/browser/container/cloud checks repeated for this request-size-only detail. Rebuild frontend for rollout. See CHANGE-140.
+
+## CHANGE-139 compact calendar toolbar verified locally — 2026-10-17
+
+User confirms reference calendar controls without Created-from text and existing refresh icon; implement compact table-height bar and real creation-date SQL filtering per CHANGE-139. Matching owner/branch, PDF hashes unchanged, existing frontend/API inspected. No extra financial actions, peers, schema or root config. RED UI missing calendar controls; backend missing overload confirmed. Focused77 backend and20 frontend checks now pass including real PostgreSQL creation-boundary/count/page checks. Final root common12+Order499=511 verify/coverage/JAR passes; frontend224/typecheck/lint/build pass (3 existing login warnings). Desktop1440/mobile390 built-browser check passes, toolbar41px, actual sample date filtering and icon refresh verified. First full run signature fixture fixed and transient recovery failures passed unchanged on isolated/full rerun; no recovery root-cause fix claimed. No new schema; existing11. Preview processes/account removed; rebuild Order/frontend images for rollout. Cloud UI not verified. Existing user stack is running; use separate preview ports and do not restart its containers or data.
+
+## Admin compact toolbar/date-filter advice — 2026-10-17
+
+User requests a slimmer table-height toolbar, date filtering and ideas for useful admin actions. Read current frontend actions/table/providers and actual AdminOrderController/query/repository; matching Yao Xiang/penalty-integration, context/PDF hashes unchanged. Existing admin list supports status/paging, not dates. Discuss compact top actions + Created date range + header-aligned per-column controls; recommend View details/Refresh/Clear filters, export/history/report navigation only as future scoped work. No extra destructive business action just to fill space. Date filtering must be SQL-backed before pagination and apply display-timezone day bounds. Advisory only; UI/API implementation and additional filter contracts await agreement. No source/tests/schema/config modified; no tests run for this advice.
+
+## CHANGE-138 admin Order actions UI verified locally — 2026-10-17
+
+User requests row selection/top actions, retained full details, penalty/no-penalty
+and preset/custom reasons in current styling. Implement Order/frontend slice with
+saved optional backend explanation (required UI), policy lookup and isolated demo
+counterparts; V11 additive nullable reason, legacy receipt hashes preserved. No
+new credit/score rule, sibling service/root config, real event schema or bulk action.
+Current owner/branch/context/PDF/frontend baseline checked; prior merge/134–137
+work retained. TDD/verification/migration handoff: CHANGE-138 and ADR-047.
+
+End evidence: common12+Order494 verify/coverage/JAR pass; final PG reason/rollback6 pass; frontend218 tests/typecheck/lint/build pass (3 existing login warnings). Built UI checked desktop1440/mobile390 with fixed action buttons, policy/reason selection, isolated sample mutation and saved details. Local Order backed up then V10->V11, all7 rows retained. CUA unavailable; hidden Edge fallback with target-only relay. Rebuild Order/frontend images for rollout; real User scoring/cloud verification remain pending. Temporary preview processes stopped after checks; no push.
+
+## CHANGE-137 Order increment verified — 2026-10-17
+
+User authorizes admin counterpart to cancellation, including held-order funding
+and explicit penalties. Existing Credit completion consumer matches current compact
+event; no new peer/topic required. Detailed proposal CHANGE-137; starting states
+and explicit-only scoring were approved in both chat answers2026-10-17.
+Proceed with CHANGE-137 / ADR-046 TDD. Same Yao Xiang/current branch, source fingerprints
+unchanged; prior merge/134–136 work retained. No frontend/peer source changes.
+
+End-of-turn evidence: actual Credit compact decoder/handler/service unit tests8/8
+pass; current settlement checks and replay locks inspected. No new admin-completion
+source/route existed at the prior stop. Both choices now approved; implement/test
+admin-only state/funding override without modifying ordinary holds.
+
+Completed: same-controller POST /api/orders/admin/{orderId}/complete; assigned
+ACCEPTED/IN_PROGRESS/PICKED_UP/DELIVERED (including held) -> COMPLETED; only selected
+highest penalty, null/empty waived, no automatic score/reward. Decision/checkpoint/
+bound receipt/completion and optional addition intents atomically saved under
+NOWAIT/pending guard; hold history and delivery facts retained. New generic advice
+keeps cancellation409 text and returns completion-specific retry guidance.
+RED missing-domain API first; focused53 pass; fresh common12+Order486=498 tests,
+zero failures/errors/skips, both gates/JAR pass. New PostgreSQL5 verify rollback,
+replay/holds, contention/retry and admin cancel-complete race. Prod/local/OpenAPI
+checks pass; generated Swagger and packaged JAR verified. AsyncAPI YAML/Ajv and
+TOML408-qualified-key checks pass. Exact results/contracts/ADR-046/diagrams in CHANGE-137.
+No schema/topic/UI/peer/root config or local-app/cloud writes; no stage/commit/push.
+Rebuild Order image; human/deployed settlement and User consumer remain pending.
+
+## CHANGE-136 verified — 2026-10-17
+
+User requests imported Schema/necessary JSON names and cancellation in the existing
+AdminOrderController. Keep routes/contracts/admin roles/transaction service intact;
+repoint current tests first, then consolidate source and verify. Same owner/branch,
+no frontend/peer/schema edits, existing uncommitted merge and CHANGE-135 preserved.
+
+Cancellation is consolidated in AdminOrderController; original route/security/
+validation/principal/service and lock409 retained. JsonProperty keeps existing JSON
+keys, Schema import replaces qualified annotations. Five route tests RED404 first,
+then pass; fresh verify470 tests and both gates/JAR pass. OpenAPI lists both routes
+under admin-order-controller. Context/diagram/disclosure updated, no source drift,
+unresolved merge, app rebuild, deployment, commit or push. Human/deployed review pending.
+
+## Current task - CHANGE-129 active involvement/deleted labels (2026-10-14)
+
+- Workflow/profile/branch/PDF fingerprints and current peers/frontend inspected.
+  User approves both endpoints for all three roles; active SQL predicate and
+  minimal boolean response. Declines new name rows; names remain lookup data.
+- CHANGE-129 captures exact paths/auth/relationships/statuses and snapshot race/
+  pending-obligation limits. Providers currently do not check Order before delete;
+  no peer edits. Supplier missing fallback becomes Deleted supplier, layout kept.
+- Start TDD within Order/companion frontend only; prior127/128 work retained.
+  No admin/person layout exists here; no User-name storage or invented UI.
+
+### CHANGE-129 completion evidence
+
+- Both new read APIs and SQL EXISTS/current relationship predicates implemented,
+  including held Orders and excluding terminal/aborted history. MapStruct DTOs
+  return only ID/boolean. Existing card layout retained; missing/null supplier
+  lookups use Deleted supplier; transient errors keep unavailable labels.
+- Final420 backend tests0failures/errors/skips, original80% coverage gates pass;
+  129 frontend tests/28 files, lint0errors/3 existing warnings, typecheck/standard
+  production build pass. Local worker OOM/fixture issues and successful bounded
+  reruns recorded in CHANGE-129. No app/CI resource config change committed.
+- ADR-042/contracts/traceability/context/peer handoff/disclosure updated.
+  FEEDBACK-015: User/Supplier deletion callbacks still absent, read is not a lock,
+  pending financial/command obligations need coordinated owner policy. No actual
+  deletion, peer backend, new schema/config, app rebuild, cloud deployment or push.
+- Prior127/128 overlapping uncommitted work preserved, no broad staging/commit.
+  No User-name Order rows exist on this branch; no rows or names added/stored.
+  Browser/peer/deployment confirmation pending; full integration/Sprint[~].
+
+## Current task - CHANGE-128 explicit courier penalties (2026-10-14)
+
+- User requests enum amounts and separate add/deduct events for abort and
+  completion. Workflow/profile/branch match; CHANGE-127 edits preserved.
+- Inspected actual User +2 abort/+1 overdue/-2 on-time logic, outcome HTTP APIs,
+  existing Order accepted-cancellation/compact completion events and outbox.
+  No penalty subscriber/separate Penalty Service exists. CHANGE-128 contains
+  concrete topics/payload/recipient/TDD/atomicity and legacy migration proposal.
+- Decisions received2026-10-14: +2 abort/+1 overdue/-1 successful; new addition
+  replaces accepted cancellation publication, Credit events retained. Capture
+  cancelling/assigned courier in one courierId field. Begin Order-side TDD;
+  real subscriber remains absent. Consumer clamp ordering across two topics needs a
+  provider policy; no peer/consumer implementation or cloud provisioning claim.
+- Previous turn inspected/designed only. Current approved implementation retains
+  the prior tested completion-hold work. No sibling backend/cloud changes.
+
+### CHANGE-128 completion evidence
+
+- User approves +2 accepted cancellation/+1 overdue/-1 successful and replacement
+  of new accepted-cancellation emission, Credit events unchanged. Shared topic-only
+  configuration approved separately. Implemented enum/facts/MapStruct/DTO/publisher
+  pairs, transitions and existing outbox dispatcher; IDs bind recipient/reason.
+- Final403 backend tests0failures/errors/skips and original80% coverage gates pass
+  (95.06%line/80.07%branch). Three bootstrap tests, both Compose config checks,
+  Bash syntax and AsyncAPI YAML/reference checks pass. RED/intermediate assertion/
+  coverage failures and correction recorded in CHANGE-128; thresholds unchanged.
+- No sibling backend/new frontend/migration/live cloud/app rollout/push changes.
+  Existing CHANGE-127 edits preserved. CI owner must provision new topic/IAM using
+  updated configure-order-pubsub.sh before infra check; User subscriber, ordering
+  and legacy cutover remain FEEDBACK-014. End-to-end scoring/Sprint still[~].
+
+## Current task - CHANGE-127 completion holds (2026-10-14)
+
+- User confirms Yao Xiang on order-service/penalty-integration. Workflow loaded;
+  initial clean tree, source fingerprints unchanged. Requested persisted hold,
+  scheduler/manual completion guards, requester explanation, and Report-facing
+  place/release endpoints. Other backend services remain read-only.
+- D1 NTH2 PDF38 and NTH3 PDF41 require report-triggered completion hold, no
+  manual/48-hour completion and no final credit action before investigation ends.
+  Submission itself must not change Order status or settle money.
+- Current source has no hold flag/rows/endpoints; Report Service is absent,
+  Admin Service a placeholder, existing prod auth accepts Firebase caller JWTs.
+  Existing shared Order locks/outbox/receipt transactions must be retained.
+- Proposal: docs/completion-hold-design.md. User decisions pending for Report
+  service identity vs forwarded Firebase caller, and full active-order/final-
+  credit coverage vs DELIVERED/completion-only scope. No application/schema/test
+  edits until these material contracts are agreed; no live integration claim.
+- Decisions received: requester Firebase forwarding/ownership and active-Order
+  funding freeze; release deferred. Effective contract recorded before coding.
+  Implement V9 per-report placement/boolean, guards before all funding outcomes,
+  query filtering and locked rechecks, requester message and negative/race tests.
+
+### CHANGE-127 completion evidence
+
+- Effective decisions above supersede the initial pending proposal: forwarded
+  requester Firebase auth, own active Order, funding freeze, no release endpoint.
+- Implemented immutable per-report records/boolean V9, transactional locked PUT,
+  explicit DTO/mapper, requester message and SQL/locked lifecycle guards. Race
+  tests reproduced/fixed JPA merge rebinding and stale-version report messaging.
+- Final394 backend tests0failures/errors/skips and coverage gates pass;126
+  frontend tests/28 files, typecheck/lint/build pass (three existing warnings).
+  Intermediate RED/assertion/build failures documented in CHANGE-127.
+- Dedicated local Order DB migrated8 ->9 preserving seven Orders, zero held.
+  Only Order PostgreSQL started; application containers and peers not recreated,
+  generic postgres-dev untouched. No secrets, cloud, deployment or push changes.
+- ADR-040/design/traceability/context/contracts/migration/AI records synchronized.
+  FEEDBACK-013 retains absent Report caller; release explicitly deferred. Browser
+  confirmation and actual Report/cloud integration unverified; NTH2/NTH3[~].
 ## Current task - CHANGE-125 Admin typography/theme consistency (2026-10-13)
 
 - Same confirmed Yao Xiang branch/workflow and source fingerprints. User asks
@@ -708,3 +875,259 @@ User reverted the prior CI repair and merged main a641836. Yao Xiang identity/br
 - Verification so far: Standard online wrapper-selected Maven3.9.16/Java21 -B -ntp verify, without -U/offline mode, passed 258 tests, zero failures/errors/skips, including isolated PostgreSQL Testcontainers; coverage gates pass. Current161 POM/src/resource files equal the fresh tested copy. ShellCheck0.11.0 on all CI/infra shell scripts, actionlint1.7.12 on workflows, staged/unstaged diff checks and conflict/index/source/contract checks pass. Logs/reports target/main-merge-ci-verify.log and target/main-merge-ci-source-check/target/. First live cloud run reported two IAM failures while showing a concrete Google IAM DNS NameResolutionError; no deleted account/removed IAM inference. Repeat live infrastructure result pending; all three typed subscription predicates passed during first run. Current Maven artifact resolution passes but arbitrary hosted runner/network failures cannot be guaranteed absent. Reverted CI/helper changes were not reintroduced.
 
 - Finished merge/CI verification: Final live scripts/ci/check-infra.sh staging production rerun PASSED with all identities, databases, access, all three event-specific push subscriptions/DLQ/OIDC and buckets; production push stays intentionally disabled. The first-run two false-negative IAM checks were transient DNS failures and cleared on rerun. The prior subscription mismatch and Maven model failure did not reproduce on the merged tree. Hosted/WIF CI must still run after the user completes/pushes the merge; no arbitrary remote-network guarantee. Merge conflict remains resolved/staged, MERGE_HEAD intentionally present; no merge commit/push or application-container rebuild. FEEDBACK-009 and other peer business/semantic gaps remain open.
+
+## CHANGE-130 start - 2026-10-15
+User approves ordinary root foc-common Maven penalty-policy extraction and necessary build/CI/Docker integration. Yao Xiang/current branch match; no auth or sibling backend implementation changes. Existing127/128/129 work preserved. Shared RED tests precede enum extraction; ADR-043 records design. No schema/API/UI or cloud change planned.
+
+## CHANGE-130 completion - 2026-10-15
+Extracted only CourierPenaltyCase to root foc-common Maven JAR; root reactor/wrapper and Order build imports/Docker/Compose/CI/staging/conventions updated. Existing +2/+1/-1 and event JSON remain. Common4 plus Order420 tests pass, original gates; root validation image includes common JAR and no old Order enum. Compose base/HTTP, isolated selection regression, ShellCheck/actionlint, AsyncAPI and patch checks pass. Docker Desktop started hidden for tests; no app recreation/deploy/cloud/schema/peer/auth/frontend edits this task. User consumer still pending. Existing127/128/129 work retained; no stage/commit/push. Details/evidence in CHANGE-130; human/hosted CI pending.
+
+## CHANGE-131 start - 2026-10-15
+User requests all D1 NTH penalty mappings in foc-common. NTH2 PDF37-39 and NTH3 PDF40-41 read; PDF39 table visually verified. Add confirmed wrong location4, mishandling/damage4, deliberate retention/theft10. Existing +2/+1/-1 retained. No report workflow, User suspension/scoring, event contract, schema, auth or deployment change. Policy RED first; D1 highest-case/permanent-suspension requirements documented as future enforcement, not implemented by enum.
+
+## CHANGE-131 completion - 2026-10-15
+D1 NTH2 shared mapping now complete: existing +2/+1/-1 plus wrong location4, mishandling/damage4 and deliberate retention/theft10. D1 PDF37-41 read;39 rendered/checked. Three missing cases RED, full reactor427 tests GREEN (common7/Order420), gates unchanged/pass. Current automatic reason set/JSON and AsyncAPI unchanged; validation/patch checks pass. No peer/auth/schema/UI/infra/cloud edits or image rebuild/deploy. Highest-effective penalty and one-month/permanent suspension remain future User/Report logic; no extra score invented. Evidence/change record CHANGE-131; previous127-130 work retained, no stage/commit/push.
+
+## CHANGE-132 start - 2026-10-15
+User approves PenaltySystemPolicy rename and three policy lookup methods, Order adoption first. Shared test rename/helper tests precede source change; exact immutable report subset excludes original3. All amounts/reason names/wire/schema remain; no peer/auth/UI/build/cloud change. Existing127-131 work preserved.
+
+## CHANGE-132 completion - 2026-10-15
+PenaltySystemPolicy rename and3 static queries complete; reward returns SUCCESSFUL_DELIVERY, report list excludes original3, full list all6, immutable/order tested. Order imports/DTOs/completion/direction migrated; wire/amount/identity unchanged. RED compile then11 common tests; first full run hit stopped Docker/malformed PATH (6 errors/31 skipped). Started Desktop hidden and excluded only bad entry for new test process; no machine PATH/config edits. Final431 tests (11+420), zero failures/errors/skips, original gates pass. JAR/javap confirms new class/API and no old enum. AsyncAPI/patch checks pass. No peer/auth/UI/build/schema/deploy/image recreation this task; previous work retained; no stage/commit/push. Hosted CI/review and existing Report/User integration pending. Details CHANGE-132.
+# Current task — CHANGE-133, 2026-10-15
+
+Yao Xiang on `order-service/penalty-integration`: resolve the nine merge conflicts
+without losing either workstream, verify Credit's completed administrative history
+API and link only the existing selected-user profile history. No global Credit tab,
+no sibling backend edits. Implementation/verification in progress; balance remains
+unavailable. See `../../changes/CHANGE-133-admin-credit-history-merge.md`.
+
+
+## CHANGE-133 completion — 2026-10-15
+
+Nine conflicts resolved preserving Admin/Credit incoming changes and current
+holds/penalty/involvement. Current identity stays Yao Xiang/penalty-integration;
+incoming admin-dashboard profile historical. Both Git versions had orphan AI-log
+markers; removed markers only, retaining history. OpenAPI MVC slice includes all
+seven controllers and collaborator mocks, asserts both sets of endpoints.
+
+Existing selected-user profile history only linked to real admin Credit history;
+no global tab. Base mocks retained, selected balances pending,005 still open and
+006 removed from outstanding requests. Independent provider errors/retry, no mock
+fallback. Four red assertions then45 focused passing; final212 frontend tests,
+production build/typecheck pass; lint0errors/3 pre-existing login warnings.
+Root common11/Order427=438 and Credit clean102 tests pass, no skips; coverage gates
+pass. Initial Credit run failed53 contexts from stale generated Firestore class;
+clean verify resolved without peer edits. Initial full frontend run hit one stale
+error-copy expectation, updated and reran successfully. Python unavailable, so
+TOML key-uniqueness check only. No deployed/browser or full strict workflow-gate
+claim. Nine conflict files staged to mark resolution; no commit/push. Incoming
+staged Credit changes preserved byte-for-byte, no sibling backend edits by task.
+Application images/data volumes untouched; only isolated test containers used.
+CHANGE-133/handoff/current-context/API-gap records updated; human review pending.
+
+Final checks: no unmerged index entries or conflict markers;403 qualified TOML
+keys unique. Task whitespace check passes; staged incoming Credit handoff has
+one existing blank-line-at-EOF warning, left unchanged. Provider source matches
+the incoming staged version; no task edits. Build/typecheck processes exit0.
+
+## CHANGE-133 documentation follow-up — 2026-10-15
+
+User requests updating the peer API request after balance-read clarification.
+Yao Xiang/current penalty-integration identity retained; workflow/context and
+unchanged D1/Overall hashes rechecked. Documentation-only scope: clarify005 as
+the remaining Credit gap, with GET/path/admin bearer/no-body contract, existing
+BalanceResponse/account.updatedAt meaning, errors and provider test obligations.
+History remains implemented/linked; /me remains caller-only. No new endpoint,
+frontend, schema, peer source or configuration changes. Source/request-document
+comparison and scoped whitespace checks performed; no tests rerun for prose.
+Credit implementation and authenticated deployed verification remain pending.
+
+## Admin suspension action removal — 2026-10-15
+
+Yao Xiang/current penalty-integration branch. User explicitly requests removing
+Suspend User from the dashboard, retaining Deactivate and Promote to Admin.
+Use existing Admin profile layout; remove only suspension form/state/handler and
+obsolete UI expectations. Read-only courier standing remains. Peer/mock APIs and
+automatic suspension policy remain unchanged. Existing merge/history work retained.
+Frontend component tests/lint/typecheck and affected request docs pending.
+
+Completed: removed button/form/state/handler/reset, updated existing UI tests
+(35 pass), retained promotion/deactivation and read-only courier standing.
+Typecheck passes. API request002 withdrawn; ADR039/current context clarified.
+No new tests for this reversible removal; updated existing expectations and
+removed obsolete suspension cases. No backend/peer/schema/config changes or
+container rebuild. Lint result recorded below; browser review pending.
+
+Final checks: lint exits0 (0 errors,3 existing login unused-variable warnings),
+typecheck exits0, scoped Admin suite35/35 and whitespace check pass. No commit/push.
+
+## CHANGE-134 start — 2026-10-16
+
+User requests admin cancellation with participant IDs and highest applied policy
+penalty, plus nullable OrderResponse compatibility advice. Current Yao Xiang/
+penalty-integration branch confirmed; mandatory context/helper and unchanged
+source hashes checked. Detailed proposed contract/components/replay/transaction/
+provider findings/test plan saved in changes/CHANGE-134-admin-cancellation-proposal.md.
+Three text questions pending: allowed active/held states, penalty subset and
+the unspecified response field. No application/tests/schema/frontend/peer edits
+before these business decisions. Credit inspected accepts CANCELLED refund with
+matching assigned courier; preserve courier. User penalty consumer still pending
+under FEEDBACK-014. Existing merge/Admin history/UI-removal work preserved.
+
+## CHANGE-134 approval and completion — 2026-10-16
+
+User answers confirm active including held Orders; all additions excluding reward;
+new COURIER_UNRESPONSIVE3; response field is overdue. Implemented canonical JSON
+isOverdue (nullable), accepted-deadline/delivered-or-current comparison, cancellation
+freeze, grouped bounded timing SQL and batched MapStruct enrichment. Report uses
+existing authorized GET Order; no service identity bypass. Shared full policy7.
+
+New separate admin cancellation controller/traditional request DTO/application
+service: locked stored participant checks, active-only domain behavior, held
+funding exception with original hold history retained. Refund and one maximum
+optional addition committed with checkpoint/receipt. Stable per-order operation
+key + canonical policy binding makes exact replay no-op, changed replay409.
+Existing NOWAIT lifecycle lock path used; pending-command guard preserved.
+
+Final467 common/Order tests (12+455) pass with no skips and coverage gates; new
+real PG4 rollback/replay/timing/contended-lock tests pass. Frontend211 tests pass,
+typecheck passes, lint0 errors/3 existing login warnings. AsyncAPI YAML/Ajv positive
+and negative schema checks pass;404 TOML keys unique, not full parser. Task patch
+and no-unmerged-entry checks pass. Initial common RED3 errors, assertion-type
+errors, Docker-off failure and first full-run2 integration failures recorded in
+CHANGE-134. Actual blocking API lock was unsuitable for this new NOWAIT path;
+fixed new admin caller only. No peer or original command lock behavior changed.
+
+ADR044/CHANGE134/context/contracts/diagrams/AsyncAPI/peer handoff/common docs and
+workflow instruction amendment updated. Only frontend optional type, no new UI
+control. User penalty consumer/Report caller, historical score reconciliation/
+suspension and deployed authenticated verification pending. No new migration,
+topics/root config, sibling backend edits, application rebuild/deploy/commit/push.
+
+Final scoped error-handling review: added AdminOrderCancellationExceptionHandler
+so this endpoint's translated pessimistic lock failure returns409/retry guidance;
+other API handlers unchanged. PG test asserts actual exception family; route
+tests5/5 include contention. Final complete verify467 tests passes with gates.
+
+## CHANGE-135 implementation verified — 2026-10-17
+
+- Persisted START+duration deadline and actual deliveredAt; response and completion
+  use identical facts without checkpoint reads. SQL due selection uses those
+  fields, held rows excluded and independent locked transaction rechecks retained.
+- Admin cancellation persists WAIVED/ADDITION_REQUESTED, highest reason/amount and
+  resolution timestamp atomically with existing refund/optional addition intents.
+  Receipt replay/rollback tested; no APPLIED claim or new UI callback/feedback.
+- Common12 + Order458 =470 tests pass, no failures/errors/skips; gates/JAR build
+  pass. Fresh coverage-only rerun also passes470 tests and both gates/JAR without
+  mapper mismatch warnings; final evidence belongs to CHANGE-135. Frontend optional
+  types/typecheck and AsyncAPI checks pass.
+- V10 clean/V9 upgrade2/2; actual local DB9 ->10 after ignored backup, all7 Orders'
+  IDs/statuses/versions retained and3 timing records backfilled. Only Order DB
+  started; no app image rebuild/cloud mutation. Rebuild matching Order before use.
+- Existing merge and peer sources preserved. Human/deployed/peer scoring checks
+  pending; missing legacy timing needs reviewed repair, Report release and point5
+  immediate feedback remain deferred. See CHANGE-135 / ADR-045 for handoff.
+
+
+## Completed — CHANGE-142 (2026-10-18)
+
+User approved direct UI refinement: single long report panel, Order first/clickable to Admin Order route, aligned summary rows, report-only resolution action. Existing contracts/mock gating preserved. Reference GOV.UK summary list inspected; RED-to-GREEN report regression and full233 frontend tests pass. TypeScript/lint/build pass;1440/390 browser checks verify single panel, order navigation and resolution. No backend changes. Existing Report provider blocker unchanged.
+
+
+## Completed frontend slice — CHANGE-143 (2026-10-18)
+
+Approved UI refinement and live User/Supplier name reads via inspected existing APIs. Implement labelled description, participant names, deduplicated nonblocking name resolution, report filter/icon alignment. Live Reports stays Coming soon; no backend/config changes. RED-to-GREEN and238 frontend tests pass; final focused checks, TypeScript/build and lint (3 existing warnings) pass. Sample1440/390 browser confirms32px aligned filter/icon and named Description summary. Actual peer smoke not verified with preview account (Supplier503, User fixture unavailable); do not claim live end-to-end. No backend/config changes.
+
+
+## In progress — CHANGE-144 (2026-10-18)
+
+Verified delivery-stored overdue and completion flag read. Implementing independently authorized report open/closed cards, removal of response deadline and required admin reply in local prototype. Penalty adjustment/record schema and transport await three user answers: per-attempt vs global uniqueness; Order/event-side or mock-only missing User consumer; reward replacement. Do not claim User score applied from outbox intent. No sibling backend edits.
+
+
+CHANGE-144 current approval: per-attempt outcomes/reward replacement; synchronous User call with durable PENDING and same-ID recovery explicitly approved. Event draft was withdrawn after automatic review rejection, then replaced under the new approved design. No shared .env/topic edits approved or made. User replacement missing (FEEDBACK-016); live disabled. Report Open/Closed/no-deadline/reply changes independently implemented. Full verification in progress; no commit, staging, cloud resources, sibling backend or existing DB reset.
+
+
+CHANGE-144 handoff: Order-side approved contract-stub/UI slice implemented and verified; no unfinished coding within this milestone. Final verification 2026-10-18: the full run executed544 Order +12 common tests; all have passing results after the corrected six-test rerun, with no skips. Full run passed all except one new multi-courier fixture that omitted its mock Credit reservation; after fixture correction, all six PenaltyAdjustmentJpaIntegrationTest cases and Maven verify/unchanged coverage gate pass. No production logic changed for that final rerun. 241 frontend tests pass; final focused16 tests pass after final text/label changes. TypeScript and production build pass; lint0 errors/3 pre-existing login warnings. Visual isolated preview at1440x1000 and390x844 confirms Open/Closed cards, required reply/resolved movement, old waiver removal, reward -> No penalty and retained revision/reason. No real User score was changed. Temporary processes, emulator-only account and change144_preview DB were removed; existing Compose services/application DBs retained. git diff --check passes. No commit/staging/push/cloud action or sibling backend/shared environment edits. Live User replacement and Report provider integration remain MISSING, deliberately disabled/Coming soon.
+
+Peer stopping point: FEEDBACK-016 User team implements the exact synchronous replacement endpoint, contribution ledger, stable replay and delayed-initial suppression; inspect provider DTO/auth/errors/recovery tests and run an actual score integration before enabling order.penalty-adjustment.enabled. Report team implements FEEDBACK-015 amended contract. Do not enable by assuming the existing fixed outcome PUTs are compatible.
+
+
+CHANGE-145: user-approved Report card status alignment in progress; only the existing status-row justification changes, across admin/user Open/Closed cards. No backend/API/config change; existing Report tests pending.
+
+
+CHANGE-145 verification: all6 existing Report component tests pass; git diff --check passes. CSS-only class change, no new test or backend/config change. Existing running frontend was not rebuilt; browser visual confirmation after rebuild remains pending.
+
+
+CHANGE-145 follow-up, explicitly requested2026-10-18: title is now first at the upper-left and status at the upper-right in one flex row aligned to the title first line. The separate badge-only row is superseded. Badge is limited to half the row and wraps on narrow cards, so title/status remain alongside each other without horizontal overflow. Source-only layout refinement; existing Report tests pending.
+
+
+CHANGE-145 same-row follow-up complete: all6 existing Report tests and git diff --check pass. Frontend container not rebuilt; browser confirmation pending rebuild.
+
+
+CHANGE-146 in progress2026-10-19: user explicitly replaces synchronous penalty adjustment with monotonic stored report penalty, finalized through existing addition/deduction events; removes admin completion API/UI. Detailed approved semantics in CHANGE-146/ADR-050. Preserve applied V13 migration/history; additive V14, no sibling/shared config changes. TDD next.
+
+
+CHANGE-146 completed for the approved Order/frontend slice. CHANGE-146 verification,2026-10-19: full root Maven verify passes517 Order tests and12 common tests,0 failures/errors/skips; unchanged coverage gate passes. Final focused API/security/OpenAPI verify also passes after documentation clarification and adding an admin hold-release authorization test. Frontend full241 tests pass, then final11 focused tests include the additional stored-penalty cancellation regression (242 total current frontend tests across those runs). TypeScript and final production build pass; lint0 errors/3 existing login warnings. Local sample preview at1440/390 confirms no admin completion/adjustment, Apply4 then3 keeps4 and original reason, cancellation cannot waive it, and terminal Apply is disabled. Visual screenshots were inspected; a final cancellation summary copy refinement explicitly displays the stored policy/amount and omits overdue timing, with a passing regression/build. Preview processes/account/change146_preview database removed; existing services/application databases preserved. No cloud/sibling/shared-env/CI action or commit/staging. V14 is verified on isolated clean/V13 upgrade databases; existing application DB not migrated. Historical V13 rows retained, no replacement runtime remains. LINE 94.91%, BRANCH 81.99%.
+Rebuild matching Order/frontend images to use the new flow; no User replacement API or new topic is required. Existing initial event consumer/provider verification and missing Report Service remain independent of this change.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+CHANGE-147 verification (2026-10-19): full root Maven verify passed 520 Order tests and12 common tests,0 failures/errors/skips; final focused verify passed45 Order plus12 common tests, including the subsequently added cancellation-retired-case test (521 current Order tests across runs). Unchanged coverage gate passed. Frontend full243 tests and final18 focused tests pass; TypeScript, final production build and lint pass (0 errors/3 existing login warnings). Order and frontend Docker images built successfully as change147-check tags; no existing containers replaced. Automated Edge preview1440x1000 and390x844 plus screenshot inspection confirmed private-reply copy, separate name/profile and ID/copy rows, muted closed cards remain navigable, three radio cases with one selected, and no unresponsive option. Extreme name/email/user-ID fixture measured columns176/224/192px; full ID remains in copy/title, no service record changed. Found/fixed existing multiline status badge clipping; final measured41px height, scrollHeight=clientHeight39. Temporary account/processes/isolated change147_preview DB removed; existing Compose data untouched. git diff --check passes. Full peer-service CI/cloud checks and real Report integration were not run; Reports remain local-only/Coming soon live. No commit or staging.
+
+
+CHANGE-148 (2026-10-19), Yao Xiang: presentation-only refinement in existing Admin/reports components. Completion hold displays Yes/No. Refresh icon shares Open reports heading row; normal participant section controls remain available. Cancellation uses muted Choose one penalty case/highest-selected guidance and requested stored-penalty warning. Remove score-event/overdue-comparison implementation details from Apply Penalty description. No API, backend, data, scoring, authentication, navigation, schema or deployment behavior change. Reuse existing components/theme. Existing component tests/typecheck/build and frontend image verification pending; no new tests for reversible copy/CSS edits.
+
+
+CHANGE-148 verification:18 existing focused UI tests pass; production Next build including TypeScript passes; lint0 errors/3 pre-existing login warnings; frontend Docker image foc-frontend:change148-check builds successfully; git diff --check passes. Reviewed responsive flex heading placement in source; no new browser session for this copy/layout-only change. Backend tests/image not rerun because no backend source, contract or schema changed. No existing container restarted, commit or staging. Reports remain local mock/live Coming soon.
+
+
+CHANGE-148 follow-up,2026-10-19: user requested removal of the entire lower cancellation warning paragraph beginning Only the highest selected amount is requested. Removed that paragraph only; the separate Choose one penalty case helper stays. No backend/penalty/contract behavior change. OpenAI Codex (GPT-6), Yao Xiang; verification pending.
+
+
+CHANGE-148 warning-removal verification:9 cancellation UI tests pass; frontend Docker build including TypeScript/production build passes; git diff --check passes. No new tests for copy-only removal; no running containers replaced. No backend change or backend verification needed.
+
+
+CHANGE-149 (2026-10-19), Yao Xiang: Reports reuse existing Order-style Status/Order ID/Search/Clear form, remove manual refresh icon, retain visible five-second polling and Open/Closed groups. Status means report status (Awaiting courier response, Ready for review, Resolved). Exact trimmed Order ID plus report status filter on local mock before pagination/counts; independent page counters reset on filter changes. Preserve participant scoping/reply privacy. Extend existing gated sample GET with optional orderId/reportStatus; no real Report endpoint, sibling backend, scoring, database or deployment changes. Live Reports remain Coming soon. TDD and verification pending.
+
+
+CHANGE-149 verification,2026-10-19: full root Maven verify SUCCESS,522 Order +12 common tests,0 failures/errors/skips, unchanged coverage gates pass. Frontend full245 tests plus final12 focused report/transport tests pass (final test explicitly exercises page2 -> search reset to page1). Production build/TypeScript and Order/frontend Docker image builds pass; lint0 errors/3 existing login warnings; git diff --check passes. Isolated browser HTTP checks at1440x1000 and390x844 pass exact search, report status intersection, clear restoration, no refresh button, aligned controls (0px vertical delta) and no overflow. Sample server filters before page/counts and retains privacy/scoping. Preview account/processes/verified change149_preview database removed; existing containers/data preserved. No cloud, peer backend, schema, CI configuration, commit or staging change. Real Report Service remains unavailable; live Reports remain Coming soon. Full peer CI/cloud IAM not run.
+
+
+CHANGE-150 (2026-10-19), Yao Xiang: remove separate Open/Closed report sections. One server-paginated card list under the existing Order ID/report-status filters; one five-second polling query with blank grouping selector (all statuses). Preserve grey styling and View report for RESOLVED cards. Filters and participant-tab changes reset the single page. Existing backend supports this query; no backend, endpoint, data or scoring change. TDD regressions cover mixed active/resolved results, one query, filtering/page reset and retained navigation. Verification pending.
+
+
+CHANGE-150 verification:245 frontend tests pass; new expectations first reproduced the two-query/grouped-list mismatch, then passed after implementation. TypeScript/production build and frontend Docker image foc-frontend:change150-check pass; lint0 errors/3 existing login warnings; git diff --check passes. Isolated sample browser1440x1000 and390x844 verified a single mixed active/resolved grid, no group headings, grey resolved card with working View link and Resolved filtering; screenshots inspected. Single page reset/search remains covered. Backend source/API/schema unchanged, backend suite not repeated. No sibling service, shared infrastructure, existing containers/data, commit or staging change. Reports remain local sample/live Coming soon.
+
+
+CHANGE-151 (2026-10-19), Yao Xiang: replace floating Base UI status-filter popups with one Order-owned native HTML StatusSelect. Covers My Requests, My Errands, Admin Orders and normal/Admin Reports in mock/live modes. Existing role-specific option sets, labels, selected values, search/Clear, page resets and polling remain. Native browser keyboard/touch dropdown; consistent existing theme/height/borders. No global Select changes, creation/reason controls, sibling service, backend, API, score, schema or deployment change. Regression tests use native change events and verify actual select controls. Verification pending.
+
+
+CHANGE-151 verification: full245 frontend tests pass; final8 personal-list tests also pass after removing an obsolete tuple label. Native SELECT assertions/requester-courier option sets, selected-status requests, page reset and pending-command visibility verified. Initial build exposed stale test tuple typing (fixed); separate host build encountered existing Google Fonts fetch/network failure, then network-enabled retry passed without source/config/font changes. Final TypeScript/production build, frontend Docker build and lint pass (0 errors/3 existing login warnings); git diff --check passes. Isolated Edge browser1440x1000/390x844 checked Admin Orders(10 options), Admin Reports(4), normal Reports(4), My Requests(9), My Errands(7): actual native select, keyboard End/Home changes, no phone overflow. Screenshots inspected. Preview-only account/processes/change151_preview database removed, existing application data/containers unchanged. No backend/contract/schema/shared configuration/peer service changes; backend suite not repeated for this frontend-only change. No commit or staging.
+
+
+CHANGE-152 (2026-10-19), Yao Xiang: remove all normal-mode Reports UI: /reports, /reports/new, /reports/[id], normal sidebar entry, submit/response/evidence-upload forms, participant tabs/branches and unused frontend submission helpers/types. Retain only AdminReportsPage under existing RequireAuth/AdminGate layout, Admin list/search/status/pagination/polling, grey resolved cards, linked Order/user details, evidence/response viewing and resolve-with-reply. Local admin sample/live Coming soon unchanged. Backend sample fixtures/endpoints, report/hold/domain rules and future Report Service requirements remain; this is UI-scope removal only. No sibling/backend/config/data changes. User explicitly authorized removal; deleted source backed up under ignored target for recovery. Verification pending.
+
+
+CHANGE-152 verification:245 frontend tests pass, including new no-normal-Reports navigation/no-submission-client-helper regressions (both reproduced failures before removal), retained admin search/page reset/mixed/resolved/details/reply tests and existing admin-role gates. Production build/TypeScript, frontend Docker image foc-frontend:change152-check, lint(0 errors/3 existing login warnings) and git diff --check pass. Built route manifest retains only /admin/reports and /admin/reports/[id]. Isolated HTTP/browser confirms /reports,/reports/new,/reports/sample-report each404, normal sidebar has no Reports, Admin Reports list/details and resolve-with-reply succeed; no courier input/upload forms. Desktop1440x1000/phone390x844 screenshots inspected. Normal navigation screenshot captured while unrelated Order data still loading; Credit balance unavailable in the Order-only preview (no Credit proxy), not an application regression claim. Preview-only account/processes/change152_preview DB removed, existing application data/containers preserved. No backend/schema/config/peer service change, so backend suite not repeated. Live Admin Reports remains Coming soon until Report Service integration. No commit or staging.
+
+
+CHANGE-153 (2026-10-19), Yao Xiang: allow a NEW requester-owned report completion hold on any Order status except COMPLETED, including cancelled/expired/aborted historical states. Placing a hold preserves status and cannot undo previously committed funds. START/PICKUP/DELIVER (and existing acceptance behavior) continue; requester/automatic completion, normal cancellation, expiry and courier abort remain paused while held. Admin cancellation remains the prior explicit override. Preserve locking, report-ID binding/idempotency, release/multiple-hold history, auth, SQL exclusions and event rules. No schema, frontend, peer backend or shared config change. Report Service integration is still pending. TDD and verification next.
+
+
+CHANGE-153 verification: full reactor Maven verify passed (531 Order Service tests plus 12 foc-common tests, zero failures/errors/skips; JaCoCo coverage checks passed). New eligibility cases reproduced seven old-rule failures before the implementation. Updated the obsolete delivered-only PostgreSQL regression to reject COMPLETED instead; new OPEN placement and held delivery progression are covered alongside existing funding, rollback and concurrency guards. Docker image foc-order-service:change153-check built successfully; git diff --check passed. No application containers/data changed, frontend edits, schema changes, cloud calls, staging or commits. Live Report Service integration remains pending.
+
+
+CHANGE-154 (2026-10-19), Yao Xiang: documentation-only peer coordination. Clarify new penalty addition/deduction events supersede new accepted-cancellation scoring; preserve old outbox/backlog support pending owner reconciliation. Request provider-enforced Firebase/admin-role checks for admin directory/profile/promotion/deactivation and separately document Credit balance readiness. Existing self-service contracts preserved; exact new admin routes not finalized. No sibling service, runtime, frontend, schema, topic/config or cloud edits. Verification: documentation consistency review and git diff --check; no tests required for prose-only change. User consumer/live admin readiness remain pending. No commit or staging.
+
+
+CHANGE-155 (2026-10-19), Yao Xiang: retire accepted-cancellation producer/replay/snapshot types and topic keys/provisioning/CI requirements under explicit cleanup approval. Preserve financial transitions, four current event channels, published history and immutable migrations. Staging user query showed eight PUBLISHED rows only; other deployment databases require backlog checks before rollout. No database/cloud/sibling backend edits; no frontend impact. TDD: bootstrap expectations failed2 cases and retired-event dispatch failed1 case before implementation. Verification in progress; no staging/commit.
+
+
+CHANGE-155 verification: final full reactor verify passed: 531 Order tests +12 common tests, zero failures/errors/skips; coverage checks passed with fresh execution data and no class-mismatch warning. First full run also passed but accumulated old mapper coverage, so only jacoco.exec was backed up/cleared before the final run (no Maven clean). Local bootstrap3 tests pass; base/http-peers/http-peers+local-live Compose config checks pass; shell syntax and stubbed staging/production provisioning pass (four topics each; no live gcloud calls). AsyncAPI checker passes four channels/operations, four DTO field sets, six examples, negative schemas and source/config/cadence parity; initial stale validator/missing example attributes were corrected. AsyncAPI parses and all local refs resolve. Docker foc-order-service:change155-check built; packaged JAR contains no retired event/publisher/snapshot classes; git diff --check passes. Production backlog and deployed User scoring remain unverified. No DB/GCP modifications, app-container recreation, commit or staging.

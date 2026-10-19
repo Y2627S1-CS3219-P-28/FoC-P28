@@ -1,24 +1,30 @@
 package sg.edu.nus.foc.order.api;
 
+
 import java.net.URI;
+import java.time.Instant;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import sg.edu.nus.foc.order.api.dto.request.ApplyPenaltyRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.edu.nus.foc.order.api.dto.request.AdminMockSupplierRequest;
+import sg.edu.nus.foc.order.api.dto.request.AdminCancelOrderRequest;
 import sg.edu.nus.foc.order.api.dto.request.AdminMockSuspensionRequest;
 import sg.edu.nus.foc.order.api.dto.response.AdminMockOrderResponse;
 import sg.edu.nus.foc.order.api.dto.response.AdminMockPageResponse;
@@ -40,6 +46,23 @@ public class AdminMockController {
 
     private final AdminMockService samples;
 
+    @PostMapping("/orders/{id}/cancel")
+    @Operation(summary = "Cancel a local sample order with a saved explanation and optional penalty preview")
+    @ApiResponse(responseCode = "200", description = "Sample resolution only; no real funds or penalty change")
+    @ApiResponse(responseCode = "400", description = "Invalid reason or penalty selection")
+    @ApiResponse(responseCode = "404", description = "Sample order not found")
+    @ApiResponse(responseCode = "409", description = "Invalid state, participants or conflicting replay")
+    public AdminMockOrderResponse cancelOrder(@PathVariable String id, @Valid @RequestBody AdminCancelOrderRequest request) {
+        return samples.resolveOrder(id, request.getRequesterId(), request.getCourierId(),
+                request.getAppliedPenalties(), request.getResolutionReason());
+    }
+
+    @PostMapping("/orders/{id}/apply-penalty")
+    @Operation(summary = "Store the highest report penalty on an isolated sample active order")
+    public AdminMockOrderResponse applyPenalty(@PathVariable String id, @Valid @RequestBody ApplyPenaltyRequest request) {
+        return samples.applyPenalty(id, request);
+    }
+
     @GetMapping("/role-context")
     @Operation(summary = "Mock the current user's admin role for the local prototype")
     public AdminMockRoleResponse roles(
@@ -53,8 +76,12 @@ public class AdminMockController {
             @Parameter(description = "Optional Order status") @RequestParam(required = false) OrderStatus status,
             @Parameter(description = "Optional exact Order ID") @RequestParam(required = false) String orderId,
             @Parameter(description = "One-based page") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "Page size, 1 through 100") @RequestParam(defaultValue = "10") int size) {
-        return samples.orders(status, orderId, page, size);
+            @Parameter(description = "Page size, 1 through 100") @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Inclusive creation timestamp") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) Instant createdFrom,
+            @Parameter(description = "Exclusive creation timestamp") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) Instant createdBefore) {
+        return samples.orders(status, orderId, page, size, createdFrom, createdBefore);
     }
 
     @GetMapping("/users")

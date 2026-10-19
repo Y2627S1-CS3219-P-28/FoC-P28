@@ -1,187 +1,109 @@
-# Updated overall-design publisher classes
+# Order event publisher classes
 
-## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+CHANGE-130 / ADR-043: PenaltySystemPolicy belongs to the foc-common Maven JAR,
+package sg.edu.nus.foc.common.penalty. Factory/DTO associations below refer to
+that shared enum; all transport, factory and publisher classes stay Order-owned.
 
-Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
 
+Effective CHANGE-128/ADR-041. Per-event publishers/interfaces remain in
+messagingpublisher/publisher and messagingpublisher/interfaces. Traditional
+DTOs and MapStruct use one internal facts input. Credit DTOs remain unchanged;
+legacy accepted publisher is only for already-stored outbox replay.
 
 ```mermaid
 classDiagram
-    class IEventPublisher~T~ {
-        <<interface>>
-        +publish(topic, event)
+    class PenaltySystemPolicy {
+        ACCEPTED_TASK_CANCELLATION
+        OVERDUE_DELIVERY
+        SUCCESSFUL_DELIVERY
+        WRONG_LOCATION_DELIVERY
+        ITEM_MISHANDLING_OR_DAMAGE
+        DELIBERATE_ITEM_RETENTION_OR_THEFT
+        +getSuccessfulDeliveryReward() PenaltySystemPolicy
+        +getCourierPenaltyCases() List~PenaltySystemPolicy~
+        +getFullPenaltyPolicy() List~PenaltySystemPolicy~
+        int penaltyAmount
     }
-    class GoogleCloudPubSubEventPublisher {
-        -projectId: String
-        -publishTimeout: Duration
-        +publish(topicId, event) String
-    }
-    class GoogleCloudPubSubPublisherFactory {
-        -emulatorHost: String
-        +forTopic(projectId, topicId) Publisher
-    }
-    class IOrderCompletionTaskPublisher {
-        <<interface>>
-        +publishOrderCompletionTask(OrderCompletionTaskEvent event)
-    }
-    class OrderCompletionTaskPublisher {
-        -topic: String (configured)
-        +publishOrderCompletionTask(OrderCompletionTaskEvent event)
-    }
-    class IOpenOrderRefundTaskPublisher {
-        <<interface>>
-        +publishOpenOrderRefundTask(OpenOrderRefundTaskEvent event)
-    }
-    class OpenOrderRefundTaskPublisher {
-        -topic: String (configured)
-        +publishOpenOrderRefundTask(OpenOrderRefundTaskEvent event)
-    }
-    class IAcceptedOrderCancellationTaskPublisher {
-        <<interface>>
-        +publishAcceptedOrderCancellationTask(AcceptedOrderCancellationTaskEvent event)
-    }
-    class AcceptedOrderCancellationTaskPublisher {
-        -topic: String (configured)
-        +publishAcceptedOrderCancellationTask(AcceptedOrderCancellationTaskEvent event)
-    }
-    class OrderEventSnapshot {
-        +id: String
-        +requesterId: String
-        +courierId: String
-        +itemDescription: String
-        +pickupSupplierId: String
-        +deliverySupplierId: String
-        +offeredCredits: long
-        +status: OrderStatus
-        +createdAt: Instant
-        +expiresAt: Instant
-        +deliveryTimeLimitMinutes: int
-        +version: long
-        +originalOrderId: String
-        +repostedOrderId: String
-        +repostPlan: RepostPlanSnapshot
-    }
-    class RepostPlanSnapshot {
-        +enabled: boolean
-        +dueAt: Instant
-        +creditAmount: long
-        +deliveryDurationMinutes: int
-        +used: boolean
-    }
-    class OrderCompletionTaskEvent {
-        +eventId: String
-        +eventType: String
-        +orderId: String
-        +orderStatus: OrderStatus
-        +creditAmount: long
-        +occurredAt: Instant
-        +courierId: String
-    }
-    class OpenOrderRefundTaskEvent {
-        +eventId: String
-        +eventType: String
-        +orderId: String
-        +orderStatus: OrderStatus
-        +creditAmount: long
-        +occurredAt: Instant
-        +courierId: String nullable
-    }
-    class AcceptedOrderCancellationTaskEvent
-    class OrderTransitionService {
-        +complete(commandId, orderId, requester, version)
-        +autoComplete(orderId, now)
-    }
-    class LifecycleProcessingService {
-        +expireDue(now)
-        +autoCompleteDue(now)
-    }
-    class OrderLifecycleScheduler {
-        +processDueOrders()
-    }
-    class CreditServicePort {
-        <<interface>>
-        +holdForReopen(orderId)
-    }
-    class MockPeerAdapters
-    class HttpPeerAdapters
+    class CourierPenaltyEventFacts
     class OrderTaskEventFactory
     class OrderTaskEventMapper
-    class OrderEventOutboxRepository {
+    class OrderOutboxDispatcher
+    class OrderTaskEvent {
         <<interface>>
-        +enqueue(event)
-        +claim(eventId, now, leaseExpiry)
-        +findDueIds(now, limit) List~String~
-        +claimDue(now, leaseExpiry, limit)
-        +markPublished(eventId)
-        +scheduleRetry(eventId, nextAttemptAt, error)
     }
-    class OrderEventOutboxPersistenceAdapter
-    class JpaOrderEventOutboxRepository
-    class OrderEventOutbox {
-        +eventId: String
-        +eventType: String
-        +payload: String
-        +state: OutboxState
-        +attemptCount: int
-        +nextAttemptAt: Instant
-        +leaseUntil: Instant
-        +publishedAt: Instant
-        +lastError: String
+    class IEventPublisher {
+        <<interface>>
+        publish(topicId, event)
     }
-    class OrderOutboxAfterCommitListener
-    class OrderOutboxScheduler {
-        +dispatchDueEvents()
-    }
-    class OrderOutboxDispatcher {
-        +dispatch(eventId)
-        +dispatchDueBatch()
-    }
-    class CreditServiceConsumer {
-        <<existing consumer; compact adaptation pending>>
-    }
-    class UserServiceConsumer {
-        <<future peer consumer; not modified>>
-    }
-
-    IOrderCompletionTaskPublisher --|> IEventPublisher
-    IOpenOrderRefundTaskPublisher --|> IEventPublisher
-    IAcceptedOrderCancellationTaskPublisher --|> IEventPublisher
-    OrderCompletionTaskPublisher ..|> IOrderCompletionTaskPublisher
-    OpenOrderRefundTaskPublisher ..|> IOpenOrderRefundTaskPublisher
-    AcceptedOrderCancellationTaskPublisher ..|> IAcceptedOrderCancellationTaskPublisher
+    class GoogleCloudPubSubEventPublisher
+    class GoogleCloudPubSubPublisherFactory
+    OrderTaskEventFactory --> PenaltySystemPolicy
+    OrderTaskEventFactory --> CourierPenaltyEventFacts
+    OrderTaskEventFactory --> OrderTaskEventMapper
     GoogleCloudPubSubEventPublisher ..|> IEventPublisher
     GoogleCloudPubSubEventPublisher --> GoogleCloudPubSubPublisherFactory
-    OrderTransitionService --> OrderTaskEventFactory
-    OrderLifecycleScheduler --> LifecycleProcessingService : minute lifecycle cron
-    LifecycleProcessingService --> OrderTaskEventFactory
-    LifecycleProcessingService --> OrderTransitionService : rechecked automatic completion
-    LifecycleProcessingService --> OrderRepository : database cutoff query, lock due orders
-    LifecycleProcessingService --> OrderEventOutboxRepository : transactional save
-    OrderTransitionService --> CreditServicePort : synchronous reset before every abort
-    CreditServicePort <|.. MockPeerAdapters
-    CreditServicePort <|.. HttpPeerAdapters
-    OrderTaskEventFactory --> OrderTaskEventMapper
-    OrderTransitionService --> OrderEventOutboxRepository : transactional save
-    OrderEventOutboxRepository <|.. OrderEventOutboxPersistenceAdapter
-    OrderEventOutboxPersistenceAdapter --> JpaOrderEventOutboxRepository
-    JpaOrderEventOutboxRepository --> OrderEventOutbox
-    OrderOutboxAfterCommitListener --> OrderOutboxDispatcher : immediate after commit
-    OrderOutboxScheduler --> OrderOutboxDispatcher : cron recovery
-    OrderOutboxDispatcher --> OrderEventOutboxRepository : lease / mark / retry
-    OrderOutboxDispatcher --> IOrderCompletionTaskPublisher
-    OrderOutboxDispatcher --> IOpenOrderRefundTaskPublisher
-    OrderOutboxDispatcher --> IAcceptedOrderCancellationTaskPublisher
+    class IPenaltyScoreAdditionPublisher {
+        <<interface>>
+        publishPenaltyScoreAddition(event)
+    }
+    class PenaltyScoreAdditionPublisher
+    class PenaltyScoreAdditionEvent
+    PenaltyScoreAdditionPublisher ..|> IPenaltyScoreAdditionPublisher
+    PenaltyScoreAdditionPublisher --> IEventPublisher
+    PenaltyScoreAdditionEvent ..|> OrderTaskEvent
+    OrderOutboxDispatcher --> IPenaltyScoreAdditionPublisher
+    OrderTaskEventMapper --> PenaltyScoreAdditionEvent
+    class IPenaltyScoreDeductionPublisher {
+        <<interface>>
+        publishPenaltyScoreDeduction(event)
+    }
+    class PenaltyScoreDeductionPublisher
+    class PenaltyScoreDeductionEvent
+    PenaltyScoreDeductionPublisher ..|> IPenaltyScoreDeductionPublisher
+    PenaltyScoreDeductionPublisher --> IEventPublisher
+    PenaltyScoreDeductionEvent ..|> OrderTaskEvent
+    OrderOutboxDispatcher --> IPenaltyScoreDeductionPublisher
+    OrderTaskEventMapper --> PenaltyScoreDeductionEvent
+    class IOrderCompletionTaskPublisher {
+        <<interface>>
+        publishOrderCompletionTask(event)
+    }
+    class OrderCompletionTaskPublisher
+    class OrderCompletionTaskEvent
+    OrderCompletionTaskPublisher ..|> IOrderCompletionTaskPublisher
     OrderCompletionTaskPublisher --> IEventPublisher
+    OrderCompletionTaskEvent ..|> OrderTaskEvent
+    OrderOutboxDispatcher --> IOrderCompletionTaskPublisher
+    OrderTaskEventMapper --> OrderCompletionTaskEvent
+    class IOpenOrderRefundTaskPublisher {
+        <<interface>>
+        publishOpenOrderRefundTask(event)
+    }
+    class OpenOrderRefundTaskPublisher
+    class OpenOrderRefundTaskEvent
+    OpenOrderRefundTaskPublisher ..|> IOpenOrderRefundTaskPublisher
     OpenOrderRefundTaskPublisher --> IEventPublisher
+    OpenOrderRefundTaskEvent ..|> OrderTaskEvent
+    OrderOutboxDispatcher --> IOpenOrderRefundTaskPublisher
+    OrderTaskEventMapper --> OpenOrderRefundTaskEvent
+    class IAcceptedOrderCancellationTaskPublisher {
+        <<interface>>
+        publishAcceptedOrderCancellationTask(event)
+    }
+    class AcceptedOrderCancellationTaskPublisher
+    class AcceptedOrderCancellationTaskEvent
+    AcceptedOrderCancellationTaskPublisher ..|> IAcceptedOrderCancellationTaskPublisher
     AcceptedOrderCancellationTaskPublisher --> IEventPublisher
-    AcceptedOrderCancellationTaskEvent --> OrderEventSnapshot
-    OrderEventSnapshot --> RepostPlanSnapshot
-    OrderCompletionTaskEvent --> CreditServiceConsumer
-    OrderCompletionTaskEvent --> UserServiceConsumer
-    AcceptedOrderCancellationTaskEvent --> UserServiceConsumer : every abort penalty
-    OpenOrderRefundTaskEvent --> CreditServiceConsumer : requester cancel or scheduled expiry
+    AcceptedOrderCancellationTaskEvent ..|> OrderTaskEvent
+    OrderOutboxDispatcher --> IAcceptedOrderCancellationTaskPublisher
+    OrderTaskEventMapper --> AcceptedOrderCancellationTaskEvent
 ```
 
-`OpenOrderRefundTaskPublisher` owns the configured shared OPEN-refund topic. `OrderLifecycleScheduler` triggers due-OPEN discovery and due delivered completion once per minute. Expiry persists the `EXPIRED` state, checkpoint, and serialized `OpenOrderRefundTaskEvent` atomically; requester cancellation stays trigger-based and persists the same event type with `CANCELLED` under the same overall Sequence 6. Credit uses the resulting `orderStatus` to distinguish these cases; both refund the transaction. The shared lifecycle scheduler finds `DELIVERED` orders by the delivered-checkpoint cutoff and row lock, then asks `LifecycleProcessingService` to use `OrderTransitionService`'s standard completion flow after 48 hours. This reuses the same completion event/outbox; overdue facts remain internal. `GoogleCloudPubSubEventPublisher` serializes typed events as JSON, adds event metadata as Pub/Sub attributes, and waits for the Pub/Sub message ID before returning. An after-commit listener attempts immediate dispatch; the separate outbox cron recovers due rows. Claims use expiring leases and delivery uses bounded retry backoff. Delivery is at least once, so peer consumers must deduplicate the stable `eventId`. The dispatcher retains a compatibility path for pending legacy outbox rows but creates no new legacy event. Cloud Run scale-to-zero/request-based CPU means in-process crons are not guaranteed while idle; no billing change is included. Peer consumers remain future work and are not modified here.
+Amounts2/1/1 are positive; event type chooses add/deduct. Penalty JSON contains
+eventId, eventType, orderId, courierId, penaltyAmount, occurredAt, appliedReason.
+Operational versions are JsonIgnore. Facts are mapping-only, never published.
 
-CHANGE-096: recovery calls findDueIds and individual claim; claim/mark/retry transactions are REQUIRES_NEW, enqueue remains REQUIRED. Legacy claimDue is retained but unused by the active dispatcher. Publication remains outside transactions; catch around each event preserves later work.
+State/receipt and required Credit/penalty intents commit together; signals run
+after commit. Dispatcher publishes stored events outside Order transactions and
+independently marks success/retry. Stable IDs and payload survive redelivery.
+User subscriber/ordering and cloud resources are not verified by this diagram.

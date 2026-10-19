@@ -4,6 +4,24 @@ import { ApiError } from "@/lib/api"
 import { createAdminApi } from "@/lib/admin-api"
 
 describe("Live Admin API adapter", () => {
+  it("combines calendar bounds, status and exact ID on the server before pagination", async () => {
+    const request = vi.fn().mockResolvedValue({ items: [], totalItems: 0 })
+    const api = createAdminApi(request, "live")
+    await api.orders({ page: 2, status: "DELIVERED", orderId: "order/1", fromDate: "2026-10-16", toDate: "2026-10-17" })
+    const params = new URLSearchParams(request.mock.calls[0][0].split("?")[1])
+    expect(request.mock.calls[0][0]).toMatch(/^\/api\/orders\?/)
+    expect(Object.fromEntries(params)).toMatchObject({ page: "2", size: "20", status: "DELIVERED", orderId: "order/1" })
+    expect(new Date(params.get("createdFrom")!).getDate()).toBe(16)
+    expect(new Date(params.get("createdBefore")!).getDate()).toBe(18)
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+  it("posts an explicit resolution to the real endpoint and never falls back on failure", async () => {
+    const request = vi.fn().mockRejectedValue(new ApiError(409, "CONFLICT", "Order changed"))
+    const api = createAdminApi(request, "live")
+    const input = { requesterId: "owner", courierId: "worker", appliedPenalties: [], resolutionReason: "Delivery confirmed" }
+    await expect(api.resolveOrder("order/1", "cancel", input)).rejects.toThrow("Order changed")
+    expect(request).toHaveBeenCalledExactlyOnceWith("/api/orders/admin/order%2F1/cancel", { method: "POST", body: input })
+  })
   it("checks the authenticated role context without sending a trusted caller ID", async () => {
     const request = vi.fn().mockResolvedValue({ userId: "signed-in", roles: ["admin"] })
     const api = createAdminApi(request, "live")
@@ -12,15 +30,17 @@ describe("Live Admin API adapter", () => {
   })
 
   it("uses real server-filtered Order pages and exact details", async () => {
-    const request = vi.fn().mockResolvedValue({ items: [{ id: "order-1" }], page: 2, size: 10, totalItems: 21, totalPages: 3 })
+    const request = vi.fn().mockResolvedValue({ items: [{ id: "order-1" }], page: 2, size: 20, totalItems: 21, totalPages: 2 })
     const api = createAdminApi(request, "live")
     const result = await api.orders({ page: 2, status: "COMPLETED", orderId: "" })
-    expect(request).toHaveBeenCalledWith("/api/orders?page=2&size=10&status=COMPLETED", { signal: undefined })
+    expect(request).toHaveBeenCalledWith("/api/orders?page=2&size=20&status=COMPLETED", { signal: undefined })
     expect(result.totalItems).toBe(21)
     request.mockResolvedValue({ id: "order/1", status: "OPEN" })
     await api.order("order/1")
     expect(request).toHaveBeenLastCalledWith("/api/orders/order%2F1", { signal: undefined })
-    expect((await api.orders({ page: 1, status: "COMPLETED", orderId: "order/1" })).items).toEqual([])
+    const unmatched = await api.orders({ page: 1, status: "COMPLETED", orderId: "order/1" })
+    expect(unmatched.items).toEqual([])
+    expect(unmatched.size).toBe(20)
   })
 
   it("turns only missing exact searches into empty results; real errors never fall back to mocks", async () => {
@@ -73,15 +93,55 @@ describe("Live Admin API adapter", () => {
     expect(result).toMatchObject({ items: [{ id: "supplier-1" }], page: 1, totalItems: 1, totalPages: 1 })
   })
 
+  it("does not attach another record's name and handles empty lookup results", async () => {
+    const request = vi.fn().mockResolvedValue({ userId: "other", username: "Wrong user" })
+    const api = createAdminApi(request, "live")
+    await expect(api.recordName("users", "user-1")).rejects.toThrow("does not match")
+    request.mockResolvedValue({ id: "other", name: "Wrong location" })
+    await expect(api.recordName("suppliers", "supplier-1")).rejects.toThrow("does not match")
+    request.mockResolvedValue(null)
+    expect(await api.recordName("users", "user-1")).toBeNull()
+    expect(await api.recordName("suppliers", "supplier-1")).toBeNull()
+    request.mockResolvedValue({ userId: "user-1", username: "  " })
+    expect(await api.recordName("users", "user-1")).toBeNull()
+  })
+
   it("refuses every unfinished operation without issuing a peer request", async () => {
     const request = vi.fn()
     const api = createAdminApi(request, "live")
     for (const operation of [() => api.users({ page: 1, searchBy: "name", q: "" }),
-      () => api.userTransactions("user-1", 1), () => api.suspendUser("user-1", "2099-01-01T00:00:00Z"),
+      () => api.suspendUser("user-1", "2099-01-01T00:00:00Z"),
       () => api.promoteUser("user-1"), () => api.deactivateUser("user-1")]) {
       await expect(operation()).rejects.toThrow("Coming soon")
     }
     expect(request).not.toHaveBeenCalled()
-    expect(api.capabilities).toEqual({ userDirectory: false, userActions: false, creditTransactions: false })
+    expect(api.capabilities).toEqual({ userDirectory: false, userActions: false, creditTransactions: true })
+  })
+
+  it("loads the selected user's real Credit history with pagination and cancellation", async () => {
+    const history = { items: [{ transactionId: "transaction-1", type: "REFUNDED_EXPIRY",
+      amount: 5, direction: "CREDIT", occurredAt: "2026-10-15T00:00:00Z", orderId: "order-1" }],
+      page: 2, size: 20, totalItems: 21, totalPages: 2 }
+    const request = vi.fn().mockResolvedValue(history)
+    const api = createAdminApi(request, "live")
+    const signal = new AbortController().signal
+    expect(await api.userTransactions("user/1", 2, signal)).toEqual(history)
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      "/api/credits/users/user%2F1/transactions?page=2&size=20", { signal })
+    expect(api.capabilities.creditTransactions).toBe(true)
+  })
+
+  it("preserves empty Credit pages and propagates account/auth/service errors without a mock fallback", async () => {
+    const empty = { items: [], page: 1, size: 20, totalItems: 0, totalPages: 0 }
+    const request = vi.fn().mockResolvedValue(empty)
+    const api = createAdminApi(request, "live")
+    expect(await api.userTransactions("user-1", 1)).toEqual(empty)
+    for (const status of [401, 403, 404, 503]) {
+      const error = new ApiError(status, "FAILURE", "Credit request failed")
+      request.mockRejectedValue(error)
+      await expect(api.userTransactions("user-1", 1)).rejects.toBe(error)
+    }
+    expect(request.mock.calls).toHaveLength(5)
+    expect(request.mock.calls.every(([path]) => path === "/api/credits/users/user-1/transactions?page=1&size=20")).toBe(true)
   })
 })

@@ -12,6 +12,17 @@ import sg.edu.nus.foc.order.domain.repository.OrderRepository;
 
 class OrderQueryServiceTest {
     @Test
+    void adminDateRangeIsValidatedBeforeTheDatabaseAndCombinedWithExactId() {
+        OrderRepository repository = mock(OrderRepository.class);
+        OrderQueryService service = new OrderQueryService(repository);
+        java.time.Instant from = java.time.Instant.parse("2026-10-15T16:00:00Z");
+        java.time.Instant before = from.plusSeconds(86400);
+        service.allOrders(OrderStatus.ACCEPTED, "order-1", from, before, 0, 10);
+        verify(repository).findAllOrders(OrderStatus.ACCEPTED, "order-1", from, before, 0, 10);
+        org.junit.jupiter.api.Assertions.assertThrows(sg.edu.nus.foc.order.domain.OrderProblem.class,
+                () -> service.allOrders(null, null, before, from, 0, 10));
+    }
+    @Test
     void allOrdersPassesAnAbsentStatusThroughForAllStatuses() {
         OrderRepository repository = mock(OrderRepository.class);
         OrderPage result = new OrderPage(List.of(), 1, 20, 21, 2);

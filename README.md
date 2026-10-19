@@ -10,6 +10,14 @@ Author review: I validated correctness and edited for style.
 
 ## Friend on Campus (FoC)
 
+Shared Java penalty policy lives in [foc-common](foc-common/README.md), an ordinary
+Maven library, not a service or Git submodule. Order is its first consumer.
+From repo root: `bash ./mvnw -pl order-service -am verify` (PowerShell:
+`.\mvnw.cmd -pl order-service -am verify`). Compose bundles it automatically;
+direct Order image build uses `docker build -f order-service/Dockerfile .`.
+Other backends retain their existing standalone builds.
+
+
 **Friend on Campus (FoC)** is a peer-to-peer campus errand platform where
 students can request items to be collected from stores or facilities on
 campus, and other students can fulfil (and deliver) those requests. The

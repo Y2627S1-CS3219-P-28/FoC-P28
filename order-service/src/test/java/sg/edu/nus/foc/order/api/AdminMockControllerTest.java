@@ -21,6 +21,19 @@ import sg.edu.nus.foc.order.api.mapper.AdminMockMapperImpl;
 import sg.edu.nus.foc.order.application.adminmock.AdminMockService;
 
 class AdminMockControllerTest {
+    @Test
+    void sampleListAppliesCalendarBoundsBeforePagingAndRejectsAnInvertedRange() throws Exception {
+        mvc.perform(get("/api/orders/admin-mock/orders").param("createdFrom", "9999-01-01T00:00:00Z"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+        mvc.perform(get("/api/orders/admin-mock/orders").param("createdBefore", "2000-01-01T00:00:00Z"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+        mvc.perform(get("/api/orders/admin-mock/orders").param("orderId", "demo-order-002")
+                .param("status", "ACCEPTED").param("createdFrom", "2000-01-01T00:00:00Z")
+                .param("createdBefore", "9999-01-01T00:00:00Z"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));
+        mvc.perform(get("/api/orders/admin-mock/orders").param("createdFrom", "2026-10-17T00:00:00Z")
+                .param("createdBefore", "2026-10-16T00:00:00Z")).andExpect(status().isBadRequest());
+    }
 
     private MockMvc mvc;
 
@@ -29,6 +42,38 @@ class AdminMockControllerTest {
         AdminMockService service = new AdminMockService(Mappers.getMapper(AdminMockMapper.class));
         mvc = MockMvcBuilders.standaloneSetup(new AdminMockController(service))
                 .setControllerAdvice(new OrderExceptionHandler()).build();
+    }
+
+    @Test
+    void sampleResolutionSavesReasonAndHighestPenaltyWithoutRealIntegrations() throws Exception {
+        String path = "/api/orders/admin-mock/orders/demo-order-002/cancel";
+        String body = """
+                {"requesterId":"demo-user-001","courierId":"demo-user-002","appliedPenalties":["OVERDUE_DELIVERY","WRONG_LOCATION_DELIVERY"],"resolutionReason":"Delivery confirmed"}
+                """;
+        for (int repeat = 0; repeat < 2; repeat++) {
+            mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"))
+                    .andExpect(jsonPath("$.adminPenaltyAmount").value(4))
+                    .andExpect(jsonPath("$.adminResolutionReason").value("Delivery confirmed"));
+        }
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body.replace("Delivery confirmed", "Other")))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/orders/admin-mock/orders/demo-order-001/cancel").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"requesterId\":\"demo-user-001\",\"resolutionReason\":\"Requester requested cancellation\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.adminPenaltyDecision").value("WAIVED"));
+    }
+
+    @Test
+    void sampleResolutionRejectsInvalidStatesParticipantsAndPolicies() throws Exception {
+        String body = "{\"requesterId\":\"demo-user-001\",\"courierId\":\"demo-user-002\"}";
+        for (String id : java.util.List.of("demo-order-006", "demo-order-007")) {
+            mvc.perform(post("/api/orders/admin-mock/orders/" + id + "/cancel").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isConflict());
+        }
+        mvc.perform(post("/api/orders/admin-mock/orders/missing/cancel").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/orders/admin-mock/orders/demo-order-002/cancel").contentType(MediaType.APPLICATION_JSON)
+                .content(body.replace("}", ",\"appliedPenalties\":[\"SUCCESSFUL_DELIVERY\"]}"))).andExpect(status().isBadRequest());
     }
 
     @Test

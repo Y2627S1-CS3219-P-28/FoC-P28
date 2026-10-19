@@ -3,20 +3,22 @@ package sg.edu.nus.foc.order.messagingpublisher.publisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
+
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreDeductionEvent;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IEventPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher;
 
 @Component
 @RequiredArgsConstructor
-public class AcceptedOrderCancellationTaskPublisher implements IAcceptedOrderCancellationTaskPublisher {
+public class PenaltyScoreDeductionPublisher implements IPenaltyScoreDeductionPublisher {
+
     private final IEventPublisher<Object> eventPublisher;
 
-    @Value("${order.messaging.topics.accepted-order-cancellation:TODO_TOPIC}")
+    @Value("${order.messaging.topics.courier-penalty-deduction:TODO_TOPIC}")
     private String topicId = "TODO_TOPIC";
 
     @Override
-    public void publishAcceptedOrderCancellationTask(AcceptedOrderCancellationTaskEvent event) {
+    public void publishPenaltyScoreDeduction(PenaltyScoreDeductionEvent event) {
         eventPublisher.publish(topicId, event);
     }
 }

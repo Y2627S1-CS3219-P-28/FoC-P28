@@ -19,18 +19,19 @@ export function useSupplierNames(ids: string[]) {
     if (authLoading || !user || uniqueIds.length === 0) return
 
     const controller = new AbortController()
-    void api<SupplierLookupResponse>(supplierLookupPath(), {
+    void api<SupplierLookupResponse | null>(supplierLookupPath(), {
       method: "POST",
       body: supplierLookupPayload(uniqueIds),
       signal: controller.signal,
     })
       .then((response) => {
         const resolvedNames: Record<string, string> = Object.fromEntries(
-          response.items.map((supplier) => [supplier.id, supplierOptionLabel(supplier)]),
+          (response?.items ?? []).map((supplier) => [supplier.id, supplierOptionLabel(supplier)]),
         )
-        // Missing locations are a completed lookup, so they must not keep Order cards loading.
-        for (const id of response.missingIds) {
-          resolvedNames[id] = "Location unavailable"
+        // A completed lookup with no record uses a display label, not a stored name.
+        // Cover omitted missingIds too so an empty response never hides all Orders.
+        for (const id of uniqueIds) {
+          if (!Object.hasOwn(resolvedNames, id)) resolvedNames[id] = "Deleted supplier"
         }
         setNames(resolvedNames)
       })

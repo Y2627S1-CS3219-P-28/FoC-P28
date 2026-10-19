@@ -1,11 +1,17 @@
 package sg.edu.nus.foc.order.api.mapper;
 
+
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.ReportingPolicy;
+import java.util.List;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
+import sg.edu.nus.foc.order.api.dto.response.PenaltyPolicyResponse;
+
 import sg.edu.nus.foc.order.api.dto.response.OrderPageResponse;
+import sg.edu.nus.foc.order.api.dto.response.CompletionHoldResponse;
 import sg.edu.nus.foc.order.api.dto.response.OrderResponse;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.repository.OrderPage;
@@ -16,6 +22,23 @@ import sg.edu.nus.foc.order.domain.repository.OrderPage;
 public interface OrderMapper {
 
     @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "overdue", source = "overdue")
+    @Mapping(target = "overduePenaltyWaived", source = "overduePenaltyWaived")
+    @Mapping(target = "overdueWaivedAt", source = "overdueWaivedAt")
+    @Mapping(target = "overdueWaivedBy", source = "overdueWaivedBy")
+    @Mapping(target = "overdueWaiverReason", source = "overdueWaiverReason")
+    @Mapping(target = "appliedPenalty", source = "appliedPenalty")
+    @Mapping(target = "appliedPenaltyAmount", source = "appliedPenaltyAmount")
+    @Mapping(target = "appliedPenaltyAt", source = "appliedPenaltyAt")
+    @Mapping(target = "appliedPenaltyBy", source = "appliedPenaltyBy")
+    @Mapping(target = "appliedPenaltyReason", source = "appliedPenaltyReason")
+    @Mapping(target = "adminPenaltyDecision", source = "adminPenaltyDecision")
+    @Mapping(target = "adminPenaltyReason", source = "adminPenaltyReason")
+    @Mapping(target = "adminPenaltyAmount", source = "adminPenaltyAmount")
+    @Mapping(target = "adminResolutionAt", source = "adminResolutionAt")
+    @Mapping(target = "adminResolutionReason", source = "adminResolutionReason")
+    @Mapping(target = "deliveryDeadlineAt", source = "deliveryDeadlineAt")
+    @Mapping(target = "deliveredAt", source = "deliveredAt")
     @Mapping(target = "id", source = "id")
     @Mapping(target = "attemptId", source = "attemptId")
     @Mapping(target = "requesterId", source = "requesterId")
@@ -25,6 +48,7 @@ public interface OrderMapper {
     @Mapping(target = "deliverySupplierId", source = "deliverySupplierId")
     @Mapping(target = "offeredCredits", source = "offeredCredits")
     @Mapping(target = "status", source = "status")
+    @Mapping(target = "completionHold", source = "completionHold")
     @Mapping(target = "createdAt", source = "createdAt")
     @Mapping(target = "expiresAt", source = "expiresAt")
     @Mapping(target = "deliveryTimeLimitMinutes", source = "deliveryTimeLimitMinutes")
@@ -49,6 +73,20 @@ public interface OrderMapper {
             source = "repostPlan.deliveryDurationMinutes",
             defaultValue = "0")
     OrderResponse toResponse(Order order);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "policy", source = "policy")
+    @Mapping(target = "penaltyAmount", source = "policy.penaltyAmount")
+    PenaltyPolicyResponse toPenaltyPolicy(PenaltySystemPolicy policy);
+
+    List<PenaltyPolicyResponse> toPenaltyPolicies(List<PenaltySystemPolicy> policies);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "orderId", source = "order.id")
+    @Mapping(target = "reportId", source = "reportId")
+    @Mapping(target = "completionHold", source = "order.completionHold")
+    @Mapping(target = "version", source = "order.version")
+    CompletionHoldResponse toHoldResponse(Order order, String reportId);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "items", source = "items")

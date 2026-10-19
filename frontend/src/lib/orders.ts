@@ -12,6 +12,11 @@ export type OrderStatus =
   | "EXPIRED"
 
 export type Order = {
+  appliedPenalty?: string | null
+  appliedPenaltyAmount?: number
+  appliedPenaltyAt?: string | null
+  appliedPenaltyBy?: string | null
+  appliedPenaltyReason?: string | null
   id: string
   attemptId?: string | null
   requesterId: string
@@ -21,6 +26,19 @@ export type Order = {
   deliverySupplierId: string
   offeredCredits: number
   status: OrderStatus
+  isCompletionHold?: boolean
+  overduePenaltyWaived?: boolean
+  overdueWaivedAt?: string | null
+  overdueWaivedBy?: string | null
+  overdueWaiverReason?: string | null
+  isOverdue?: boolean | null
+  deliveryDeadlineAt?: string | null
+  deliveredAt?: string | null
+  adminPenaltyDecision?: string | null
+  adminPenaltyReason?: string | null
+  adminPenaltyAmount?: number | null
+  adminResolutionAt?: string | null
+  adminResolutionReason?: string | null
   createdAt: string
   expiresAt: string
   deliveryTimeLimitMinutes: number

@@ -1,10 +1,26 @@
 # Architecture Decision Records
 
+## ADR-047 presentation refinement — CHANGE-139
+
+User directs compact41px table-top action bar, existing refresh icon and calendar date controls; dates are Order-owned read-only SQL filters. Existing ADR-047 financial/reason/auth contracts unchanged. [CHANGE-139](../../changes/CHANGE-139-compact-admin-toolbar-date-filter.md).
+
+
+## ADR-047 — Admin row actions and saved explanations
+
+[ADR-047](ADR-047-admin-order-resolution-ui-and-reasons.md), CHANGE-138: selection/toolbar/dialog, shared policy lookup, optional persisted explanation and V11, isolated demo/live providers. Existing penalties/funding/auth unchanged.
+
+
 ADRs preserve approved business and architecture decisions that supersede or clarify other sources.
 
 | ADR | Status | Summary |
 |---|---|---|
-| [ADR-039](ADR-039-admin-ui-local-mock-prototype.md) | User-approved local mock milestone and CHANGE-112..116/119..122 refinements, Yao Xiang 2026-10-11..13 | Admin UI/maps/details; base Compose samples, HTTP override/cloud partial live providers; unfinished capabilities gated, peers read-only |
+| [ADR-046](ADR-046-admin-held-order-completion.md) | Approved2026-10-17 | Admin completes assigned active/held Orders, existing funding event and explicit highest penalty only; atomic replay/decision, ordinary holds retained |
+| [ADR-045](ADR-045-start-based-persisted-delivery-timing.md) | Approved2026-10-17 | START deadline/delivery persisted, nullable cheap overdue read, admin decision on orders; V10; UI score feedback deferred |
+| [ADR-044](ADR-044-admin-cancellation-and-overdue-read.md) | Approved2026-10-16 | Active/held admin cancellation, highest optional addition, unresponsive3 and overdue reader superseded by ADR-045; existing topics/outbox |
+| [ADR-040](ADR-040-requester-report-completion-holds.md) | Approved placement/guard milestone; release deferred | Requester-owned report holds, funding freeze, immutable per-report placement, SQL filtering and locked rechecks; V9 |
+| [ADR-041](ADR-041-explicit-courier-penalty-events.md) | Approved2026-10-14; consumer pending | Order enum +2/+1/-1, explicit add/deduct topics, seven courier fields; Credit events/legacy replay retained |
+| [ADR-042](ADR-042-active-involvement-read-contract.md) | Approved2026-10-14; peer deletion clients pending | Shared-role User/Supplier SQL EXISTS snapshots; missing supplier UI label; no name storage/deletion lock |
+| [ADR-039](ADR-039-admin-ui-local-mock-prototype.md) | User-approved local mock milestone and CHANGE-112..116/119..122/133 refinements, Yao Xiang 2026-10-11..15 | Admin UI/maps/details; base Compose samples, HTTP override/cloud partial live providers including selected-user Credit history; remaining gaps gated, peers read-only |
 | [ADR-033](ADR-033-durable-credit-command-stub.md) | Approved contract-stub milestone, Vincent 2026-10-10; live recovery disabled | Durable foreground CREATE/ACCEPT/ABORT command claims/results and pending/auth-only UI; Credit historical protocol awaits owner agreement |
 | [ADR-030](ADR-030-field-errors-and-new-repost-minimum.md) | Accepted, Vincent 2026-10-09 | Actual field errors; new auto due-to-expiry/manual submit-to-expiry min30; saved explicit plans grandfathered |
 | [ADR-029](ADR-029-local-live-credit-push.md) | Accepted; local connector tested, cloud integration pending | Isolated financial push through exact-path authenticated local ingress; existing peer source/security/ledger ownership retained |
@@ -43,3 +59,22 @@ Create a new ADR for a later decision; do not rewrite historical decisions witho
 Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
 
 - ADR-032: [Order polling and personal status filters](ADR-032-order-polling-and-personal-status-filters.md), user-approved CHANGE-094; existing personal API, five-second Order-only refresh, Abort errand UI terminology.
+
+- ADR-043: [Shared Maven penalty policy](ADR-043-shared-maven-penalty-policy.md), CHANGE-130; ordinary root foc-common, Order first consumer, no auth/event contract change.
+
+
+CHANGE-141 / ADR-048: delivered-item report review, single Resolved status, stored delivery overdue, report-specific release and precompletion penalty waiver. See changes/CHANGE-141-delivered-reports-and-review.md and docs/decisions/ADR-048-delivered-report-review.md. No workflow or skill changes.
+
+
+ADR-049 — Synchronous courier-attempt penalty replacement and Report queue refinement (CHANGE-144, approved 2026-10-18). Supersedes only the unshipped adjustment-event proposal and new waiver UI; initial events unchanged.
+
+
+ADR-050 — Deferred monotonic Order penalty (CHANGE-146), approved Yao Xiang2026-10-19. Supersedes ADR-049 synchronous replacement and the admin completion action in ADR-046. Existing report/hold/event architecture otherwise retained.
+
+
+[ADR-051 — Private report replies and retired policy](ADR-051-private-report-replies-and-retired-policy.md): CHANGE-147, accepted2026-10-19; caller-scoped reply visibility and active/legacy policy compatibility.
+
+
+[ADR-052 — Non-completed Order hold eligibility](ADR-052-noncompleted-order-hold-eligibility.md): CHANGE-153, approved2026-10-19; broader placement with existing funding guards retained.
+
+[ADR-053 - Retire accepted-cancellation publishing](ADR-053-retire-accepted-cancellation-publishing.md): CHANGE-155, approved2026-10-19; preserve published history and require deployment backlog checks.

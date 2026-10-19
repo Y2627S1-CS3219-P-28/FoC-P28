@@ -3,6 +3,7 @@ package sg.edu.nus.foc.order.application.adminmock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,8 +24,12 @@ import sg.edu.nus.foc.order.api.dto.response.AdminMockUserResponse;
 import sg.edu.nus.foc.order.api.dto.response.AdminMockTransactionResponse;
 import sg.edu.nus.foc.order.api.mapper.AdminMockMapper;
 import sg.edu.nus.foc.order.domain.OrderProblem;
+import sg.edu.nus.foc.order.domain.Order;
+import sg.edu.nus.foc.order.domain.CommandReceipt;
+import sg.edu.nus.foc.common.penalty.PenaltySystemPolicy;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.config.AdminMockCondition;
+import sg.edu.nus.foc.order.application.OrderQueryService;
 
 /** Isolated, process-local sample data. Never accesses a real database or peer. */
 @Service
@@ -40,6 +45,122 @@ public class AdminMockService {
     private final Map<String, List<AdminMockTransactionResponse>> transactions = new LinkedHashMap<>();
 
     private boolean seeded;
+    private final Map<String, String> penaltyCommands = new LinkedHashMap<>();
+    private final Map<String, String> resolutions = new LinkedHashMap<>();
+
+    /** Same validation/decision shape, but changes sample DTOs only: no funds, outbox or scores. */
+    public synchronized AdminMockOrderResponse resolveOrder(String id, String requesterId,
+            String courierId, List<PenaltySystemPolicy> requested, String reason) {
+        seed();
+        AdminMockOrderResponse order = orders.stream().filter(candidate -> candidate.getId().equals(id))
+                .findFirst().orElseThrow(() -> OrderProblem.notFound("Sample order not found."));
+        String explanation = Order.normalizeAdminResolutionReason(reason);
+        EnumSet<PenaltySystemPolicy> policies = EnumSet.noneOf(PenaltySystemPolicy.class);
+        if (requested != null) {
+            for (PenaltySystemPolicy policy : requested) {
+                if (policy == null || !PenaltySystemPolicy.getFullPenaltyPolicy().contains(policy) || policy == PenaltySystemPolicy.getSuccessfulDeliveryReward()) {
+                    throw invalid("Only penalty addition cases may be selected.");
+                }
+                policies.add(policy);
+            }
+        }
+        String binding = CommandReceipt.fingerprint("CANCEL", requesterId, courierId, policies, explanation);
+        if (resolutions.containsKey(id)) {
+            if (!resolutions.get(id).equals(binding)) throw OrderProblem.conflict("This sample order already has a different resolution.");
+            return mapper.copyOrder(order);
+        }
+        if (!java.util.Objects.equals(requesterId, order.getRequesterId())
+                || !java.util.Objects.equals(courierId, order.getCourierId())) {
+            throw OrderProblem.conflict("Sample order participants do not match.");
+        }
+        if (!List.of("OPEN", "ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED").contains(order.getStatus())) {
+            throw OrderProblem.conflict("This sample order cannot be resolved with that action.");
+        }
+        if (courierId == null && !policies.isEmpty()) throw invalid("No courier is assigned.");
+        PenaltySystemPolicy highest = policies.stream().max(Comparator.comparingInt(PenaltySystemPolicy::getPenaltyAmount)).orElse(null);
+        if (order.getAppliedPenalty() != null) highest = Order.higherPenalty(PenaltySystemPolicy.valueOf(order.getAppliedPenalty()), highest);
+        order.setStatus("CANCELLED");
+        order.setVersion(order.getVersion() + 1);
+        order.setAdminResolutionAt(Instant.now());
+        order.setAdminResolutionReason(explanation);
+        order.setAdminPenaltyDecision(highest == null ? "WAIVED" : "ADDITION_REQUESTED");
+        order.setAdminPenaltyReason(highest == null ? null : highest.name());
+        order.setAdminPenaltyAmount(highest == null ? 0 : highest.getPenaltyAmount());
+        resolutions.put(id, binding);
+        return mapper.copyOrder(order);
+    }
+
+    public synchronized AdminMockOrderResponse applyPenalty(String id, sg.edu.nus.foc.order.api.dto.request.ApplyPenaltyRequest input) {
+        seed();
+        AdminMockOrderResponse order = orders.stream().filter(item -> item.getId().equals(id)).findFirst()
+                .orElseThrow(() -> OrderProblem.notFound("Sample order not found."));
+        String reason = Order.normalizeAdminResolutionReason(input.getReason());
+        String binding = sg.edu.nus.foc.order.domain.CommandReceipt.fingerprint(id, input.getCourierId(), input.getExpectedVersion(), input.getPolicy(), reason);
+        String previous = penaltyCommands.get(input.getCommandId());
+        if (previous != null) {
+            if (!previous.equals(binding)) throw OrderProblem.conflict("Command belongs to another sample application.");
+            return mapper.copyOrder(order);
+        }
+        if (input.getPolicy() == null || !PenaltySystemPolicy.getCourierPenaltyCases().contains(input.getPolicy()) || reason == null) throw invalid("Choose a report penalty and reason.");
+        if (order.getCourierId() == null || !order.getCourierId().equals(input.getCourierId())
+                || order.getVersion() != input.getExpectedVersion() || !List.of("ACCEPTED","IN_PROGRESS","PICKED_UP","DELIVERED").contains(order.getStatus())) throw OrderProblem.conflict("Order state, courier or version changed.");
+        if (order.getAppliedPenalty() == null || input.getPolicy().getPenaltyAmount() > order.getAppliedPenaltyAmount()) {
+            order.setAppliedPenalty(input.getPolicy().name());
+            order.setAppliedPenaltyAmount(input.getPolicy().getPenaltyAmount());
+            order.setAppliedPenaltyReason(reason);
+            order.setAppliedPenaltyBy("local-admin");
+            order.setAppliedPenaltyAt(Instant.now());
+            order.setVersion(order.getVersion() + 1);
+        }
+        penaltyCommands.put(input.getCommandId(), binding);
+        return mapper.copyOrder(order);
+    }
+
+    public synchronized AdminMockOrderResponse sampleOrder(String id) {
+        seed();
+        return mapper.copyOrder(orders.stream().filter(order -> id.equals(order.getId())).findFirst()
+                .orElseThrow(() -> OrderProblem.notFound("Sample order not found.")));
+    }
+
+    public synchronized void reportHold(String id, boolean held) {
+        seed();
+        orders.stream().filter(order -> id.equals(order.getId())).findFirst().orElseThrow()
+                .setCompletionHold(held);
+    }
+
+
+    public synchronized List<AdminMockOrderResponse> reportFixtures(String userId) {
+        seed();
+        if (userId == null || userId.isBlank() || userId.length() > 128) throw invalid("A sample user ID is required.");
+        if (!users.containsKey(userId)) {
+            AdminMockUserResponse user = mapper.copyUser(users.get("demo-user-001"));
+            user.setUserId(userId); user.setId("sample-report-profile"); user.setUsername("You (sample)");
+            users.put(userId, user); transactions.put(userId, List.of());
+        }
+        String suffix = UUID.nameUUIDFromBytes(userId.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        List<AdminMockOrderResponse> result = new ArrayList<>();
+        for (int index = 0; index < 4; index++) {
+            String id = "demo-report-order-" + index + "-" + suffix;
+            final String sampleId = id;
+            AdminMockOrderResponse order = orders.stream().filter(candidate -> candidate.getId().equals(sampleId)).findFirst().orElse(null);
+            if (order == null) {
+                order = mapper.copyOrder(orders.get(4));
+                order.setId(id);
+                order.setRequesterId(index < 2 ? userId : "demo-user-001");
+                order.setRequesterName(index < 2 ? "You (sample)" : "Alex Tan");
+                order.setCourierId(index < 2 ? "demo-user-002" : userId);
+                order.setCourierName(index < 2 ? "Jamie Lee" : "You (sample)");
+                order.setCreatedAt(Instant.now().minusSeconds(36000));
+                order.setDeliveryDeadlineAt(Instant.now().minusSeconds(34500));
+                order.setDeliveredAt(Instant.now().minusSeconds(34000));
+                order.setOverdue(true);
+                order.setVersion(0);
+                orders.add(order);
+            }
+            result.add(mapper.copyOrder(order));
+        }
+        return result;
+    }
 
     public AdminMockRoleResponse roles(String userId) {
         if (userId == null || userId.isBlank()) throw invalid("A current user ID is required.");
@@ -48,10 +169,18 @@ public class AdminMockService {
 
     public synchronized AdminMockPageResponse<AdminMockOrderResponse> orders(
             OrderStatus status, String orderId, int page, int size) {
+        return orders(status, orderId, page, size, null, null);
+    }
+
+    public synchronized AdminMockPageResponse<AdminMockOrderResponse> orders(
+            OrderStatus status, String orderId, int page, int size, Instant createdFrom, Instant createdBefore) {
+        OrderQueryService.validateCreatedRange(createdFrom, createdBefore);
         seed();
         List<AdminMockOrderResponse> matches = orders.stream()
                 .filter(order -> status == null || status.name().equals(order.getStatus()))
                 .filter(order -> orderId == null || orderId.isBlank() || order.getId().equals(orderId.strip()))
+                .filter(order -> createdFrom == null || !order.getCreatedAt().isBefore(createdFrom))
+                .filter(order -> createdBefore == null || order.getCreatedAt().isBefore(createdBefore))
                 .sorted(Comparator.comparing(AdminMockOrderResponse::getCreatedAt).reversed()
                         .thenComparing(AdminMockOrderResponse::getId))
                 .toList();

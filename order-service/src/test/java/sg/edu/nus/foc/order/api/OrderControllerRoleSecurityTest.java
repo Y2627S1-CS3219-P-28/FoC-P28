@@ -40,6 +40,7 @@ import sg.edu.nus.foc.order.security.RoleProvider;
 @ActiveProfiles("prod")
 @Import({SecurityConfiguration.class, ProductionMethodSecurityConfiguration.class, OrderMapperImpl.class})
 class OrderControllerRoleSecurityTest {
+
     private static final String ACTOR_BODY =
             "{\"commandId\":\"command\",\"actorId\":\"u1\",\"expectedVersion\":0}";
 

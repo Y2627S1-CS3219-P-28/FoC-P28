@@ -18,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import sg.edu.nus.foc.order.api.mapper.OrderMapperImpl;
 import sg.edu.nus.foc.order.application.OrderQueryService;
+import sg.edu.nus.foc.order.application.AdminOrderCancellationService;
 import sg.edu.nus.foc.order.config.SecurityConfiguration;
 import sg.edu.nus.foc.order.config.ProductionMethodSecurityConfiguration;
 import sg.edu.nus.foc.order.domain.repository.OrderPage;
@@ -27,11 +28,33 @@ import sg.edu.nus.foc.order.security.RoleProvider;
 @ActiveProfiles("prod")
 @Import({SecurityConfiguration.class, ProductionMethodSecurityConfiguration.class, OrderMapperImpl.class})
 class AdminOrderControllerSecurityTest {
+    @MockitoBean private sg.edu.nus.foc.order.application.AdminApplyPenaltyService penalties;
+    @MockitoBean private sg.edu.nus.foc.order.application.OrderCompletionHoldService reviewHolds;
+    @Test
+    void bindsCreationInstantsAndExactIdWithoutWeakeningAdminAuthorization() throws Exception {
+        java.time.Instant from = java.time.Instant.parse("2026-10-15T16:00:00Z");
+        java.time.Instant before = from.plusSeconds(86400);
+        when(queries.allOrders(null, "order-1", from, before, 0, 20))
+                .thenReturn(new OrderPage(List.of(), 0, 20, 0, 0));
+        mockMvc.perform(get("/api/orders").param("orderId", "order-1")
+                .param("createdFrom", from.toString()).param("createdBefore", before.toString())
+                .with(user("admin").roles("ADMIN"))).andExpect(status().isOk());
+        verify(queries).allOrders(null, "order-1", from, before, 0, 20);
+        mockMvc.perform(get("/api/orders").param("createdFrom", "not-a-date")
+                .with(user("admin").roles("ADMIN"))).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/orders").param("createdFrom", from.toString())
+                .with(user("courier").roles("COURIER"))).andExpect(status().isForbidden());
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private OrderQueryService queries;
+
+    @MockitoBean
+    private AdminOrderCancellationService cancellations;
+
 
     @MockitoBean
     private RoleProvider roleProvider;

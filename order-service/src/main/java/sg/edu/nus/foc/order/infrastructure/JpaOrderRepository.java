@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
@@ -16,7 +17,17 @@ import org.springframework.data.repository.query.Param;
 import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
-public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
+public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
+    @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
+            + "and (requester_id = :userId or courier_id = :userId))", nativeQuery = true)
+    boolean existsActiveUserInvolvement(@Param("userId") String userId,
+            @Param("activeStatuses") List<String> activeStatuses);
+
+    @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
+            + "and (pickup_supplier_id = :supplierId or delivery_supplier_id = :supplierId))", nativeQuery = true)
+    boolean existsActiveSupplierInvolvement(@Param("supplierId") String supplierId,
+            @Param("activeStatuses") List<String> activeStatuses);
+
     @Query("select o from Order o where o.id = :id")
     Optional<Order> findById(@Param("id") String id);
 
@@ -74,12 +85,12 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
 
     @Query("select o.id from Order o where o.status = :status "
-            + "and o.expiresAt <= :now and o.courierId is null order by o.createdAt, o.id")
+            + "and o.completionHold = false and o.expiresAt <= :now and o.courierId is null order by o.createdAt, o.id")
     List<String> findDueUnassignedIds(@Param("status") OrderStatus status, @Param("now") Instant now);
 
     @Query("select o.id from Order o where o.status = :status "
-            + "and (select max(c.occurredAt) from OrderCheckpoint c "
-            + "where c.orderId = o.id and c.status = :status) <= :deliveredAtOrBefore "
+            + "and o.completionHold = false "
+            + "and o.deliveryDeadlineAt is not null and o.deliveredAt <= :deliveredAtOrBefore "
             + "order by o.createdAt, o.id")
     List<String> findDueForAutoCompletionIds(
             @Param("status") OrderStatus status,
@@ -92,11 +103,9 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
-    @Query("select o from Order o, OrderCheckpoint c "
-            + "where c.orderId = o.id "
-            + "and o.status = :status "
-            + "and c.status = :status "
-            + "and c.occurredAt <= :deliveredAtOrBefore")
+    @Query("select o from Order o where o.status = :status "
+            + "and o.completionHold = false "
+            + "and o.deliveryDeadlineAt is not null and o.deliveredAt <= :deliveredAtOrBefore")
     List<Order> findDueForAutoCompletion(
             @Param("status") OrderStatus status,
             @Param("deliveredAtOrBefore") Instant deliveredAtOrBefore);

@@ -30,7 +30,6 @@ import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderCheckpoint;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
-import sg.edu.nus.foc.order.messagingpublisher.interfaces.IAcceptedOrderCancellationTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOrderCompletionTaskPublisher;
 import sg.edu.nus.foc.order.messagingpublisher.interfaces.IOpenOrderRefundTaskPublisher;
 
@@ -81,8 +80,12 @@ class OrderLifecycleIsolationJpaIntegrationTest {
     @MockitoBean
     private IOpenOrderRefundTaskPublisher refundPublisher;
 
+
     @MockitoBean
-    private IAcceptedOrderCancellationTaskPublisher cancellationPublisher;
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreAdditionPublisher additionPublisher;
+
+    @MockitoBean
+    private sg.edu.nus.foc.order.messagingpublisher.interfaces.IPenaltyScoreDeductionPublisher deductionPublisher;
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry properties) {
@@ -91,12 +94,15 @@ class OrderLifecycleIsolationJpaIntegrationTest {
         properties.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
+    @Autowired private JpaPenaltyOutcomeRepository penaltyOutcomes;
+
     @BeforeEach
     void clearIsolatedDatabase() {
         outbox.deleteAll();
         receipts.deleteAll();
         checkpoints.deleteAll();
         attempts.deleteAll();
+        penaltyOutcomes.deleteAll();
         orders.deleteAll();
     }
 
@@ -129,7 +135,10 @@ class OrderLifecycleIsolationJpaIntegrationTest {
         assertEquals(OrderStatus.COMPLETED, orders.findById(successful.getId()).orElseThrow().getStatus());
         assertFalse(checkpoints.findByOrderIdOrderByOccurredAtAsc(failed.getId()).stream()
                 .anyMatch(checkpoint -> checkpoint.getStatus() == OrderStatus.COMPLETED));
-        assertEquals(List.of(successful.getId()), outbox.findAll().stream().map(event -> event.getOrderId()).toList());
+        assertEquals(2, outbox.count());
+        assertTrue(outbox.findAll().stream().allMatch(event -> successful.getId().equals(event.getOrderId())));
+        assertEquals(java.util.Set.of("OrderCompletionTaskEvent", "PenaltyScoreDeductionEvent"),
+                new java.util.HashSet<>(outbox.findAll().stream().map(event -> event.getEventType()).toList()));
     }
 
     @Test
@@ -150,7 +159,7 @@ class OrderLifecycleIsolationJpaIntegrationTest {
     }
 
     @Test
-    void idQueryUsesTheLatestDeliveredCheckpointAndReturnsEachOrderOnce() {
+    void idQueryUsesPersistedDeliveryTimeDespiteOlderCheckpointsAndReturnsEachOrderOnce() {
         Instant cutoff = NOW.minus(Order.AUTOMATIC_COMPLETION_DELAY);
         Order due = deliveredOrder("due", cutoff.minusSeconds(1));
         Order recent = deliveredOrder("recent", cutoff.plusSeconds(1));
@@ -180,9 +189,9 @@ class OrderLifecycleIsolationJpaIntegrationTest {
         Order order = Order.open(requester, "item", "pickup", "delivery", 2, 15,
                 deliveredAt.minusSeconds(3600), deliveredAt.plusSeconds(3600));
         order.accept("courier", 0, deliveredAt.minusSeconds(1800));
-        order.start("courier", 0);
+        order.start("courier", 0, deliveredAt.minusSeconds(600));
         order.markPickedUp("courier", 0);
-        order.markDelivered("courier", 0);
+        order.markDelivered("courier", 0, deliveredAt);
         orders.saveAndFlush(order);
         checkpoints.saveAllAndFlush(List.of(
                 new OrderCheckpoint(order.getId(), OrderStatus.ACCEPTED, deliveredAt.minusSeconds(1800), "courier", null),

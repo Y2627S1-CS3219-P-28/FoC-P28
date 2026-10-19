@@ -1,5 +1,217 @@
 # Peer Service API Feedback
 
+## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
+
+User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.
+
+Removed the legacy DTO, publisher/interface, factory/mapper methods, now-unused snapshot DTOs and dispatcher branch. The four current channels remain OpenOrderRefundTaskEvent, OrderCompletionTaskEvent, PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent. Courier abort still uses synchronous Credit hold/reopen and the existing final addition (plus refund when expired); no lifecycle, hold, penalty policy, idempotency or financial rules change. Historical database rows and immutable migrations remain intact. Other older refund/expiration normalization remains supported.
+
+The retired topic setting is removed from Order config, deployment templates, local Compose/bootstrap, environment examples/staging/production settings, topic provisioning and CI topic checks. These scripts no longer require or create the old topic; they do not delete existing cloud topics or subscriptions. User Service consumes only the new scoring channels. Existing admin-provider authorization requests remain open. AsyncAPI1.3.0 describes four outgoing operations; earlier statements requiring accepted-cancellation replay/configuration are superseded by this amendment.
+
+An unexpected non-published legacy row after deployment is unsupported and follows the existing bounded failure/recovery path, never automatic financial conversion. This is why the pre-deployment backlog check is required. Live User penalty processing, production backlog and cloud deletion are not verified here.
+
+
+## Current User Service action required - CHANGE-154 (2026-10-19)
+
+This section supersedes older accepted-cancellation scoring and admin API requests where they conflict.
+
+### Penalty events: use the new addition/deduction flow
+
+- Pause the legacy AcceptedOrderCancellationTaskEvent scoring path for new operations. Order no longer produces that event for new courier aborts; consume PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent instead (FEEDBACK-014). Credit refund/completion events remain separate and unchanged.
+- Staging topics: courier-penalty-addition-dev-v1 and courier-penalty-deduction-dev-v1. Production equivalents use -prod-v1. Local Compose publishes to the emulator's -local-v1 topics; the User consumer/subscriptions remain pending.
+- Payload: eventId, eventType, orderId, courierId, penaltyAmount, occurredAt, appliedReason. penaltyAmount is positive; event type specifies addition versus deduction. Active additions: ACCEPTED_TASK_CANCELLATION=2, OVERDUE_DELIVERY=1, WRONG_LOCATION_DELIVERY=4, ITEM_MISHANDLING_OR_DAMAGE=4, DELIBERATE_ITEM_RETENTION_OR_THEFT=10. SUCCESSFUL_DELIVERY deducts 1. COURIER_UNRESPONSIVE is historical-only, not a new selectable case.
+- Apply exactly the transmitted final outcome to courierId; do not separately calculate a cancellation/overdue penalty from legacy or Credit events. Admin Apply Penalty only stores the highest policy in Order until the attempt ends; it does not send an immediate score event. One final outcome is recorded per courier assignment, not once per reusable Order ID.
+- Authenticate delivery; atomically deduplicate eventId and mutate the score; acknowledge after commit or a known duplicate, and retry transient failures. Define the score-floor/ledger policy for out-of-order additions and deductions as described in FEEDBACK-014.
+- Before disabling or replaying legacy subscriptions, inventory outstanding accepted-cancellation messages and processed outcomes. Agree a drain/reconciliation plan with User Service so historical penalties are neither lost nor applied twice. Do not delete legacy outbox/backlog support or provision/disable cloud subscriptions through this documentation update. New-flow publication is independent of consumer readiness; broker acceptance does not prove score application.
+
+### Admin operations: admin-protected provider endpoints required
+
+User Service must provide admin-authorized operations for the dashboard: paginated user search/directory and cross-user profile access (ADMIN-API-001), promotion (003), and safe deactivation (004). Reuse and harden an existing route where its contract fits; otherwise agree a dedicated admin route with the owner before linking the UI. Do not use an ordinary user's endpoint as a substitute for admin authorization. Exact new routes are not finalized by this request.
+
+Validate the caller's Firebase token and authoritative admin role in the provider on every admin operation; never trust UI visibility, supplied actor IDs or a body-supplied role. Reject invalid authentication with401 and authenticated non-admin callers with403. Preserve existing non-admin/self-service contracts and permissions. Safe deactivation must consult Order involvement and retain the documented check/delete race limitations. No manual Suspend User or penalty-replacement endpoint is requested. Credit cross-user history is already admin-protected; cross-user balance remains ADMIN-API-005 pending provider verification, not an ordinary self-balance fallback. Pub/Sub delivery authentication is separate from these human-admin API checks.
+
+Requested peer work is not claimed implemented or deployed. Existing live capability gates/placeholders remain until the owning service's contract and authorization are verified. See admin-peer-api-request.md for the individual requests.
+
+
+## Admin completion producer — CHANGE-137,2026-10-17
+
+Order now produces the existing compact OrderCompletionTaskEvent for authorized
+admin completion of assigned active Orders, including report-held cases. Existing
+Credit completion consumer/RESERVED settlement contract matches; no endpoint,
+topic or payload change is requested. Credit still validates reservation/courier/
+amount and deduplicates; deployed settlement confirmation is not claimed here.
+Report resolution calls POST /api/orders/admin/{orderId}/complete with admin
+Firebase credentials plus requesterId/courierId and optional appliedPenalties;
+full input/error/replay contract is in service-contracts.md. Requester credentials
+may place a report hold but cannot authorize this admin funding resolution.
+
+For existing FEEDBACK-014, only the admin's single highest selected addition is
+published. Null/empty means no scoring event, even for overdue Orders. No separate
+automatic penalty/reward accompanies admin completion. Existing reason/amount
+mapping and stable-event-ID subscriber dedup obligations are unchanged. User
+consumer/global highest-effective-score reconciliation remain pending peer work.
+
+
+## CHANGE-135 timing clarification (2026-10-17)
+
+OrderResponse adds nullable ISO-8601 deliveryDeadlineAt and deliveredAt alongside
+isOverdue. Delivery starts at START, not ACCEPT; expiresAt is the application
+deadline. Existing authorized reads apply; no new peer endpoint, event field or
+callback. Admin empty penalties waive even if overdue; no automatic additional
+overdue penalty on that cancellation path. User score application remains FEEDBACK-014.
+
+
+## Effective admin resolution amendment — CHANGE-134,2026-10-16
+
+Order now supports admin cancellation of active Orders, including held Orders,
+through POST /api/orders/admin/{orderId}/cancel with requesterId, nullable courierId
+and nullable appliedPenalties (PenaltySystemPolicy name array). IDs must match
+the locked Order. Null/empty penalties mean refund only; otherwise one highest
+addition is emitted; reward SUCCESSFUL_DELIVERY is rejected. Current assignment
+is preserved in OpenOrderRefundTaskEvent (CANCELLED) for Credit's existing
+reservation/courier validation. Existing topics and seven-field envelopes stay.
+No Credit endpoint/consumer change is requested by this matching contract.
+
+FEEDBACK-014's addition consumer must additionally support report/admin reasons:
+WRONG_LOCATION_DELIVERY=4, ITEM_MISHANDLING_OR_DAMAGE=4,
+DELIBERATE_ITEM_RETENTION_OR_THEFT=10 and COURIER_UNRESPONSIVE=3 (user-approved).
+The payload's appliedReason is the single selected case, not an array; tie4 uses
+enum declaration order. Do not add scores for every submitted reason. Consumer
+remains missing/unverified; per-Order highest-effective scoring across earlier
+events and theft suspension remain User/Report responsibilities, not implemented
+by this endpoint. Deduplicate stable eventId atomically with scoring.
+
+Report Service can read GET /api/orders/{id} with an existing authorized admin or
+Order participant Firebase token. OrderResponse now contains nullable isOverdue:
+deliveryDeadlineAt is courier START time + deliveryTimeLimitMinutes, persisted
+when starting. deliveredAt is the persisted actual delivery timestamp. Delivered
+Orders compare deliveredAt; undelivered progressing Orders compare current time.
+CANCELLED undelivered Orders freeze at persisted adminResolutionAt. Strictly after
+deadline=true, at deadline=false; unstarted/unassigned/historical/missing timing=null.
+Null means unknown/not applicable, not false. Do not use expiresAt or requester
+completion time as delivery lateness. Existing role/ownership rules still apply;
+this read does not authorize arbitrary service-to-service access.
+
+Admin cancellation is an explicit held-funding resolution exception, not a
+generic release: placement rows/flag are retained for history on the terminal
+Order. No Report implementation or release endpoint is added. Report should wait
+for committed200 and retry the same participant/penalty input on uncertainty;
+different input after success is409. Event effects remain eventually consistent.
+
+CHANGE-132 Java library API refinement: common type is PenaltySystemPolicy.
+Reward lookup returns SUCCESSFUL_DELIVERY; getCourierPenaltyCases returns the
+three report-only reasons, not cancellation/overdue/success; full-policy query
+returns all6. Lists are immutable. No HTTP/event field/reason/topic change;
+other services are not migrated by Order's adoption. FEEDBACK-014 remains open.
+
+
+CHANGE-131 (D1 NTH2 PDF37-39): foc-common now additionally maps confirmed
+WRONG_LOCATION_DELIVERY=4, ITEM_MISHANDLING_OR_DAMAGE=4 and
+DELIBERATE_ITEM_RETENTION_OR_THEFT=10. These are shared policy constants for
+future Report/admin resolution; no current Order flow emits them and current
+AsyncAPI reason sets remain unchanged. Extend/verify the report-producer and
+consumer wire contract before publishing those reasons. D1 requires admin
+confirmation, highest applicable effective penalty per errand and permanent
+suspension for deliberate retention/theft; enum lookup does not enforce these.
+User scoring/suspension/report-resolution and FEEDBACK-014 remain pending.
+
+
+CHANGE-130 / ADR-043 (2026-10-15): courier reason/amount mapping now lives in the
+ordinary root foc-common Maven library, package sg.edu.nus.foc.common.penalty.
+Order is the first consumer. This does not implement User's consumer or change
+any HTTP/event contract; FEEDBACK-014 stays OPEN. Services can explicitly adopt
+the shared policy later; consume stored event amounts without recomputing retries.
+
+
+## FEEDBACK-015: Call Order involvement checks before deletion/deactivation
+
+-2026-10-14, OPEN/MISSING deletion integration. User DELETE /api/users/{id}
+  removes User; Supplier DELETE /api/suppliers/{id} soft-deactivates. Actual
+  implementations do not consult Order. No provider source modified.
+- Order supplies GET /api/orders/users/{userId}/active-involvement and
+  GET /api/orders/suppliers/{supplierId}/active-involvement (CHANGE-129/ADR-042).
+  IDs are URI parameters; no JSON body/paging. Forward a caller's Firebase Bearer
+  token in production: Requester, Courier or Admin may query. Existing local
+  authentication split unchanged; this is not trusted service identity proof.
+-200 User JSON: {"userId":"user-id","hasActiveOrders":true}.
+  Supplier JSON: {"supplierId":"supplier-id","hasActiveOrders":false}.
+  Invalid ID400, caller401/403, role dependency503. Unknown IDs with no matching
+  Orders return false, not404; validate entity existence in its owning service.
+- Counts OPEN/ACCEPTED/IN_PROGRESS/PICKED_UP/DELIVERED, including held Orders.
+  User matches requester/current courier; Supplier matches pickup/delivery.
+  Historic aborted courier attempts/terminal Orders do not count; OPEN with a
+  past deadline still counts until lifecycle commits expiry. Queries use SQL EXISTS.
+- Before deletion/deactivation, owner must enforce its own authority and refuse
+  while hasActiveOrders=true. Treat request/auth/dependency failures as unknown,
+  not false. This read is not deletion permission or a reservation; check/delete
+  can race new Order admissions. Pending commands and terminal financial/penalty
+  obligations are not covered. Agree deactivating/admission/reconciliation policy
+  before claiming complete cross-service deletion safety.
+- Existing Supplier lookup includes inactive records and reports missingIds;
+  keep existing names when records remain. Missing/empty results display Deleted
+  supplier in current Order UI, not a persisted Order name. User GET /{id} returns
+  404 on absence; future User-name displays should distinguish this from5xx/network
+  failures. Current branch has no User-name Order rows; none are fabricated.
+
+## FEEDBACK-014: Explicit courier penalty subscribers (CHANGE-128 / ADR-041)
+
+- Date: 2026-10-14; OPEN/MISSING. User has synchronous outcome functions but
+  no Pub/Sub penalty consumer; no separate Penalty Service exists in checkout.
+- Approved Order add/deduct publishers:
+  courier-penalty-addition-{dev|prod}-v1 / courier-penalty-deduction-{dev|prod}-v1.
+- Seven JSON fields: eventId, eventType, orderId, courierId, penaltyAmount,
+  occurredAt, appliedReason. Event types PenaltyScoreAdditionEvent /
+  PenaltyScoreDeductionEvent. Exact enum reasons/positive amounts:
+  ACCEPTED_TASK_CANCELLATION: 2; OVERDUE_DELIVERY: 1; SUCCESSFUL_DELIVERY: 1.
+  Direction comes from event type, not a negative amount. The approved successful
+  deduction is1; do not use the existing HTTP helper's hardcoded deduction2.
+- Target is assigned/cancelling courier, never completing requester/lifecycle.
+  Same-ID retries require atomic consumer deduplication with score mutation.
+  Sample and contract: CHANGE-128, ADR-041 and docs/asyncapi/asyncapi.yaml.
+- User Service should consume both topics, authenticate delivery, decode Pub/Sub
+  data, validate type/reason/amount, and atomically record eventId with score
+  update. Ack only after commit or a known duplicate; retry transient failures.
+- AcceptedOrderCancellationTaskEvent publishing/replay is retired by CHANGE-155.
+  Preserve published history and check each deployment database for outstanding
+  rows before rollout. Avoid scoring both legacy and new events. Credit consumers stay unchanged.
+- Clamp ordering needs explicit User policy: two topics offer no cross-topic
+  ordering; at score0, +1 then -1 yields0 but -1 then +1 yields1. Define deterministic
+  ledger policy or explicitly accept arrival-order semantics. No consumer changes
+  authorized or verified. Order implementation/tests do not verify this absent
+  subscriber. Earlier FEEDBACK-002/009 penalty/overdue-source requests are
+  superseded by this explicit transmitted-decision contract.
+
+## FEEDBACK-013: Report-to-Order completion holds
+
+- Date/owner: 2026-10-14; Report Service owner to be assigned; Order work by Yao Xiang.
+- Status: OPEN. Actual Report caller is MISSING (no Report Service in this checkout).
+- Approved Order placement implemented and tested; release explicitly deferred.
+  [Contract/design](completion-hold-design.md), CHANGE-127 / ADR-040.
+- PUT /api/orders/internal/{orderId}/completion-holds/{reportId}; JSON body
+  {"requesterId":"forwarded-Firebase-UID"}; Firebase Bearer token of requester.
+  Existing JWT/Requester role verification binds this ID to the token and checks
+  ownership under the Order lock. This does not establish service identity or
+  verify report existence. Existing local authentication remains unchanged.
+- 200 DTO: orderId, reportId, isCompletionHold, version. Place on own OPEN,
+  ACCEPTED, IN_PROGRESS, PICKED_UP or DELIVERED Order. 400 invalid input;
+  401/403 caller rejection; 404 missing Order; 409 terminal Order, unresolved
+  command or report-ID binding conflict; 503 role dependency unavailable.
+  Repeated same report/Order/requester placement is a no-op; conflicting binding
+  rejects, including concurrent writes. No DELETE/release endpoint exists yet.
+- Required Report behavior: persist/retry the same report identity, wait for hold
+  confirmation before claiming completion is blocked. Forward requester auth
+  and define durable recovery for failed/uncertain placement. Future release
+  must preserve independent holds and replay safety; placement persists for now.
+- D1 NTH2 PDF38/NTH3 PDF41 prohibit completion and final credit action while
+  investigation is active. Hold placement/release alone does not settle credits,
+  change Order status or apply penalties. General enquiries need no Order hold.
+- Order tests prove SQL filtering and locked rechecks skip held expiry/completion,
+  and domain guards block manual completion/cancellation/abort funding outcomes.
+  No new funding event, status or penalty is produced by placement.
+- Next verification: implement actual Report client, reconcile report/hold failure
+  recovery and later approve release/resolution; drain old Order revisions before
+  enabling Report traffic. No Report/User/Credit/Admin/Supplier source modified.
+
 ## FEEDBACK-011: User merge authorization and recovery safety
 
 Rollback note (2026-10-11): Vincent explicitly requested reverting merge935d16d.
@@ -1070,3 +1282,59 @@ The dated OPEN findings below are preserved history, not current compile status.
   Order-command recovery weakening, typecheck/build pass, then isolated real-user
   username/email/password smoke checks. No peer/application/config/schema edits
   or new security/API design implemented; stopping point recorded in Vincent work.
+
+
+## FEEDBACK-015 — Delivered-item Report Service and hold-release orchestration
+
+**Status: MISSING.** Report Service is not in this checkout. Local Order demo is not a provider implementation. User approved local prototype and live Coming soon. D1 NTH report/penalty investigation scope is refined by CHANGE-141/ADR-048.
+
+Expected authenticated interfaces (Report team owns final implementation):
+
+| Operation | Proposed contract | Authorization/behavior |
+| --- | --- | --- |
+| Submit | POST /api/reports {orderId, violationCategory, explanation, attachmentIds:[]} | Verified requester, own DELIVERED order only; resolve participants from Order, never trust courier/requester IDs from caller. One active case per order for this first slice. |
+| Personal lists | GET /api/reports/mine?mode=submitted or against&page=1&size=20 | Verified UID; SQL participant/status filtering before pagination. |
+| Detail | GET /api/reports/{reportId} | Participant or verified admin only; current Order reference, private evidence access. |
+| Response | PUT /api/reports/{reportId}/courier-response {explanation,attachmentIds:[]} | Assigned reported courier once before response deadline; server compares clock. |
+| Admin list | GET /api/reports/admin?status=READY_FOR_REVIEW&page=1&size=20 | Verified admin; status/creation pagination. |
+| Resolve | PUT /api/reports/admin/{reportId}/resolve {resolutionNote} | Verified admin; READY_FOR_REVIEW -> RESOLVED; save actor/time/reason and durable Order release intent. |
+
+Response schema: id, orderId, requesterId, courierId, status, violationCategory, requesterExplanation, requesterAttachments[], courierExplanation(nullable), courierAttachments[], createdAt, courierResponseDeadline, courierResponseSubmittedAt(nullable), resolvedAt/by/note(nullable). Attachments require private access-controlled IDs/name/contentType/download URLs; never public permanent evidence URLs. Proposed category enum names: ITEM_MISHANDLING_OR_DAMAGE and WRONG_LOCATION_DELIVERY. Other categories deferred. Explanation1..2000; demo limits3 files2MiB PNG/JPEG/WebP/PDF are prototype limits to confirm for production.
+
+Statuses only AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW, RESOLVED. Deadline=createdAt+8h. On response or deadline, Report backend transitions ready; late response returns409. Admin may review no-response cases. Missing records404, wrong role/participant403, invalid body400, conflicting/resolved requests409; exact successful retries stable. Report team supplies durable deadline processing and request-idempotency rather than relying on UI polling.
+
+Order endpoints now supplied: existing PUT /api/orders/internal/{orderId}/completion-holds/{reportId} with requester Firebase authorization and requesterId body; new PUT /api/orders/admin/{orderId}/completion-holds/{reportId}/release with resolving admin Firebase authorization and no body. Release returns OrderResponse and is idempotent; it releases that report only, including after explicit admin terminal resolution, retaining other holds. No internal trusted-service authentication bypass.
+
+Creation must coordinate durable Report intent and Order hold before acknowledging acceptance; handle failure/retry without orphaning an active report or silently completing the Order. Resolution must durably save/observe pending release, retry transient409/5xx/timeouts with authorized continuation, and expose recovery failures. A Report marked RESOLVED is not evidence that Order release succeeded. Finance actions remain separately confirmed Order admin cancel/complete; resolving alone never cancels, completes or changes penalty. Admin late-penalty waiver is POST /api/orders/admin/{orderId}/overdue-waiver {reason}, DELIVERED only before first completion; factual isOverdue remains true. No score event on waiver itself.
+
+Next verification: inspect Report provider DTO/controller/security/storage/upload/deadline/recovery tests; verify both services and multi-hold races, real tokens and failed-release recovery before replacing Coming soon. No sibling backend changed.
+
+
+## FEEDBACK-016 — Withdrawn penalty replacement proposal
+
+**Status: WITHDRAWN (CHANGE-146/ADR-050, 2026-10-19).** No User Service penalty-replacement endpoint or adjustment consumer is required. Apply Penalty stores a monotonic policy in Order Service; final scoring uses the existing addition/deduction events. The old contract is retained only in superseded ADR-049, not as peer work. Existing role lookup still applies.
+
+### FEEDBACK-015 amendment — CHANGE-144
+
+The response deadline and automatic readiness timer are removed. There is no courierResponseDeadline field. Courier may respond once while unresolved; response sets READY_FOR_REVIEW. Admin may resolve any unresolved report with a required reply saved in resolutionNote; RESOLVED is the sole final status. Lists must support Open (all non-resolved) and Closed (RESOLVED) grouping before pagination and return accurate totals. Resolution retains durable report-specific Order hold release; financial and penalty actions remain on the Order page. The older eight-hour and READY-only requirements above are superseded.
+
+
+FEEDBACK-016 WITHDRAWN under CHANGE-146/ADR-050 (2026-10-19): no synchronous User penalty-replacement endpoint/consumer is needed by the current Order design. Earlier proposed contract is historical only. Admin applies a non-waivable maximum policy locally before final outcome; User receives exactly the existing final addition/deduction event. No new topic or retroactive reward/penalty replacement. Existing initial-event consumer idempotency and other peer gaps remain independently relevant.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+
+## Effective CHANGE-153 — Hold eligibility and paused funding (2026-10-19)
+
+Yao Xiang approved placing a requester-owned completion hold on any Order status except COMPLETED. This supersedes delivered-only placement and the old blanket terminal-state rejection for new holds. Preserve status, ownership/role checks, bound report IDs, locked transaction and release history. A hold placed after cancellation/expiry records a hold only; it does not restore lifecycle state or reverse settled funding.
+
+The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
+
+No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.

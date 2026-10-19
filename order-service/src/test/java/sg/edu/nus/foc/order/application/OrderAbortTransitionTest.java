@@ -28,7 +28,7 @@ import sg.edu.nus.foc.order.domain.repository.CommandReceiptRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderCheckpointRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderEventOutboxRepository;
 import sg.edu.nus.foc.order.domain.repository.OrderRepository;
-import sg.edu.nus.foc.order.messagingpublisher.dto.AcceptedOrderCancellationTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.dto.PenaltyScoreAdditionEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent;
 import sg.edu.nus.foc.order.messagingpublisher.mapper.OrderTaskEventMapper;
@@ -43,7 +43,7 @@ class OrderAbortTransitionTest {
     private final OrderEventOutboxRepository outbox = mock(OrderEventOutboxRepository.class);
     private final OrderTransitionService service = new OrderTransitionService(orders, checkpoints, receipts,
             users, credits, outbox, mock(ApplicationEventPublisher.class),
-            new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)), mock(OrderAuditLogger.class));
+            new OrderTaskEventFactory(Mappers.getMapper(OrderTaskEventMapper.class)), mock(OrderAuditLogger.class), org.mockito.Mockito.mock(sg.edu.nus.foc.order.application.PenaltyOutcomeRecorder.class));
 
     @Test
     void unexpiredAbortPublishesUserPenaltyButNotCreditRefund() {
@@ -53,8 +53,9 @@ class OrderAbortTransitionTest {
 
         assertEquals(OrderStatus.OPEN, order.getStatus());
         verify(credits).holdForReopen(order.getId(), AUTH);
-        verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
         verify(outbox, never()).enqueue(any(OpenOrderRefundTaskEvent.class));
+        verify(outbox, org.mockito.Mockito.times(1)).enqueue(any(sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent.class));
         ArgumentCaptor<OrderCourierAttempt> history = ArgumentCaptor.forClass(OrderCourierAttempt.class);
         verify(orders).saveAbortedAttempt(history.capture());
         assertEquals("courier", history.getValue().getCourierId());
@@ -69,16 +70,28 @@ class OrderAbortTransitionTest {
 
         assertEquals(OrderStatus.EXPIRED, order.getStatus());
         verify(credits).holdForReopen(order.getId(), AUTH);
-        verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
         verify(outbox).enqueue(any(OpenOrderRefundTaskEvent.class));
+        verify(outbox, org.mockito.Mockito.times(2)).enqueue(any(sg.edu.nus.foc.order.messagingpublisher.dto.OrderTaskEvent.class));
         InOrder sequence = inOrder(credits, orders, outbox);
         sequence.verify(credits).holdForReopen(order.getId(), AUTH);
         sequence.verify(orders).saveAbortedAttempt(any(OrderCourierAttempt.class));
         sequence.verify(orders).save(order);
-        sequence.verify(outbox).enqueue(any(AcceptedOrderCancellationTaskEvent.class));
+        sequence.verify(outbox).enqueue(any(PenaltyScoreAdditionEvent.class));
         ArgumentCaptor<OpenOrderRefundTaskEvent> refund = ArgumentCaptor.forClass(OpenOrderRefundTaskEvent.class);
         sequence.verify(outbox).enqueue(refund.capture());
         assertEquals(order.getId(), refund.getValue().getOrderId());
+    }
+
+    @Test
+    void requesterHoldRejectsCourierAbortBeforeCreditResetOrEvents() {
+        Order order = accepted(false);
+        order.placeCompletionHold("requester");
+        assertEquals("ORDER_ON_HOLD", assertThrows(OrderProblem.class,
+                () -> service.cancelAccepted("held-abort", order.getId(), "courier", 0, AUTH)).getCode());
+        verify(credits, never()).holdForReopen(any(), any());
+        verify(outbox, never()).enqueue(any(OrderTaskEvent.class));
+        verify(orders, never()).save(any(Order.class));
     }
 
     @Test

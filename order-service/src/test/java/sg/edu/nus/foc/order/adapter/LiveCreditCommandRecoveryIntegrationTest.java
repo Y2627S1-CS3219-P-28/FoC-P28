@@ -133,14 +133,13 @@ class LiveCreditCommandRecoveryIntegrationTest {
         properties.add("order.messaging.publish-timeout", () -> "10s");
         properties.add("order.messaging.topics.order-completion", () -> "order-completion-local-v1");
         properties.add("order.messaging.topics.open-order-refund", () -> "open-order-refund-local-v1");
-        properties.add("order.messaging.topics.accepted-order-cancellation", () -> "accepted-order-cancellation-local-v1");
     }
 
     @BeforeAll
     static void emulatorSubscriptions() {
         RestClient emulator = RestClient.builder().baseUrl("http://" + PUBSUB.getHost() + ":"
                 + PUBSUB.getMappedPort(8085) + "/v1/projects/demo-foc-local").build();
-        for (String topic : java.util.List.of("order-completion", "open-order-refund", "accepted-order-cancellation")) {
+        for (String topic : java.util.List.of("order-completion", "open-order-refund")) {
             emulator.put().uri("/topics/" + topic + "-local-v1").body(java.util.Map.of()).retrieve().toBodilessEntity();
         }
         for (String topic : java.util.List.of("order-completion", "open-order-refund")) {
@@ -222,7 +221,7 @@ class LiveCreditCommandRecoveryIntegrationTest {
         assertEquals(0L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, requester));
         assertEquals(1, orderDb.queryForObject("select count(*) from order_courier_attempts where order_id=?", Integer.class, opened.getId()));
         assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='OpenOrderRefundTaskEvent'", Integer.class, opened.getId()));
-        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='AcceptedOrderCancellationTaskEvent'", Integer.class, opened.getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from order_event_outbox where order_id=? and event_type='PenaltyScoreAdditionEvent'", Integer.class, opened.getId()));
         assertEquals("SUCCESS", commands.submit(abortKey, new CommandRequest("ABORT", courier,
                 accepted.getId(), accepted.getVersion(), null), token(courier)).outcome());
     }

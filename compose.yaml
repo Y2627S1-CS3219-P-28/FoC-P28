@@ -48,7 +48,8 @@ x-order-pubsub-topics: &order-pubsub-topics
   PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
   ORDER_COMPLETION_TOPIC: order-completion-local-v1
   ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
-  ORDER_ACCEPTED_CANCELLATION_TOPIC: accepted-order-cancellation-local-v1
+  ORDER_COURIER_PENALTY_ADDITION_TOPIC: courier-penalty-addition-local-v1
+  ORDER_COURIER_PENALTY_DEDUCTION_TOPIC: courier-penalty-deduction-local-v1
 
 services:
   pubsub-emulator:
@@ -235,7 +236,9 @@ services:
       retries: 12
 
   order-service:
-    build: ./order-service
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
     ports:
       - "127.0.0.1:${ORDER_SERVICE_PORT:-8083}:8080"
     environment:

@@ -1,9 +1,39 @@
 ---
+
+## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
+
+User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.
+
+Removed the legacy DTO, publisher/interface, factory/mapper methods, now-unused snapshot DTOs and dispatcher branch. The four current channels remain OpenOrderRefundTaskEvent, OrderCompletionTaskEvent, PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent. Courier abort still uses synchronous Credit hold/reopen and the existing final addition (plus refund when expired); no lifecycle, hold, penalty policy, idempotency or financial rules change. Historical database rows and immutable migrations remain intact. Other older refund/expiration normalization remains supported.
+
+The retired topic setting is removed from Order config, deployment templates, local Compose/bootstrap, environment examples/staging/production settings, topic provisioning and CI topic checks. These scripts no longer require or create the old topic; they do not delete existing cloud topics or subscriptions. User Service consumes only the new scoring channels. Existing admin-provider authorization requests remain open. AsyncAPI1.3.0 describes four outgoing operations; earlier statements requiring accepted-cancellation replay/configuration are superseded by this amendment.
+
+An unexpected non-published legacy row after deployment is unsupported and follows the existing bounded failure/recovery path, never automatic financial conversion. This is why the pre-deployment backlog check is required. Live User penalty processing, production backlog and cloud deletion are not verified here.
+
 name: spec-driven-development
 description: Enforce the Order Service's persistent specification-driven and test-driven workflow. Use for implementation, bug fixes, behavior-affecting refactors, contract or architecture changes, sprint transitions, requirement reviews, and completion verification in this repository.
 ---
 
 # Spec-Driven Development
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+Effective CHANGE-130 / ADR-043: `PenaltySystemPolicy` is shared only through the
+ordinary root `foc-common` Maven library, package `sg.edu.nus.foc.common.penalty`.
+Use root wrapper `-pl order-service -am verify` and root-context Order image
+build. No auth/role/persistence extraction or sibling implementation is approved.
+
 
 Treat repository documents as permanent memory and target zero unapproved deviation.
 

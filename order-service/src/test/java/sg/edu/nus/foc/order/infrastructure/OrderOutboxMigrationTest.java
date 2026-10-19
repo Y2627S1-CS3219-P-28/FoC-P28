@@ -34,7 +34,7 @@ class OrderOutboxMigrationTest {
 
         flyway.migrate();
 
-        assertEquals("8", latestVersion("outbox_clean"));
+        assertEquals("9", latestVersion("outbox_clean"));
         assertTrue(tableExists("outbox_clean", "order_commands"));
         assertTrue(tableExists("outbox_clean", "order_event_outbox"));
         assertTrue(indexExists("outbox_clean", "ix_order_event_outbox_due"));
@@ -48,7 +48,7 @@ class OrderOutboxMigrationTest {
 
         flyway("outbox_upgrade").migrate();
 
-        assertEquals("8", latestVersion("outbox_upgrade"));
+        assertEquals("9", latestVersion("outbox_upgrade"));
         assertTrue(tableExists("outbox_upgrade", "order_event_outbox"));
     }
 
@@ -63,7 +63,7 @@ class OrderOutboxMigrationTest {
                     + "('00000000-0000-0000-0000-000000000105','COMPLETE','historical','order-claim',now())");
         }
         flyway(schema).migrate();
-        assertEquals("8", latestVersion(schema));
+        assertEquals("9", latestVersion(schema));
         assertTrue(indexExists(schema, "ix_order_event_outbox_failed"));
         try (Connection connection = connection(); Statement statement = connection.createStatement();
                 ResultSet result = statement.executeQuery("select event_id,payload,state from " + schema + ".order_event_outbox")) {
@@ -98,7 +98,7 @@ class OrderOutboxMigrationTest {
                     + "now(),now()+interval '1 hour',15,true,now()+interval '2 hours',2,15,false)");
         }
         flyway(schema).migrate();
-        assertEquals("8", latestVersion(schema));
+        assertEquals("9", latestVersion(schema));
         try (Connection connection = connection(); Statement statement = connection.createStatement();
                 ResultSet result = statement.executeQuery("select enabled,repost_expires_at,status,id from "
                         + schema + ".orders where id='legacy'")) {
@@ -147,7 +147,7 @@ class OrderOutboxMigrationTest {
                     + "values ('old','owner','CREATE','existing-id','hash','{}')");
         }
         flyway(schema).migrate();
-        assertEquals("8", latestVersion(schema));
+        assertEquals("9", latestVersion(schema));
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             try (ResultSet saved = statement.executeQuery("select order_id,payload,status,candidate_order_id from " + schema + ".order_commands where command_id='old'")) {
                 assertTrue(saved.next());
@@ -178,6 +178,8 @@ class OrderOutboxMigrationTest {
                 .locations("classpath:db/migration");
         if (target != null) {
             configuration.target(target);
+        } else {
+            configuration.target("9"); // Historical V1–V9 characterization; V10 has its own upgrade tests.
         }
         return configuration.load();
     }

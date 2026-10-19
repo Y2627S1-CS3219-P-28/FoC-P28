@@ -1,5 +1,57 @@
 # Order Service Work Allocation
 
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134, Yao Xiang2026-10-16/current penalty-integration: user confirms
+active/held admin cancellation, all addition cases/highest only, unresponsive3
+and nullable overdue read. Order/common code/tests/docs and optional frontend
+type only; no sibling backend, new UI control, cloud or root config change.
+
+
+CHANGE-133, Yao Xiang/current penalty-integration branch2026-10-15: authorized
+merge resolution and existing selected-user Admin history linking only. Credit
+read/test verification; no sibling backend source changes or new global tab.
+
+CHANGE-132, Yao Xiang/current branch2026-10-15: user authorizes shared policy
+rename/lookup methods and Order adoption first. Common and Order tests/docs;
+no sibling implementation, authentication, frontend or deployment changes.
+
+CHANGE-131, Yao Xiang2026-10-15/current branch: user authorizes full D1 NTH
+penalty mapping in foc-common plus affected tests/docs. No Report/User backend,
+authentication, report-resolution producer or deployment change.
+
+Yao Xiang approves CHANGE-130 / ADR-043 on the current penalty-integration branch,
+2026-10-15: shared penalty-only Maven module, Order import/dependency changes and
+necessary root build/Compose/CI/staging/convention updates. No auth extraction
+or sibling backend implementation changes. Existing127/128/129 work retained.
+
+Yao Xiang approves CHANGE-129 on order-service/penalty-integration,2026-10-14:
+Order native active-involvement queries for all3 roles and companion supplier
+missing-label correction, with no name storage/layout or sibling backend changes.
+Existing127/128 edits remain uncommitted and are not reassigned or discarded.
+Yao Xiang approves CHANGE-128 on order-service/penalty-integration,2026-10-14:
+Order penalty enum/events/outbox and topic-only shared environment/bootstrap
+updates. No sibling backend or cloud execution. Existing completion-hold work retained.
+
+## Yao Xiang completion-hold integration - 2026-10-14
+
+User explicitly identifies Yao Xiang on order-service/penalty-integration and
+approves requester-owned placement, persistence, completion/funding guards and
+requester UI. CHANGE-127 / ADR-040 record forwarded Firebase authorization and
+active-Order coverage; release explicitly deferred. Peer implementations and shared
+cloud provisioning are not authorized by this task.
+
 ## Yao Xiang Compose Admin selection - 2026-10-13
 
 CHANGE-122 on order-service/admin-dashboard: user explicitly authorizes shared

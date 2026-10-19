@@ -60,14 +60,51 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe("Admin pages", () => {
+  it("paginates real selected-user history while keeping unavailable balances as placeholders", async () => {
+    mocks.mode = "live"
+    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: true }
+    mocks.user.mockResolvedValue({ ...user, usableBalance: null, reservedBalance: null, totalBalance: null })
+    mocks.userTransactions.mockImplementation((_id, current) => Promise.resolve({
+      items: [{ transactionId: "transaction-" + current, type: "RECEIVED", amount: 5,
+        direction: "CREDIT", occurredAt: "2026-10-15T00:00:00Z", orderId: "history-order-" + current }],
+      page: current, size: 20, totalItems: 21, totalPages: 2,
+    }))
+    const view = render(<AdminSelectedUser userId="user-1" />)
+    expect((await screen.findAllByText("history-order-1")).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Coming soon")).toHaveLength(3)
+    expect(mocks.userTransactions).toHaveBeenLastCalledWith("user-1", 1, expect.any(AbortSignal))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    expect((await screen.findAllByText("history-order-2")).length).toBeGreaterThan(0)
+    expect(mocks.userTransactions).toHaveBeenLastCalledWith("user-1", 2, expect.any(AbortSignal))
+    mocks.user.mockResolvedValue({ ...user, userId: "user-2", username: "Jamie" })
+    view.rerender(<AdminSelectedUser userId="user-2" />)
+    await waitFor(() => expect(mocks.userTransactions).toHaveBeenLastCalledWith("user-2", 1, expect.any(AbortSignal)))
+    expect(screen.queryByText("history-order-2")).not.toBeInTheDocument()
+    expect(mocks.users).not.toHaveBeenCalled()
+  })
+
+  it("keeps the profile visible and retries a failed Credit account lookup without pretending history is empty", async () => {
+    mocks.mode = "live"
+    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: true }
+    mocks.userTransactions.mockRejectedValueOnce(new Error("Credit account has not been provisioned."))
+      .mockResolvedValue({ items: [], page: 1, size: 20, totalItems: 0, totalPages: 0 })
+    render(<AdminSelectedUser userId="user-1" />)
+    expect(await screen.findByRole("alert")).toHaveTextContent("Credit account has not been provisioned.")
+    expect(screen.getByText("alex@u.nus.edu")).toBeInTheDocument()
+    expect(screen.queryByText("No credit transactions")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("No credit transactions")).toBeInTheDocument()
+    expect(mocks.userTransactions).toHaveBeenCalledTimes(2)
+  })
+
   it("shows live orders and navigation immediately even while names are pending or unavailable", async () => {
     mocks.mode = "live"
     mocks.orders.mockResolvedValue(page([{ ...order, requesterName: null, pickupSupplierName: null, deliverySupplierName: null }]))
     mocks.recordName.mockImplementation(() => new Promise(() => {}))
     render(<AdminOrders />)
     expect(await screen.findByRole("link", { name: "View order order-1" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "user-1" })).toHaveAttribute("href", "/admin/users/user-1")
-    expect(screen.getByRole("link", { name: "supplier-1" })).toHaveAttribute("href", "/admin/suppliers/supplier-1")
+    expect(screen.getByRole("link", { name: "Loading user…" })).toHaveAttribute("href", "/admin/users/user-1")
+    expect(screen.getAllByRole("link", { name: "Loading supplier…" })[0]).toHaveAttribute("href", "/admin/suppliers/supplier-1")
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
@@ -102,7 +139,8 @@ describe("Admin pages", () => {
     expect(await screen.findByText("alex@u.nus.edu")).toBeInTheDocument()
     expect(screen.getByText("Credit transactions")).toBeInTheDocument()
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(3)
-    for (const name of ["Suspend User", "Promote to Admin", "Deactivate User"]) {
+    expect(screen.queryByRole("button", { name: "Suspend User" })).not.toBeInTheDocument()
+    for (const name of ["Promote to Admin", "Deactivate User"]) {
       const button = screen.getByRole("button", { name })
       expect(button).toBeDisabled()
       fireEvent.click(button)
@@ -128,10 +166,9 @@ describe("Admin pages", () => {
     await waitFor(() => expect(mocks.orders).toHaveBeenLastCalledWith(
       { page: 1, status: null, orderId: "order-1" }, expect.any(AbortSignal),
     ))
-    fireEvent.click(screen.getByRole("combobox", { name: "Order status" }))
+    expect(screen.getByRole("combobox", { name: "Order status" }).tagName).toBe("SELECT")
     expect(await screen.findByRole("option", { name: "Aborted" })).toBeInTheDocument()
-    fireEvent.pointerDown(screen.getByRole("option", { name: "Completed" }), { pointerType: "mouse" })
-    fireEvent.click(screen.getByRole("option", { name: "Completed" }))
+    fireEvent.change(screen.getByRole("combobox", { name: "Order status" }), { target: { value: "COMPLETED" } })
     await waitFor(() => expect(mocks.orders).toHaveBeenLastCalledWith(
       { page: 1, status: "COMPLETED", orderId: "order-1" }, expect.any(AbortSignal),
     ))
@@ -145,23 +182,14 @@ describe("Admin pages", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("supplier-1"))
   })
 
-  it("loads a full user profile and applies suspension in UTC", async () => {
+  it("loads a full user profile with only promotion and deactivation actions", async () => {
     render(<AdminUsers />)
     fireEvent.click(await screen.findByRole("button", { name: "View profile of Alex" }))
     expect(await screen.findByText("80000000")).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Suspend User" }))
-    fireEvent.change(screen.getByLabelText("Suspension end (your local time)"), { target: { value: "2099-11-01T12:00" } })
-    fireEvent.click(screen.getByRole("button", { name: "Confirm suspension" }))
-    await waitFor(() => expect(mocks.suspendUser).toHaveBeenCalledWith("user-1", new Date("2099-11-01T12:00").toISOString()))
-  })
-
-  it("rejects a past suspension without calling the API", async () => {
-    render(<AdminUsers />)
-    fireEvent.click(await screen.findByRole("button", { name: "View profile of Alex" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Suspend User" }))
-    fireEvent.change(screen.getByLabelText("Suspension end (your local time)"), { target: { value: "2020-01-01T12:00" } })
-    fireEvent.click(screen.getByRole("button", { name: "Confirm suspension" }))
-    expect(screen.getByRole("alert")).toHaveTextContent("in the future")
+    const actions = screen.getByText("Admin actions").closest("[data-slot=card]") as HTMLElement
+    expect(within(actions).getAllByRole("button").map((button) => button.textContent))
+      .toEqual(["Promote to Admin", "Deactivate User"])
+    expect(screen.queryByLabelText("Suspension end (your local time)")).not.toBeInTheDocument()
     expect(mocks.suspendUser).not.toHaveBeenCalled()
   })
 
@@ -286,7 +314,7 @@ describe("Admin pages", () => {
     mocks.userTransactions.mockRejectedValue(new Error("History unavailable"))
     render(<AdminSelectedUser userId="user-1" />)
     expect(await screen.findByText("80000000")).toBeInTheDocument()
-    expect(await screen.findByText("Transactions could not be refreshed")).toBeInTheDocument()
+    expect(await screen.findByRole("alert")).toHaveTextContent("History unavailable")
     expect(screen.getByRole("button", { name: "Promote to Admin" })).toBeEnabled()
     expect(mocks.user).toHaveBeenCalledWith("user-1", expect.any(AbortSignal))
     expect(mocks.users).not.toHaveBeenCalled()
