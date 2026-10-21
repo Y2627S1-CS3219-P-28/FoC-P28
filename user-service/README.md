@@ -27,7 +27,40 @@ PORT=8081 ./mvnw spring-boot:run
 - OpenAPI JSON: `/api/users/v3/api-docs`
 - Health: `/actuator/health`
 
+<<<<<<< HEAD
 ## Sprint 1 API
+=======
+## Admin Bootstrap Creation
+
+### Local
+When running locally, follow the steps below to create the first admin account:
+1. Start up the app with `docker compose up --build`
+2. Access the Firebase Auth Emulator at `localhost:4000`
+3. Go to the `Authentication` tab and click `Add user`
+4. Enter the email of your desired bootstrap admin user (e.g. admin@u.nus.edu), set email to verified and enter a password that is at least 8 characters long, with a number and special character
+5. Save the user
+6. Duplicate the .env.example file and rename it to .env
+7. Ensure the `ADMIN_BOOTSTRAP_ENABLED=true` is set to true. `ADMIN_BOOTSTRAP_EMAIL=admin@u.nus.edu`and change the email after the `=` character to the email you set in the Firebase Emulator
+8. Restart the user service with `docker compose up -d --force-recreate user-service`
+9. The admin account is created and you can log in with it on `localhost:8080`. No need to create/sign up with the email.
+10. You can now set `ADMIN_BOOTSTRAP_ENABLED=false` or remove it entirely from the .env file.
+
+### Cloud
+When running locally, follow the steps below to create the first admin account:
+1. Access the online Firebase Console for the project
+2. Go to the `Authentication` tab and click `Add user`
+3. Enter the email of your desired bootstrap admin user (e.g. admin@u.nus.edu) and enter a password that is at least 8 characters long, with a number and special character
+5. Save the user
+6. Open the Google Cloud Console of the project and open the user-service container
+7. Open the `Containers` tab
+7. Add a new variable named `ADMIN_BOOTSTRAP_ENABLED` with value `true` `ADMIN_BOOTSTRAP_EMAIL` with value `admin@u.nus.edu`. The value is the email you set in the Firebase console.
+8. Select `View diff & redeploy`. Deploy the changes.
+9. AftThe admin account is created. Attempt to sign in with it and request an email verification. No need to create/sign up with the email.
+10. After verifying the email, you can sign in with the admin account. 
+11. You can now set `ADMIN_BOOTSTRAP_ENABLED` to `false` or remove it entirely from the user-service variables.
+
+## Sprint 2 API
+>>>>>>> 52fba22dd4d326493e12c8d03e2520576afd7d18
 
 Authenticated endpoints use:
 `Authorization: Bearer <Firebase ID token>`
