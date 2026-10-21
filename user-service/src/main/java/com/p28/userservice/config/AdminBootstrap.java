@@ -15,7 +15,6 @@ import java.util.List;
 
 @Component
 public class AdminBootstrap implements CommandLineRunner {
-
     private final UserRepository userRepository;
 
     @Value("${admin.bootstrap-enabled:false}")
@@ -77,9 +76,8 @@ public class AdminBootstrap implements CommandLineRunner {
 
             userRepository.save(user);
 
-            System.out.println(
-                "Admin bootstrap successful: " + bootstrapEmail
-            );
+            // TODO: Create credit service entry
+            // needs service endpoint on credit service
 
         } catch (FirebaseAuthException e) {
             throw new RuntimeException(
