@@ -1,4 +1,4 @@
-package com.p28.userservice.config;
+package sg.edu.foc.userservice.config;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;

@@ -1,4 +1,4 @@
-package com.p28.userservice.controller;
+package sg.edu.foc.userservice.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 
@@ -22,15 +22,15 @@ import java.util.List;
 
 import com.google.firebase.auth.FirebaseToken;
 
-import com.p28.userservice.authentication.AuthenticationService;
-import com.p28.userservice.authentication.FirebaseAuthService;
-import com.p28.userservice.logic.AddUserRequest;
-import com.p28.userservice.logic.CourierElgibility;
-import com.p28.userservice.logic.UpdateUserRequest;
-import com.p28.userservice.logic.UserRoleContext;
-import com.p28.userservice.logic.UserService;
-import com.p28.userservice.logic.UserSummary;
-import com.p28.userservice.model.User;
+import sg.edu.foc.userservice.authentication.AuthenticationService;
+import sg.edu.foc.userservice.authentication.FirebaseAuthService;
+import sg.edu.foc.userservice.logic.AddUserRequest;
+import sg.edu.foc.userservice.logic.CourierElgibility;
+import sg.edu.foc.userservice.logic.UpdateUserRequest;
+import sg.edu.foc.userservice.logic.UserRoleContext;
+import sg.edu.foc.userservice.logic.UserService;
+import sg.edu.foc.userservice.logic.UserSummary;
+import sg.edu.foc.userservice.model.User;
 
 @RestController
 @RequestMapping("/api/users")

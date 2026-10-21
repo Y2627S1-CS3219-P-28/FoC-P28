@@ -1,4 +1,4 @@
-package com.p28.userservice.authentication;
+package sg.edu.foc.userservice.authentication;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;

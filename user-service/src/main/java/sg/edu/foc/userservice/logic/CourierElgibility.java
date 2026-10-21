@@ -1,4 +1,4 @@
-package com.p28.userservice.logic;
+package sg.edu.foc.userservice.logic;
 
 public class CourierElgibility {
     private boolean isCourierEligible;

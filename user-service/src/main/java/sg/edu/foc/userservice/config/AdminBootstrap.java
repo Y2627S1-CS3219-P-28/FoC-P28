@@ -1,10 +1,10 @@
-package com.p28.userservice.config;
+package sg.edu.foc.userservice.config;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
-import com.p28.userservice.model.User;
-import com.p28.userservice.repository.UserRepository;
+import sg.edu.foc.userservice.model.User;
+import sg.edu.foc.userservice.repository.UserRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;

@@ -1,8 +1,8 @@
-package com.p28.userservice.repository;
+package sg.edu.foc.userservice.repository;
 
 import java.util.Optional;
 
-import com.p28.userservice.model.User;
+import sg.edu.foc.userservice.model.User;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface UserRepository extends MongoRepository<User, String> {

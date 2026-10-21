@@ -1,4 +1,4 @@
-package com.p28.userservice.model;
+package sg.edu.foc.userservice.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;

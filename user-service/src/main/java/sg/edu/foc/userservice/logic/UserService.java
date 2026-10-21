@@ -1,4 +1,4 @@
-package com.p28.userservice.logic;
+package sg.edu.foc.userservice.logic;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -9,9 +9,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Date;
 
-import com.p28.userservice.model.User;
-import com.p28.userservice.repository.UserRepository;
-import com.p28.userservice.authentication.FirebaseAuthService;
+import sg.edu.foc.userservice.model.User;
+import sg.edu.foc.userservice.repository.UserRepository;
+import sg.edu.foc.userservice.authentication.FirebaseAuthService;
 
 @Service
 public class UserService {

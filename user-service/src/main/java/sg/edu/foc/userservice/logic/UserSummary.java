@@ -1,4 +1,4 @@
-package com.p28.userservice.logic;
+package sg.edu.foc.userservice.logic;
 
 import java.util.List;
 import java.util.Date;

@@ -1,4 +1,4 @@
-package com.p28.userservice.config;
+package sg.edu.foc.userservice.config;
 
 import java.util.Arrays;
 
