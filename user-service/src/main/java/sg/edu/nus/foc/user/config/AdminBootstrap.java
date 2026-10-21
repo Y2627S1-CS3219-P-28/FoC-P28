@@ -76,8 +76,7 @@ public class AdminBootstrap implements CommandLineRunner {
 
             userRepository.save(user);
 
-            // TODO: Create credit service entry
-            // needs service endpoint on credit service
+            // TODO: Create user created event for credit service
 
         } catch (FirebaseAuthException e) {
             throw new RuntimeException(

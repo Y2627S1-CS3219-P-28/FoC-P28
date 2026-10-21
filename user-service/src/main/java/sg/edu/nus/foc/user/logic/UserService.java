@@ -129,8 +129,9 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
+        // TODO: make this an event
         // Create credit service entry
-        try {
+        /*try {
             UUID eventId = UUID.randomUUID();
             // Add initial credits
             creditServiceClient.registerUser(
@@ -148,7 +149,7 @@ public class UserService {
                 "Credit account initialization failed. Registration was rolled back.",
                 e
             );
-        }
+        }*/
 
         return savedUser;
     }

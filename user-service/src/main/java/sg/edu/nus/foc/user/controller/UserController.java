@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -62,10 +63,10 @@ public class UserController {
     @GetMapping("/{userId}")
     public ResponseEntity<User> getUser(
             @PathVariable String userId,
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String requesterId = token.getUid();
+        String requesterId = authentication.getToken().getSubject();
+
         User requester = userService.getUserByUserId(requesterId);
         if (!userService.verifyAdmin(requester)) {
             throw new ResponseStatusException(
@@ -84,10 +85,9 @@ public class UserController {
     @Operation(summary = "Get requesting user's roles from auth token")
     @GetMapping("/role-context")
     public ResponseEntity<UserRoleContext> getRoleContext(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
 
         return ResponseEntity.ok(
                 userService.getRoleContext(userId)
@@ -99,10 +99,9 @@ public class UserController {
     @Operation(summary = "Get requesting user's courier eligibility from auth token")
     @GetMapping("/courier-eligibility")
     public ResponseEntity<CourierEligibility> getCourierEligibility(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
 
         return ResponseEntity.ok(
                 userService.getCourierEligibility(userId)
@@ -113,10 +112,9 @@ public class UserController {
     @Operation(summary = "Get requesting user's requester eligibility from auth token")
     @GetMapping("/requester-eligibility")
     public ResponseEntity<RequesterEligibility> getRequesterEligibility(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
 
         return ResponseEntity.ok(
                 userService.getRequesterEligibility(userId)
@@ -139,11 +137,9 @@ public class UserController {
     @Operation(summary = "Get requesting user's own information from auth token")
     @GetMapping("/me")
     public ResponseEntity<User> getMyProfile(
-            @RequestHeader("Authorization") String authorizationHeader) {
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-
-        // Treat Firebase uid as user id
-        String userId = token.getUid();
+            JwtAuthenticationToken authentication) {
+        
+        String userId = authentication.getToken().getSubject();
 
         User user = userService.getUserByUserId(userId);
 
@@ -155,15 +151,14 @@ public class UserController {
     @Operation(summary = "Add user into database")
     @PostMapping
     public ResponseEntity<User> addUser(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
         
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
+        // Get the original Firebase ID token
+        String tokenToPass = authentication.getToken().getTokenValue();
 
-        // after authentication, we know this token is correct to pass to credit service
-        String tokenToPass = authorizationHeader.substring(7);
-
-        String userId = token.getUid();
-        String email = token.getEmail();
+        // Extract claims from the already-validated token
+        String userId = authentication.getToken().getSubject();
+        String email = authentication.getToken().getClaimAsString("email");
 
         User user = userService.addUser(tokenToPass, userId, email);
 
@@ -175,11 +170,9 @@ public class UserController {
     @Operation(summary = "Synchronise requesting user's email in MongoDB with Firebase")
     @PostMapping("/me/email-sync")
     public ResponseEntity<User> updateUser(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        // Get user from auth token
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
         User user = userService.syncVerifiedEmail(userId);
 
         return ResponseEntity.ok(user);
@@ -191,11 +184,9 @@ public class UserController {
     @PutMapping("/me")
     public ResponseEntity<User> updateUser(
             @RequestBody UpdateUserRequest request,
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        // Get user from auth token
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
         User user = userService.updateUser(userId, request);
 
         return ResponseEntity.ok(user);
@@ -208,12 +199,11 @@ public class UserController {
     public ResponseEntity<User> updateUser(
             @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        // Check if requester is admin
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-        String requesterId = token.getUid();
+        String requesterId = authentication.getToken().getSubject();
         User requester = userService.getUserByUserId(requesterId);
+
         if (!userService.verifyAdmin(requester)) {
             throw new ResponseStatusException(
                 HttpStatus.FORBIDDEN,
@@ -232,11 +222,10 @@ public class UserController {
     @PutMapping("/{userId}/user-promotion")
     public ResponseEntity<User> promoteUser(
             @PathVariable String userId,
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-
-        User requester = userService.getUserByUserId(token.getUid());
+        String requesterId = authentication.getToken().getSubject();
+        User requester = userService.getUserByUserId(requesterId);
 
         if (!userService.verifyAdmin(requester)) {
             throw new ResponseStatusException(
@@ -268,11 +257,9 @@ public class UserController {
     @Operation(summary = "Delete user themselves from database")
     @DeleteMapping("/me")
     public ResponseEntity<String> deleteUser(
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-
-        String userId = token.getUid();
+        String userId = authentication.getToken().getSubject();
 
         userService.deleteUser(userId);
 
@@ -285,11 +272,10 @@ public class UserController {
     @DeleteMapping("/{userId}")
     public ResponseEntity<String> deleteUserAsAdmin(
             @PathVariable String userId,
-            @RequestHeader("Authorization") String authorizationHeader) {
+            JwtAuthenticationToken authentication) {
 
-        FirebaseToken token = authenticationService.authenticate(authorizationHeader);
-
-        User requester = userService.getUserByUserId(token.getUid());
+        String requesterId = authentication.getToken().getSubject();
+        User requester = userService.getUserByUserId(requesterId);
 
         if (!userService.verifyAdmin(requester)) {
             throw new ResponseStatusException(
