@@ -1,10 +1,10 @@
-package sg.edu.foc.userservice.config;
+package sg.edu.nus.foc.user.config;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
-import sg.edu.foc.userservice.model.User;
-import sg.edu.foc.userservice.repository.UserRepository;
+import sg.edu.nus.foc.user.model.User;
+import sg.edu.nus.foc.user.repository.UserRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;

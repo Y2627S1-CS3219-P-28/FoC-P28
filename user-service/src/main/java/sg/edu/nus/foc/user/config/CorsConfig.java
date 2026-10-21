@@ -1,4 +1,4 @@
-package sg.edu.foc.userservice.config;
+package sg.edu.nus.foc.user.config;
 
 import java.util.Arrays;
 

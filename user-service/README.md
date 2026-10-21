@@ -27,9 +27,6 @@ PORT=8081 ./mvnw spring-boot:run
 - OpenAPI JSON: `/api/users/v3/api-docs`
 - Health: `/actuator/health`
 
-<<<<<<< HEAD
-## Sprint 1 API
-=======
 ## Admin Bootstrap Creation
 
 ### Local
@@ -60,7 +57,6 @@ When running locally, follow the steps below to create the first admin account:
 11. You can now set `ADMIN_BOOTSTRAP_ENABLED` to `false` or remove it entirely from the user-service variables.
 
 ## Sprint 2 API
->>>>>>> 52fba22dd4d326493e12c8d03e2520576afd7d18
 
 Authenticated endpoints use:
 `Authorization: Bearer <Firebase ID token>`
@@ -71,11 +67,20 @@ when retrieving the current user's profile.
 | Method | Path                     | Who                                 | Purpose                                                |
 | ------ | ------------------------ | ----------------------------------- | ------------------------------------------------------ |
 | POST   | `/api/users`             | unauthenticated during registration | Create an application user after Firebase registration |
+| POST   | `/api/users/me/email-sync`| authenticated user                 | Syncs MongoDB user email with Firebase user email      |
+| GET    | `/api/users`             | services                            | Retrieve all users in MongoDB                          |
+| GET    | `/api/users/{:userId}`   | authenticated admin user            | Retrieve a specific user in MongoDB                    |
 | GET    | `/api/users/me`          | authenticated user                  | Retrieve the currently authenticated user's profile    |
 | GET    | `/api/users/role-context`| authenticated / services            | Retrieve roles for authorization by other services     |
-| GET    | `/api/users/courier-eligibility`| authenticated / services     | Retrieve boolean if user can be courier by other services     |
+| GET    | `/api/users/courier-eligibility`| authenticated / services     | Retrieve boolean if user is a courier by other services|
+| GET    | `/api/users/requester-eligibility`| authenticated / services   | Retrieve boolean if user is a requester by other services |
+| GET    | `/api/users/admin-eligibility`| authenticated / services       | Retrieve boolean if user is an admin by other services |
 | PUT    | `/api/users/me`          | authenticated user                  | Update own information after registration              |
 | PUT    | `/api/users/{:userId}`   | authenticated admin user            | Update user information after registration             |
+| PUT    | `/api/users/{:userId}/user-promotion`| authenticated admin user| Promotes a regular user to admin                       |
+| PUT    | `/api/users/{:userId}/penalty`| services                       | Updates given user's penalty by a specified amount     |
+| DELETE | `/api/users/me`          | authenticated user                  | Deletes user information from user databases           |
+| DELETE | `/api/users/{:userId}`   | authenticated admin user            | Deletes specified user's information from user databases |
 
 
 ## Data model

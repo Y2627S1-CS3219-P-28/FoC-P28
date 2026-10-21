@@ -1,4 +1,4 @@
-package sg.edu.foc.userservice;
+package sg.edu.nus.foc.user;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

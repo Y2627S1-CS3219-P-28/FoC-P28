@@ -1,11 +1,11 @@
-package sg.edu.foc.userservice.logic;
+package sg.edu.nus.foc.user.logic;
 
-public class CourierElgibility {
+public class CourierEligibility {
     private boolean isCourierEligible;
 
-    public CourierElgibility() {}
+    public CourierEligibility() {}
     
-    public CourierElgibility(boolean isCourierEligible) {
+    public CourierEligibility(boolean isCourierEligible) {
         this.isCourierEligible = isCourierEligible;
     }
 

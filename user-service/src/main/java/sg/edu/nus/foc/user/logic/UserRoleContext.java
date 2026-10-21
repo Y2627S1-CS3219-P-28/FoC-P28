@@ -1,4 +1,4 @@
-package sg.edu.foc.userservice.logic;
+package sg.edu.nus.foc.user.logic;
 
 import java.util.List;
 

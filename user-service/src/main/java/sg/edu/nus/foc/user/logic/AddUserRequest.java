@@ -1,4 +1,4 @@
-package sg.edu.foc.userservice.logic;
+package sg.edu.nus.foc.user.logic;
 
 public class AddUserRequest {
     private String userId;

@@ -1,4 +1,4 @@
-package sg.edu.foc.userservice.authentication;
+package sg.edu.nus.foc.user.authentication;
 
 import com.google.firebase.auth.FirebaseToken;
 
