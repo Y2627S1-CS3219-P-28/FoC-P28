@@ -1,16 +1,23 @@
 spring:
   mongodb:
     auto-index-creation: true
-    uri: ${MONGODB_URI:mongodb://localhost:27017/UserServiceDB}
+    uri: ${MONGODB_URI:mongodb://mongodb:27017/UserServiceDB?replicaSet=rs0}
   application:
     name: userservice
   mvc:
     problemdetails:
       enabled: true
 
+admin:
+  bootstrap-enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+  bootstrap-email: ${ADMIN_EMAIL:}
+
 p28:
   userservice:
     cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+
+credit-service:
+  url: ${CREDIT_SERVICE_URL:http://localhost:8084}
     
 firebase:
   auth:
@@ -33,6 +40,18 @@ management:
       probes:
         enabled: true
       show-details: never
+
+user:
+  messaging:
+    mode: ${USER_MESSAGING_MODE:cloud}
+    emulator-host: ${PUBSUB_EMULATOR_HOST:}
+    project-id: ${PUBSUB_PROJECT_ID:protean-vigil-509704-q4}
+    publish-timeout: 10s
+    outbox:
+      recovery-cron: ${USER_OUTBOX_RECOVERY_CRON:0 */1 * * * *}
+      batch-size: ${USER_OUTBOX_BATCH_SIZE:50}
+    topics:
+      user-created: ${USER_CREATED_TOPIC:user-created-dev-v1}
 
 server:
   port: ${PORT:8080}

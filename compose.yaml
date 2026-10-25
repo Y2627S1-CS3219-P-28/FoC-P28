@@ -50,6 +50,7 @@ x-order-pubsub-topics: &order-pubsub-topics
   ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
   ORDER_COURIER_PENALTY_ADDITION_TOPIC: courier-penalty-addition-local-v1
   ORDER_COURIER_PENALTY_DEDUCTION_TOPIC: courier-penalty-deduction-local-v1
+  USER_CREATED_TOPIC: user-created-local-v1
 
 services:
   pubsub-emulator:
@@ -120,8 +121,35 @@ services:
     stop_signal: SIGINT # the Firebase CLI exports data on SIGINT
     stop_grace_period: 30s # time to export data on shutdown
 
+  mongodb-init:
+    image: mongo:8
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mongosh "mongodb://mongodb:27017/admin" --quiet --eval '
+          try {
+            rs.status();
+            print("Replica set already initialized");
+          } catch (e) {
+            if (e.code === 94) {
+              rs.initiate({
+                _id: "rs0",
+                members: [{ _id: 0, host: "mongodb:27017" }]
+              });
+              print("Replica set initialization requested");
+            } else {
+              throw e;
+            }
+          }
+        '
+        
   mongodb:
     image: mongo:8
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
@@ -204,14 +232,25 @@ services:
   user-service:
     build: ./user-service
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:${USER_SERVICE_PORT:-8081}:8080"
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *order-pubsub-topics]
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
+      ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-false}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      CREDIT_SERVICE_URL: ${CREDIT_SERVICE_URL:-http://credit-service:8080}
+      SPRING_PROFILES_ACTIVE: prod
+      USER_MESSAGING_MODE: emulator
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      PUBSUB_PROJECT_ID: demo-foc-local
     depends_on:
       <<: *backend-depends
       mongodb:
         condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
+      pubsub-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s
