@@ -1,4 +1,4 @@
-package com.p28.userservice;
+package sg.edu.nus.foc.user;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

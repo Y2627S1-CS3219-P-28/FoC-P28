@@ -1,4 +1,4 @@
-package com.p28.userservice.api;
+package sg.edu.nus.foc.user.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;

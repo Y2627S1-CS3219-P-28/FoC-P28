@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
 
-            const creditResponse = await fetch(`${config.apiBaseUrl}/api/credits/registration-facts`, {
+            /*const creditResponse = await fetch(`${config.apiBaseUrl}/api/credits/registration-facts`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -197,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!creditResponse.ok) {
                 const data = await creditResponse.json().catch(() => null) as { message?: string } | null;
                 throw new Error(data?.message || "Failed to initialize the credit account");
-            }
+            }*/
         } catch (error) {
             // Error happened
             // Did not go through, delete Firebase acc

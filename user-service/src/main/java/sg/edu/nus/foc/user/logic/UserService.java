@@ -1,5 +1,9 @@
 package sg.edu.nus.foc.user.logic;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -12,9 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import sg.edu.nus.foc.user.model.OutboxEvent;
 import sg.edu.nus.foc.user.model.User;
+import sg.edu.nus.foc.user.repository.OutboxEventRepository;
 import sg.edu.nus.foc.user.repository.UserRepository;
 import sg.edu.nus.foc.user.authentication.FirebaseAuthService;
+import sg.edu.nus.foc.user.event.UserCreatedEvent;
+
 
 @Service
 public class UserService {
@@ -24,13 +32,21 @@ public class UserService {
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
     private final CreditServiceClient creditServiceClient;
+    private final OutboxEventRepository outboxEventRepository;
+    private final JsonMapper objectMapper;
+
+    private static final int MAX_PENALTY = 10;
 
     public UserService(UserRepository userRepository, 
             FirebaseAuthService firebaseAuthService,
-            CreditServiceClient creditServiceClient) {
+            CreditServiceClient creditServiceClient,
+            OutboxEventRepository outboxEventRepository,
+            JsonMapper objectMapper) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
         this.creditServiceClient = creditServiceClient;
+        this.outboxEventRepository = outboxEventRepository;
+        this.objectMapper = objectMapper;
     }
 
     public List<User> fetchAllUsers() {
@@ -110,46 +126,44 @@ public class UserService {
             user.getSuspensionEndDate());
     }
 
+    @Transactional
     public User addUser(String token, String userId, String email) {
-        if (userId == null || email == null) {
-            throw new IllegalArgumentException("Please enter all fields.");
+        if (userId == null || userId.isBlank()
+            || email == null || email.isBlank()) {
+        throw new IllegalArgumentException(
+                "User ID and email are required.");
         }
 
-        // Create MongoDB entry
         User user = new User();
-
-        List<String> roles = new ArrayList<String>();
-        roles.add("courier");
-        roles.add("requester");
-
         user.setUserId(userId);
         user.setEmail(email);
         user.setUsername("");
-        user.setRoles(roles);
+        user.setRoles(List.of("courier", "requester"));
 
         User savedUser = userRepository.save(user);
 
-        // TODO: make this an event
-        // Create credit service entry
-        /*try {
-            UUID eventId = UUID.randomUUID();
-            // Add initial credits
-            creditServiceClient.registerUser(
-                token,
-                userId,
-                eventId);
-        } catch (DuplicateKeyException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
-        } catch (Exception e) {
-            // Delete user from MongoDB if it fails due to credit service
-            userRepository.delete(savedUser);
+        String eventId = UUID.randomUUID().toString();
 
-            throw new ResponseStatusException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "Credit account initialization failed. Registration was rolled back.",
-                e
-            );
-        }*/
+        UserCreatedEvent event = new UserCreatedEvent(
+                eventId,
+                savedUser.getUserId(),
+                savedUser.getEmail(),
+                Instant.now(),
+                1
+        );
+
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+
+            outboxEventRepository.save(new OutboxEvent(
+                    eventId,
+                    "UserCreated",
+                    payload
+            ));
+        } catch (JacksonException  e) {
+            throw new IllegalStateException(
+                    "Could not serialize UserCreated event.", e);
+        }
 
         return savedUser;
     }
@@ -221,26 +235,6 @@ public class UserService {
         userRepository.delete(user);
     }
 
-    public boolean verifyAdmin(User user) {
-        List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("admin");
-    }
-
-    public boolean verifyAdmin(String userId) {
-        User user = userRepository
-                .findByUserId(userId)
-                .orElseThrow(() -> 
-                        new RuntimeException("User not found"));
-
-        List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("admin");
-    }
-
-    public boolean verifyRequester(User user) {
-        List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("requester");
-    }
-
     // TODO: Implement this API and demoteAdmin
     // Adds admin role to user
     // Doesn't change role list if already admin
@@ -271,8 +265,8 @@ public class UserService {
         }
 
         // Applies suspension
-        if (newPenalty >= 10) {
-            newPenalty = 10;
+        if (newPenalty >= MAX_PENALTY) {
+            newPenalty = MAX_PENALTY;
 
             // for debugging
             System.out.println(String.format("Applying suspension to user %s", user.getEmail()));
@@ -285,6 +279,25 @@ public class UserService {
         }
 
         user.setPenalty(newPenalty);
+
+        return userRepository.save(user);
+    }
+
+    // Single method to suspend a user
+    // Sets penalty to MAX_PENALTY
+    public User suspendUser(String userId) {
+        User user = getUserByUserId(userId);
+
+        user.setPenalty(MAX_PENALTY);
+
+        // for debugging
+        System.out.println(String.format("Applying suspension to user %s", user.getEmail()));
+
+        List<String> roles = user.getRoles();
+        roles.remove("courier");
+        user.setRoles(roles);
+        user.setIsCourierSuspended(true);
+        user.setSuspensionEndDate(Instant.now().plus(1, ChronoUnit.MONTHS));
 
         return userRepository.save(user);
     }
@@ -304,5 +317,27 @@ public class UserService {
         }
 
         return user;
+    }
+
+    
+    // Helper functions
+    public boolean verifyAdmin(User user) {
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("admin");
+    }
+
+    public boolean verifyAdmin(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> 
+                        new RuntimeException("User not found"));
+
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("admin");
+    }
+
+    public boolean verifyRequester(User user) {
+        List<String> roles = user.getRoles();
+        return roles == null || !roles.contains("requester");
     }
 }

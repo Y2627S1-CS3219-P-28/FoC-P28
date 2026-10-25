@@ -23,7 +23,8 @@ def create(path, body):
 
 
 for topic in ("order-completion", "open-order-refund",
-              "courier-penalty-addition", "courier-penalty-deduction"):
+              "courier-penalty-addition", "courier-penalty-deduction",
+              "user-created"):
     create(f"/topics/{topic}-local-v1", {})
 
 for topic, route in (("order-completion", "completion"), ("open-order-refund", "open-refund")):

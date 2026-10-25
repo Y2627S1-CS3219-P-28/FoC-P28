@@ -169,7 +169,7 @@ public class UserController {
     // Update own email info
     @Operation(summary = "Synchronise requesting user's email in MongoDB with Firebase")
     @PostMapping("/me/email-sync")
-    public ResponseEntity<User> updateUser(
+    public ResponseEntity<User> syncUserEmail(
             JwtAuthenticationToken authentication) {
 
         String userId = authentication.getToken().getSubject();
@@ -182,7 +182,7 @@ public class UserController {
     // Update own info
     @Operation(summary = "Update requesting user's own info")
     @PutMapping("/me")
-    public ResponseEntity<User> updateUser(
+    public ResponseEntity<User> updateSelf(
             @RequestBody UpdateUserRequest request,
             JwtAuthenticationToken authentication) {
 
@@ -243,7 +243,7 @@ public class UserController {
     // Only used by other services
     @Operation(summary = "Update any user's penalty")
     @PutMapping("/{userId}/penalty")
-    public ResponseEntity<User> updateUser(
+    public ResponseEntity<User> updateUserPenalty(
             @PathVariable String userId,
             @RequestBody ApplyPenaltyRequest request) {
             
@@ -254,6 +254,9 @@ public class UserController {
 
     // DELETE /api/users/me
     // User can delete their own account
+    // TODO: Change to soft delete (i.e. deactivate)
+    // Also implement account deletion event
+    // Check active orders before deactivation
     @Operation(summary = "Delete user themselves from database")
     @DeleteMapping("/me")
     public ResponseEntity<String> deleteUser(
@@ -268,6 +271,7 @@ public class UserController {
 
     // DELETE /api/users/:id
     // Only admins can delete other users
+    // TODO: Change to soft delete (i.e. deactivate)
     @Operation(summary = "Delete specified user from database")
     @DeleteMapping("/{userId}")
     public ResponseEntity<String> deleteUserAsAdmin(
@@ -287,6 +291,32 @@ public class UserController {
         userService.deleteUser(userId);
 
         return ResponseEntity.ok("User removed");
+    }
+
+    //TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
+    
+    // TODO: PUT or POST /api/users/:userid/suspension
+    // Admin manual suspension
+    @Operation(summary = "Update any user's info")
+    @PutMapping("/{userId}/suspension")
+    public ResponseEntity<User> updateUserSuspension(
+            @PathVariable String userId,
+            @RequestBody UpdateUserRequest request,
+            JwtAuthenticationToken authentication) {
+
+        String requesterId = authentication.getToken().getSubject();
+        User requester = userService.getUserByUserId(requesterId);
+
+        if (!userService.verifyAdmin(requester)) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "USER_NOT_ADMIN"
+            );
+        }
+            
+        User user = userService.suspendUser(userId);
+
+        return ResponseEntity.ok(user);
     }
 }
 

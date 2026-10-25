@@ -12,3 +12,17 @@ springdoc:
 
 credit-service:
   url: http://localhost:8084
+
+# Test-only fail-closed default. Never discover ADC or contact cloud topics.
+# Real broker tests override this with their isolated emulator's mapped address.
+user:
+  messaging:
+    mode: emulator
+    emulator-host: 127.0.0.1:9
+    project-id: demo-foc-test
+    publish-timeout: 100ms
+    outbox:
+      recovery-cron: ${USER_OUTBOX_RECOVERY_CRON:0 */1 * * * *}
+      batch-size: ${USER_OUTBOX_BATCH_SIZE:50}
+    topics:
+      user-created: user-created-local-v1
