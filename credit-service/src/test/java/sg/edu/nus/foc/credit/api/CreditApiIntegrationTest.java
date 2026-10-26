@@ -86,7 +86,7 @@ class CreditApiIntegrationTest {
                 "select total_balance from credit_accounts where user_id = ?",
                 Long.class, USER)).isEqualTo(50L);
         assertThat(jdbc.queryForObject(
-                "select count(*) from credit_ledger where user_id = ? and origin_type = 'USER_REGISTERED'",
+                "select count(*) from credit_ledger where user_id = ? and effect_type = 'INITIAL_ALLOCATION'",
                 Long.class, USER)).isEqualTo(1L);
     }
 
