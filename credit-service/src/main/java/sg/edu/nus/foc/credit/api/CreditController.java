@@ -39,7 +39,6 @@ import sg.edu.nus.foc.credit.credit.CreditCommandOutcome;
 import sg.edu.nus.foc.credit.credit.CreditCommandResult;
 import sg.edu.nus.foc.credit.credit.CreditCommandService;
 import sg.edu.nus.foc.credit.credit.CreditService;
-import sg.edu.nus.foc.credit.credit.RegistrationResult;
 import sg.edu.nus.foc.credit.credit.ReservationResult;
 import sg.edu.nus.foc.credit.error.ForbiddenException;
 import sg.edu.nus.foc.credit.error.InvalidCommandHeaderException;
@@ -56,21 +55,6 @@ public class CreditController {
     public CreditController(CreditService service, CreditCommandService commands) {
         this.service = service;
         this.commands = commands;
-    }
-
-    @PostMapping("/registration-facts")
-    @Operation(summary = "Allocate exactly 50 credits for an authenticated registration fact (F1.1)")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Credit account initialized"),
-            @ApiResponse(responseCode = "200", description = "Registration fact replayed idempotently")
-    })
-    public ResponseEntity<AccountResponse> register(@Valid @RequestBody RegistrationFactRequest request,
-                                                     JwtAuthenticationToken caller) {
-        requireSelf(request.userId(), caller);
-        RegistrationResult result = service.initializeAccount(request.eventId(), request.userId(),
-                request.occurredAt());
-        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
-        return ResponseEntity.status(status).body(AccountResponse.from(result.account()));
     }
 
     @GetMapping("/me")

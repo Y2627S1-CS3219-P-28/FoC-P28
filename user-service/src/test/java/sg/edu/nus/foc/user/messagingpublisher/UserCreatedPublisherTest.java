@@ -53,6 +53,10 @@ class UserCreatedPublisherTest {
                 message.getAttributesOrThrow("eventType"));
 
         assertEquals(
+                "1",
+                message.getAttributesOrThrow("eventVersion"));
+
+        assertEquals(
                 payload,
                 message.getData().toStringUtf8());
     }

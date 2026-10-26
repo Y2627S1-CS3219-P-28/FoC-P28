@@ -18,7 +18,7 @@ class CreditPushPropertiesTest {
     void buildsFullyQualifiedSubscriptionNames() {
         CreditPushProperties properties = new CreditPushProperties(
                 " project ", " audience ", " push@example.com ",
-                " completion ", " refund ");
+                " completion ", " refund ", " user-created ");
 
         assertThat(properties.audience()).isEqualTo("audience");
         assertThat(properties.serviceAccount()).isEqualTo("push@example.com");
@@ -26,15 +26,20 @@ class CreditPushPropertiesTest {
                 .isEqualTo("projects/project/subscriptions/completion");
         assertThat(properties.openRefundSubscriptionPath())
                 .isEqualTo("projects/project/subscriptions/refund");
+        assertThat(properties.userCreatedSubscriptionPath())
+                .isEqualTo("projects/project/subscriptions/user-created");
     }
 
     @Test
     void suppliesSafeLocalDefaults() {
-        CreditPushProperties properties = new CreditPushProperties(null, null, null, null, null);
+        CreditPushProperties properties = new CreditPushProperties(
+                null, null, null, null, null, null);
 
         assertThat(properties.projectId()).isEqualTo("demo-foc");
         assertThat(properties.audience()).isEqualTo("http://localhost:8080");
         assertThat(properties.completionSubscriptionPath())
                 .isEqualTo("projects/demo-foc/subscriptions/credit-order-completion-dev-v1");
+        assertThat(properties.userCreatedSubscriptionPath())
+                .isEqualTo("projects/demo-foc/subscriptions/credit-user-created-dev-v1");
     }
 }

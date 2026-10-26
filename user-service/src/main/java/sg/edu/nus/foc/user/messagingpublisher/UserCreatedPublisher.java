@@ -87,6 +87,7 @@ public class UserCreatedPublisher {
                 .setData(ByteString.copyFromUtf8(payload))
                 .putAttributes("eventId", eventId)
                 .putAttributes("eventType", "UserCreated")
+                .putAttributes("eventVersion", "1")
                 .build();
 
         ApiFuture<String> future = publisher.publish(message);

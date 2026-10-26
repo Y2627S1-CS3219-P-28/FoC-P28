@@ -12,8 +12,8 @@
 #   - one Firestore database per service per env         <name>-<env>, only readable by foc-<service>@
 #   - one shared Cloud SQL PostgreSQL instance with isolated Order/Credit databases,
 #     runtime users, and secrets per environment (approved by order-service ADR-008)
-#   - Pub/Sub API prerequisites; Credit push subscriptions are provisioned separately by
-#     infra/gcp/configure-credit-pubsub.sh after the target Cloud Run service exists
+#   - Pub/Sub API prerequisites; event topics and Credit push subscriptions are provisioned
+#     separately after the target Cloud Run service exists
 #   - one config bucket per env (mounted into services)  ${PROJECT_ID}-foc-config-<env>
 #   - VPC for Cloud Run Direct VPC egress: subnet with Private Google Access, Cloud NAT
 #     (only the gateway is public; the other services have internal ingress)

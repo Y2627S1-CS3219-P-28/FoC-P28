@@ -67,44 +67,36 @@ class CreditApiIntegrationTest {
     }
 
     @Test
-    void registrationCreatesExactlyFiftyCreditsAndReplaysAsOk() throws Exception {
-        RegistrationFactRequest request = registration(USER);
-        mvc.perform(post("/api/credits/registration-facts")
-                        .with(jwt().jwt(token -> token.subject(USER)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsBytes(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.userId").value(USER))
-                .andExpect(jsonPath("$.totalBalance").value(50))
-                .andExpect(jsonPath("$.reservedBalance").value(0))
-                .andExpect(jsonPath("$.usableBalance").value(50));
+    void userCreatedEventInitializesExactlyOneCreditAccount() throws Exception {
+        UUID eventId = UUID.fromString("c91e4571-329a-4399-b87f-a756a6ab7243");
+        byte[] body = mapper.writeValueAsBytes(userCreatedEnvelope(USER, eventId));
 
-        mvc.perform(post("/api/credits/registration-facts")
-                        .with(jwt().jwt(token -> token.subject(USER)))
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsBytes(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalBalance").value(50));
+                        .content(body))
+                .andExpect(status().isNoContent());
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject(
+                "select total_balance from credit_accounts where user_id = ?",
+                Long.class, USER)).isEqualTo(50L);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from credit_ledger where user_id = ? and effect_type = 'INITIAL_ALLOCATION'",
+                Long.class, USER)).isEqualTo(1L);
     }
 
     @Test
-    void registrationRequiresAuthenticationOwnershipAndValidInput() throws Exception {
-        byte[] body = mapper.writeValueAsBytes(registration(USER));
-        mvc.perform(post("/api/credits/registration-facts")
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
-        mvc.perform(post("/api/credits/registration-facts")
-                        .with(jwt().jwt(token -> token.subject("someone-else")))
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    void legacyRegistrationFactEndpointIsRemoved() throws Exception {
         mvc.perform(post("/api/credits/registration-facts")
                         .with(jwt().jwt(token -> token.subject(USER)))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"\",\"occurredAt\":null}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+                        .content("{}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -380,6 +372,11 @@ class CreditApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
 
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+
         mvc.perform(post(CreditOrderEventController.PUSH_PATH)
                         .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -547,16 +544,26 @@ class CreditApiIntegrationTest {
                 .isEqualTo(courier);
     }
 
-    private RegistrationFactRequest registration(String userId) {
-        return new RegistrationFactRequest(UUID.randomUUID(), userId, Instant.parse("2026-09-25T08:00:00Z"));
+    private void register(String userId) throws Exception {
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(userCreatedEnvelope(userId, UUID.randomUUID()))))
+                .andExpect(status().isNoContent());
     }
 
-    private void register(String userId) throws Exception {
-        mvc.perform(post("/api/credits/registration-facts")
-                        .with(jwt().jwt(token -> token.subject(userId)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsBytes(registration(userId))))
-                .andExpect(status().isCreated());
+    private PubSubPushEnvelope userCreatedEnvelope(String userId, UUID eventId) {
+        String event = """
+                {"eventId":"%s","userId":"%s","email":"%s@example.com",
+                 "occurredAt":"2026-10-25T08:00:00Z","schemaVersion":1}
+                """.formatted(eventId, userId, userId);
+        String encoded = Base64.getEncoder().encodeToString(event.getBytes(StandardCharsets.UTF_8));
+        return new PubSubPushEnvelope(
+                new PubSubPushEnvelope.Message(encoded, UUID.randomUUID().toString(), Map.of(
+                        "eventId", eventId.toString(),
+                        "eventType", "UserCreated",
+                        "eventVersion", "1")),
+                pushProperties.userCreatedSubscriptionPath());
     }
 
     private String reserve(String orderId, String userId, long amount) throws Exception {

@@ -31,9 +31,6 @@ function New-TestUser {
         email=$email; password=([guid]::NewGuid().ToString('N')+'aA1!'); returnSecureToken=$true
     }
     $null = Send-Json POST "$Gateway/api/users" @{userId=$auth.localId; email=$email} $auth.idToken
-    $null = Send-Json POST "$Gateway/api/credits/registration-facts" @{
-        eventId=[guid]::NewGuid().ToString(); userId=$auth.localId; occurredAt=[DateTime]::UtcNow.ToString('o')
-    } $auth.idToken
     return @{uid=$auth.localId; token=$auth.idToken}
 }
 function Assert-HttpStatus([string]$Method, [string]$Path, [int]$Expected, $Body = $null, [string]$Token = '') {
@@ -48,6 +45,22 @@ function Assert-HttpStatus([string]$Method, [string]$Path, [int]$Expected, $Body
     Assert-That ($status -eq $Expected) "$Method $Path expected $Expected, received $status."
 }
 function Balance($User) { Send-Json GET "$Gateway/api/credits/me" $null $User.token }
+function Wait-CreditAccount($User) {
+    for ($i=0; $i -lt 180; $i++) {
+        try {
+            $balance = Invoke-RestMethod -Method GET -Uri "$Gateway/api/credits/me" `
+                -Headers @{Authorization="Bearer $($User.token)"} -TimeoutSec 20
+            if ($balance.totalBalance -eq 50 -and $balance.reservedBalance -eq 0) {
+                Assert-That $true 'Credit account provisioned from UserCreated event'; return
+            }
+        } catch {
+            $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+            if ($status -ne 404) { throw }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Credit account was not provisioned within 90 seconds of User Service registration.'
+}
 function Wait-Balance($User, [long]$Total, [long]$Reserved) {
     for ($i=0; $i -lt 30; $i++) {
         $balance = Balance $User
@@ -76,6 +89,8 @@ function Act($Order, [string]$Action, $User, [string]$Key = ([guid]::NewGuid().T
 
 $requester = New-TestUser
 $courier = New-TestUser
+Wait-CreditAccount $requester
+Wait-CreditAccount $courier
 Assert-HttpStatus GET '/api/credits/me' 401
 Assert-HttpStatus GET '/api/orders/internal/outbox/failed' 403 $null $requester.token
 $context = Send-Json GET "$Gateway/api/users/role-context" $null $requester.token

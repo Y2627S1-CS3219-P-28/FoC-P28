@@ -85,6 +85,7 @@ class LiveCreditCommandRecoveryIntegrationTest {
             .withEnv("PUBSUB_PROJECT_ID", "demo-foc-local")
             .withEnv("CREDIT_ORDER_COMPLETION_SUBSCRIPTION", "credit-order-completion-local-v1")
             .withEnv("CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION", "credit-open-order-refund-local-v1")
+            .withEnv("CREDIT_USER_CREATED_SUBSCRIPTION", "credit-user-created-local-v1")
             .withEnv("USER_SERVICE_MODE", "mock").withEnv("LOG_LEVEL", "WARN")
             .waitingFor(Wait.forHttp("/actuator/health").forStatusCode(200))
             .withStartupTimeout(Duration.ofMinutes(2));
@@ -139,7 +140,7 @@ class LiveCreditCommandRecoveryIntegrationTest {
     static void emulatorSubscriptions() {
         RestClient emulator = RestClient.builder().baseUrl("http://" + PUBSUB.getHost() + ":"
                 + PUBSUB.getMappedPort(8085) + "/v1/projects/demo-foc-local").build();
-        for (String topic : java.util.List.of("order-completion", "open-order-refund")) {
+        for (String topic : java.util.List.of("order-completion", "open-order-refund", "user-created")) {
             emulator.put().uri("/topics/" + topic + "-local-v1").body(java.util.Map.of()).retrieve().toBodilessEntity();
         }
         for (String topic : java.util.List.of("order-completion", "open-order-refund")) {
@@ -149,6 +150,11 @@ class LiveCreditCommandRecoveryIntegrationTest {
                     "pushConfig", java.util.Map.of("pushEndpoint", "http://credit:8080/api/credits/internal/order-events/" + route)))
                     .retrieve().toBodilessEntity();
         }
+        emulator.put().uri("/subscriptions/credit-user-created-local-v1").body(java.util.Map.of(
+                "topic", "projects/demo-foc-local/topics/user-created-local-v1", "ackDeadlineSeconds", 30,
+                "pushConfig", java.util.Map.of(
+                        "pushEndpoint", "http://credit:8080/api/credits/internal/user-events/created")))
+                .retrieve().toBodilessEntity();
     }
 
     @Autowired OrderCommandService commands;
@@ -279,10 +285,36 @@ class LiveCreditCommandRecoveryIntegrationTest {
 
     private String account() {
         String actor = key();
-        RestClient.builder().baseUrl("http://" + CREDIT.getHost() + ":" + CREDIT.getMappedPort(8080)).build()
-                .post().uri("/api/credits/registration-facts").header("Authorization", token(actor))
-                .body(java.util.Map.of("eventId", key(), "userId", actor, "occurredAt", Instant.now().toString()))
+        String eventId = key();
+        String payload = """
+                {"eventId":"%s","userId":"%s","email":"%s@example.com",
+                 "occurredAt":"%s","schemaVersion":1}
+                """.formatted(eventId, actor, actor, Instant.now());
+        RestClient.builder().baseUrl("http://" + PUBSUB.getHost() + ":" + PUBSUB.getMappedPort(8085)
+                        + "/v1/projects/demo-foc-local").build()
+                .post().uri("/topics/user-created-local-v1:publish")
+                .body(java.util.Map.of("messages", java.util.List.of(java.util.Map.of(
+                        "data", Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8)),
+                        "attributes", java.util.Map.of(
+                                "eventId", eventId,
+                                "eventType", "UserCreated",
+                                "eventVersion", "1")))))
                 .retrieve().toBodilessEntity();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        do {
+            Long accounts = creditDb().queryForObject(
+                    "select count(*) from credit_accounts where user_id=?", Long.class, actor);
+            if (accounts != null && accounts == 1L) {
+                return actor;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for Credit account provisioning.", interrupted);
+            }
+        } while (System.nanoTime() < deadline);
+        fail("UserCreated event did not provision the Credit account for " + actor);
         return actor;
     }
 
