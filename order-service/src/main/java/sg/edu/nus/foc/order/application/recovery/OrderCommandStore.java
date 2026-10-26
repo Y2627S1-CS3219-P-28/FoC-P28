@@ -33,6 +33,14 @@ public class OrderCommandStore {
 
     @Transactional
     public Entry register(String key, CommandRequest request) {
+        return register(key, request, "RETRY", 120);
+    }
+
+    @Transactional
+    public Entry register(String key, CommandRequest request, String policy, int resolutionSeconds) {
+        if (!List.of("RETRY", "COMPENSATE").contains(policy) || resolutionSeconds < 1) {
+            throw new OrderProblem("VALIDATION_ERROR", "Invalid recovery policy or deadline.");
+        }
         if (key == null || key.isBlank() || key.length() > 128 || request.actorId() == null
                 || request.actorId().isBlank() || request.actorId().length() > 128
                 || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
@@ -44,14 +52,17 @@ public class OrderCommandStore {
         String candidate = request.kind().equals("REPOST") ? UUID.randomUUID().toString() : null;
         try {
             jdbc.update("""
-                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload, candidate_order_id)
-                values (?, ?, ?, ?, ?, ?::jsonb, ?) on conflict(command_id) do nothing
-                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate);
+                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload,
+                  candidate_order_id,recovery_policy,resolution_deadline_at)
+                values (?, ?, ?, ?, ?, ?::jsonb, ?, ?, clock_timestamp()+(? * interval '1 second'))
+                on conflict(command_id) do nothing
+                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate, policy, resolutionSeconds);
         } catch (DuplicateKeyException conflict) {
             throw OrderProblem.conflict("An unresolved request already guards this order.");
         }
         Entry saved = get(key);
-        if (!saved.actorId().equals(request.actorId()) || !saved.inputHash().equals(digest(payload))) {
+        if (!saved.actorId().equals(request.actorId()) || !saved.inputHash().equals(digest(payload))
+                || !policy.equals(recoveryPolicy(key))) {
             throw OrderProblem.conflict("This command key belongs to different request details.");
         }
         return saved;
@@ -65,13 +76,17 @@ public class OrderCommandStore {
         return jdbc.query("select * from order_commands where command_id=?", this::map, key).stream().findFirst();
     }
 
+    public String recoveryPolicy(String key) {
+        return jdbc.queryForObject("select recovery_policy from order_commands where command_id=?", String.class, key);
+    }
+
     @Transactional
     public Optional<Entry> claim(String key, String owner, int seconds, boolean authorizedResume) {
         int changed = jdbc.update("""
             update order_commands set owner=?, lease_expires_at=clock_timestamp() + (? * interval '1 second'),
               generation=generation+1, attempt_count=attempt_count+1, reason='PROCESSING',
               message='Processing your request.', updated_at=clock_timestamp()
-            where command_id=? and status='PENDING'
+            where command_id=? and status='PENDING' and compensation_id is null
               and (next_retry_at<=clock_timestamp() or ?)
               and (lease_expires_at is null or lease_expires_at<=clock_timestamp())
               and (reason<>'AUTHORIZATION_REQUIRED' or ?)
@@ -81,7 +96,7 @@ public class OrderCommandStore {
 
     public void assertOwned(Entry claim) {
         List<String> owned = jdbc.queryForList("""
-            select command_id from order_commands where command_id=? and status='PENDING'
+            select command_id from order_commands where command_id=? and status='PENDING' and compensation_id is null
               and owner=? and generation=? and lease_expires_at>clock_timestamp() for update
             """, String.class, claim.key(), claim.owner(), claim.generation());
         if (owned.isEmpty()) throw OrderProblem.conflict("Command ownership changed; checking its outcome.");
@@ -89,15 +104,22 @@ public class OrderCommandStore {
 
     public void markPossibleEffect(Entry claim) {
         assertOwned(claim);
-        jdbc.update("update order_commands set possible_effect=true where command_id=?", claim.key());
+        int changed = jdbc.update("""
+            update order_commands set possible_effect=true where command_id=?
+              and (recovery_policy<>'COMPENSATE' or resolution_deadline_at>clock_timestamp())
+            """, claim.key());
+        if (changed != 1) throw OrderProblem.conflict("The command recovery deadline has passed.");
     }
 
     public void complete(Entry claim, String outcome, String reason, String message, OrderResponse result) {
         assertOwned(claim);
         jdbc.update("""
             update order_commands set status='COMPLETED', outcome=?, reason=?, message=?, result=?::jsonb,
+              final_stage_status=case when recovery_policy='COMPENSATE' then
+                case when ?='SUCCESS' then 'SUCCESS' else 'FULLY_COMPENSATED' end
+                else final_stage_status end,
               owner=null, lease_expires_at=null, updated_at=clock_timestamp() where command_id=?
-            """, outcome, reason, message, result == null ? null : json.writeValueAsString(result), claim.key());
+            """, outcome, reason, message, result == null ? null : json.writeValueAsString(result), outcome, claim.key());
     }
 
     @Transactional
@@ -110,11 +132,16 @@ public class OrderCommandStore {
     }
 
     public List<String> due(int limit) {
+        return due(limit, "RETRY");
+    }
+
+    public List<String> due(int limit, String policy) {
         return jdbc.queryForList("""
             select command_id from order_commands where status='PENDING' and next_retry_at<=clock_timestamp()
+              and recovery_policy=? and compensation_id is null
               and (lease_expires_at is null or lease_expires_at<=clock_timestamp())
               and reason<>'AUTHORIZATION_REQUIRED' order by next_retry_at limit ?
-            """, String.class, limit);
+            """, String.class, policy, limit);
     }
 
     public List<Entry> pendingFor(String actor, int page, int size) {

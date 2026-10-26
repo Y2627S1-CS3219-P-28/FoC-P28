@@ -40,7 +40,18 @@ public class OrderCommandService {
     @Value("${order.commands.retry-seconds:15}") private int retrySeconds;
     @Value("${order.commands.batch-size:20}") private int batchSize;
 
-    public boolean enabled() { return flag && ("mock".equals(mode) || "http".equals(mode)) && gateway.getIfAvailable() != null; }
+    @Value("${order.commands.recovery-policy:retry}") private String recoveryPolicy = "retry";
+    @Value("${order.commands.resolution-seconds:120}") private int resolutionSeconds = 120;
+    @org.springframework.beans.factory.annotation.Autowired private OrderCompensationWorkflow compensationWorkflow;
+    @org.springframework.beans.factory.annotation.Autowired private OrderCompensationJournal compensationJournal;
+
+    public boolean compensationSelected() { return "compensate".equals(recoveryPolicy); }
+    public boolean enabled() {
+        // ADR-054 fixture milestone: no env switch can enable unverified live compensation.
+        return flag && ("retry".equals(recoveryPolicy) || compensationSelected())
+                && (!compensationSelected() || "mock".equals(mode))
+                && ("mock".equals(mode) || "http".equals(mode)) && gateway.getIfAvailable() != null;
+    }
     private void requireEnabled() {
         if (!enabled()) throw new OrderProblem("SERVICE_UNAVAILABLE", "Command recovery is disabled or its Credit gateway is unavailable.");
     }
@@ -63,7 +74,9 @@ public class OrderCommandService {
                 if (receipts.findExisting(operation, key).isPresent() && store.find(key).isEmpty()) {
                     throw OrderProblem.conflict("This key belongs to a legacy operation. Use its original workflow.");
                 }
-                store.register(key, "REPOST".equals(input.kind()) ? frozenRepost(key, input, original) : input);
+                var frozen = "REPOST".equals(input.kind()) ? frozenRepost(key, input, original) : input;
+                if (compensationSelected()) store.register(key, frozen, "COMPENSATE", Math.max(1, resolutionSeconds));
+                else store.register(key, frozen);
             });
         }
         return execute(key, authorization, true);
@@ -105,6 +118,13 @@ public class OrderCommandService {
 
     public void recoverDue() {
         if (!enabled()) return;
+        if (compensationSelected()) {
+            for (String key : compensationJournal.due(Math.max(1, Math.min(batchSize, 100)))) {
+                try { compensationJournal.recover(key); }
+                catch (RuntimeException failure) { audit.action("COMMAND_COMPENSATION", null, null, key, "pending"); }
+            }
+            return;
+        }
         for (String key : store.due(Math.max(1, Math.min(batchSize, 100)))) {
             try { execute(key, null, false); }
             catch (RuntimeException failure) { audit.action("COMMAND_RECOVERY", null, null, key, "pending"); }
@@ -142,6 +162,11 @@ public class OrderCommandService {
     }
 
     private CommandView execute(String key, String authorization, boolean userResume) {
+        if (compensationSelected()) return executeCompensation(key, authorization, userResume);
+        if ("COMPENSATE".equals(store.recoveryPolicy(key))) {
+            // Never reinterpret an existing compensation command after a config rollback.
+            return view(store.get(key));
+        }
         var candidate = store.claim(key, UUID.randomUUID().toString(), Math.max(1, leaseSeconds), userResume);
         if (candidate.isEmpty()) return view(store.get(key));
         var claim = candidate.get();
@@ -205,6 +230,28 @@ public class OrderCommandService {
                     auth ? "Sign in or continue to authorize recovery of this request."
                          : "Outcome not confirmed. We will safely retry this request.", Math.max(1, retrySeconds));
             audit.action("COMMAND_RECOVERY", claim.orderId(), claim.actorId(), key, auth ? "authorization_required" : "pending");
+        }
+        return view(store.get(key));
+    }
+
+    private CommandView executeCompensation(String key, String authorization, boolean userResume) {
+        if (!"COMPENSATE".equals(store.recoveryPolicy(key))) return view(store.get(key));
+        var candidate = store.claim(key, UUID.randomUUID().toString(), Math.max(1, leaseSeconds), userResume);
+        if (candidate.isEmpty()) return view(store.get(key));
+        var claim = candidate.get();
+        try (CommandScope ignored = new CommandScope(key)) {
+            compensationWorkflow.execute(claim, mutation(claim), authorization, () -> {
+                authorize(claim.input(), authorization);
+                tx().executeWithoutResult(tx -> { store.assertOwned(claim); validate(claim); });
+                if ("CREATE".equals(claim.kind()) || "REPOST".equals(claim.kind())) {
+                    var fields = claim.input().creation();
+                    suppliers.validatePair(fields.pickup(), fields.delivery(), authorization);
+                }
+            }, () -> {
+                Order result = finalizeOrder(claim, authorization);
+                entityManager.flush();
+                return mapper.toResponse(result);
+            });
         }
         return view(store.get(key));
     }

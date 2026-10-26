@@ -25,7 +25,8 @@ public class OrderCommandController {
     @Operation(summary = "Discover whether durable Credit command recovery is enabled")
     @ApiResponse(responseCode = "200", description = "Deployment command capability; HTTP peers use the real Credit command protocol")
     public Map<String, Object> capabilities() {
-        return Map.of("enabled", commands.enabled(), "protocol", "credit-command-v1");
+        return Map.of("enabled", commands.enabled(), "protocol",
+                commands.compensationSelected() ? "credit-compensation-v1-fixture" : "credit-command-v1");
     }
 
     @PostMapping("/create") @RequireRequesterRole

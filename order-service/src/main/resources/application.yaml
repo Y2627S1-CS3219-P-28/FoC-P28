@@ -52,6 +52,8 @@ order:
     read-timeout: ${ORDER_PEER_READ_TIMEOUT:5s}
   commands:
     enabled: ${ORDER_COMMANDS_ENABLED:true}
+    recovery-policy: ${ORDER_COMMAND_RECOVERY_POLICY:retry}
+    resolution-seconds: ${ORDER_COMMAND_RESOLUTION_SECONDS:120}
     lease-seconds: ${ORDER_COMMAND_LEASE_SECONDS:120}
     retry-seconds: ${ORDER_COMMAND_RETRY_SECONDS:15}
     batch-size: ${ORDER_COMMAND_BATCH_SIZE:20}

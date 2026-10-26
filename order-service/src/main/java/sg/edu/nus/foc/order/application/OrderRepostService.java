@@ -33,6 +33,9 @@ public class OrderRepostService {
     private final OrderAuditLogger audit;
     private final RepostFailureRecorder failures;
 
+    @org.springframework.beans.factory.annotation.Value("${order.commands.recovery-policy:retry}")
+    private String recoveryPolicy = "retry";
+
     @Transactional
     public Order configure(
             String commandId,
@@ -172,6 +175,9 @@ public class OrderRepostService {
 
     private Order prepareRepost(Order original, String description, long amount, int duration,
             Instant createdAt, Instant expiresAt, String authorization, boolean manual) {
+        if ("compensate".equals(recoveryPolicy)) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Repost must use the durable command protocol; automatic delegated execution is unavailable.");
+        }
         try {
             Order repost = manual
                     ? original.createManualRepost(description, amount, duration, createdAt, expiresAt)
