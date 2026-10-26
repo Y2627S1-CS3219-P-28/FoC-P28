@@ -3,9 +3,13 @@ package sg.edu.nus.foc.order.infrastructure;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.google.api.core.ApiFutures;
+import com.google.cloud.pubsub.v1.Publisher;
+import com.google.pubsub.v1.PubsubMessage;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,11 +26,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import sg.edu.nus.foc.order.application.recovery.*;
 import sg.edu.nus.foc.order.application.OrderCreationService;
 import sg.edu.nus.foc.order.domain.OrderProblem;
+import sg.edu.nus.foc.order.domain.OrderStatus;
+import sg.edu.nus.foc.order.messagingpublisher.dto.OpenOrderRefundTaskEvent;
+import sg.edu.nus.foc.order.messagingpublisher.publisher.GoogleCloudPubSubEventPublisher;
+import sg.edu.nus.foc.order.messagingpublisher.publisher.PubSubPublisherFactory;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Real PostgreSQL/V15/locks and Order service; Credit/result transport are explicit fixtures. */
 @SpringBootTest(properties = {"spring.profiles.active=local", "order.peers.mode=mock",
-    "order.messaging.mode=mock", "order.commands.enabled=true", "order.commands.recovery-policy=compensate",
+    "order.messaging.mode=cloud", "order.messaging.emulator-host=", "order.commands.enabled=true", "order.commands.recovery-policy=compensate",
     "order.lifecycle.cron=-", "order.messaging.outbox.recovery-cron=-", "debug=false", "logging.level.root=WARN"})
 @Testcontainers
 class OrderCompensationPostgresIntegrationTest {
@@ -43,6 +51,32 @@ class OrderCompensationPostgresIntegrationTest {
     @MockitoSpyBean LocalCreditCommandStub credit;
     @MockitoSpyBean OrderCreationService creation;
     @MockitoBean CreditCompensationPublisher publisher;
+    @MockitoBean PubSubPublisherFactory publisherFactory;
+    @Autowired GoogleCloudPubSubEventPublisher lifecyclePublisher;
+    private Publisher fixtureTransport;
+
+    @BeforeEach
+    void isolateLifecycleTransport() {
+        fixtureTransport = mock(Publisher.class);
+        when(publisherFactory.forTopic(anyString(), anyString())).thenReturn(fixtureTransport);
+        when(fixtureTransport.publish(any(PubsubMessage.class)))
+                .thenReturn(ApiFutures.immediateFuture("fixture-message-id"));
+    }
+
+    @Test
+    void lifecyclePublicationUsesOnlyFixtureTransport() {
+        OpenOrderRefundTaskEvent event = new OpenOrderRefundTaskEvent();
+        event.setEventId(key());
+        event.setEventType("OpenOrderRefundTaskEvent");
+        event.setEventVersion(2);
+        event.setOrderId(key());
+        event.setOrderStatus(OrderStatus.CANCELLED);
+        event.setCreditAmount(5);
+        event.setOccurredAt(Instant.now());
+
+        assertEquals("fixture-message-id", lifecyclePublisher.publish("fixture-topic", event));
+        verify(fixtureTransport).publish(any(PubsubMessage.class));
+    }
 
     String key() { return UUID.randomUUID().toString(); }
     CommandRequest input(String actor) {
