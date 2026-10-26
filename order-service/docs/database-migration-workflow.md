@@ -174,3 +174,22 @@ CHANGE-144 adds forward-only V13__courier_penalty_outcomes_and_adjustments.sql: 
 
 
 Current CHANGE-146 handoff: forward-only V14__deferred_courier_penalty.sql adds nullable policy/audit fields to orders and order_courier_attempts, with policy/audit consistency checks. Derived amount is not separately persisted. No terminal-history backfill or adjustment-table drop. V1-V13 remain immutable. Old replacement records require operator review if previously enabled; no automatic score changes. Normal startup applies V14; existing database not migrated by this coding task. Clean/V13 upgrade verification required.
+
+## CHANGE-156 / V15 compensation-journal handoff
+
+V15__compensation_first_command_journal.sql adds per-command recovery policy,
+Credit step/final stage state, recovery deadline and compensation identity; all
+existing commands remain RETRY. It adds an idempotent result inbox and a distinct
+command FK for compensation outboxes before an Order exists. The existing Order
+FK remains mandatory for lifecycle events via an aggregate-reference check.
+No balance/ledger copy, existing migration edit, destructive table drop or old
+command conversion. Entity mapping permits the new command-owned null order_id.
+
+Expected Flyway version15. Apply through normal startup against the selected
+local PostgreSQL database; never ddl-auto=update. Before deployment, run clean
+V1->V15 and preserved-data V14->V15 verification, then
+OrderCompensationPostgresIntegrationTest (root reactor, Docker required). Local
+test/runtime evidence and unverified gates belong to CHANGE-156. This task does
+not migrate a user/staging/production database. Rollback disables new commands,
+retains all journal/inbox/outbox records and reconciles pending compensation;
+never drop tombstones or restore old code that reinterprets new-policy keys.

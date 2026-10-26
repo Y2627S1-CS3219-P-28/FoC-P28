@@ -41,6 +41,23 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Service Contracts
 
+## Compensation-first fixture contract - ADR-054 / CHANGE-156
+
+Existing live credit-command-v1 remains the default. Selecting
+order.commands.recovery-policy=compensate uses credit-compensation-v1-fixture;
+HTTP peers fail closed. Original business bodies/key headers stay minimal.
+The exact new compensation request/result JSON, reserved future push paths,
+matching/ownership/duplicate semantics and Credit work are specified in
+[compensation-workflow-handoff.md](../concurrency/compensation-workflow-handoff.md).
+No live endpoint or new deployed topic is asserted by this contract-fixture scope.
+
+Public CommandView stays PENDING/COMPLETED and SUCCESS/REJECTED. COMPENSATING and
+RECONCILIATION_REQUIRED are pending reasons; no user authorization is needed to
+receive trusted compensation results. COMPLETED+REJECTED is returned only after
+confirmed reversal/fence or authoritative no-effect closure. Browser polling
+retains its key until that terminal result. Existing commands retain their saved
+recovery policy; reusing a key to change policy conflicts.
+
 ## Admin table page size — CHANGE-140
 
 CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.

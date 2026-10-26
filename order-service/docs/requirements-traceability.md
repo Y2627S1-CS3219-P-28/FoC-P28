@@ -23,6 +23,19 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Requirements Traceability
 
+## CHANGE-156 / ADR-054 - Compensation fixture traceability [~]
+
+| Requirement / amendment | Implementation | Verification |
+| --- | --- | --- |
+| F1, F3, F11, F13; ADR-033/035; approved compensation amendment | Immutable persisted policy/deadline; one initial keyed Credit mutation; fenced compensation rather than forward replay | OrderCompensationWorkflowTest, OrderCompensationJournalTest, OrderCommandGateTest |
+| NTH4; ADR-037 | REPOST reserves the candidate under the same policy; legacy automatic path refuses bypass | PostgreSQL fixture test and existing repost regression; delegated automatic behavior still deferred |
+| Durability/consistency/testing NFRs; ADR-036/054 | V15 step/final markers, command-owned outbox, atomic result inbox and final local transaction | OrderCompensationPostgresIntegrationTest: required real PostgreSQL; unavailable runtime is not a pass |
+| Existing USER Requester/Courier pending UI; ADR-038 | Existing polling/key retention; pending COMPENSATING -> terminal rejection | use-order-command.test.tsx compensation case; runtime evidence in CHANGE-156 |
+| Cross-service safe reversal/fencing | Exact peer contract, safe CLEAR_COURIER pre-image restoration, missing-K tombstone and result outbox | FEEDBACK-017 blocks live; Order fixtures never verify actual Credit |
+
+No new Order lifecycle state, penalty policy, supplier ownership or event-contract
+replacement is inferred. Existing live contracts remain until coordinated rollout.
+
 ## CHANGE-140: Admin table density
 
 D1 NTH1 oversight; user-selected20-row pages are a presentation/request-size detail within existing contracts, not a new business rule. Existing mock/live adapter assertions cover20-row Orders, mock Users, exact-search metadata and retained supplier-card behavior; admin page/action regressions cover existing pagination/navigation. No new backend or peer implementation.

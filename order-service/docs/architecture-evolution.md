@@ -23,6 +23,21 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Architecture Evolution
 
+## CHANGE-156 / ADR-054 - Compensation-first contract-fixture milestone
+
+Architecture change approved by Vincent2026-10-26 for an opt-in fixture policy:
+hybrid initial HTTP effect and durable compensation/result exchange, rather than
+replaying forward after uncertainty. SUCCESS means the final local commit, not
+function return. A command-locked compensation decision revokes older ownership;
+only a validated Credit result closes FULLY_COMPENSATED. Safe ABORT restoration
+is required from Credit; current provider cannot supply it. Live remains disabled.
+
+Design refinement: compensation before Order creation cannot satisfy V2's outbox
+Order FK. V15 adds a distinct command FK/reference check and preserves the Order
+FK for every existing lifecycle event. It does not create phantom Orders or
+remove financial relationship checks. Earlier migrations/history stay intact.
+See ADR-054, CHANGE-156 and FEEDBACK-017 for design/data/class/sequence/test chain.
+
 ## Compact calendar toolbar — CHANGE-139
 
 CHANGE-139, user-directed2026-10-17: Admin Orders toolbar is a compact41px desktop table-top row, with existing RefreshCwIcon-only refresh and two native calendar-icon date fields (DD/MM/YYYY to DD/MM/YYYY), no visible Created-from label. Wrap on mobile; keep existing Order-ID/status search and financial dialogs/navigation. Creation-date bounds are local calendar days converted to explicit instants (start inclusive, day after end exclusive). Refresh retains filters and clears stale selection. Additive admin list filters execute in SQL before sorting/count/pagination; samples filter only isolated fixtures. No schema/financial/event/peer/config change. See changes/CHANGE-139-compact-admin-toolbar-date-filter.md.

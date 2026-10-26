@@ -1,0 +1,14 @@
+classDiagram
+    OrderCommandService --> OrderCommandStore : register immutable policy and claim
+    OrderCommandService --> OrderCompensationWorkflow : selected fixture policy
+    OrderCompensationWorkflow --> CreditCommandGateway : initial execution once
+    OrderCompensationWorkflow --> OrderCompensationJournal : observation or abandon
+    OrderCompensationWorkflow --> OrderTransitionServices : atomic local finalization
+    OrderCompensationJournal --> OrderCommandStore : owner and generation fence
+    OrderCompensationJournal --> CommandOutbox : atomic compensation intent
+    OrderCompensationJournal --> ResultInbox : deduplicate committed Credit result
+    CommandOutbox --> OrderOutboxDispatcher : durable publication retry
+    OrderOutboxDispatcher --> CreditCompensationPublisher : fixture boundary only
+    TrustedResultFixture --> OrderCompensationJournal : confirm reverse or fence
+    OrderLifecycleScheduler --> OrderCompensationJournal : due expired-lease commands
+    note for CreditCompensationPublisher "No live adapter/receiver until FEEDBACK-017 verified"

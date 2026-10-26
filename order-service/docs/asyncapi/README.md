@@ -1,5 +1,13 @@
 # Order Service Pub/Sub documentation
 
+CHANGE-156 / ADR-054: the new compensation request/result protocol is an explicitly
+approved fixture milestone with no live transport/receiver. Its proposed schemas
+and reserved topics/handlers are in
+[the peer handoff](../../concurrency/compensation-workflow-handoff.md). The live
+AsyncAPI document intentionally continues to describe the four implemented
+channels; add the new channels with verified producer/consumer/auth wiring before
+live activation. Do not mistake fixture outbox intent for deployed Pub/Sub support.
+
 CHANGE-155 / ADR-053: accepted-cancellation publisher, replay and snapshot schema removed. AsyncAPI1.3.0 retains four channels; published history is preserved. Check each deployment database for outstanding legacy rows before rollout. No schema migration or GCP deletion is performed. This supersedes older replay instructions below.
 
 CHANGE-137 / ADR-046: admin completion of assigned active/held Orders reuses the

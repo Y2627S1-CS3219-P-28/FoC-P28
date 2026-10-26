@@ -1,5 +1,77 @@
 # Vincent - Active Work
 
+## Compensation slice commit handoff - 2026-10-26 [~]
+
+- User explicitly requests committing the existing CHANGE-156 changes. Current
+  developer/scope/branch match; no pre-staged paths or unrelated peer changes.
+- Commit-only task: preserve approved fixture scope and live gate. Review exact
+  paths and existing verification, then separate implementation, frontend test,
+  shared environment documentation, workflow/handoff and AI disclosure commits.
+- No push, deployment, database mutation or new feature behavior authorized.
+- Feature remains [~]: PostgreSQL/frontend/full coverage and peer/live gates open.
+- Committed implementation/V15/backend tests: `00b85a6`; frontend pending-state
+  regression: `04ff3e0`; shared environment example: `038e846`.
+- Commit review: explicit staged paths, staged diff/stat, whitespace and backend
+  secret-pattern checks pass. Existing final backend log confirms 60 passes with
+  zero failures/errors/skips; no fresh runtime pass is claimed. A redundant XML
+  report-aggregation process was stopped without a result; the log remains the
+  evidence. Node/npm still unavailable. Peer/common/Compose/CI source unchanged.
+- Documentation/handoff and AI disclosure are committed separately after these
+  units. No push requested or performed; resume feature verification, not rollout.
+
+## Compensation-first recovery fixture implementation - 2026-10-26 [~]
+
+- Vincent confirms identity and requests a new compensation branch from main.
+  Created feature/vincent-credit-compensation; initial tracked worktree clean.
+- Requested: durable pre-call intent; definitive remote observations; timeout/crash
+  compensation via Pub/Sub; Credit result event; scheduler recovery of unresolved
+  commands; peer handoff with minimal schemas; inventory other unsafe peer calls.
+- Vincent explicitly selected safe restoration of the exact previous assignment
+  for ABORT and Order implementation against contract fixtures, with live disabled
+  until Credit is verified. CHANGE-156/ADR-054 record this approved milestone;
+  FEEDBACK-017 remains OPEN/MISSING actual provider support.
+- Implemented opt-in COMPENSATE policy for CREATE/ACCEPT/ABORT/manual REPOST:
+  one initial effect, remote observation vs final commit, absorbing compensation
+  decision with owner/generation fencing, durable command-owned outbox and result
+  inbox, identical-key retries and confirmed-result-only terminal rejection.
+- V15 is additive; V1-V14 untouched. Existing commands stay RETRY, and new policy
+  cannot rebind them. Outbox lifecycle Order FK retained; command FK permits
+  compensation before CREATE produced an Order. No real database migrated.
+- Existing pending UI/keys are reused; added a frontend compensation regression.
+  No new live transport/push receiver is exposed. HTTP+compensate fails closed;
+  default existing retry protocol remains during coordinated migration. Legacy
+  automatic repost cannot bypass the new journal. Peer/cloud source unchanged.
+- Outbound audit: three Credit mutations plus existing HTTP compensation; manual
+  and legacy repost share reservation. Supplier POST validation and User GET
+  role/eligibility are read-only; no other unsafe peer HTTP operation found.
+- Handoff: concurrency/compensation-workflow-handoff.md contains exact bodies,
+  response/event formats, Credit algorithms/add/change/drain-retirement steps,
+  missing-key tombstones, safe CLEAR_COURIER pre-images/revisions, OIDC/IAM and
+  real-provider verification scenarios. Prior handoff is preserved and linked.
+- TDD: RED test compilation fails for missing new workflow/journal classes
+  (target/change156-red.log). Fixture signature error corrected before GREEN.
+  Final focused Java21/root-wrapper run: 60 passed, zero failures/errors/skips
+  (target/change156-final-unit.log). Includes 6 workflow,9 journal,2 outbox tests,
+  live gate and existing service/domain/security/OpenAPI regressions.
+- Duplicate semantic compensation results with a new delivery ID initially failed
+  the added regression (target/change156-duplicate-red.log). Fixed: save inbox
+  evidence but do not finalize/audit an already fully-compensated command again.
+- Required PostgreSQL suite attempted: initialization ERROR because no valid
+  Docker environment; no SQL/race test passed or skipped. Ten scenarios are now
+  written/compiled, including clean startup, V14 upgrade/reference integrity,
+  timeout/local rollback, pending guards, wrong/duplicate results and lock races.
+  Evidence target/change156-postgres.log and surefire report; V15 not runtime verified.
+- Frontend regression execution unavailable: Node/npm absent from PATH; temporary
+  official portable-runtime attempts did not finish and were stopped. No global
+  installation or passing frontend result claimed. New test still requires execution.
+- D1/Overall hashes match, git diff --check passes, peer/common/Compose/CI diffs
+  empty. Full verify/coverage, actual Credit/emulator/OIDC/cloud and browser gates
+  remain open. Initially left uncommitted pending verification; the user now
+  explicitly requests the commit handoff above. PostgreSQL/frontend verification
+  and peer readiness remain unresolved; committing does not close those gates.
+- Resume: provide working Docker/Node, run README focused/PostgreSQL/UI commands,
+  review migrations, then coordinate FEEDBACK-017 and actual two-service tests.
+
 ## Command polling race fix - CHANGE-110, 2026-10-11, [~]
 
 - Vincent explicitly approves the diagnosed narrow fix: "Yes, fix it".
