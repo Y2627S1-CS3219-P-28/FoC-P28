@@ -25,6 +25,15 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 ## CHANGE-156 / ADR-054 - Compensation fixture traceability [~]
 
+CHANGE-157 verification follow-up: the PostgreSQL fixture now uses supported
+messaging configuration and an explicit broker transport fixture. All11 database
+cases and2 configuration regressions pass with no skips, including clean V15 and
+V14 upgrade. Actual Credit/broker cooperation is still unverified; full-regression
+and coverage evidence is recorded in CHANGE-157, not inferred from these13 checks.
+Final CHANGE-157 root verify: common12 + Order562 pass,0 failures/errors/skips;
+fresh Order coverage94.73% LINE/81.02% BRANCH passes unchanged gates. Existing
+live Credit recovery16 cases pass; the new compensation protocol remains a fixture.
+
 | Requirement / amendment | Implementation | Verification |
 | --- | --- | --- |
 | F1, F3, F11, F13; ADR-033/035; approved compensation amendment | Immutable persisted policy/deadline; one initial keyed Credit mutation; fenced compensation rather than forward replay | OrderCompensationWorkflowTest, OrderCompensationJournalTest, OrderCommandGateTest |

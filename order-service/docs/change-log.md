@@ -1,5 +1,13 @@
 # Approved Change Log
 
+## CHANGE-157 - Compensation CI fixture repair
+
+Vincent requests reproducing/fixing upstream Maven verify. Correct the compensation
+integration fixture's unsupported messaging mode and isolate its transport;
+preserve real PostgreSQL scenarios, production validation and coverage gates.
+See [CHANGE-157](../changes/CHANGE-157-compensation-ci-fixture-repair.md) for exact
+CI root cause and RED/GREEN/full verification evidence. ADR-054/live gate unchanged.
+
 ## CHANGE-156 - Compensation-first recovery fixture milestone
 
 Vincent-approved opt-in compensation policy for the initial three Credit mutations

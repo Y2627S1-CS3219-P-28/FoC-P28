@@ -91,3 +91,10 @@ candidate ID there. V15 retains the existing FK for lifecycle events and adds a
 command FK/reference check for compensation events; no phantom Order or relaxed
 financial identity check. Entity mapping permits the command-owned null Order
 reference. This implements the approved durable-precreation intent requirement.
+
+Verification follow-up2026-10-26: CHANGE-157 corrects the integration fixture's
+unsupported messaging mode and isolates only broker transport. All11 PostgreSQL
+cases and2 configuration regressions pass. Full common12 + Order562 verify and
+original coverage gates pass with fresh data (94.73% LINE/81.02% BRANCH).
+See CHANGE-157 for RED/GREEN and shutdown-warning details. Actual new Credit
+compensation integration remains FEEDBACK-017; no live activation is implied.
