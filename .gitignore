@@ -67,3 +67,12 @@ nbproject/private/
 # ─── OS ─────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# Local Order Service learning notes and generated diagrams
+/order-service-db-schema.png
+/order-service-state-transition.png
+/order-transition-api-validation.png
+/order-transition-rules.png
+/pubsub-technology-justification.png
+/order-service/learning/
+/order-service/output/
