@@ -46,7 +46,7 @@ is separate work.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/credits/registration-facts` | Idempotently allocate 50 credits after registration. |
+| `POST` | `/api/credits/registration-facts` | Legacy caller-authenticated registration fact; the User Service flow now uses Pub/Sub. |
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `GET` | `/api/credits/me/transactions?page=1&size=20` | Return the authenticated user's newest credit transactions. |
 | `GET` | `/api/credits/users/{userId}/transactions?page=1&size=20` | Let an administrator view one user's newest credit transactions. |
@@ -82,13 +82,14 @@ suppresses both the compensated reservation and its reversal because the corresp
 never created. Administrator transaction-history projections apply the same filtering. Genuine
 cancellation and expiry refunds remain visible.
 
-## Order outcome events
+## User and Order events
 
-Google Cloud Pub/Sub delivers each finalized Order event stream to its authenticated, typed push
+Google Cloud Pub/Sub delivers user-account creation and each finalized Order event stream to an authenticated, typed push
 endpoint:
 
 | Event | Push endpoint | Credit action |
 |---|---|---|
+| `UserCreated` | `POST /api/credits/internal/user-events/created` | Idempotently create the user's credit account and allocate 50 credits. |
 | `OpenOrderRefundTaskEvent` | `POST /api/credits/internal/order-events/open-refund` | Release the requester's reservation after `CANCELLED` or `EXPIRED`. |
 | `OrderCompletionTaskEvent` | `POST /api/credits/internal/order-events/completion` | Debit the requester's reserved/total balance and credit the recorded courier. |
 
@@ -103,7 +104,11 @@ reservation and verifies the event amount and courier against that authoritative
 Credit. When an expired accepted-order cancellation requires a financial refund, Order emits a
 separate `OpenOrderRefundTaskEvent` with `orderStatus=EXPIRED`.
 
-The service records `eventId` and a payload hash in the same PostgreSQL transaction as reservation,
+User Service commits the new user and a `UserCreated` outbox row together, publishes it asynchronously,
+and never calls Credit Service during the registration request. Credit validates schema version 1,
+the configured subscription, and matching event ID/type/version attributes before initializing the account.
+
+Credit records `eventId` and a payload hash in the same PostgreSQL transaction as reservation,
 account, and ledger mutations. It returns HTTP 204 only after that transaction succeeds; any
 non-success response is retried by Pub/Sub. After ten unsuccessful deliveries, the subscription
 forwards the message to the environment's shared Credit dead-letter topic for inspection/recovery.

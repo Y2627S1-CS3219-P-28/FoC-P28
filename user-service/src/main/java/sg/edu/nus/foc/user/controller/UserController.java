@@ -153,14 +153,11 @@ public class UserController {
     public ResponseEntity<User> addUser(
             JwtAuthenticationToken authentication) {
         
-        // Get the original Firebase ID token
-        String tokenToPass = authentication.getToken().getTokenValue();
-
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");
 
-        User user = userService.addUser(tokenToPass, userId, email);
+        User user = userService.addUser(userId, email);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }

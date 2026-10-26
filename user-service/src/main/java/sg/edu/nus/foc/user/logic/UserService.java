@@ -5,14 +5,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +29,6 @@ public class UserService {
 
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
-    private final CreditServiceClient creditServiceClient;
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
 
@@ -39,12 +36,10 @@ public class UserService {
 
     public UserService(UserRepository userRepository, 
             FirebaseAuthService firebaseAuthService,
-            CreditServiceClient creditServiceClient,
             OutboxEventRepository outboxEventRepository,
             JsonMapper objectMapper) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
-        this.creditServiceClient = creditServiceClient;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
     }
@@ -127,7 +122,7 @@ public class UserService {
     }
 
     @Transactional
-    public User addUser(String token, String userId, String email) {
+    public User addUser(String userId, String email) {
         if (userId == null || userId.isBlank()
             || email == null || email.isBlank()) {
         throw new IllegalArgumentException(

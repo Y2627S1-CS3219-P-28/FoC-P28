@@ -88,6 +88,41 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void userCreatedEventInitializesExactlyOneCreditAccount() throws Exception {
+        UUID eventId = UUID.fromString("c91e4571-329a-4399-b87f-a756a6ab7243");
+        String event = """
+                {"eventId":"%s","userId":"%s","email":"user@example.com",
+                 "occurredAt":"2026-10-25T08:00:00Z","schemaVersion":1}
+                """.formatted(eventId, USER);
+        String encoded = Base64.getEncoder().encodeToString(event.getBytes(StandardCharsets.UTF_8));
+        PubSubPushEnvelope envelope = new PubSubPushEnvelope(
+                new PubSubPushEnvelope.Message(encoded, "message-1", Map.of(
+                        "eventId", eventId.toString(),
+                        "eventType", "UserCreated",
+                        "eventVersion", "1")),
+                pushProperties.userCreatedSubscriptionPath());
+        byte[] body = mapper.writeValueAsBytes(envelope);
+
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject(
+                "select total_balance from credit_accounts where user_id = ?",
+                Long.class, USER)).isEqualTo(50L);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from credit_ledger where user_id = ? and origin_type = 'USER_REGISTERED'",
+                Long.class, USER)).isEqualTo(1L);
+    }
+
+    @Test
     void registrationRequiresAuthenticationOwnershipAndValidInput() throws Exception {
         byte[] body = mapper.writeValueAsBytes(registration(USER));
         mvc.perform(post("/api/credits/registration-facts")
@@ -379,6 +414,11 @@ class CreditApiIntegrationTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
 
         mvc.perform(post(CreditOrderEventController.PUSH_PATH)
                         .with(jwt())

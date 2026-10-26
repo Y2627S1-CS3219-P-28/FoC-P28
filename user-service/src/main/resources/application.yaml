@@ -16,9 +16,6 @@ p28:
   userservice:
     cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
 
-credit-service:
-  url: ${CREDIT_SERVICE_URL:http://localhost:8084}
-    
 firebase:
   auth:
     project-id: ${FIREBASE_AUTH_PROJECT_ID:demo-foc}
