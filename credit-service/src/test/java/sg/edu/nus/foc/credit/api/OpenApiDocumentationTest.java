@@ -109,6 +109,8 @@ class OpenApiDocumentationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString()).path("paths");
 
+        assertThat(paths.has(PREFIX + "/registration-facts")).isFalse();
+
         JsonNode userHistory = paths.path(PREFIX + "/users/{userId}/transactions").path("get");
         assertThat(userHistory.path("summary").asString()).isNotBlank();
         assertThat(userHistory.path("parameters").toString())

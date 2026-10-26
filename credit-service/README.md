@@ -46,7 +46,6 @@ is separate work.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/credits/registration-facts` | Legacy caller-authenticated registration fact; the User Service flow now uses Pub/Sub. |
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `GET` | `/api/credits/me/transactions?page=1&size=20` | Return the authenticated user's newest credit transactions. |
 | `GET` | `/api/credits/users/{userId}/transactions?page=1&size=20` | Let an administrator view one user's newest credit transactions. |
