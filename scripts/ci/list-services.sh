@@ -12,7 +12,8 @@
 # (google-cloud-firestore in pom.xml, or @google-cloud/firestore in package.json). Those
 # services get <name>-<environment> databases from infra/gcp/bootstrap.sh.
 #
-# Changes to shared CI/infra files (.github/, scripts/ci/, infra/) select every service.
+# Shared CI/infra changes select every service; shared Java/root Maven changes
+# conservatively select every Maven backend, but never deploy the library itself.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -44,9 +45,15 @@ done
 if [[ -n $since ]]; then
   changed=$(git diff --name-only "$since"...HEAD)
   if ! grep -qE '^(\.github/|scripts/ci/|infra/)' <<<"$changed"; then
+    shared_java=false
+    if grep -qE '^(foc-common/|pom\.xml$|mvnw$|mvnw\.cmd$|\.mvn/|\.dockerignore$)' <<<"$changed"; then
+      shared_java=true
+    fi
     selected=()
     for svc in "${services[@]}"; do
-      grep -q "^$svc/" <<<"$changed" && selected+=("$svc")
+      if grep -q "^$svc/" <<<"$changed" || { $shared_java && [[ -f "$svc/pom.xml" ]]; }; then
+        selected+=("$svc")
+      fi
     done
     services=(${selected[@]+"${selected[@]}"})
   fi

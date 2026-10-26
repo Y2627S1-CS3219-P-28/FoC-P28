@@ -10,6 +10,14 @@ Author review: I validated correctness and edited for style.
 
 ## Friend on Campus (FoC)
 
+Shared Java penalty policy lives in [foc-common](foc-common/README.md), an ordinary
+Maven library, not a service or Git submodule. Order is its first consumer.
+From repo root: `bash ./mvnw -pl order-service -am verify` (PowerShell:
+`.\mvnw.cmd -pl order-service -am verify`). Compose bundles it automatically;
+direct Order image build uses `docker build -f order-service/Dockerfile .`.
+Other backends retain their existing standalone builds.
+
+
 **Friend on Campus (FoC)** is a peer-to-peer campus errand platform where
 students can request items to be collected from stores or facilities on
 campus, and other students can fulfil (and deliver) those requests. The
@@ -42,14 +50,23 @@ flowchart LR
   gateway -- "/api/credits" --> credit[credit-service]
   gateway -- "/api/admin" --> admin[admin-service]
   browser -. "sign in" .-> auth[(Firebase Auth)]
+  order -- "HTTP: roles" --> user
+  order -- "HTTP: validate pickup/delivery" --> supplier
+  order -- "HTTP: reserve, assign courier" --> credit
+  order -. "events via Pub/Sub: refund, completion" .-> credit
   supplier --> sdb[(Firestore<br/>supplier-*)]
-  order --> odb[(Firestore<br/>order-*)]
-  credit --> cdb[(Firestore<br/>credit-*)]
+  order --> odb[(PostgreSQL<br/>Cloud SQL order_*)]
+  credit --> cdb[(PostgreSQL<br/>Cloud SQL credit_*)]
+  user --> udb[(MongoDB Atlas)]
 ```
 
 - **Microservices**: each backend service is an independent Spring Boot app with its own
-  Firestore database (database-per-service). Services never read another service's data
-  directly; they call its API.
+  database, chosen per service (database-per-service): Firestore for the read-heavy supplier
+  catalogue, PostgreSQL on Cloud SQL for Order and Credit (transactions, row locks and constraints
+  for order state and money), MongoDB Atlas for user profiles. Services never read another
+  service's data directly; they call its API or consume its events.
+- **Network**: only the gateway is public. Every other Cloud Run service has internal ingress and
+  is reached over a VPC (see [docs/ci-cd.md](docs/ci-cd.md)).
 - **Frontend**: a single Next.js app that only renders UI and calls the services' APIs.
 - **Gateway**: nginx serves the UI and routes `/api/<service>` to each service, so the
   browser talks to one origin.
@@ -61,11 +78,12 @@ flowchart LR
 | Layer | Technology |
 | --- | --- |
 | Backend services | Java 21, Spring Boot 4.1.1 (Web MVC, Security OAuth2 Resource Server, Validation, Actuator), Maven wrapper |
-| Data | Google Cloud Firestore (one database per service per environment) |
+| Data | Firestore (Supplier), PostgreSQL on Cloud SQL with Flyway (Order, Credit), MongoDB Atlas (User); one database per service per environment |
+| Messaging | Google Cloud Pub/Sub (cloud), Pub/Sub emulator (local) |
 | Auth | Firebase Authentication (ID tokens verified by each service) |
 | Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS 4, shadcn/ui |
 | Gateway | nginx |
-| Testing | JUnit 5, Spring Boot Test, Testcontainers (Firestore emulator), JaCoCo (≥ 80% line + branch) |
+| Testing | JUnit 5, Spring Boot Test, Testcontainers (Firestore emulator, PostgreSQL, Pub/Sub emulator), JaCoCo (≥ 80% line + branch) |
 | Containers | Docker, Docker Compose |
 | CI/CD & cloud | GitHub Actions, Google Cloud Run, Artifact Registry, Workload Identity Federation |
 
@@ -119,6 +137,11 @@ cp .env.example .env        # optional: override ports / admin emails
 docker compose up --build
 ```
 
+No cloud credentials are needed. Locally, the Order Service publishes its events to a **Pub/Sub
+emulator** (`pubsub-emulator`, topics and push subscriptions created by `pubsub-init`), which
+pushes them to the Credit Service, so the whole asynchronous Order -> Credit flow runs offline.
+The cloud environments use Google Cloud Pub/Sub.
+
 | URL | What |
 | --- | --- |
 | http://localhost:8080 | The app (gateway: UI + all APIs) — use this one |
@@ -127,8 +150,44 @@ docker compose up --build
 
 Locally, sign-in uses the Firebase **Auth emulator**: create an account on the sign-in
 page (or in the emulator UI). Emulator accounts are separate from the cloud ones and are
-kept across restarts in the `firebase-data` volume. Accounts whose email is listed in
-`MOCK_ADMIN_EMAILS` (default `admin@u.nus.edu,e1398851@u.nus.edu`) receive the admin role.
+kept across restarts in the `firebase-data` volume. Services that run with mock roles give the
+admin role to the accounts listed in `MOCK_ADMIN_EMAILS` (default
+`admin@u.nus.edu,e1398851@u.nus.edu`).
+
+The Supplier Service reads roles from the User Service instead. Signing up on the sign-in page
+creates the User Service profile, but the User Service has no API to grant `admin` yet, so grant it
+once in the local MongoDB (or set `SUPPLIER_USER_SERVICE_MODE=mock` in `.env`):
+
+```bash
+docker compose exec mongodb mongosh UserServiceDB --quiet   --eval 'db.users.updateOne({email: "admin@u.nus.edu"}, {$addToSet: {roles: "admin"}})'
+```
+
+Locally, creating a user with the app's user sign up function will create a user in a local 
+MongoDB database, seperate from the MongoDB Atlas cloud. It is kept across restarts in the 
+`firebase-data` volume. To view this account in the local MongoDB database, connect to
+`mongodb://localhost:27017` on the MongoDB Compass app, 
+or run `docker compose exec mongodb mongosh` while the app is running, 
+then `use UserServiceDB` and `db.users.find()` in the mongosh terminal.
+
+Signing up an account locally will require email verification, which can be emulated by
+entering `docker compose logs firebase-emulator` upon account creation and copying the
+verification link into a web browser while the app is running locally.
+
+### Third-party images
+
+The application services are built from our own Dockerfiles. Databases, messaging and base images
+are pre-built images, used unmodified:
+
+| Image | Source | Used for |
+| --- | --- | --- |
+| `eclipse-temurin:21-jdk`, `eclipse-temurin:21-jre` | [Docker Official Image](https://hub.docker.com/_/eclipse-temurin) (Eclipse Adoptium) | Build and runtime of the Spring Boot services |
+| `node:24-alpine`, `node:24-slim` | [Docker Official Image](https://hub.docker.com/_/node) (Node.js) | Frontend build and runtime; base of the Firebase emulator image |
+| `nginx:1.29-alpine` | [Docker Official Image](https://hub.docker.com/_/nginx) (NGINX) | Gateway |
+| `mongo:8` | [Docker Official Image](https://hub.docker.com/_/mongo) (MongoDB) | User Service database (local) |
+| `postgres:15-alpine` | [Docker Official Image](https://hub.docker.com/_/postgres) (PostgreSQL) | Order and Credit Service databases (local) |
+| `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators` (pinned by digest in compose) | [Google Cloud CLI](https://cloud.google.com/sdk/docs/downloads-docker) | Pub/Sub emulator (local); Firestore emulator in integration tests (Testcontainers) |
+| `python:3.12-alpine` | [Docker Official Image](https://hub.docker.com/_/python) (Python) | `pubsub-init`: creates the local Pub/Sub topics and subscriptions (`order-service/deploy/local-emulator/init.py`) |
+| `firebase-tools@15.31.0` (npm) | [Firebase CLI](https://github.com/firebase/firebase-tools) | Firebase Auth and Firestore emulators (`infra/firebase-emulator`) |
 
 ---
 
@@ -153,8 +212,9 @@ A service joins CI/CD automatically once its `Dockerfile` has content.
 | Staging | https://gateway-staging-374055363871.asia-southeast1.run.app |
 | Production | `https://gateway-production-374055363871.asia-southeast1.run.app` (after the first promotion) |
 
-- **Always use the gateway URL above.** Each service also has its own `*.run.app` URL, but
-  only the gateway routes `/api/*` to the backend services. Opening the frontend's own URL
+- **Always use the gateway URL above.** It is the only public service. The others are
+  internal-only (their own `*.run.app` URLs return 404), and the gateway routes `/api/*` to them.
+  API docs: `<gateway>/api/<name>s/docs`. Opening the frontend's own URL
   redirects you to the gateway.
 - **Sign in** with an account in the team's Firebase project (`cs3219-p28-auth`), or create one
   on the sign-in page. The project enforces a password policy: at least 8 characters, with an

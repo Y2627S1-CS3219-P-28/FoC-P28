@@ -1,0 +1,765 @@
+## Effective deferred-penalty amendment — CHANGE-146 / ADR-050 (2026-10-19)
+
+## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
+
+User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.
+
+Removed the legacy DTO, publisher/interface, factory/mapper methods, now-unused snapshot DTOs and dispatcher branch. The four current channels remain OpenOrderRefundTaskEvent, OrderCompletionTaskEvent, PenaltyScoreAdditionEvent and PenaltyScoreDeductionEvent. Courier abort still uses synchronous Credit hold/reopen and the existing final addition (plus refund when expired); no lifecycle, hold, penalty policy, idempotency or financial rules change. Historical database rows and immutable migrations remain intact. Other older refund/expiration normalization remains supported.
+
+The retired topic setting is removed from Order config, deployment templates, local Compose/bootstrap, environment examples/staging/production settings, topic provisioning and CI topic checks. These scripts no longer require or create the old topic; they do not delete existing cloud topics or subscriptions. User Service consumes only the new scoring channels. Existing admin-provider authorization requests remain open. AsyncAPI1.3.0 describes four outgoing operations; earlier statements requiring accepted-cancellation replay/configuration are superseded by this amendment.
+
+An unexpected non-published legacy row after deployment is unsupported and follows the existing bounded failure/recovery path, never automatic financial conversion. This is why the pre-deployment backlog check is required. Live User penalty processing, production backlog and cloud deletion are not verified here.
+
+
+Approved Yao Xiang: remove penalty adjustment/replacement and the admin mark-completed API/UI. No synchronous User replacement call, setting, replacement topic, waiver or retroactive score modification exists in the current flow. User Service consumes only the existing final addition/deduction events. Requester and the auto-completion scheduler remain the completion actors.
+
+Admin Apply penalty stores the highest report-case policy on the current assigned active Order, including held Orders. It cannot decrease/clear a stored penalty and emits no event or Credit/User call. New POST /api/orders/admin/{orderId}/apply-penalty accepts {commandId, courierId, expectedVersion, policy, reason}; verified admin identity comes from the principal. NOWAIT locked transaction, pending-command guard and bound command receipt protect stale/concurrent/repeated calls. OrderResponse exposes appliedPenalty, derived appliedPenaltyAmount and actor/reason/time audit. Only report cases from getCourierPenaltyCases() are selectable. Terminal/unassigned/stale/wrong-courier requests409; invalid400; unauthorized401/403; missing404.
+
+Requester/automatic completion chooses the highest stored report penalty or factual delivery overdue (1). If neither applies, it emits SUCCESSFUL_DELIVERY deduction (1); it never emits a reward plus a penalty. Previously persisted legacy waivers suppress only their overdue candidate; they cannot erase a stored report penalty, and no new waiver is allowed. Courier abort chooses max(stored policy, accepted cancellation2); archive retains stored policy/audit and reopening clears the current fields before another courier assignment. Admin cancellation chooses max(stored policy, explicitly selected policies) and never compares overdue; no stored/selected penalty means refund only. Existing initial outbox events and final per-attempt outcome recording remain atomic with the transition. Event wire schemas/topics are unchanged.
+
+V14 adds Order and abort-archive policy/audit columns; V1-V13 and historical adjustment data remain untouched. Retired replacement records are historical only, with no runtime coordinator/gateway. No sibling backend, shared env/topic/CI/cloud changes. Report UI Open/Closed cards, required replies, no deadline and live Coming soon remain unchanged. Live Apply penalty uses the real Order API; local mode uses the isolated mock. Details and acceptance evidence: CHANGE-146/ADR-050.
+
+## Effective penalty replacement and Report queue amendment — CHANGE-144 / ADR-049 (2026-10-18)
+
+Approved Yao Xiang on order-service/penalty-integration: one current outcome per courier attempt, including No penalty or successful-delivery reward. Delivery stores factual overdue; completion/auto-completion read the stored flag. Initial outcomes are recorded atomically with completion/courier abort/admin resolution and existing event intents; original initial penalty/Credit topics and schemas are unchanged. A new acceptance has a new attempt identity, and an abort archive keeps the preceding identity.
+
+Admin replacement is synchronous, not a new Pub/Sub topic. Order commits a stable-ID PENDING adjustment, calls User Service using fresh verified admin authorization, then confirms the current outcome in a second atomic transaction only after a matching reply. Another adjustment to that attempt is blocked while pending; exact same-ID authorized retry recovers timeouts/crashes. No bearer token is stored. User replacement endpoint is MISSING (FEEDBACK-016), so order.penalty-adjustment.enabled defaults false and live UI clearly disables writes. Local mock is isolated. Initial outbox publication never proves score application. New V13 tables preserve request audit/revision and current outcome; historical outcomes are not fabricated. Existing V1-V12 stay immutable.
+
+Old overdue-waiver HTTP/UI is removed; V12 historical audit fields and previously saved decisions remain readable. Reports use Open/Closed cards with counts/pagination and visible five-second polling. No response deadline or deadline timer: courier may respond once while unresolved, and admin may resolve any open report with a required reply saved in resolutionNote. Case detail retains Order-first layout and links to separate Order financial actions. Report Service remains MISSING; HTTP-peer/staging/production Reports remain Coming soon. No sibling backend, shared environment/topic, CI or cloud configuration changes.
+
+
+
+## Effective delivered-report review amendment — CHANGE-141 / ADR-048 (2026-10-18)
+
+Approved Yao Xiang: new requester reports require own DELIVERED order; one damage/wrong-location category. Reports have AWAITING_COURIER_RESPONSE, READY_FOR_REVIEW and one RESOLVED final status. Courier response window is eight hours; server owns deadlines. Report Service is MISSING: the Report UI is a local-only isolated demo; HTTP-peer/staging/production show Coming soon and never fetch sample reports. Existing real Order financial actions remain separate from resolving a report.
+
+Order stores deliveryOverdue at actual delivery, comparing deliveredAt against stored START plus duration deadline. isOverdue remains null before delivery or if historical timing is unknown; no runtime status refresh or new overdue scheduler. Admin waiver only before completion on DELIVERED late orders preserves the true lateness and saves actor/time/reason. Normal waived-late completion funds the courier but emits neither overdue addition nor successful-delivery reward. Explicit admin-selected penalties remain separate.
+
+AdminOrderController adds PUT /api/orders/admin/{orderId}/completion-holds/{reportId}/release (no body) and POST /api/orders/admin/{orderId}/overdue-waiver ({reason}). Both verify admin role, use the verified principal, NOWAIT locked Order and the pending-command guard; all local writes are transactional. Release retains its report binding/audit and any other active holds. It may follow admin cancellation/completion and emits no funding event. Report Service must durably retry its release intent using forwarded admin Firebase authorization; no browser-only live orchestration exists. See FEEDBACK-015. V12 backfills only known delivery facts and adds waiver/release audit fields and an active-hold index; V1–V11 remain immutable.
+
+Frontend uses existing theme/components, compact toolbar, darker selected rows and no redundant selection count. Normal/admin Reports poll every five seconds while visible; sample ownership, deadline and evidence checks are server-side in the gated prototype, which has no production identity authority or financial effects.
+
+# Order Service Permanent Project Context
+
+## Admin table page size — CHANGE-140
+
+CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.
+
+
+## Compact calendar toolbar — CHANGE-139
+
+CHANGE-139, user-directed2026-10-17: Admin Orders toolbar is a compact41px desktop table-top row, with existing RefreshCwIcon-only refresh and two native calendar-icon date fields (DD/MM/YYYY to DD/MM/YYYY), no visible Created-from label. Wrap on mobile; keep existing Order-ID/status search and financial dialogs/navigation. Creation-date bounds are local calendar days converted to explicit instants (start inclusive, day after end exclusive). Refresh retains filters and clears stale selection. Additive admin list filters execute in SQL before sorting/count/pagination; samples filter only isolated fixtures. No schema/financial/event/peer/config change. See changes/CHANGE-139-compact-admin-toolbar-date-filter.md.
+
+
+## Current admin resolution UI — CHANGE-138
+
+CHANGE-138 / ADR-047 (Yao Xiang,2026-10-17): Admin Orders now support single-row selection, shaded state, a top Cancel/Complete action bar and shared full-detail actions. The dialog requires an explicit penalty/no-penalty choice and a preset/custom explanation. Backend policy discovery supplies amounts; only the highest addition is selected. Optional resolutionReason is normalized, persisted atomically in V11 and bound into new receipts; absent/null preserves legacy fingerprints. OrderResponse exposes saved admin decision/time/explanation. Existing auth, active-state/held override, participant locks, credit/penalty events and ordinary hold guards remain. Mock mode mutates sample memory only; live mode calls existing protected endpoints without fallback. No sibling backend, root config or cloud change.
+
+
+CHANGE-137 / ADR-046, approved Yao Xiang2026-10-17: AdminOrderController adds
+POST /api/orders/admin/{orderId}/complete. Assigned ACCEPTED/IN_PROGRESS/PICKED_UP/
+DELIVERED may become COMPLETED, including held Orders. Stored participant IDs must
+match. Publish existing Credit completion event plus at most one highest selected
+penalty addition; null/empty means WAIVED, no automatic overdue penalty or reward.
+Locked atomic decision/checkpoint/receipt/outbox and bound ADMIN_COMPLETE replay;
+hold history and actual timing preserved, no fabricated delivery. Ordinary hold
+guards remain. Reuses V10 columns/topics; no migration, UI, peer or cloud change.
+HTTP200 confirms local intents, not Credit settlement or User score application.
+
+
+CHANGE-136 (Yao Xiang, 2026-10-17): AdminOrderController now owns both GET
+/api/orders and POST /api/orders/admin/{orderId}/cancel. The separate cancellation
+controller is removed; paths, roles, validation, transaction service and event
+contracts are unchanged. OrderResponse imports Schema normally; JsonProperty
+retains isCompletionHold/isOverdue and Schema documents nullable timing.
+
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134 / ADR-044 (Yao Xiang2026-10-16): POST /api/orders/admin/{orderId}/cancel
+accepts requesterId, nullable courierId and optional appliedPenalties. Admin-only;
+all active/held states -> CANCELLED; locked stored participants, maximum one
+addition, no successful reward; refund and optional penalty commit in outbox.
+Common adds COURIER_UNRESPONSIVE=3. OrderResponse nullable isOverdue is calculated
+from persisted START deadline/delivery timing under CHANGE-135. Existing
+roles/topics/schedulers unchanged; Report/User integration remains pending.
+
+
+Admin action refinement approved2026-10-15: remove Suspend User and its form/
+state/handler. Keep Promote to Admin and Deactivate User only, with existing
+capability gates and confirmation. Courier suspension standing remains read-only;
+no automatic policy or peer/mock endpoint changes. ADMIN-API-002 withdrawn.
+
+CHANGE-133,2026-10-15: merge preserves Admin dashboard and holds/penalty/involvement.
+Live selected-user Credit history now uses admin-only /api/credits/users/{uid}/transactions
+with paging/error/retry and existing bearer transport. Mock Compose unchanged;
+balance005 pending,006 complete, global Credit tab explicitly not requested.
+
+CHANGE-132: common enum renamed PenaltySystemPolicy. Static reward query returns
+SUCCESSFUL_DELIVERY; immutable courier-case list excludes cancellation, overdue
+and success; full list contains all6. Order DTO/factory/transition imports migrated,
+completion/direction uses reward helper. Constants/amounts/event JSON unchanged.
+
+CHANGE-131,2026-10-15: D1 NTH2 PDF37-39 mapping complete in foc-common: existing
++2/+1/-1 plus confirmed wrong location4, mishandling/damage4, deliberate
+retention/theft10. Mapping only; no new automatic publication/schema or peer
+implementation. Highest-effective penalty and theft permanent suspension need
+future User/Report enforcement. No extra score invented or source PDF changed.
+
+CHANGE-130 / ADR-043, Yao Xiang2026-10-15: approved ordinary foc-common Maven
+penalty-policy extraction only; common package replaces Order domain enum.
+Same +2/+1/-1, JSON/reasons/IDs/topics/transactions. Root reactor/Order Docker,
+Compose/CI/staging build; shared changes select all Maven backends. No auth,
+sibling implementation, schema/UI/cloud changes; User consumer remains pending.
+
+CHANGE-129 / ADR-042, Yao Xiang2026-10-14: shared-role User/Supplier active
+involvement endpoints, native EXISTS over five states/current relationships;
+traditional mapped ID/boolean DTOs, no names stored. Existing supplier lookup
+empty/missing fallback Deleted supplier; layout unchanged.420 backend/129 frontend,
+coverage/lint/typecheck/build pass with local resource limits only. No peer
+callback/deletion lock; FEEDBACK-015 race/pending-obligation integration remains.
+CHANGE-128 / ADR-041, Yao Xiang2026-10-14: approved explicit courier penalty
++2 abort/+1 overdue/-1 successful. Seven-field add/deduct events; new abort
+legacy emission replaced, Credit events/stored legacy dispatch retained.
+Atomic outbox/stable recipient+reason ID; actual User subscriber pending.
+Topic-only shared configuration approved; no peer implementation/cloud execution.
+
+CHANGE-127 / ADR-040 (Yao Xiang, 2026-10-14): approved requester-owned active
+Order holds via forwarded Firebase PUT; immutable report placement/flag V9;
+manual funding guards, SQL due filters and locked rechecks, requester explanation.
+394 backend/126 frontend tests pass; coverage/typecheck/lint/build pass. Local
+schema9, seven Orders preserved. Report client/release/browser/rollout pending.
+
+## Shared Admin typography/theme scope - CHANGE-125
+
+Admin layout centralizes Geist Sans/body14px/foreground tokens, regular table
+values/links/controls and badge typography. Admin technical IDs adapt shared
+monospace history to the same primary-value font. Copy/record links explicitly
+regular; missing balance values muted14px, actual metrics retain emphasis.
+Leaflet UI/popups use the same font/card/foreground theme; imagery/attribution
+and existing Supplier/Credit semantic colours retained. Headings/helpers keep
+shared hierarchy and controls retain responsive sizes. Normal-page components
+and all APIs/models/config untouched. Approved style baseline in frontend-ui-style-guide.
+
+## Uniform Admin Order table body - CHANGE-124
+
+Table body uses regular14px for record links/IDs, statuses and dates. Scoped
+descendant link styling avoids changing detail cards/other tabs; badge size/weight
+overrides and inherited date size match body. Headers stay distinct. No functional
+change;123 compact/full-copy IDs and122 provider selection retained.
+
+## Compact Admin table Order IDs - CHANGE-123
+
+Order table alone enables CopyId compact display in a bounded-width cell. Long
+IDs show a single-line ellipsis; title/accessible label/clipboard/View route keep
+the original ID. Detail and other identifiers remain full text. Presentation-only
+fix to tall rows; existing122 provider selection and121 responsive search retained.
+
+## Effective Compose Admin provider selection - CHANGE-122
+
+User explicitly approves shared Compose/runtime config changes. Base Compose
+pins FOC_ADMIN_API_MODE=mock; HTTP-peer override pins live and disables Order
+Admin sample routes. Runtime public adminApiMode is read per request; mocks only
+allowed in local with Auth emulator and mock mode. Invalid flags/cloud stay live.
+Live local uses real peer containers/genuine User admin role and119 placeholders;
+it does not connect to staging databases. Existing Order backend HTTP peers and
+Auth/PubSub emulators remain unchanged. New flag documented in .env.example.
+No sibling backend/schema/credentials/IAM changes. This supersedes119's automatic
+local-emulator-only UI selection; prior layouts/partial capabilities remain.
+
+## Consistent Admin search presentation - CHANGE-121
+
+Shared AdminFilterForm/AdminFilterActions now govern Order search, User/Supplier
+directory search and live UID lookup. Mobile fields first/actions below; at640px
+and above inline. This extends120's pattern without changing119 integrations or
+search/filter behavior. Layout-only; no new API, model, permissions or config.
+
+## Effective mobile Order filter alignment - CHANGE-120
+
+User-reported phone misalignment fixed with one responsive search form: Status
+and Order ID share its first grid row below640px, actions below; desktop inline.
+Existing119 adapters/modes/search/status/paging remain unchanged. Layout-only;
+no new API/model/architecture/config/peer changes. Actual visual check pending.
+
+## Effective partial live Admin UI - CHANGE-119
+
+2026-10-13, Yao Xiang on order-service/admin-dashboard: user approves mocks only
+for local emulator UI; outside local use existing real role-context, Order and
+Supplier APIs plus limited User summary. Unfinished User directory/actions and
+cross-user Credit data use Coming soon cards, nullable values and disabled
+actions without HTTP calls. Never fallback to mocks or impersonate selected
+users. Real Admin role required; Order label loading cannot hide its results.
+No peer backend, new env variable, persistence or cloud configuration changes.
+This supersedes only111's mock-only transport restriction outside local; all
+layouts/maps and local demo remain. Handoff: admin-peer-api-request.md; design
+and current diagrams: ADR-039. Live authenticated rollout remains unverified.
+
+## Effective Order layout correction - CHANGE-116
+
+User clarifies CHANGE-115: restore original Order card widths and two-column
+internal grid. Swap only Version/Item Description positions; keep requester
+above courier. Supplier changes remain. Remove unused custom grid/span options.
+No API/data/permission/provider change; prior wider layout is superseded.
+
+## Effective Admin layout adjustment - CHANGE-115
+
+Order Information spans the page: metadata first, then credits left and wider
+description right in the final row. People renders requester above courier
+independently of JSON key order. Supplier list overview map removed; detail map
+and creation picker retained. Status badge sits beside Location details, outside
+Admin actions. UI-only implementation detail; all contracts/guards unchanged.
+
+## Effective Admin maps/layout - CHANGE-114
+
+2026-10-12, Yao Xiang: Leaflet/OSM maps for current supplier page, selected detail
+and optional Admin creation; Photon address suggestions and drag/manual coordinate
+sync. Remove supplier-card deactivation only. Separate User fields; Order details
+grouped with a dedicated repost card and related-name navigation / separate ID
+copy. Same mocks/permissions and SupplierInput; no backend/schema/config changes.
+Public mapping adapter is anonymous and replaceable; manual fallback retained.
+Provider contract/limits: admin-peer-api-request.md; diagrams: ADR-039.
+
+## Effective dedicated Admin details - CHANGE-113
+
+Orders/Suppliers now use full detail pages. User/Supplier actions sit below the
+heading, before details/history. Existing adapter sends exact-ID sample Order
+query page1/size1; Supplier GET by ID unchanged. No new endpoint/backend/schema/
+config or provider changes. CHANGE-113 records this approved UI-only refinement.
+
+## Effective Admin refinement - CHANGE-112
+
+User-approved 2026-10-11, Yao Xiang on order-service/admin-dashboard. Full
+Users-tab profile/credit history; separate Order columns with related-record
+links to Admin detail routes; normal supplier badges; equal-height controls;
+header mode switch only. Same local mock milestone/gate as ADR-039. New local
+GET users/{id}/transactions matches Credit history wire fields. Real admin
+other-user history is missing (ADMIN-API-006). No peer/auth/schema/config change.
+Verification and limits: changes/CHANGE-112-admin-ui-profile-navigation.md.
+
+## Admin UI prototype - CHANGE-111 / ADR-039
+
+Yao Xiang confirms order-service/admin-dashboard on 2026-10-11 and requests
+Orders/Users/Suppliers Admin UI, mode switching and Order-owned sample APIs.
+Shared shell/navigation changes are authorized only for this slice. Existing
+normal/recovery UI and peer backend implementation remain unchanged.
+Sample APIs require explicit flag + local environment + Firebase emulator,
+including local prod-security Compose. No real DB/cloud/role/peer mutation.
+Dedicated frontend adapter enables later provider replacement without page
+changes or automatic sample fallback. Real gaps: admin-peer-api-request.md.
+This is a prototype, not completed NTH1 or verified real admin integration.
+
+CHANGE-110 (Vincent, 2026-10-11): source/test386f58f pauses individual command
+polling during initial submission/local Continue, with an active-ref stale
+callback guard. Frozen-key uncertainty/reload recovery and five-second polling
+after POST settles remain.124 frontend tests/typecheck/build pass; lint0errors/
+3 existing warnings. No backend/peer/API/schema/config change; rollout[~].
+
+CHANGE-109 (2026-10-11, Vincent): narrow merged profile frontend compatibility
+repaird7f72a8; current AuthProvider/backend retained, useApi GET/PUT/me, verified
+email save with fresh token, safe account-keyed local form and Edit navigation.
+116 frontend tests/typecheck/build pass, lint0errors/3 existing login warnings.
+No Order recovery/role/schema/config changes; live/browser/strict gates[~].
+
+CHANGE-108 / ADR-038 approved by Vincent 2026-10-11: owned pending displayDetails,
+shared discovery and existing accept/abort card recovery without IndexedDB;
+create/repost submitted-detail summaries. Source9f2e054/942b790;373 backend/103
+frontend tests pass, lint/typecheck/build pass. Browser/rollout/strict gates open[~].
+
+Effective CHANGE-107 / ARCH-EVO-043 (Vincent, 2026-10-11): unused expiry HTTP
+trigger removed from controller and OpenAPI. Minute scheduler/direct expiry and
+refunds unchanged. Retain every repost route; automatic peer work still deferred.
+
+Effective 2026-10-11 ADR-037 / CHANGE-106: manual REPOST is approved for durable
+coordination, V8 original/candidate IDs, existing minimal RESERVE protocol, atomic
+successor/link/result and same-key pending UI. Automatic/delegation remain deferred.
+Implemented/automated verified:367 backend,90 frontend; coverage94.76%line/
+80.23%branch. Source2c021b6. Local V8 rollout/manual Compose smoke blocked by
+Docker engine500; strict workflow-format/human/browser/cloud gates open. [~].
+
+Effective 2026-10-11, CHANGE-105 / ADR-036 / ARCH-EVO-041: local Docker uses
+emulator-only Pub/Sub (demo-foc-local) and actual HTTP peers; no ADC/tunnel/cloud
+local setup. Cloud retains its injected staging/prod topics and Google OIDC.
+Legacy CREATE/ACCEPT/ABORT now enter durable coordination; pending returns 202.
+GET-by-ID enforces relationships. Receipts bind actor/order/input (V7); new event
+IDs include order/actor. Immediate bounded asynchronous outbox plus 15-minute
+recovery retains FAILED after 10 attempts (V6), ADMIN explicit redrive. Cloud
+Order config min1/always CPU; external lifecycle hooks disabled. No cloud deploy.
+Automatic repost/delegation remains deferred; User consumers missing. This section
+supersedes earlier guarantees only where stated. See CHANGE-105 for exact tests.
+
+Effective 2026-10-11: CHANGE-104 / ADR-035 supersedes the mock-only recovery gate. HTTP mode selects HttpCreditCommandGateway for CREATE/ACCEPT/ABORT, paired key/generation headers, owned historical lookup and conditional compensation against actual Credit 497a8f9. Minimal bodies remain unchanged. Tokenless recovery defers to AUTHORIZATION_REQUIRED; no persisted tokens/service credentials, repost recovery, schema or event change. Earlier stub-only descriptions are historical. Evidence: changes/CHANGE-104-live-credit-command-recovery.md.
+
+Effective 2026-10-10: Vincent approves CHANGE-103 documentation-only AsyncAPI
+for current Pub/Sub: `docs/asyncapi/asyncapi.yaml` and its reading guide. Three
+send operations; refund/completion compact v2, accepted abort snapshot v1.
+No application, peer, schema, topic/IAM or deployment change. Source/example
+validation does not complete live financial/User integration or Sprint `[~]`.
+
+Effective 2026-10-10: CHANGE-102 / ADR-034 merges command recovery into the
+minute lifecycle scheduler, sequential recovery -> OPEN expiry -> DELIVERED
+>=48-hour completion. Capture lifecycle time after recovery; isolate phase
+errors and retain item locks/guards/leases. No independent command timer;
+`order.lifecycle.cron` controls the merged job. Outbox remains immediate plus
+15-minute recovery. Vincent confirms branch
+`sprint-2-3-credit-service-concurrency-update-event-payload`. HTTP command
+recovery remains disabled; no repost/peer/frontend/schema scope extension.
+CHANGE-101 documents JWT signing locally in excluded learning, not a security
+implementation change. Older timer descriptions are superseded by ADR-034.
+
+Effective 2026-10-10: Vincent approves CHANGE-100 / ADR-033 foreground
+CREATE/ACCEPT/CANCEL_ACCEPTED durable command recovery against a documented
+contract stub. Live HTTP recovery remains disabled pending Credit historical
+key/result/fencing/compensation verification. No peer source changes or stored
+credentials. Scoped latest-effective context loading is approved for this slice.
+Historical recovery-deferred statements below are superseded only within this
+boundary; paused repost recovery is not resumed.
+
+CHANGE-093 extends the approved Order database concurrency verification with
+courier acceptance versus requester OPEN cancellation, both winner orderings.
+New pair 2/2 and full five-race class 10/10 pass; combined acceptance/service
+run 23/23 passes; actual domain/transition follow-up 36/36 passes, no failures/
+errors/skips. Test commit 827844b; results and workflow limitations in CHANGE-093.
+Existing locking/source/contracts unchanged; peers/dispatch mocked, no fresh
+full-suite coverage or live financial verification claim. Sprint remains [~].
+
+Current verification branch: Vincent explicitly requests four real PostgreSQL
+race tests on sprint-2-3-credit-service-concurrency (CHANGE-092, 2026-10-09).
+Order test-only scope; no new lifecycle policy, peer or schema changes.
+Cross-service recovery remains deferred. Eight real PG race cases and full
+215-test verify pass with no failures/errors/skips; fresh JaCoCo 95.67% lines /
+84.70% branches. Peers/delivery mocked; no production/schema/frontend change or
+live financial verification. Historical branch references below are dated
+context, not current allocation. Full Sprint remains [~].
+## Mode-specific status options — CHANGE-095 (2026-10-09)
+
+Requester dropdown excludes ABORTED. Courier dropdown excludes OPEN, EXPIRED and CANCELLED; it retains ABORTED immutable-attempt history. All statuses remains the default. OrderStatusFilter requires an explicit requester/courier mode, supplied by each existing page. This is a UI-only refinement of ADR-032: existing API enum/query, authentication, ownership, pagination and five-second polling remain unchanged.
+
+## Order personal filters and five-second polling — CHANGE-094 / ADR-032 (2026-10-09)
+
+Yao Xiang explicitly requests five-second Order UI polling, Abort errand wording, and status filters on My Errands/My Requests. The existing /api/orders/mine adds optional status; default all, invalid status 400, existing identity/mode checks and page envelope retained. Database filters before page/count, preserving ABORTED courier attempts and hidden successfully reposted requester originals. Existing Base UI filters/pagination reset page 1 and cancel stale reads. Order-only polling is5 seconds; Credit/generic default 15 seconds; auth/visibility/no-overlap/focus/mutation protections retained. No scheduler, event, peer, schema or background-retry change. Verification and limits: CHANGE-094. Historical Order interval descriptions are superseded only by this approved amendment.
+
+## Lifecycle per-order failure isolation — CHANGE-093 (2026-10-09)
+
+Yao Xiang explicitly requests failed scheduled tasks be skipped while later successes continue. Due selection returns IDs filtered in the DB (latest delivery cutoff for completion), without locking a whole batch. Nontransactional lifecycle coordinator calls fresh NOWAIT-locking per-order transactions (expiry worker / existing autoComplete with REQUIRES_NEW), catches each RuntimeException including commit failures, logs order ID, counts only successful transitions, then continues. Scheduler retains independent whole-pass catches. Failed orders remain eligible next normal lifecycle pass; no new repost retry mechanism or cron/contract/schema/peer change. Previous batch transaction description is superseded by this refinement; CHANGE-092 compact payloads and FEEDBACK-009 remain unchanged.
+
+
+## Effective compact-event amendment — CHANGE-092 / ADR-031 (2026-10-09)
+
+Yao Xiang approved the exact seven-field Order-only payload: eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId. This replaces full snapshots and overdue facts ONLY for OpenOrderRefundTaskEvent and OrderCompletionTaskEvent. AcceptedOrderCancellationTaskEvent retains its existing v1 envelope/snapshot. Internal outbox versions and Pub/Sub eventVersion attribute remain (compact schema v2); topic names and DB schema unchanged. Old pending snapshot rows normalize at dispatch from their saved facts, with stable IDs. Lifecycle/outbox scheduling, locks, synchronous Credit assignment/reset and ADR-025 abort behavior remain. Historical v1 descriptions below are superseded for these two bodies. Credit currently requires the old snapshot and overdue; FEEDBACK-009 is INCOMPLETE_OR_INCOMPATIBLE. User completion penalties need an agreed separate overdue source. User approved implementing Order-only and documenting peer work; live integration remains blocked, Sprint [~].
+
+
+## Current validation amendment - CHANGE-091 / ADR-030
+
+Vincent explicitly approved field-specific creation errors and 30-minute new
+repost windows on sprint-2-3-credit, 2026-10-09. New automatic expiry >= scheduled
+due + 30 minutes; due >= original expiry. Manual expiry >= submission + 30 minutes.
+Existing saved explicit-expiry plans are grandfathered; no silent disable/update.
+Late automatic execution still uses its saved future expiry, not execution +30.
+Reuse existing field-error envelope; local creation checks precede Supplier and
+Credit calls after requester verification. Backend remains authoritative. Existing
+responsive Order controls only; no shared auth/client, peer, schema, retry or event
+changes. Prior V4 disable-without-expiry decision remains. Verification tracked in
+CHANGE-091; Sprint remains [~] pending live/browser/cloud and existing peer gates.
+
+
+## One-time Credit push security exception - CHANGE-090 (2026-10-09)
+
+Vincent explicitly approved isolating the existing Google push converter from
+Firebase role lookup and regression tests. See the interference record under
+changes/CHANGE-090-credit-push-security-interference.md. This task-specific
+exception does not authorize Credit business/contract/schema changes or other
+peer edits. Annablee owns Credit; FEEDBACK-008 is READY_FOR_VERIFICATION: fresh
+Java 21 clean verify passes 80 tests/no skips, 95.48% line/85.56% branch coverage;
+real Google/ledger/backlog checks and local application rebuild remain open.
+Source/test commit 198cd7c. Existing event architecture and paused repost retries
+are unchanged. The dated documentation-only scope below is historical.
+
+## Local real broker connector — CHANGE-088 (2026-10-09)
+
+Vincent approved isolated local-live testing, implemented by ADR-029. Use base +
+HTTP + `compose.local-live.yaml`, personal ADC, unique test namespace and
+`scripts/local-live.ps1` Setup/Check/Pause. Financial push goes through restricted
+HTTPS into local Credit; current Google OIDC retained. Existing Order authenticated
+profile selects HTTP roles, not cloud DB. Staging/base Compose/peer source unchanged.
+60 config/safety and 16 actual nginx/fixture assertions pass; actual cloud/ledger/
+browser tests await user's gcloud/ADC/permissions. [Runbook](local-live-testing.md).
+No User penalty consumer added, no accepted-cancellation Credit subscription.
+Background credentials/retries paused; previous feedback gaps/Sprint `[~]` retained.
+
+## Integrated Credit inspection — CHANGE-087 (2026-10-09)
+
+Current review branch: Vincent, `sprint-2-3-credit`, user explicitly requested
+documentation-only review of integrated revision 09e04a0. Source now has Credit
+courier assignment/core hold and refund/completion push consumers. Earlier
+missing-route/consumer statements are historical, not the current source state.
+Follow-up ran 27 existing focused Credit tests successfully (including 12 isolated
+PostgreSQL tests) from read-only copied source. Refund and completion transfer/
+duplicate behavior verified at Credit's layers; no deployed/end-to-end verification.
+Normal Order abort is locked/status-version checked and waits for Credit 200;
+completed command receipt replay prevents repeating Credit reset. The earlier
+short stale-clear example did not describe that protected normal sequence.
+Feedback section 6 records implemented capabilities without claiming live
+verification. Remaining Credit gaps: 003 reset replay authorization; 006 terminal
+reservation replay/cross-database recovery; 007 superseded ABORTED refund consumer
+on the now User-only accepted-cancellation topic. Separate provisioning script
+exists but deployed delivery/IAM/ledger effects remain unverified. Production
+provisioning is disabled; local Compose is not a public cloud push subscriber.
+005 delegated background auth is still missing/proposal-only; inbound Pub/Sub
+OIDC does not provide outbound requester delegation. ALL retries remain paused.
+No approved architecture, peer source, app code, schema or cloud setting changed.
+Sprint remains [~]. Read peer feedback for remaining provider work, not old
+dated missing-route paragraphs. D1/selected Overall hashes remain unchanged.
+
+## Effective follow-up — CHANGE-086 (2026-10-09)
+
+Vincent requested and approved explicit automatic `repostExpiresAt` and latest
+manual/automatic failure persistence. Both are now implemented in Order's source;
+the prior limitation paragraphs below are historical. UI uses 00/15/30/45 slots.
+Domain/API require `repostExpiresAt > repostDueAt >= original.expiresAt`;
+late execution uses the saved expiry and cannot run at/after it. V4 disables
+legacy enabled plans without an explicit expiry, per Vincent's chosen migration,
+rather than inventing deadlines. Existing orders/history/refund intents remain.
+
+Eligible authorized failures save only safe code/message/time on the original
+EXPIRED row after rollback, overwrite an older result, and clear on success.
+UI reads those fields after reload/polling and refetches the original version
+after a failed foreground POST. No new repost order is saved on peer rejection.
+Background retries and trusted credentials remain PAUSED/not implemented in
+every mode. Peer feedback 002-006 and live browser/cloud gates remain open.
+CHANGE-086 owns this task's actual tests/migration evidence; Sprint stays [~].
+
+## Historical implementation and approval context
+
+
+CHANGE-085 (2026-10-09): authenticated visible-page 15-second Order-list and Credit
+polling implemented with focus/mutation refresh, no overlap and stale/session
+response guards. Manual repost shows short semantic insufficient/permanent errors
+inside its EXPIRED card; message is client-local, not persisted across reload.
+Credit reservation errors are mapped without guessing delayed refund status.
+Latest explicit user instruction PAUSES ALL background retry implementation
+(including mock mode) until peers agree; credentials remain documentation ONLY.
+Peer feedback was replaced by service at user request; historical versions remain
+in Git. Explicit auto next-expiry and durable automatic failure state remain
+unimplemented. The approval-only paragraphs below describe the earlier turn,
+not the current polling/manual-message implementation status.
+
+Latest decision CHANGE-084 / ADR-027 (2026-10-09): Vincent approved polling and
+same-candidate-ID temporary repost retries bounded by new expiry, stopping
+confirmed insufficient credits, invalid details and authorization/permanent
+rejection with short appropriate messages while the original stays EXPIRED.
+The balance error cannot distinguish a delayed refund. Trusted peer credentials
+are approved for documentation/discussion ONLY; DO NOT IMPLEMENT them yet.
+Polling, durable retries and persistent failure UI remain unimplemented. Peer
+acceptance, the concrete security/task design and FEEDBACK-005/006 remain open.
+
+Latest implemented CHANGE-083 / ADR-026: one minute expiry/completion job, 15-minute outbox
+recovery and retained immediate dispatch; retired timer settings do not apply.
+Supplier valid:false handling repaired on Order side. Explicit repost expiry,
+durable retries and insufficient-credit-only card feedback remain incomplete.
+Read ADR-027, the diagram reconciliation gap table, Vincent active-work and
+FEEDBACK-005/006 before continuing; do not confuse user design approval with
+peer contract acceptance, implemented code or verified integration.
+
+This is the canonical permanent context for `order-service`. Detailed requirements remain authoritative in their source documents; this file records stable boundaries, decisions, and navigation.
+
+## Current workstream - CHANGE-081/082 (2026-10-08)
+
+Vincent is working on `sprint-2-3`, scoped to Order-owned Sprint 2-3 behavior.
+Read CHANGE-082 / ADR-025, the current-sprint pointer and Vincent's current active-work
+section before using the historical Sprint 1 context below. The user selected
+`../../../Order Service Overall Doc.pdf` for this work alongside D1; the previously
+recorded Updated PDF is absent locally. Existing approved ADRs remain effective
+except where current explicit approvals supersede them; do not equate the PDFs.
+
+The user approved one current Order plus immutable courier-attempt history,
+an internal UUID separate from business orderId, ACCEPTED-only abortion,
+User penalty signaling for every abort and Credit refund signaling for expired
+outcomes. The missing courier-assignment API may be mocked locally, not silently
+in HTTP mode. Every abort synchronously calls the approved bodyless hold/reset
+route to clear Credit courierId, then resolves current state OPEN/EXPIRED and
+saves separate ABORTED history. Every abort queues User penalty; EXPIRED also
+queues Credit refund. Repost retains the old EXPIRED row and new row/new business
+ID; the implemented requester query hides linked expired originals before
+pagination/counting. Refund/history references retain the old ID. V3 adds an
+internal row UUID and immutable attempt IDs without changing business references.
+The local source/migration/UI test gates passed; live provider/subscriber retry
+safety and trusted auto-repost credentials remain pending in peer feedback.
+Editable effective diagrams/traceability: `sprints/sprint-2-3/README.md`.
+Do not interpret historical Sprint 1 flags as blocking this approved Sprint 2-3
+slice, or passing local tests as production completion of every overall capability.
+
+## Repository state at workflow setup
+
+On 2026-09-23, the repository contained only empty `AGENTS.md`, `README.md`, and `Dockerfile` files. No Spring Boot source, React source, tests, PostgreSQL configuration, Docker implementation, Kubernetes manifests, CI/CD workflow, or service-local documentation existed. The approved stack is therefore a constraint for later setup, not an installed implementation.
+
+No production code was created as part of the workflow setup.
+
+## Source documents
+
+The following source paths are relative to the repository root.
+
+- Product backlog and platform NFRs: `../../../Project-D1.pdf`
+- User-selected current workstream overall design: `../../../Order Service Overall Doc.pdf` plus approved amendments (CHANGE-081/082).
+- Historical updated design (currently absent locally): `../../../Order Service Overall Doc - Updated.pdf`; do not assume equivalence.
+- Overall platform architecture: `../../../High Level Architecture Diagram - FOC.png`
+- Order Service architecture: `../../../High Level Architecture Diagram - Order Service.png`
+- Overall Order Service class diagram: `../../../Class Diagram - Order Service.png`
+- Sprint 1 implementation pack and sequences: `../../../Sprint 1/Order Service Sprint 1 Doc.pdf`
+- Sprint 1 core class diagram: `../../../Sprint 1/S1 Class Diagram - Order Service.png`
+- Sprint 1 core plus NTH4 class diagram: `../../../Sprint 1/S1 Class Diagram - Order Service + NTH 4.png`
+
+See `docs/project-d1-reference.md` for version fingerprints and known document conflicts.
+
+## Specification authority
+
+Use the authority order in `AGENTS.md`. Project D1 is the default behavioral source unless an approved persistent amendment supersedes it. Sprint documents may narrow implementation scope but must not silently alter permanent requirements.
+
+## Technology and deployment status
+
+- Backend: Spring Boot.
+- Frontend: the existing shared top-level `../frontend/` application, implemented with Next.js 16 App Router and React 19.
+- The user-approved Order Service infrastructure uses PostgreSQL on Google Cloud SQL and Cloud Run. The parent repository's Firestore convention remains applicable to other services unless their owners approve a separate decision.
+- Order Service uses one shared Cloud SQL instance in `asia-southeast1` with separate `order_staging` and `order_production` databases. Cloud Run connects through a public-IP Cloud SQL Java Connector. Automated backups, point-in-time recovery, deletion protection, and possible Cloud SQL charges are accepted decisions.
+- The full decision and trade-offs are recorded in `docs/decisions/ADR-008-order-service-cloud-sql-cloud-run.md` and `changes/CHANGE-015-order-service-cloud-sql-cloud-run.md`.
+- Client: one responsive web application used from desktop and mobile browsers. No separate native mobile application or `mobile-client/` is currently included.
+- Frontend application roles are `ADMIN` and `USER`. Requester and Courier are modes/functions of the same `USER` account, not separate applications or accounts. Do not assume `ADMIN` can use either mode.
+- The shared Order dashboard does not provide a client-side Requester/Courier mode switch. Both user functions are exposed through the shared navigation; backend authorization and authenticated User Service identity remain authoritative.
+- The parent backend convention currently names requester/courier/admin authorities. The exact mapping between those authorities and the frontend `ADMIN`/`USER` plus mode model is unresolved and must be inspected and approved before role-sensitive implementation.
+- Each microservice exclusively owns and writes its own database.
+- Cross-service behavior uses explicit authenticated contracts and stable identifiers.
+- The architecture uses inbound contracts, application services, Order-owned domain rules, outbound ports, Order-owned persistence, and typed task-event publishers for completion, accepted cancellation, and shared OPEN refunds. CHANGE-063/ADR-013 specifies an atomic transactional outbox with immediate after-commit dispatch and cron recovery; CHANGE-054 selects Google Cloud Pub/Sub; CHANGE-056 unifies completion into one event type with overdue facts; CHANGE-065/ADR-015 adds Spring-scheduled OPEN expiry and CHANGE-071/ADR-019 makes it share the refund event/topic with requester cancellation.
+- The corrected Order Service high-level diagram establishes that application components orchestrate and invoke persistence/external-service/publication ports. Order-owned domain rules validate and return decisions/status/flag/checkpoint data; they do not invoke outbound ports directly.
+
+## Detailed architecture approval workflow
+
+- Rehydrate the applicable repository context before every Order Service workflow, architecture, design, implementation, test, verification, resumption, or completion turn, including later turns in the same conversation. Repository records, not chat history, are authoritative.
+- Overall architecture is the long-term blueprint; active Sprint architecture is its approved implementation subset. Neither silently replaces the other.
+- Before any application code or implementation tests, produce a feature-level component/class/sequence/contract/data/failure/security/observability/test design and obtain explicit user approval for every interaction.
+- Before designing integrations, inspect the real User, Supplier, Credit, and Admin service repositories and recheck each relevant provider for the feature. The implemented API, authentication, errors, retries, idempotency, configuration, and tests take part in the comparison but do not silently override the specification.
+- Any expected-versus-actual API mismatch requires an explicit adapter/change/reject decision. An unapproved mismatch blocks implementation; a rejected, missing, unsuitable, incomplete, or incompatible API is recorded in `docs/peer-service-api-feedback.md`.
+- Every foreign API is classified as matching, different but potentially usable, similar but unsuitable, missing, or incomplete/incompatible after comparing the actual implementation's operation, request/response, authorization, errors/statuses, communication style, semantics, tests, and sequence fitness.
+- `docs/peer-service-api-feedback.md` is the single shared append-only record for missing, unsuitable, incomplete, or incompatible dependencies. ADR-006 supersedes the unused planned `docs/integration-api-gaps.md` location; no prior gap entry required migration.
+- Peer confirmation is not verification. Re-read the actual provider code/tests before setting feedback `VERIFIED` or resuming integration. Approved prototypes/stubs retain an explicit unimplemented-contract risk unless the user approves a contract-stub milestone.
+- For event candidates, compare synchronous request-response, query/polling, in-process events, and durable broker events. Updated overall Sequence 6 includes requester-triggered OPEN cancellation and Spring-scheduled OPEN expiry using the shared `OpenOrderRefundTaskEvent`; CHANGE-063/ADR-013 approves transactional outbox dispatch and recovery, CHANGE-054 selects Pub/Sub, CHANGE-056 unifies completion event routing, and CHANGE-065/ADR-015 approves scheduled expiry publication.
+- `docs/event-candidates.md` is the persistent decision registry for D1-supported candidates. Its `EV-1` through `EV-7` IDs are stable; architecture decisions use separate `EV-DEC-NNN` IDs. CHANGE-053/054/056/063/065/067/071 record the typed event flows, resulting Order snapshots without checkpoint history, Pub/Sub transport, at-least-once outbox delivery, and Spring-scheduled OPEN expiration using the shared refund event.
+- `docs/architecture-review-playbook.md` preserves the peer-inspection, API-mismatch, detailed-proposal, deviation, AI-disclosure, required-response, and post-approval templates used at the feature gate.
+- Label proposal content as approved architecture, existing peer implementation, proposed design, unresolved decision, or user-approved deviation. Record approvals before implementation.
+
+## Architecture evolution during implementation
+
+- `docs/architecture-evolution.md` is the persistent register for design discoveries, classifications, proposal/approval state, current rules, supersession, and artifact synchronization.
+- Read it on every implementation-affecting turn and follow the latest approved effective design rather than superseded source or chat memory.
+- Classify a discovery as an implementation detail, design refinement, or architecture/specification change before acting. Material refinements are documented; architecture/specification changes require explicit user approval.
+- The proposal must preserve the original design, explain the discovered insufficiency, compare viable alternatives and trade-offs where appropriate, recommend without treating that recommendation as approval, and enumerate all affected artifacts/files.
+- An approved evolution is not `IMPLEMENTED` until requirements, architecture/class/sequence diagrams, data model, contracts, tests, implementation, traceability, change/decision records, and supersession links are synchronized or explicitly blocked.
+
+## Per-turn completion reporting
+
+- `docs/completion-reporting.md` is the single response-format authority for every Order Service chat turn, including advisory-only, status, planning, partial, blocked, decision-request, workflow, design, implementation, test, and verification turns.
+- Every final response retains the required Added/Updated/Removed/Design Decisions/Affected Artifacts/Verification/Remaining Issues audit sections and uses `None.` where empty.
+- The audit sections are a baseline, not the entire response. Add meaningful task-specific headers and details before, between, or after them while preserving the required sections' relative order.
+- Do not create a separate per-turn Markdown summary; update the durable record that owns the information.
+
+## Shared frontend workflow
+
+- `docs/frontend-integration-workflow.md` is the persistent authority for Order Service work affecting `../frontend/`.
+- Reuse the existing Next.js App Router structure, gateway-based `useApi()`, Firebase authentication, runtime configuration, shadcn/Base UI components, and current routing conventions where suitable. Do not create a competing frontend or migrate the routing model without approval.
+- Before every coding turn, re-read applicable frontend instructions/configuration, inspect routes/layouts/components/styles/API/auth/permissions/tests, check current Git state and overlapping developer work, and confirm scope.
+- Frontend UI checks are never authoritative security. Backend services enforce every protected operation.
+- Design affected backend and frontend work together. Identify `ADMIN`, `USER` Requester mode, or `USER` Courier mode; actual API contracts; desktop/mobile-web behavior; shared-file impact; and required frontend/contract tests before implementation.
+- The approved role/client context is not a detailed UI specification. Do not invent layouts, navigation, a mode switcher, controls, messages, or feature behavior.
+
+## Approved communication boundaries
+
+- Credit reservation before `OPEN` and synchronous hold/reset before unexpired accepted-order reopening remain synchronous. Under CHANGE-063/ADR-013, event-producing transitions commit with their outbox rows; an after-commit listener tries immediate publication and cron retries due rows. A publish failure does not undo a committed Order transition; delivery is at least once and no event subscriber reply is awaited. CHANGE-064/ADR-014 defines the accepted-cancellation expiry split.
+- Under CHANGE-068/ADR-017, acceptance synchronously asks Credit to associate the active reservation with the courier before Order persists `ACCEPTED`. An Order-side mock and proposed HTTP adapter exist; the provider route, trusted service authentication, and recovery agreement remain open in FEEDBACK-004.
+- Order Service owns lifecycle/status. Credit Service owns balances, reservations, releases, transfers, settlement, deductions, and credit policy.
+- Penalty policy remains in User Service. Under CHANGE-063/ADR-013, Order Service commits factual event intent with the corresponding outcome, then publishes through Google Cloud Pub/Sub; it does not decide points, scores, or suspension. Stable event IDs support consumer deduplication.
+- Immediate validation, courier acceptance/concurrency, authoritative transitions, and operations needing immediate success/failure are synchronous.
+- Dashboards, history, available-order queries, and ordinary internal queries do not require a broker. The updated design specifically assigns typed broker events to completion/cancellation consequences in Sequences 5-7.
+
+## Service ownership
+
+- User Service owns accounts, identity, roles, courier eligibility, penalties, penalty policy, suspension, and unsuspension.
+- Supplier Service owns supplier records, activation, approved campus locations, and catalogue details.
+- Order Service owns errand creation, lifecycle/status, assignment, transitions, checkpoints/history, supplier references, repost relationships, order flags, and publication of order facts/outcomes.
+- Credit Service owns balances, reservations, release, transfers, settlement, deductions, and credit policy.
+- Admin Service independently owns monitoring, reports/cases, administrative decisions, user administration, and supplier/catalogue administration.
+
+Nice-to-have ownership: NTH1 and NTH3 belong to Admin Service; NTH2 belongs to User Service; NTH4 belongs to Order Service; NTH5 belongs to the platform/deployment process.
+
+- CHANGE-057/ADR-012 explicitly approve an Order-owned, admin-authorized, paginated `GET /api/orders` query to support future NTH1 dashboard integration. The Admin Service still owns the dashboard; its implementation and frontend UI are not included.
+
+## Persistent approved amendments
+
+### 48-hour automatic completion (CHANGE-072 / ADR-020)
+
+- A configurable Spring scheduler finds `DELIVERED` orders by database query once their delivered checkpoint is at least 48 hours old.
+- Recheck the cutoff and status under a pessimistic no-wait row lock; record `COMPLETED`, lifecycle checkpoint, idempotent receipt, overdue facts, and the existing `OrderCompletionTaskEvent` outbox intent atomically.
+- Requester-confirmed completion remains available earlier. No new event, peer integration, or schema is introduced. Cloud Run scale-to-zero can pause this in-process scheduler.
+
+### OVERDUE
+
+- `OVERDUE` is a flag, not a status.
+- Evaluate it once when an order reaches completion by comparing actual delivery duration with the configured delivery time limit.
+- Do not introduce continuous overdue monitoring or a scheduled overdue scanner.
+- Order Service records/publishes the fact; User and Credit Services apply their own policies.
+- This amendment supersedes the continuous monitoring language in Project D1 F12.1-F12.1.4.
+
+### Accepted-order cancellation and reopening
+
+- Under CHANGE-064/ADR-014, only the assigned courier may cancel an accepted order. Before `expiresAt`, Order synchronously waits for Credit to hold/reset the transaction without refund; only success permits direct `ACCEPTED -> OPEN` with the same order ID and cleared courier assignment.
+- At/after expiry, Order changes `ACCEPTED -> ABORTED` and emits the accepted-cancellation event; Credit refunds and User applies the courier penalty. If expiry passes during the hold request, recheck and use this event path.
+- This does not implement `ABORTED -> OPEN`; ADR-001 continues to prohibit that separate transition. NTH4 reposting creates a distinct linked order.
+- Completion and open cancellation remain event-driven: Credit transfers completion credits/refunds open-cancellation reservation; User handles completion overdue penalty or on-time score reduction. User does not subscribe to open cancellation.
+
+### Penalty ownership
+
+- User Service alone calculates and applies penalties.
+- Order Service publishes relevant facts; Admin Service investigates and issues decisions.
+- Order Service and Admin Service must not calculate penalty points.
+
+### Typed outcome event contracts
+
+- The current Order design defines three typed Order events: `OpenOrderRefundTaskEvent` for requester cancellation or scheduled OPEN expiry, `AcceptedOrderCancellationTaskEvent`, and one `OrderCompletionTaskEvent` carrying `overdue` and `overdueAt` for every completion.
+- CHANGE-053 directs each event to carry the Order snapshot and use a configured topic. CHANGE-054 selects Google Cloud Pub/Sub. CHANGE-067/ADR-016 clarifies the snapshot contains the current Order/repost fields but omits checkpoint history; completion overdue facts are computed from checkpoints internally. CHANGE-073/ADR-021 configures three dev topics in the existing GCP project, personal ADC locally, and production topics through Cloud Run environment configuration/service identity. The user authorizes Order Service-only changes and assumes peer consumers will be implemented later; the peer assumption is not a verified integration.
+- Each payload carries `eventId`, `eventVersion`, `orderId`, `orderVersion`, event-specific facts, actor IDs, and `occurredAt`; consumers deduplicate at-least-once delivery.
+- Credit refunds `OpenOrderRefundTaskEvent` for both OPEN outcomes, distinguishing requester cancellation (`order.status=CANCELLED`) from scheduler expiry (`order.status=EXPIRED`); it refunds `AcceptedOrderCancellationTaskEvent` only for expired accepted cancellation and transfers credits for every `OrderCompletionTaskEvent`. User applies a courier penalty for expired accepted cancellation and, for every completion, an overdue penalty or the existing on-time score reduction. User does not consume OPEN-refund events. Subscribers own independent acknowledgments and retries. This follows CHANGE-056/ADR-011, CHANGE-064/ADR-014, CHANGE-065/ADR-015, and CHANGE-071/ADR-019.
+- Each event carries the resulting Order and repost fields, without checkpoint history, and publishes to the environment-configured topic. The outbox commits event intent with the lifecycle transition, then dispatches after commit and recovers due rows through cron. Delivery is at least once and consumers must deduplicate by stable event ID. No generic outcome discriminator or open-ended facts bag is permitted.
+
+### Supplier ownership
+
+- Supplier Service is the source of truth for supplier names, status, locations, and catalogue details.
+- Order Service stores supplier IDs and resolves current details through Supplier Service contracts, including for historical orders.
+
+### Reposting
+
+- An unaccepted `OPEN` order becomes `EXPIRED`.
+- Automatic or requester-reviewed manual reposting may create at most one new linked order.
+- The repost has a distinct identity and lifecycle and is linked both ways with the original.
+- Credits are reserved only when the repost is created and before it becomes `OPEN`; configuring a future repost does not reserve credits.
+- Automatic and manual paths must be idempotent.
+
+## Cross-cutting contract rules
+
+- Carry authenticated actor context or trusted service identity.
+- Carry command IDs for idempotent create/reserve/transition/expiry/repost operations and globally unique event IDs/versions for published event delivery.
+- Include expected order version for status-changing commands; stale requests produce a conflict.
+- Distinguish validation, unauthorized, not found, conflict, dependency unavailable, reservation rejection, and accepted-for-processing outcomes.
+- Published facts contain event ID and order version for deduplication and ordering.
+- Completion/cancellation event types are distinct contracts; payloads carry event/version/order correlation and event-specific facts, with no generic `facts` map or outcome discriminator.
+
+## Quality rules
+
+- TDD is mandatory.
+- Project D1 NFR3 requires automated unit and acceptance tests, at least 80% line and branch coverage, deployment only after tests pass, positive and negative cases, equivalence partitions, and boundary values.
+- Project D1 NFR4 requires machine-readable local service logs for cross-service calls, automated actions, and user/admin actions, including timestamp, action, and actor.
+- Performance targets are deferred to their planned sprint unless active scope says otherwise, but design must not contradict them.
+
+## Current work navigation
+
+- Active sprint pointer: `docs/current-sprint.md`
+- Shared Sprint 1 allocation: `docs/work-allocation.md`
+- Local current-developer identity: ignored `docs/local/developer-profile.md`
+- Per-developer unfinished work/handoff: `docs/active-work/`
+- Approved decisions: `docs/decisions/`
+- Detailed approved changes: `changes/`
+- Human-readable workflow index: `skills.md`
+- Project AI disclosure log: `../ai/usage-log.md`
+- Detailed architecture review playbook: `docs/architecture-review-playbook.md`
+- Architecture-evolution register: `docs/architecture-evolution.md`
+- Per-turn completion reporting: `docs/completion-reporting.md`
+- Peer-service API feedback: `docs/peer-service-api-feedback.md`
+- D1-supported event proposal registry: `docs/event-candidates.md`
+- Shared Next.js frontend integration workflow: `docs/frontend-integration-workflow.md`
+- AI usage log formatting authority: `docs/ai-usage-format.md`
+
+At every task boundary, validate the local developer profile, shared allocation, matching active-work file, and Git branch. The local identity is intentionally not stored in committed shared context.
+
+CHANGE-069/ADR-018 defines the Order/Credit contract boundary: Order validates versions, ownership, and amount locally; assignment sends only `orderId` plus `courierId`, and hold/reset sends only `orderId` with no body. Published events retain `orderVersion` for consumers that need it. This leaves Order API concurrency checks and event schemas unchanged.
+
+CHANGE-070 finalizes the unexpired accepted-cancellation hold contract: Order calls `POST /api/credits/orders/{orderId}/hold-for-reopen` without a request body and waits synchronously for `200 OK` before reopening. The contract is agreed, but Credit's endpoint is still missing; trusted service authentication and failure-window reconciliation remain production requirements.
+
+
+## Current time-selection and scheduler defaults (CHANGE-077 / ADR-022)
+
+USER Requester creation/repost clock minutes remain 00/15/30/45; suggestions
+round up and existing 30-minute creation expiry validation remains. API/legacy
+timestamps are not rounded. ADR-026 replaces ADR-022/023 cadence with one shared
+minute expiry/completion job and 15-minute all-event recovery; immediate dispatch
+retained. Application/Compose/env/deployment timer configuration is synchronized.
+Browser/idle Cloud Run scheduling is unverified; execution-model limits unchanged.
+
+
+## CHANGE-079 / ADR-024: Central role annotations (approved 2026-10-08)
+
+Production Firebase validation resolves User Service roles once per request, verifies response identity against JWT subject, and enforces RequireRequesterRole/RequireCourierRole/RequireAdminRole. Order-specific production role mode defaults to HTTP; local anonymous/mock behavior remains. Adapters reuse verified roles/identity, retaining fresh courier eligibility and locked domain ownership/state guards before mutation. Shared reads accept any confirmed requester/courier/admin role; /mine uses its selected mode. Internal lifecycle/scheduler authorization, API bodies, event payloads and schema remain unchanged. See ADR-024 for endpoint policy, inspected peer contracts and positive/negative test obligations.
+
+## Scheduler DB selection and independent outbox dispatch — CHANGE-096 (2026-10-10)
+
+The active lifecycle paths retain CHANGE-093: DB-filtered IDs, separate REQUIRES_NEW expiry/completion workers, fresh NOWAIT locks and outside-proxy catch. Outbox recovery now selects bounded eligible event IDs in SQL (due PENDING or expired IN_PROGRESS lease), then individually claims/rechecks with SKIP LOCKED. Claim, markPublished and scheduleRetry use separate REQUIRES_NEW transactions; enqueue remains REQUIRED with Order/checkpoint/receipt. Dispatcher catches each event's claim/commit/retry-write errors, logs its ID and continues later events. A failed retry write leaves the committed lease recoverable after expiry. Neither scheduler nor batch coordinator is transactional. Pub/Sub publication stays outside DB transactions and is irreversible; stable-ID deduplication remains required. Legacy claimDue is retained for compatibility, unused by the active scheduler. No cadence, schema, event body, peer, frontend or paused repost change.
+
+## Missing supplier references in Order cards — CHANGE-097 (2026-10-10)
+
+CHANGE-097 repairs Order UI loading when Supplier lookup successfully reports missingIds: use the existing Location unavailable card label for terminal missing references. Orders still display; no contract/peer/auth/schema/polling change. Three hook regressions (two fail first); final63 frontend tests, lint/typecheck and Docker build pass. Rebuilt only local frontend; runtime pages/assets and corrected hook verified served. Saved supplier data remains missing; authenticated browser confirmation pending.
+
+## Swagger current-origin server — CHANGE-098 (2026-10-10)
+
+CHANGE-098 sets an explicit relative OpenAPI server / through OpenApiConfiguration. Swagger now resolves API calls against the origin serving the specification, retaining /api/orders paths and Firebase authorization. Live staging docs previously advertised an HTTP backend host despite HTTPS gateway UI. This is an Order-only documentation routing implementation detail; no gateway, peer, CORS allowlist, forwarded-header trust, schema, frontend or deployment-env change. Tests first: one expected server-URL failure and one existing documentation pass (target/change098-red.log). Fresh source-only wrapper-selected Maven3.9.16/Java21 offline verify:253 tests,0 failures/errors/skips, including28 PostgreSQL tests; coverage96.00% lines (1441/1501),83.72% branches (468/559), unchanged >=80% gates pass. Generated target/openapi.json servers=[{url:"/",description:"Current gateway or service origin"}];160 current POM/source/test/resource files equal the fresh tested copy. Logs/reports target/change098-verify.log and target/change098-source-check/target/, evidence target/change098-evidence.json. git diff --check passes. No local application container rebuild or real authenticated browser request; no commit/push/cloud deployment. Staging remains unchanged until Order Service redeployment.
+
+## Backend expiry minimum verified — CHANGE-099 (2026-10-10)
+
+The user requests backend protection when frontend expiry validation is bypassed.
+Existing OrderCreationService/Order.open already enforce server now + 30 minutes,
+with expiry-specific HTTP 400 before Supplier/Credit/persistence. Added direct API
+regression coverage, preserving the inclusive domain boundary and all repost rules.
+Focused 19 tests pass; full result and fixture diagnostic recorded in CHANGE-099.
+No production/frontend/peer/schema/deployment change; live integration/Sprint gates
+remain unchanged.
+
+## Main typed Credit handlers merge - 2026-10-10
+
+Merged main a641836 provides typed Credit routes and matching CI/provisioning paths. Peer feedback now references its decoder/handlers while retaining CHANGE-092 compact payloads and FEEDBACK-009. No consumer compatibility claim. Conflict resolved/staged, all other main index entries untouched. Standard Order verify passed258 tests and coverage; ShellCheck/actionlint pass. Existing restored staging URLs match three typed routes; live recheck result recorded in Yao Xiang active work. Former shared-path repair was based on stale branch state and is superseded. Previous reverted CI helper/-U edits remain reverted.
+
+Final live staging/production infrastructure rerun passed after a transient IAM DNS failure; all typed subscription configurations match merged main. Prior two failures did not reproduce. Merge commit/push and hosted CI remain pending; peer compact consumers remain incompatible.
+
+CHANGE-130 verification: root reactor424 tests (common4/Order420), gates pass; separate root-context Docker image bundles common JAR. Compose/selection/ShellCheck/actionlint/AsyncAPI/patch checks pass. No app recreation/cloud/schema/peer/auth/frontend changes this task; human/hosted CI and User consumer pending.
+
+CHANGE-131 verified:427 tests (common7/Order420), coverage gates and AsyncAPI/patch checks pass. Three report cases remain mapping-only; no new automatic publication or suspension enforcement. No container rebuild/deploy or peer implementation change.
+
+CHANGE-132 verification:431 tests (common11/Order420), gates/AsyncAPI/patch checks pass. New shared class and3 methods verified in JAR; obsolete enum absent. Initial Docker/PATH setup failure recovered by background Desktop startup and process-only exclusion; no machine setting or app deployment.
+
+
+CHANGE-142 (2026-10-18), user-directed presentation refinement: Report detail and submission use one continuous panel, with Order summary before report metadata and aligned definition-list rows. Admin clicks the Order summary to navigate to existing /admin/orders/{id}; no separate View full order details button and no financial actions on Report pages. Only Mark report resolved remains. Existing Order page actions, API/mocks/auth/statuses/polling and DB stay unchanged. GOV.UK summary-list structure informed layout; FoC theme retained.
+
+
+CHANGE-143 (2026-10-18): Report Order summary has labelled Description and requester/courier display names. Status label sits above one equal-height select/refresh row. Admin Orders live list/details resolve distinct User summary and Supplier detail IDs independently via existing gateway/token transport; never block Orders on name failure or substitute sample data. Loading labels, Deleted labels for404/empty, unavailable for transient errors; copy/navigation IDs preserved. No global name cache, DB-owned names or API/config changes. Live Reports remains Coming soon until FEEDBACK-015 provider exists.
+
+
+## Effective CHANGE-147 — Report reply privacy and active policy choices (2026-10-19)
+
+Approved Yao Xiang: admin resolution reply is visible only to the submitter and reviewing admins; courier participants still see resolved status/time and other existing case information. Local prototype list/detail responses redact resolutionNote on copied snapshots, and UI hides the reply in courier views. Production Report Service is still missing and must enforce this with verified caller identity, never client-supplied roles. Live Reports remain Coming soon.
+
+COURIER_UNRESPONSIVE is retired from active policy lists and new admin apply/cancel choices. Its enum/amount remain only for historical persisted rows and existing outbox events; immutable migrations and saved penalties are not rewritten or waived. Six active policies; three selectable report penalties (wrong location4, damage4, theft10). Cancellation UI selects one radio case and sends the existing one-element list; stored maximum semantics and existing penalty topics remain unchanged.
+
+Report cards omit Order descriptions; closed cards are muted but remain navigable. Requester/courier names link to admin profiles, IDs have separate copy rows. Admin table names, email, roles and IDs truncate visually while full values remain in titles/copy/details. No sibling backend or shared runtime/CI/cloud configuration changes. See CHANGE-147.
+
+
+## Effective CHANGE-153 — Hold eligibility and paused funding (2026-10-19)
+
+Yao Xiang approved placing a requester-owned completion hold on any Order status except COMPLETED. This supersedes delivered-only placement and the old blanket terminal-state rejection for new holds. Preserve status, ownership/role checks, bound report IDs, locked transaction and release history. A hold placed after cancellation/expiry records a hold only; it does not restore lifecycle state or reverse settled funding.
+
+The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
+
+No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.

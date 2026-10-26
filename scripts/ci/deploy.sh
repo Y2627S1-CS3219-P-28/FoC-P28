@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
+# AI Assistance Disclosure:
+# Tool: OpenAI Codex (GPT-5), date: 2026-10-08
+# Mode: CI deployment update.
+# Scope: Limited Firestore runtime configuration to services that use Firestore.
+# Author review: I reviewed for correctness.
+
 # Deploys services at one image tag to one environment on Cloud Run.
 #
 # Usage: scripts/ci/deploy.sh <staging|production> <image-tag> [service ...]
 #   Default services: every deployable service (scripts/ci/list-services.sh).
 #
 # Per service (all files optional, see docs/ci-cd.md):
-#   <service>/deploy/service.conf    bash: HEALTH_PATH, EXTRA_FLAGS=( ... )
+#   <service>/deploy/service.conf    bash: HEALTH_PATH, EXTRA_FLAGS=( ... ), INGRESS, VPC_EGRESS, GATEWAY_PATH
 #   <service>/deploy/env.yaml        Cloud Run env vars; ${VARS} rendered with envsubst
 #   <service>/deploy/pre-deploy.sh   hook run before deploying (e.g. upload seed files)
 #
-# Safe rollout: an existing service gets the new revision with no traffic, the revision is
-# health-checked on its own tagged URL, and only then receives 100% of traffic. If the
-# check fails the script exits non-zero and the previous revision keeps serving.
+# Network isolation: only the gateway accepts traffic from the internet. Every other service has
+# internal ingress, so it can only be reached from the project's VPC (the gateway and services that
+# call peers send their traffic through it with Direct VPC egress) and from Pub/Sub push.
+#
+# Safe rollout: an existing service gets the new revision with no traffic. Cloud Run only marks it
+# ready once its HTTP startup probe on HEALTH_PATH passes (the gateway's tagged URL is also checked
+# from here, as it is public), and only then does it receive 100% of traffic. If the revision never
+# becomes healthy the script exits non-zero and the previous revision keeps serving. After all
+# services are out, every one of them is smoke-tested through the public gateway.
 set -euo pipefail
 
 (( BASH_VERSINFO[0] >= 4 )) || { echo "deploy.sh needs bash >= 4 (macOS: brew install bash)" >&2; exit 2; }
@@ -53,6 +65,24 @@ done
 
 is_backend() { [[ $1 != frontend && $1 != gateway ]]; }
 
+# Path that proves a service answers through the gateway: GATEWAY_PATH from its service.conf, else
+# its public OpenAPI document (/api/<name>s/v3/api-docs) for backends, the frontend's health page,
+# and the gateway's own health check.
+gateway_path() (
+  local svc=$1 GATEWAY_PATH=""
+  # shellcheck source=/dev/null
+  [[ -f "$svc/deploy/service.conf" ]] && source "$svc/deploy/service.conf"
+  if [[ -n $GATEWAY_PATH ]]; then
+    echo "$GATEWAY_PATH"
+  else
+    case $svc in
+      gateway) echo /gateway/health ;;
+      frontend) echo /health ;;
+      *) echo "/api/${svc%-service}s/v3/api-docs" ;;
+    esac
+  fi
+)
+
 # Deploy order: backends, then the frontend, then the gateway in front of them.
 ordered=()
 for svc in "${services[@]}"; do is_backend "$svc" && ordered+=("$svc"); done
@@ -67,19 +97,21 @@ render_env_file() {
 
   # Standard runtime contract for backend services (AGENTS.md); a service's env.yaml wins.
   if is_backend "$svc"; then
-    local name=${svc%-service}
     local -A defaults=(
       [ENVIRONMENT]="$ENVIRONMENT"
       [LOG_LEVEL]="${LOG_LEVEL:-INFO}"
       [LOGGING_STRUCTURED_FORMAT_CONSOLE]="ecs"
-      [FIRESTORE_PROJECT_ID]="$FIRESTORE_PROJECT_ID"
-      [FIRESTORE_DATABASE_ID]="$name-$ENVIRONMENT"
       [FIREBASE_AUTH_PROJECT_ID]="$FIREBASE_AUTH_PROJECT_ID"
       [USER_SERVICE_MODE]="$USER_SERVICE_MODE"
       [USER_SERVICE_URL]="${USER_SERVICE_URL:-}"
       [MOCK_ADMIN_EMAILS]="$MOCK_ADMIN_EMAILS"
       [CORS_ORIGINS]="$(service_url gateway)"
     )
+    if scripts/ci/list-services.sh --firestore | grep -qx "$svc"; then
+      local name=${svc%-service}
+      defaults[FIRESTORE_PROJECT_ID]="$FIRESTORE_PROJECT_ID"
+      defaults[FIRESTORE_DATABASE_ID]="$name-$ENVIRONMENT"
+    fi
     local key
     for key in "${!defaults[@]}"; do
       grep -q "^$key:" "$out" || printf '%s: "%s"\n' "$key" "${defaults[$key]}" >>"$out"
@@ -94,8 +126,21 @@ deploy_service() {
   local image="$REGISTRY/$svc:$IMAGE_TAG"
   local HEALTH_PATH=/actuator/health
   local EXTRA_FLAGS=()
+  # Only the gateway is public; services that call other services set VPC_EGRESS=all-traffic.
+  local INGRESS=internal VPC_EGRESS=""
+  [[ $svc == gateway ]] && INGRESS=all
   # shellcheck source=/dev/null
   [[ -f "$svc/deploy/service.conf" ]] && source "$svc/deploy/service.conf"
+
+  local network=()
+  if [[ -n $VPC_EGRESS ]]; then
+    network=(--network "$VPC_NETWORK" --subnet "$VPC_SUBNET" --vpc-egress "$VPC_EGRESS")
+  fi
+  # Cloud Run only marks the revision ready once HEALTH_PATH answers, unless the service sets its own probe.
+  local probe=()
+  if [[ " ${EXTRA_FLAGS[*]} " != *" --startup-probe="* ]]; then
+    probe=(--startup-probe "httpGet.path=$HEALTH_PATH,initialDelaySeconds=5,periodSeconds=5,failureThreshold=24,timeoutSeconds=3")
+  fi
 
   echo "::group::Deploy $name ($image)"
 
@@ -125,11 +170,24 @@ deploy_service() {
 
   gcloud run deploy "$name" \
     --project "$PROJECT_ID" --region "$REGION" --platform managed \
-    --image "$image" --port 8080 --allow-unauthenticated \
+    --image "$image" --port 8080 --allow-unauthenticated --ingress "$INGRESS" \
     --env-vars-file "$env_file" \
     --labels "app=foc,service=$svc,environment=$ENVIRONMENT,commit=${IMAGE_TAG:0:40}" \
-    "${identity[@]}" "${rollout[@]}" "${EXTRA_FLAGS[@]}" --quiet
+    "${identity[@]}" "${rollout[@]}" ${network[@]+"${network[@]}"} ${probe[@]+"${probe[@]}"} \
+    "${EXTRA_FLAGS[@]}" --quiet
   rm -f "$env_file"
+
+  # Internal services can't be reached from this runner. `gcloud run deploy` has already waited
+  # for the startup probe on HEALTH_PATH, so the new revision is healthy.
+  if [[ $INGRESS != all ]]; then
+    if $existing; then
+      gcloud run services update-traffic "$name" --project "$PROJECT_ID" --region "$REGION" --to-latest --quiet
+      gcloud run services update-traffic "$name" --project "$PROJECT_ID" --region "$REGION" --remove-tags "$REVISION_TAG" --quiet
+    fi
+    echo "$name passed its startup probe on $HEALTH_PATH and is serving $IMAGE_TAG (internal ingress)"
+    echo "::endgroup::"
+    return 0
+  fi
 
   local url
   if $existing; then
@@ -164,12 +222,31 @@ for svc in "${ordered[@]}"; do
   deploy_service "$svc"
 done
 
+# Every deployed service must answer through the public gateway, the only way in from outside.
+gateway_url=$(service_url gateway)
+echo "::group::Smoke test through $gateway_url"
+failed=()
+for svc in "${ordered[@]}"; do
+  path=$(gateway_path "$svc")
+  # Retries cover cold starts: one request through the gateway may wake two instances.
+  if curl -fsS --max-time 60 --retry 5 --retry-all-errors --retry-delay 5 -o /dev/null "$gateway_url$path"; then
+    echo "  ✓ $svc: $path"
+  else
+    echo "  ✗ $svc: $path"
+    failed+=("$svc")
+  fi
+done
+echo "::endgroup::"
+if [[ ${#failed[@]} -gt 0 ]]; then
+  echo "::error title=Smoke test failed::Not reachable through the gateway: ${failed[*]}. See docs/ci-cd.md \"Rollback\"."
+  exit 1
+fi
+
 # Record what each environment runs, so production can promote exactly what staging tested.
 for svc in "${ordered[@]}"; do
   gcloud artifacts docker tags add "$REGISTRY/$svc:$IMAGE_TAG" "$REGISTRY/$svc:$ENVIRONMENT" --quiet
 done
 
-gateway_url=$(service_url gateway)
 echo "Deployed ${#ordered[@]} service(s) to $ENVIRONMENT at $IMAGE_TAG: $gateway_url"
 [[ -n ${GITHUB_OUTPUT:-} ]] && echo "url=$gateway_url" >>"$GITHUB_OUTPUT"
 exit 0

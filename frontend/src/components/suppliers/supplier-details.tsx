@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { SupplierBadges } from "@/components/suppliers/supplier-badges"
 import { SupplierImage } from "@/components/suppliers/supplier-image"
+import { useAuth } from "@/components/providers/auth-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   AlertDialog,
@@ -42,14 +43,16 @@ function Row({ icon: Icon, label, children }: { icon: React.ElementType; label: 
 
 export function SupplierDetails({ id }: { id: string }) {
   const api = useApi()
+  const { user, loading: authLoading } = useAuth()
   const { canManage } = useSupplierPermissions()
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(
-    (signal?: AbortSignal) =>
-      api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}`, { signal })
+    (signal?: AbortSignal) => {
+      if (authLoading || !user) return Promise.resolve()
+      return api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}`, { signal })
         .then((data) => {
           setSupplier(data)
           setError(null)
@@ -57,8 +60,9 @@ export function SupplierDetails({ id }: { id: string }) {
         .catch((err: unknown) => {
           if (signal?.aborted) return
           setError(err instanceof ApiError ? err : new ApiError(0, "UNKNOWN", "Could not load this supplier."))
-        }),
-    [api, id],
+        })
+    },
+    [api, authLoading, id, user],
   )
 
   useEffect(() => {

@@ -1,0 +1,407 @@
+asyncapi: 3.0.0
+id: urn:foc:order-service:pubsub
+info:
+  title: Friend on Campus - Order Service Pub/Sub
+  version: 1.3.0
+  description: |
+    Order Service's existing outgoing Google Cloud Pub/Sub contracts.
+    This document describes the publisher, not a new consumer or infrastructure deployment.
+    Refund/completion use compact schema v2; explicit penalty add/deduct use seven fields v1.
+    Accepted-cancellation publishing/replay is retired (CHANGE-155). Published history is retained.
+    ADR-044 adds admin cancellation refunds and one highest optional addition;
+    addition reasons include report misconduct and COURIER_UNRESPONSIVE (+3).
+    ADR-050 removes admin completion; requester and automatic completion remain.
+    Topic suffix v1 is a resource name, NOT the payload schema version.
+    Order state, checkpoint, receipt and outbox intent commit atomically. Publication is
+    attempted on a bounded background executor immediately after commit, with a separate
+    recovery scan every 15 minutes. After ten failed publish attempts, retain FAILED
+    evidence for explicit ADMIN redrive with the same eventId and payload (ADR-036).
+    Pub/Sub message-ID acknowledgment proves publication, not refund/transfer/penalty completion.
+    At-least-once delivery requires durable consumer deduplication by eventId.
+    No ordering key is set. Deployed subscriptions, retry/dead-letter configuration and
+    live financial/penalty processing are not verified by this documentation.
+defaultContentType: application/json
+servers:
+  googlePubSub:
+    host: pubsub.googleapis.com
+    protocol: googlepubsub
+    description: |
+      Google client transport using the attached Cloud Run service identity in staging
+      and production. Local Docker instead uses the separate emulator server, never ADC.
+      Topic-scoped pubsub.publisher
+      IAM is required. Do not place credentials or Firebase user tokens in message data.
+      Project defaults to protean-vigil-509704-q4 via PUBSUB_PROJECT_ID; topic overrides
+      must be explicitly configured per environment. This is not a browser endpoint.
+  localEmulator:
+    host: pubsub-emulator:8085
+    protocol: googlepubsub
+    description: |
+      ADR-036 local Docker only: demo-foc-local, plaintext gRPC, NoCredentialsProvider.
+      Topics are open-order-refund-local-v1, order-completion-local-v1 and
+      courier-penalty-addition-local-v1,
+      courier-penalty-deduction-local-v1. Only refund/completion have Credit typed
+      push subscriptions. Ordinary application APIs still verify Firebase user JWTs.
+      Emulator delivery does not verify cloud IAM/OIDC or User penalty processing.
+channels:
+  openRefund:
+    address: projects/{projectId}/topics/{topicId}
+    title: OPEN cancellation or expiry refund
+    description: |
+      Intended consumer: Credit Service. Refund the old order's held reservation.
+      Trigger: requester cancels OPEN; eligible unassigned OPEN expires; or an
+      ACCEPTED-only abort becomes EXPIRED after synchronous Credit assignment reset.
+      An abort becoming OPEN does NOT publish this event. Repost reserves a NEW
+      order ID; its predecessor's refund retains the OLD order ID.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID; actual deployment may override this default.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_OPEN_REFUND_TOPIC; use isolated local-live or production overrides.
+        default: open-order-refund-dev-v1
+    x-topic-environment-variable: ORDER_OPEN_REFUND_TOPIC
+    x-intended-consumer: Credit Service
+    messages:
+      refund:
+        $ref: '#/components/messages/OpenOrderRefundTaskEvent'
+  completion:
+    address: projects/{projectId}/topics/{topicId}
+    title: Order completion settlement
+    description: |
+      Intended financial consumer: Credit Service. Settle/transfer the stored reservation.
+      Trigger: requester confirms DELIVERED, or scheduler completes a still-DELIVERED
+      order at least 48 hours after delivery, or admin resolves an assigned active
+      order (including held Orders) to COMPLETED. All use the same message type.
+      This compact body has NO overdue/overdueAt; do not infer User penalty policy from it.
+      Penalty decisions are published separately as explicit add/deduct events (ADR-041).
+    servers:
+      - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_COMPLETION_TOPIC; explicitly override for the target environment.
+        default: order-completion-dev-v1
+    x-topic-environment-variable: ORDER_COMPLETION_TOPIC
+    x-intended-consumer: Credit Service
+    messages:
+      completed:
+        $ref: '#/components/messages/OrderCompletionTaskEvent'
+  penaltyAddition:
+    address: projects/{projectId}/topics/{topicId}
+    title: Courier penalty score addition
+    description: |
+      ADR-041: User Service applies transmitted positive amount in the event's direction.
+      Addition follows successful ACCEPTED cancellation (+2) or overdue completion (+1).
+      Admin cancellation or completion can emit the single highest selected addition, including
+      wrong location (+4), damage (+4), theft (+10), or unresponsive courier (+3).
+      Deduction follows on-time requester/automatic completion (-1). Admin resolution
+      never adds an automatic penalty or reward; null/empty selection means no score event.
+      Target is the courier, never requester/lifecycle. Consumer integration is pending.
+      Two topics provide no cross-topic ordering guarantee; score clamping needs owner policy.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_COURIER_PENALTY_ADDITION_TOPIC; explicitly configure environment.
+        default: courier-penalty-addition-dev-v1
+    x-topic-environment-variable: ORDER_COURIER_PENALTY_ADDITION_TOPIC
+    x-intended-consumer: User Service
+    messages:
+      penalty:
+        $ref: '#/components/messages/PenaltyScoreAdditionEvent'
+  penaltyDeduction:
+    address: projects/{projectId}/topics/{topicId}
+    title: Courier penalty score deduction
+    description: |
+      ADR-041: User Service applies transmitted positive amount in the event's direction.
+      Addition follows successful ACCEPTED cancellation (+2) or overdue completion (+1).
+      Deduction follows on-time requester/automatic completion (-1); never admin resolution.
+      Target is the courier, never requester/lifecycle. Consumer integration is pending.
+      Two topics provide no cross-topic ordering guarantee; score clamping needs owner policy.
+    servers:
+      - $ref: '#/servers/googlePubSub'
+      - $ref: '#/servers/localEmulator'
+    parameters:
+      projectId:
+        description: PUBSUB_PROJECT_ID.
+        default: protean-vigil-509704-q4
+      topicId:
+        description: ORDER_COURIER_PENALTY_DEDUCTION_TOPIC; explicitly configure environment.
+        default: courier-penalty-deduction-dev-v1
+    x-topic-environment-variable: ORDER_COURIER_PENALTY_DEDUCTION_TOPIC
+    x-intended-consumer: User Service
+    messages:
+      penalty:
+        $ref: '#/components/messages/PenaltyScoreDeductionEvent'
+operations:
+  publishOpenRefund:
+    action: send
+    title: Publish refund task after cancellation or expiry commits
+    channel:
+      $ref: '#/channels/openRefund'
+    messages:
+      - $ref: '#/channels/openRefund/messages/refund'
+  publishCompletion:
+    action: send
+    title: Publish completion task after completion commits
+    channel:
+      $ref: '#/channels/completion'
+    messages:
+      - $ref: '#/channels/completion/messages/completed'
+  publishPenaltyAddition:
+    action: send
+    title: Publish stored courier penalty addition after Order commit
+    channel:
+      $ref: '#/channels/penaltyAddition'
+    messages:
+      - $ref: '#/channels/penaltyAddition/messages/penalty'
+  publishPenaltyDeduction:
+    action: send
+    title: Publish stored courier penalty deduction after Order commit
+    channel:
+      $ref: '#/channels/penaltyDeduction'
+    messages:
+      - $ref: '#/channels/penaltyDeduction/messages/penalty'
+components:
+  correlationIds:
+    eventIdentity:
+      description: |
+        Stable business event identity for deduplication. Generated by Order as a name-based
+        UUID from a bound fingerprint of type, command, Order and actor; penalty IDs also
+        bind recipient and reason. Not the raw frontend command key,
+        and not Google's transport messageId. Same event retains this ID across retries.
+      location: $message.payload#/eventId
+  messages:
+    PenaltyScoreAdditionEvent:
+      name: PenaltyScoreAdditionEvent
+      contentType: application/json
+      description: Seven-field explicit courier penalty; direction from event type, positive amount.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: PenaltyScoreAdditionEvent}
+          eventVersion: {type: string, const: '1'}
+      payload:
+        $ref: '#/components/schemas/PenaltyScoreAdditionEvent'
+      examples:
+        - headers:
+            eventId: 39b595d0-c954-3a96-b2b1-008688ba3a80
+            eventType: PenaltyScoreAdditionEvent
+            eventVersion: '1'
+          payload:
+            eventId: 39b595d0-c954-3a96-b2b1-008688ba3a80
+            eventType: PenaltyScoreAdditionEvent
+            orderId: order-example
+            courierId: courier-example
+            penaltyAmount: 2
+            occurredAt: '2026-10-14T08:00:00Z'
+            appliedReason: ACCEPTED_TASK_CANCELLATION
+        - headers:
+            eventId: 2d9303b6-a1bb-3b16-8eaf-b065419155f7
+            eventType: PenaltyScoreAdditionEvent
+            eventVersion: '1'
+          payload:
+            eventId: 2d9303b6-a1bb-3b16-8eaf-b065419155f7
+            eventType: PenaltyScoreAdditionEvent
+            orderId: order-example
+            courierId: courier-example
+            penaltyAmount: 3
+            occurredAt: '2026-10-16T08:00:00Z'
+            appliedReason: COURIER_UNRESPONSIVE
+    PenaltyScoreDeductionEvent:
+      name: PenaltyScoreDeductionEvent
+      contentType: application/json
+      description: Seven-field explicit courier penalty; direction from event type, positive amount.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: PenaltyScoreDeductionEvent}
+          eventVersion: {type: string, const: '1'}
+      payload:
+        $ref: '#/components/schemas/PenaltyScoreDeductionEvent'
+      examples:
+        - headers:
+            eventId: 39b595d0-c954-3a96-b2b1-008688ba3a80
+            eventType: PenaltyScoreDeductionEvent
+            eventVersion: '1'
+          payload:
+            eventId: 39b595d0-c954-3a96-b2b1-008688ba3a80
+            eventType: PenaltyScoreDeductionEvent
+            orderId: order-example
+            courierId: courier-example
+            penaltyAmount: 1
+            occurredAt: '2026-10-14T08:00:00Z'
+            appliedReason: SUCCESSFUL_DELIVERY
+    OpenOrderRefundTaskEvent:
+      name: OpenOrderRefundTaskEvent
+      title: Refund task - compact schema v2
+      contentType: application/json
+      description: |
+        Payload is UTF-8 JSON in PubsubMessage.data, not Google's HTTP push wrapper.
+        headers here model the three string-valued Pub/Sub attributes.
+        eventVersion and orderVersion are NOT compact JSON body fields.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: OpenOrderRefundTaskEvent}
+          eventVersion: {type: string, const: '2'}
+      payload:
+        $ref: '#/components/schemas/OpenOrderRefundTaskEvent'
+      examples:
+        - name: requesterCancelled
+          summary: OPEN cancelled by requester; release its reservation
+          headers:
+            eventId: 439b595d-c954-3a96-b2b1-008688ba3a80
+            eventType: OpenOrderRefundTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: 439b595d-c954-3a96-b2b1-008688ba3a80
+            eventType: OpenOrderRefundTaskEvent
+            orderId: order-example-old
+            orderStatus: CANCELLED
+            creditAmount: 5
+            occurredAt: '2026-10-10T08:00:00Z'
+            courierId: null
+        - name: expired
+          summary: Deadline reached; same old ID even if a repost is later created
+          headers:
+            eventId: a983f10c-ebbd-3e85-a1c7-bdf20ee9a642
+            eventType: OpenOrderRefundTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: a983f10c-ebbd-3e85-a1c7-bdf20ee9a642
+            eventType: OpenOrderRefundTaskEvent
+            orderId: order-example-old
+            orderStatus: EXPIRED
+            creditAmount: 5
+            occurredAt: '2026-10-10T09:00:00Z'
+            courierId: null
+    OrderCompletionTaskEvent:
+      name: OrderCompletionTaskEvent
+      title: Completion task - compact schema v2
+      contentType: application/json
+      description: |
+        Seven-field body for both on-time and overdue completion; no overdue field.
+        Only requester/automatic completion produces this event; scoring travels separately.
+        Credit owns financial settlement and validates against its reservation records.
+        Nullable courierId matches the DTO; a valid assigned completion carries its courier.
+      correlationId:
+        $ref: '#/components/correlationIds/eventIdentity'
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {type: string, const: OrderCompletionTaskEvent}
+          eventVersion: {type: string, const: '2'}
+      payload:
+        $ref: '#/components/schemas/OrderCompletionTaskEvent'
+      examples:
+        - name: completed
+          summary: Requester or automatic completion of an assigned delivery
+          headers:
+            eventId: fc1fa18f-a82c-3490-a13e-c6daf0572e55
+            eventType: OrderCompletionTaskEvent
+            eventVersion: '2'
+          payload:
+            eventId: fc1fa18f-a82c-3490-a13e-c6daf0572e55
+            eventType: OrderCompletionTaskEvent
+            orderId: order-example-delivered
+            orderStatus: COMPLETED
+            creditAmount: 5
+            occurredAt: '2026-10-10T10:00:00Z'
+            courierId: courier-example
+  schemas:
+    PenaltyScoreAdditionEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, courierId, penaltyAmount, occurredAt, appliedReason]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: PenaltyScoreAdditionEvent}
+        orderId: {type: string, minLength: 1}
+        courierId: {type: string, minLength: 1}
+        penaltyAmount: {type: integer, enum: [1, 2, 3, 4, 10]}
+        occurredAt: {type: string, format: date-time}
+        appliedReason: {type: string, enum: [ACCEPTED_TASK_CANCELLATION, OVERDUE_DELIVERY, WRONG_LOCATION_DELIVERY, ITEM_MISHANDLING_OR_DAMAGE, DELIBERATE_ITEM_RETENTION_OR_THEFT, COURIER_UNRESPONSIVE]}
+      oneOf:
+        - properties:
+            appliedReason: {const: ACCEPTED_TASK_CANCELLATION}
+            penaltyAmount: {const: 2}
+        - properties:
+            appliedReason: {const: OVERDUE_DELIVERY}
+            penaltyAmount: {const: 1}
+        - properties:
+            appliedReason: {const: WRONG_LOCATION_DELIVERY}
+            penaltyAmount: {const: 4}
+        - properties:
+            appliedReason: {const: ITEM_MISHANDLING_OR_DAMAGE}
+            penaltyAmount: {const: 4}
+        - properties:
+            appliedReason: {const: DELIBERATE_ITEM_RETENTION_OR_THEFT}
+            penaltyAmount: {const: 10}
+        - properties:
+            appliedReason: {const: COURIER_UNRESPONSIVE}
+            penaltyAmount: {const: 3}
+    PenaltyScoreDeductionEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, courierId, penaltyAmount, occurredAt, appliedReason]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: PenaltyScoreDeductionEvent}
+        orderId: {type: string, minLength: 1}
+        courierId: {type: string, minLength: 1}
+        penaltyAmount: {type: integer, const: 1}
+        occurredAt: {type: string, format: date-time}
+        appliedReason: {type: string, const: SUCCESSFUL_DELIVERY}
+    OpenOrderRefundTaskEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: OpenOrderRefundTaskEvent}
+        orderId: {type: string, minLength: 1, description: Public business order ID of the reservation to refund.}
+        orderStatus: {type: string, enum: [CANCELLED, EXPIRED]}
+        creditAmount: {type: integer, minimum: 1, description: Order offeredCredits; Credit validates its stored reservation.}
+        occurredAt: {type: string, format: date-time}
+        courierId: {type: [string, 'null']}
+    OrderCompletionTaskEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, eventType, orderId, orderStatus, creditAmount, occurredAt, courierId]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventType: {type: string, const: OrderCompletionTaskEvent}
+        orderId: {type: string, minLength: 1}
+        orderStatus: {type: string, const: COMPLETED}
+        creditAmount: {type: integer, minimum: 1}
+        occurredAt: {type: string, format: date-time}
+        courierId: {type: [string, 'null'], description: Assigned courier on valid completion.}

@@ -1,0 +1,117 @@
+# Current Developer Profile
+
+CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
+reader: persist deliveryDeadlineAt at courier START plus delivery duration and
+deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without
+checkpoint queries or a flag-refresh scheduler. Actual delivery freezes lateness;
+adminResolutionAt freezes undelivered admin cancellations. Unstarted/unknown
+legacy/historical timing stays null. Completion uses those same persisted facts.
+V10 adds these timing fields and admin decision/reason/amount/resolution time;
+WAIVED and ADDITION_REQUESTED record intent, never subscriber APPLIED. Ordinary
+holds still block completion and courier abort; explicit admin cancellation may
+resolve held Orders. UI score feedback/callbacks remain deferred. Existing event
+payloads/topics/authentication and sibling backends are unchanged. See CHANGE-135.
+
+
+CHANGE-134 approved2026-10-16: Yao Xiang/current penalty-integration branch;
+admin active/held cancellation, all addition cases/highest only, common
+COURIER_UNRESPONSIVE=3 and nullable isOverdue. No peer backend/Report UI work.
+
+
+CHANGE-133 authorization2026-10-15: Yao Xiang on order-service/penalty-integration;
+resolve merge and link existing profile Credit history only. No global tab,
+sibling backend changes or cloud actions. Current identity below retained.
+
+CHANGE-130 approval, 2026-10-15: Yao Xiang/current penalty-integration branch;
+ordinary foc-common penalty policy module and necessary root build/CI/Docker
+integration. No authentication or sibling backend implementation extraction.
+
+
+## Effective current profile - Yao Xiang, 2026-10-14
+
+- Name: Yao Xiang (Developer 1).
+- Branch: order-service/penalty-integration.
+- Approval: explicit current developer/branch confirmation in chat, 2026-10-14.
+- Current scope: approved Order-owned completion-hold placement persistence,
+  funding/completion/scheduler guards and requester UI/tests/documents. Forwarded
+  requester Firebase identity; own active Order only; release deferred explicitly.
+  Report/peer services and cloud provisioning remain read-only.
+- This supersedes the current identity below while preserving its history.
+- CHANGE-129 scope approved2026-10-14: shared-role User/Supplier active EXISTS
+  queries and existing Order supplier missing-name fallback, layout unchanged.
+- CHANGE-128 scope also approved2026-10-14: Order-owned +2/+1/-1 penalty enum,
+  separate add/deduct event publishers/outbox, Credit events retained and new
+  accepted-cancellation publications replaced. Consumer/cloud work not included.
+## Historical Admin dashboard profile - Yao Xiang, 2026-10-11
+
+- Name: Yao Xiang (Developer 1).
+- Branch: order-service/admin-dashboard.
+- Approval: explicit identity/current-branch confirmation in chat on 2026-10-11.
+- Current scope: CHANGE-111 mock Admin UI, shared frontend shell/navigation and
+  CHANGE-112 refinements and Order-owned sample endpoints/contracts/tests/documentation. Other backend
+  services are read-only. No cloud role, real account, schema or peer mutation.
+- This supersedes the current identity paragraph below, preserving its history.
+
+## Effective current profile — Vincent, 2026-10-10
+
+- Name: Vincent
+- Developer number: Developer 2
+- Branch: `sprint-2-3-credit-service-concurrency-update-event-payload`
+- Sprint: Sprint 2 and Sprint 3, approved durable command recovery contract-stub slice.
+- Assigned scope: Order Service and its shared frontend for CREATE, ACCEPT and
+  ACCEPTED-only abort recovery; Order-owned migration, tests and cooperation
+  handoff under `concurrency/concurrency-order-credit.md`. Sibling services remain
+  read-only. No cloud/deployment changes or service credentials.
+- Approval: Vincent explicitly confirmed identity/branch and approved the updated
+  plan on 2026-10-10. Separately approved a documented contract-stub milestone with
+  live HTTP recovery disabled until Credit implements and verifies the contract.
+- UI: pending/disabled until terminal outcome; an explicit recovery control only
+  when user authorization is needed. No persisted bearer/refresh tokens.
+
+Current authorization (2026-10-10): Vincent confirms this branch and approves
+CHANGE-101 JWT learning and CHANGE-102 merging command recovery into the
+minute lifecycle job, recovery -> expiry -> completion. Order-only scheduler,
+tests and records; no peer, frontend, schema or live-recovery activation.
+
+## Historical Yao Xiang profile from the integrated checkout
+
+- Name: Yao Xiang
+- Developer number: Developer 1
+- Sprint: Sprint 2 and Sprint 3, approved compact-event slice and lifecycle failure-isolation fix
+- Branch: `order-service/sprint-1/yx-sprint-2-and-3`
+- Assigned scope: CHANGE-092 / ADR-031 compact Order refund/completion contracts, compatibility dispatch, tests and documents; CHANGE-093 lifecycle per-task exception/transaction isolation; no sibling implementation.
+- Approval: Explicit identity/current-branch confirmation and seven-field Order-only implementation approval, 2026-10-09.
+
+## Historical profile from the integrated checkout (not current identity)
+
+
+- Name: Vincent
+- Developer number: Developer 2
+- Sprint: Sprint 2 and Sprint 3 (planning; implementation decisions pending)
+- Branch: `sprint-2-3-credit-service-concurrency`
+- Assigned scope: Order-owned Sprint 2-3 behavior from D1 and Order Service Overall Doc.pdf, with user-directed lifecycle/history amendments; sibling services remain read-only
+- Approval: Explicit user confirmation on 2026-10-08; CHANGE-081
+
+Current task authorization: Vincent explicitly approves the fifth PostgreSQL race,
+courier acceptance versus requester OPEN cancellation (2026-10-09, CHANGE-093).
+Same test-only scope and harness; both winner orderings, no production/peer edits.
+
+Previous task authorization: Vincent explicitly approves real PostgreSQL four-race
+tests on the current concurrency branch (2026-10-09, CHANGE-092). Order test-only
+scope; cross-service recovery deferred. No peer/schema/production behavior edits.
+
+Historical task authorization: Vincent explicitly approved the one-time Credit
+push-security converter fix and regression tests on 2026-10-09, CHANGE-090,
+with an interference Markdown handoff. No other peer/source/cloud changes.
+The stable Order-owned allocation above remains unchanged after this exception.
+
+Historical task authorization: Vincent explicitly requested Credit integration
+inspection and Order feedback updates on sprint-2-3-credit, 2026-10-09,
+CHANGE-087. Documentation-only; no peer implementation or cloud writes.
+Prior development branch sprint-2-3 remains historical context.
+
+Current scope extension (2026-10-09): Yao Xiang explicitly requests CHANGE-093 Order lifecycle per-task exception/transaction isolation; this narrow Order-only fix is authorized on the same branch. No other Vincent/peer work authorized.
+
+Current scope extension (2026-10-09): Yao Xiang requests CHANGE-094 Order frontend polling/abort labels/personal status filters and necessary Order query contract; shared frontend allocation recorded.
+
+Current scope extension (2026-10-10): Yao Xiang explicitly requests independent DB-selected scheduled items. CHANGE-096 audits CHANGE-093 and fixes active outbox per-item transactions/error isolation, Order-only; no peer/frontend/schema/configuration writes.

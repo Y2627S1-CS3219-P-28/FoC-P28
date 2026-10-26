@@ -25,7 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import sg.edu.nus.foc.credit.support.FirestoreEmulator;
+import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,8 +38,7 @@ class OpenApiDocumentationTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("foc.credit.firestore.emulator-host", FirestoreEmulator::endpoint);
-        registry.add("foc.credit.firestore.database-id", () -> "credit-docs-test");
+        PostgreSqlTestContainer.register(registry);
     }
 
     @Autowired
@@ -84,5 +83,50 @@ class OpenApiDocumentationTest {
     @Test
     void swaggerUiIsServedUnderTheCreditPrefix() throws Exception {
         mvc.perform(get(PREFIX + "/docs")).andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void commandRecoveryContractDocumentsHeadersAndEndpoints() throws Exception {
+        JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("paths");
+
+        assertThat(paths.has(PREFIX + "/commands/{key}")).isTrue();
+        assertThat(paths.has(PREFIX + "/commands/{key}/compensate")).isTrue();
+        JsonNode compensate = paths.path(PREFIX + "/commands/{key}/compensate").path("post");
+        assertThat(compensate.path("requestBody").isMissingNode()).isTrue();
+        assertThat(compensate.path("parameters").toString())
+                .contains("Idempotency-Key")
+                .contains("X-Command-Generation");
+        assertThat(compensate.path("responses").path("200").path("headers").toString())
+                .contains("Idempotency-Key")
+                .contains("Command-Outcome");
+    }
+
+    @Test
+    void adminTransactionEndpointsAreDocumented() throws Exception {
+        JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("paths");
+
+        JsonNode userHistory = paths.path(PREFIX + "/users/{userId}/transactions").path("get");
+        assertThat(userHistory.path("summary").asString()).isNotBlank();
+        assertThat(userHistory.path("parameters").toString())
+                .contains("userId")
+                .contains("page")
+                .contains("size");
+        assertThat(userHistory.path("responses").toString())
+                .contains("200")
+                .contains("403")
+                .contains("404");
+
+        JsonNode allHistory = paths.path(PREFIX + "/all/transactions").path("get");
+        assertThat(allHistory.path("summary").asString()).isNotBlank();
+        assertThat(allHistory.path("parameters").toString())
+                .contains("page")
+                .contains("size");
+        assertThat(allHistory.path("responses").toString())
+                .contains("200")
+                .contains("403");
     }
 }

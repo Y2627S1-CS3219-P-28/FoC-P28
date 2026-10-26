@@ -1,4 +1,11 @@
-# ─── Secrets & credentials (never commit) ───────────────────
+# Build output
+dist/
+build/
+out/
+.next/
+node_modules/
+
+# Environment / secrets
 .env
 .env.*
 !.env.example
@@ -47,6 +54,9 @@ yarn-error.log*
 # ─── Emulator / local data ──────────────────────────────────
 .firebase/
 emulator-data/
+
+# Order Service personal learning notes
+order-service/learning/
 
 # ─── IDEs ───────────────────────────────────────────────────
 .idea/

@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant R as Requester
+    participant RS as Report Service (pending)
+    participant O as Order Service
+    participant C as Courier
+    participant A as Admin
+    R->>RS: Report own DELIVERED item, one category + evidence
+    RS->>O: Place report-specific hold (requester token)
+    O-->>RS: Hold committed
+    RS-->>C: Await response, deadline +8h
+    alt Courier responds before deadline
+      C->>RS: Explanation + evidence
+    else Deadline passes
+      RS->>RS: Server marks ready without response
+    end
+    RS->>RS: READY_FOR_REVIEW
+    A->>RS: Review accounts and Order
+    opt Separate Order decision
+      A->>O: Cancel / complete / waive overdue with reason
+    end
+    A->>RS: Mark RESOLVED with outcome
+    RS->>RS: Save resolution + durable release intent
+    RS->>O: Release this report hold (admin token)
+    O->>O: Lock, audit release, EXISTS remaining active holds
+    O-->>RS: OrderResponse
+    Note over RS: Local sample prototype only; real provider and durable orchestration pending

@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -35,9 +36,16 @@ public class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDen
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
             throws IOException {
-        response.setHeader("WWW-Authenticate", "Bearer");
-        write(response, ApiError.of(ErrorCode.UNAUTHENTICATED, SecurityMessages.UNAUTHENTICATED,
-                request.getRequestURI(), clock.instant()));
+        boolean roleLookupFailure = exception instanceof AuthenticationServiceException
+                && exception.getCause() instanceof RoleLookupException;
+        if (roleLookupFailure) {
+            write(response, ApiError.of(ErrorCode.SERVICE_UNAVAILABLE, SecurityMessages.ROLE_LOOKUP_UNAVAILABLE,
+                    request.getRequestURI(), clock.instant()));
+        } else {
+            response.setHeader("WWW-Authenticate", "Bearer");
+            write(response, ApiError.of(ErrorCode.UNAUTHENTICATED, SecurityMessages.UNAUTHENTICATED,
+                    request.getRequestURI(), clock.instant()));
+        }
     }
 
     @Override

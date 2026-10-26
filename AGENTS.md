@@ -12,7 +12,13 @@ may add their own `AGENTS.md` for service-specific notes; this file still applie
 - A folder becomes part of CI/CD as soon as its `Dockerfile` is non-empty.
 - Shared, cross-cutting files live at the root: `compose.yaml`, `.env.example`,
   `infra/`, `scripts/ci/`, `.github/`, `docs/`.
-- Do not import code from another service's folder. Services talk over HTTP only.
+- Do not import code from another service's folder. Services communicate through
+  approved HTTP/event contracts. Shared library dependencies are allowed only
+  through designated Maven modules: `foc-common/` currently contains courier
+  penalty policy only. No shared entities, repositories or authentication code.
+- Root `pom.xml` builds `foc-common` and its first consumer, `order-service`.
+  Other backends retain standalone builds until explicitly adopting the library.
+  A library has no Dockerfile and is not a deployable service.
 
 ## 2. Tech stack (use these versions)
 
@@ -83,7 +89,10 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 - Use `docs/templates/spring-boot.Dockerfile` unchanged unless you have a reason:
   multi-stage (JDK build → JRE runtime), layered jar, non-root user, `EXPOSE 8080`.
-- `docker build <folder>` must work with no other setup. Tests are **not** run inside
+- Standalone services use `docker build <folder>`. Order depends on `foc-common`
+  and uses `docker build -f order-service/Dockerfile .` from the repo root; Compose,
+  CI and staging use the same root context. Keep root `.dockerignore` restrictive.
+  Tests are **not** run inside
   the image build; CI runs them separately (they need Docker for Testcontainers).
 - Never bake data files or secrets into images. Mount files (e.g. seed CSVs) instead.
 
@@ -128,9 +137,12 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - Each service validates the token with Spring Security's OAuth2 resource server:
   issuer `https://securetoken.google.com/<FIREBASE_AUTH_PROJECT_ID>`, audience
   `<FIREBASE_AUTH_PROJECT_ID>`, Google's securetoken JWKS. The user ID is the `sub` claim.
-- Roles (`requester`, `courier`, `admin`) come from the User Service and become Spring
-  authorities `ROLE_REQUESTER`, `ROLE_COURIER`, `ROLE_ADMIN`. Enforce them with
-  `@PreAuthorize` on endpoints; never trust roles sent by the client.
+- Roles (`requester`, `courier`, `admin`) come from the User Service
+  (`GET /api/users/role-context` with the caller's token). Enforce them with `@PreAuthorize` on
+  endpoints; never trust roles sent by the client.
+- Prefer looking roles up only on endpoints that need them, with a short per-user cache, so reads
+  keep working when the User Service is down (see `supplier-service` `CallerRoles`). A failed lookup
+  answers 503, never 500.
 - Until the User Service role API exists, use `USER_SERVICE_MODE=mock`. Admin emails are set in
   `MOCK_ADMIN_EMAILS`: `compose.yaml` for local runs and `infra/environments/<env>.env` for the cloud.
 - The cloud Firebase project (`cs3219-p28-auth`) enforces a password policy (8+ characters,
@@ -139,8 +151,11 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 ## 8. Data
 
-- Firestore, one database per service per environment: `<name>-local`, `<name>-staging`,
-  `<name>-production`. Each service's runtime identity can only access its own databases.
+- One database per service per environment, and each service's runtime identity can only access
+  its own. The default is Firestore (`<name>-local`, `<name>-staging`, `<name>-production`). A
+  service may choose another store with a recorded decision: Order and Credit use PostgreSQL on
+  the shared Cloud SQL instance (separate databases, users and Secret Manager passwords;
+  order-service ADR-008), and the User Service uses MongoDB Atlas (`user-mongodb-uri-<env>` secret).
 - There's no list to edit. A service whose `pom.xml` depends on `google-cloud-firestore` is
   detected automatically (`scripts/ci/list-services.sh --firestore`).
 - CI's **Cloud infrastructure** check fails your PR until the service's identity, databases
@@ -149,7 +164,10 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 
 ## 9. Testing
 
-- `./mvnw verify` must pass locally and in CI (unit + integration tests + JaCoCo gate).
+- Standalone services use `./mvnw verify`. From the repo root, Order/common use
+  `bash ./mvnw -pl order-service -am verify` (PowerShell: `.\mvnw.cmd -pl order-service -am verify`).
+  Unit/integration tests and existing JaCoCo gates must pass. Changes to common or
+  root Maven inputs conservatively select all Maven backends in CI.
 - Integration tests use the Firestore emulator through Testcontainers; no shared or
   real databases in tests. Mock JWTs with `spring-security-test` (`jwt()`).
 - Every test class covers at least one positive and one negative case (NFR3.1.3).
@@ -179,7 +197,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
    `<NAME>_SERVICE_URL` default to `gateway/Dockerfile` / `gateway/deploy/env.yaml`.
 4. Add any new env vars to `.env.example`.
 5. Document every endpoint in OpenAPI and add `OpenApiDocumentationTest` (section 6).
-6. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
+6. In the cloud the new service gets internal ingress (only the gateway is public). If it calls other
+   services, set `VPC_EGRESS=all-traffic` in its `deploy/service.conf` (see docs/ci-cd.md).
+7. Open a PR; CI builds and tests it. If the **Cloud infrastructure** check fails, the CI/CD
    owner runs `infra/gcp/bootstrap.sh`, which provisions the new service's identity (and
    databases, if it uses Firestore). Then re-run the check (section 8).
 
