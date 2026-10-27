@@ -56,7 +56,7 @@ When running locally, follow the steps below to create the first admin account:
 10. After verifying the email, you can sign in with the admin account. 
 11. You can now set `ADMIN_BOOTSTRAP_ENABLED` to `false` or remove it entirely from the user-service variables.
 
-## Sprint 2 API
+## Sprint 3 API
 
 Authenticated endpoints use:
 `Authorization: Bearer <Firebase ID token>`
@@ -84,6 +84,7 @@ longer calls Credit Service synchronously, so a temporary Credit outage leaves t
 | PUT    | `/api/users/{:userId}`   | authenticated admin user            | Update user information after registration             |
 | PUT    | `/api/users/{:userId}/user-promotion`| authenticated admin user| Promotes a regular user to admin                       |
 | PUT    | `/api/users/{:userId}/penalty`| services                       | Updates given user's penalty by a specified amount     |
+| PUT    | `/api/users/{:userId}/suspension`| authenticated admin user    | Suspends a given user                                  |
 | DELETE | `/api/users/me`          | authenticated user                  | Deletes user information from user databases           |
 | DELETE | `/api/users/{:userId}`   | authenticated admin user            | Deletes specified user's information from user databases |
 

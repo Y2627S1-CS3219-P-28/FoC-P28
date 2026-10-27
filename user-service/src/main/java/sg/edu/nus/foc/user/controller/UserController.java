@@ -28,6 +28,7 @@ import sg.edu.nus.foc.user.authentication.AuthenticationService;
 import sg.edu.nus.foc.user.authentication.FirebaseAuthService;
 import sg.edu.nus.foc.user.logic.AddUserRequest;
 import sg.edu.nus.foc.user.logic.ApplyPenaltyRequest;
+import sg.edu.nus.foc.user.logic.AdminEligibility;
 import sg.edu.nus.foc.user.logic.CourierEligibility;
 import sg.edu.nus.foc.user.logic.RequesterEligibility;
 import sg.edu.nus.foc.user.logic.UpdateUserRequest;
@@ -118,6 +119,19 @@ public class UserController {
 
         return ResponseEntity.ok(
                 userService.getRequesterEligibility(userId)
+        );
+    }
+
+    // GET /api/users/admin-eligibility/
+    @Operation(summary = "Get requesting user's requester eligibility from auth token")
+    @GetMapping("/admin-eligibility")
+    public ResponseEntity<AdminEligibility> getAdminEligibility(
+            JwtAuthenticationToken authentication) {
+
+        String userId = authentication.getToken().getSubject();
+
+        return ResponseEntity.ok(
+                userService.getAdminEligibility(userId)
         );
     }
 
@@ -250,31 +264,28 @@ public class UserController {
     }
 
     // DELETE /api/users/me
-    // User can delete their own account
-    // TODO: Change to soft delete (i.e. deactivate)
-    // Also implement account deletion event
-    // Check active orders before deactivation
-    @Operation(summary = "Delete user themselves from database")
+    @Operation(summary = "Delete user from Firebase, disables MongoDB user doc")
     @DeleteMapping("/me")
-    public ResponseEntity<String> deleteUser(
+    public ResponseEntity<String> deactivateSelf(
             JwtAuthenticationToken authentication) {
 
+        String token = authentication.getToken().getTokenValue();
         String userId = authentication.getToken().getSubject();
 
-        userService.deleteUser(userId);
+        userService.deactivateUser(token, userId);
 
-        return ResponseEntity.ok("User deleted");
+        return ResponseEntity.ok("User's own account disabled");
     }
 
     // DELETE /api/users/:id
     // Only admins can delete other users
-    // TODO: Change to soft delete (i.e. deactivate)
-    @Operation(summary = "Delete specified user from database")
+    @Operation(summary = "Delete specified user from Firebase, disables MongoDB user doc")
     @DeleteMapping("/{userId}")
-    public ResponseEntity<String> deleteUserAsAdmin(
+    public ResponseEntity<String> deactivateUser(
             @PathVariable String userId,
             JwtAuthenticationToken authentication) {
 
+        String requesterToken = authentication.getToken().getTokenValue();
         String requesterId = authentication.getToken().getSubject();
         User requester = userService.getUserByUserId(requesterId);
 
@@ -285,12 +296,12 @@ public class UserController {
             );
         }
         
-        userService.deleteUser(userId);
+        userService.deactivateUser(requesterToken, userId);
 
-        return ResponseEntity.ok("User removed");
+        return ResponseEntity.ok("User disabled");
     }
 
-    //TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
+    // TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
     
     // TODO: PUT or POST /api/users/:userid/suspension
     // Admin manual suspension

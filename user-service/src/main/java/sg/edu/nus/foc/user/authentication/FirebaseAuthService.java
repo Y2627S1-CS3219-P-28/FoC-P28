@@ -1,5 +1,6 @@
 package sg.edu.nus.foc.user.authentication;
 
+import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
@@ -77,6 +78,23 @@ public class FirebaseAuthService {
             FirebaseAuth.getInstance().deleteUser(firebaseUid);
         } catch (FirebaseAuthException e) {
             throw new RuntimeException("Failed to delete Firebase user", e);
+        }
+    }
+
+    // Delete function that checks specifically for USER_NOT_FOUND error
+    public void deleteUserIfExists(String firebaseUid) {
+        try {
+            FirebaseAuth.getInstance().deleteUser(firebaseUid);
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() == AuthErrorCode.USER_NOT_FOUND) {
+                // The account is already deleted.
+                // Treat this as success.
+                return;
+            }
+
+            // Other failures not treated as successful deletion.
+            throw new RuntimeException(
+                    "Failed to delete Firebase account: " + firebaseUid, e);
         }
     }
 }
