@@ -40,7 +40,7 @@ Credit resolves application roles independently through User Service. Courier as
 hold-for-reopen require `ROLE_COURIER` in addition to their existing identity and reservation
 ownership checks. Local Compose uses mock roles; cloud deployments use
 `GET /api/users/role-context` with the caller's bearer token and fail closed when role lookup is
-unavailable. Administrator transaction queries require `ROLE_ADMIN`. These remain
+unavailable. Administrator balance and transaction queries require `ROLE_ADMIN`. These remain
 caller-authenticated gateway endpoints; restricting them to trusted Order-to-Credit service calls
 is separate work.
 
@@ -48,6 +48,7 @@ is separate work.
 |---|---|---|
 | `GET` | `/api/credits/me` | Return the authenticated user's total, reserved and usable balances. |
 | `GET` | `/api/credits/me/transactions?page=1&size=20` | Return the authenticated user's newest credit transactions. |
+| `GET` | `/api/credits/users/{userId}/balance` | Let an administrator view one user's authoritative total, reserved and usable balances. |
 | `GET` | `/api/credits/users/{userId}/transactions?page=1&size=20` | Let an administrator view one user's newest credit transactions. |
 | `GET` | `/api/credits/all/transactions?page=1&size=20` | Let an administrator view newest transactions across all users; each item includes `userId`. |
 | `PUT` | `/api/credits/orders/{orderId}/reservation` | Atomically reserve credits, using `orderId` as the idempotency key. |
