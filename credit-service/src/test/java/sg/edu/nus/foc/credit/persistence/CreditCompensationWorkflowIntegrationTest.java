@@ -223,8 +223,11 @@ class CreditCompensationWorkflowIntegrationTest {
 
         reset(publisher);
         doReturn("broker-message").when(publisher).publish(anyString(), anyInt(), any());
-        jdbc.update("update credit_compensation_result_outbox set next_attempt_at = now() "
-                + "where event_id = ?", committed.resultEventId());
+        // Database-container time and the host publisher clock need not agree.
+        // Make this fixture unambiguously due instead of racing the two clocks.
+        jdbc.update("update credit_compensation_result_outbox set next_attempt_at = ? "
+                + "where event_id = ?", java.sql.Timestamp.from(Instant.EPOCH), committed.resultEventId());
+        assertThat(outbox.dueIds(Instant.now(), 50)).contains(committed.resultEventId());
         dispatcher.dispatchDue();
         assertThat(text("select state from credit_compensation_result_outbox where event_id = '"
                 + committed.resultEventId() + "'")) .isEqualTo("PUBLISHED");
