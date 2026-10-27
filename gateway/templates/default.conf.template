@@ -46,6 +46,16 @@ server {
     }
 
     # ---- Backend services (one block per service) -------------------------
+    # Financial Order commands are peer protocols, not browser APIs. Order calls
+    # Credit directly with the forwarded user JWT (or its narrow automatic route).
+    location ^~ /api/credits/orders/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/credits/commands/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
     # Network-trusted service APIs are NEVER routed from a browser, with or without JWT.
     location ^~ /api/users/internal/ {
         default_type application/json;

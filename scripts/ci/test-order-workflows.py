@@ -106,7 +106,8 @@ class CloudWorkflowTest(unittest.TestCase):
             self.assertIn("CREDIT_MESSAGING_MODE=google", env)
             self.assertIn("ORDER_COMPENSATION_RESULT_SUBSCRIPTION=", env)
             self.assertIn("ORDER_COMPENSATION_PUSH_SERVICE_ACCOUNT=", env)
-        for location in ("/api/users/internal/", "/api/suppliers/internal/", "/api/orders/internal/users/"):
+        for location in ("/api/users/internal/", "/api/suppliers/internal/", "/api/orders/internal/users/",
+                         "/api/credits/orders/", "/api/credits/commands/"):
             self.assertRegex(gateway, r"location \^~ " + re.escape(location) + r" \{[^}]*return 404")
         self.assertIn("location /api/credits/internal/", gateway)
         deploy = (ROOT / "scripts/ci/deploy.sh").read_text()
