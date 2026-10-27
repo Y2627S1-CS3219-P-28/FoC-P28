@@ -1374,3 +1374,24 @@ No schema, event/topic, frontend, shared configuration or sibling backend change
   concurrency tests; actual Credit failure/duplicate/delayed-execute/ABA/restart
   and Google OIDC tests remain required. No User/Supplier mutation API requested:
   inspected Order calls to them are reads, including Supplier POST validation.
+
+### FEEDBACK-005 resumption inspection - 2026-10-26
+
+Vincent requests credential-free automatic repost, assuming services trust each
+other, and permits peer edits if minor. Actual background interfaces are still
+MISSING: User roles/eligibility derive UID from JWT, Supplier validation requires
+authentication, and Credit reservation requires JWT subject=requester plus role
+for keyed commands. Existing internal-ingress deployment permits network-wide
+callers, including the gateway; it does not authenticate Order as a distinct caller.
+Gateway blocks Credit internal routes but needs matching isolation for any new
+User/Supplier routes. Local loopback debug ports also trust local host callers.
+
+Opening a reservation endpoint without a user JWT is a security/financial contract
+change, not merely a controller alias. The durable automatic workflow also needs
+stable command/candidate identity, saved consent, current requester validation,
+one-successor locking and final-commit/compensation handling. The existing automatic
+path uses legacy reserve inside its local transaction and is not invoked by the
+minute job. ADR-054/FEEDBACK-017 still block live compensation; tokenless routes
+alone cannot close either gap. No peer edits made during this review. Detailed
+expanded-scope/trust/activation approval is required before TDD; existing feedback
+and handoff records will be reused rather than creating per-peer duplicate docs.

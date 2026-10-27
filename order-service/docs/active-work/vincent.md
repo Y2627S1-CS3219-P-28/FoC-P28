@@ -1,5 +1,83 @@
 # Vincent - Active Work
 
+## CI Maven verify reproduction and repair - 2026-10-26 [x] local repair
+
+- User reports failed upstream Order Maven verify and explicitly requests local
+  reproduction/fix. Same Vincent/feature/vincent-credit-compensation scope. Preserve
+  three existing uncommitted automatic-repost review/disclosure files; no auto
+  repost implementation or peer edits authorized by this repair.
+- CI uses Java21 root reactor `-pl order-service -am verify`, including PostgreSQL
+  integration tests and unchanged >=80% line/branch coverage. Focused 60-test
+  evidence from CHANGE-156 is not full verify evidence.
+- Current D1/selected Overall hashes match; ADR-054 fixture scope/live gate remains.
+  References: F1/F3/F11/F13, NTH4, durability/concurrency/testing NFRs and CHANGE-156.
+- Started equivalent offline root-wrapper run with installed Java21/local Maven
+  cache. Docker initially stopped; requested hidden background Docker Desktop
+  startup for isolated Testcontainers only, not Compose or user database writes.
+- Requested CI run URL/error tail while local reproduction continues. Do not lower
+  coverage thresholds, skip failing tests or silently reinterpret peer contracts.
+- Next: capture exact RED, classify fixture/implementation/environment/coverage
+  root cause, apply minimal repair, then focused and full verify evidence.
+- Confirmed actual upstream CI run205/job121400978683 at c097c95:559 Order tests,
+  0 failures,10 context errors,0 skips. All10 new PostgreSQL cases fail because
+  `order.messaging.mode=mock` is unsupported by the factory; coverage not reached.
+- CHANGE-157 is a fixture/configuration implementation detail under ADR-054.
+  New two-case context regression reproduces exact error first (1 failure/0 errors);
+  supported cloud mode plus explicit mocked transport fixes it without network
+  calls or production validation changes. Original10 DB cases retained, one new
+  fixture-transport case added.
+- Docker27.5.1 available after user startup. Focused GREEN13 tests,0 failures,
+  errors or skips (11 PostgreSQL +2 configuration), including V14->V15 upgrade.
+  Full verify running with fresh coverage data backed up first; no gate changes.
+- Final Java21 root verify PASSES/exit0: common12 + Order562 =574 tests,0 failures,
+  errors or skips; includes16 existing real Credit/emulator recovery tests. Fresh
+  Order coverage94.73% LINE (3090/3262),81.02% BRANCH (1447/1786); both modules'
+  original gates/JAR packaging pass. `target/change157-full-verify.log`.
+- Local Surefire30-second post-System.exit(0) shutdown warning remains; tests and
+  Maven succeed. Do not mistake it for the CI context error or claim it fixed.
+- Test-only repair committed as `a1053c7`. CHANGE-157/change-log/traceability and
+  CHANGE-156 follow-up carry evidence. Earlier automatic-repost notes in this file,
+  feedback and AI log are preserved; overlapping records stay uncommitted rather
+  than mixing earlier notes into the verified repair commit.
+- Separate verification-documentation commit: `544f121`. Index is empty after
+  both commits; only the three overlapping review/disclosure records remain dirty.
+- Next: user pushes fix to the existing upstream branch and reruns CI. No push,
+  deployment, application database or peer source mutation performed. New live
+  compensation and automatic repost remain deferred; the whole feature is [~].
+
+## Automatic repost resumption review - 2026-10-26 [!]
+
+- User requests resuming automatic repost without JWT credentials, assuming peer
+  trust, and conditionally permits small coordinated peer endpoint changes. This
+  is not yet approval for a larger financial/security/transport redesign.
+- Current Vincent profile/branch match; starting tracked worktree clean. D1 and
+  selected Overall hashes match. Read actual repost/lifecycle/scheduler/adapters,
+  Credit command/controller/security, Supplier validation/security, User role and
+  eligibility/security, gateway blocking and deployment ingress configuration.
+- Found: automatic still calls legacy unkeyed reserve inside the local transaction
+  with a fresh candidate UUID; minute scheduler does not call repostDue. New
+  compensation policy refuses that legacy path. Supplier and User routes require
+  Firebase; Credit reserve also binds token subject to requester. Required
+  credential-free background contracts are MISSING (existing FEEDBACK-005).
+- Deployment scripts configure internal ingress with allow-unauthenticated;
+  gateway and peers share VPC access. This is network-wide trust, not proof of
+  Order identity. Gateway currently blocks Credit internal paths but has no
+  equivalent User/Supplier internal block. Local debug ports are loopback-bound,
+  not authenticated; local host callers remain in the trusted boundary.
+- Proposed, NOT APPROVED detailed implementation: restricted internal peer
+  validation/reservation contracts; persisted consent and current requester checks;
+  durable AUTO_REPOST key/candidate plus shared original guard; independent minute
+  phase after expiry; atomic new Order/link/receipt/result. Retain expiry rules,
+  one successor and financial compensation safety. No forward-retry fallback.
+- Existing ADR-054 remains fixture-only and FEEDBACK-017 unresolved. Live automatic
+  compensation requires completing/verifying that Credit protocol too, not merely
+  adding one reserve route. Need explicit broader-slice approval and confirmation
+  of network-only trust vs a service-auth boundary before implementation.
+- No application, peer, schema, gateway, deployment or test code changed; no tests
+  run or cloud state checked. Only existing review/disclosure records updated.
+- Resume: approve the expanded scope/trust model and fixture-vs-live milestone;
+  record effective design, then write failing tests before implementation.
+
 ## Compensation slice commit handoff - 2026-10-26 [~]
 
 - User explicitly requests committing the existing CHANGE-156 changes. Current
