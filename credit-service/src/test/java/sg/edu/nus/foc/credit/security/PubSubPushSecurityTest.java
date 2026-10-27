@@ -55,6 +55,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import sg.edu.nus.foc.credit.api.CreditController;
+import sg.edu.nus.foc.credit.api.CreditCompensationController;
 import sg.edu.nus.foc.credit.api.CreditOrderEventController;
 import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
@@ -62,18 +63,24 @@ import sg.edu.nus.foc.credit.credit.CreditService;
 import sg.edu.nus.foc.credit.credit.CreditCommandService;
 import sg.edu.nus.foc.credit.error.GlobalExceptionHandler;
 import sg.edu.nus.foc.credit.messaging.OpenOrderRefundEventHandler;
+import sg.edu.nus.foc.credit.messaging.CreditCompensationPayloadDecoder;
+import sg.edu.nus.foc.credit.messaging.CreditCompensationRequest;
+import sg.edu.nus.foc.credit.messaging.CreditCompensationService;
 import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderEventMessage;
 import sg.edu.nus.foc.credit.messaging.OrderEventPayloadDecoder;
 
 @WebMvcTest
-@ContextConfiguration(classes = {CreditController.class, CreditOrderEventController.class, GlobalExceptionHandler.class,
+@ContextConfiguration(classes = {CreditController.class, CreditOrderEventController.class,
+        CreditCompensationController.class, GlobalExceptionHandler.class,
         PubSubPushSecurityTest.LocalKeySecurityConfig.class, PubSubPushSecurityTest.TestBeans.class})
 class PubSubPushSecurityTest {
 
     private static final String AUDIENCE = "https://credit-test.invalid/push";
     private static final String SERVICE_ACCOUNT = "credit-push@test-project.iam.gserviceaccount.com";
     private static final String SUBSCRIPTION = "projects/test-project/subscriptions/refund";
+    private static final String COMPENSATION_SUBSCRIPTION =
+            "projects/test-project/subscriptions/compensation";
     private static final String PAYLOAD = "{\"eventId\":\"security-test-event\"}";
     private static final String FIREBASE_TOKEN = "firebase-test-token";
     private static final RSAKey KEY = key();
@@ -86,6 +93,8 @@ class PubSubPushSecurityTest {
     @MockitoBean OrderEventPayloadDecoder decoder;
     @MockitoBean OpenOrderRefundEventHandler openRefundHandler;
     @MockitoBean OrderCompletionEventHandler completionHandler;
+    @MockitoBean CreditCompensationPayloadDecoder compensationDecoder;
+    @MockitoBean CreditCompensationService compensationService;
     @MockitoBean(name = "jwtDecoder") JwtDecoder firebaseDecoder;
 
     @BeforeEach
@@ -133,12 +142,32 @@ class PubSubPushSecurityTest {
     void everyTypedPushPathRejectsAMissingToken() throws Exception {
         for (String path : List.of(
                 CreditOrderEventController.OPEN_REFUND_PATH,
-                CreditOrderEventController.COMPLETION_PATH)) {
+                CreditOrderEventController.COMPLETION_PATH,
+                CreditCompensationController.PUSH_PATH)) {
             mvc.perform(post(path)
                     .contentType(MediaType.APPLICATION_JSON).content(envelope()))
                     .andExpect(status().isUnauthorized());
         }
         verifyNoEventInteractions();
+        verifyNoInteractions(roles, firebaseDecoder, credits);
+    }
+
+    @Test
+    void signedCompensationPushUsesServiceIdentityWithoutFirebaseRoleLookup() throws Exception {
+        CreditCompensationRequest request = new CreditCompensationRequest(
+                "11111111-1111-4111-8111-111111111111", "command", "RESERVE",
+                "order", "requester", 2, 5L);
+        when(compensationDecoder.decode(eq(COMPENSATION_SUBSCRIPTION), eq(PAYLOAD), any(),
+                eq(COMPENSATION_SUBSCRIPTION))).thenReturn(request);
+        when(roles.rolesFor(any())).thenThrow(new RoleLookupException("User unavailable", null));
+
+        mvc.perform(post(CreditCompensationController.PUSH_PATH)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token("valid"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(envelope(COMPENSATION_SUBSCRIPTION)))
+                .andExpect(status().isNoContent());
+
+        verify(compensationService).process(request);
         verifyNoInteractions(roles, firebaseDecoder, credits);
     }
 
@@ -212,10 +241,14 @@ class PubSubPushSecurityTest {
     }
 
     private static String envelope() {
+        return envelope(SUBSCRIPTION);
+    }
+
+    private static String envelope(String subscription) {
         String data = Base64.getEncoder().encodeToString(PAYLOAD.getBytes(StandardCharsets.UTF_8));
         return "{\"message\":{\"data\":\"" + data + "\",\"messageId\":\"test-message\"},"
                 .replace("\"messageId\":\"test-message\"", "\"messageId\":\"test-message\",\"attributes\":{\"eventId\":\"security-test-event\",\"eventType\":\"OpenOrderRefundTaskEvent\",\"eventVersion\":\"2\"}")
-                + "\"subscription\":\"" + SUBSCRIPTION + "\"}";
+                + "\"subscription\":\"" + subscription + "\"}";
     }
 
     private static String token(String variant) throws Exception {
@@ -281,7 +314,7 @@ class PubSubPushSecurityTest {
         }
         @Bean CreditPushProperties pushProperties() {
             return new CreditPushProperties("test-project", AUDIENCE, SERVICE_ACCOUNT,
-                    "completion", "refund");
+                    "completion", "refund", "compensation");
         }
     }
 }

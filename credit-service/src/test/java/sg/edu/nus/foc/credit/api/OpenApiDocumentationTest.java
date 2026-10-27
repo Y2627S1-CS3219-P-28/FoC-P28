@@ -129,4 +129,23 @@ class OpenApiDocumentationTest {
                 .contains("200")
                 .contains("403");
     }
+
+    @Test
+    void compensationReceiverAndRedriveAreDocumented() throws Exception {
+        JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("paths");
+
+        JsonNode receiver = paths.path(PREFIX + "/internal/command-compensations").path("post");
+        assertThat(receiver.path("summary").asString()).contains("compensation");
+        assertThat(receiver.path("responses").toString())
+                .contains("204").contains("400").contains("401").contains("409").contains("503");
+
+        JsonNode redrive = paths.path(PREFIX
+                + "/admin/compensation-results/{eventId}/redrive").path("post");
+        assertThat(redrive.path("summary").asString()).contains("Redrive");
+        assertThat(redrive.path("parameters").toString()).contains("eventId");
+        assertThat(redrive.path("responses").toString())
+                .contains("202").contains("403").contains("404").contains("409");
+    }
 }

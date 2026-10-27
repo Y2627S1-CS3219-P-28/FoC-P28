@@ -34,6 +34,7 @@ topics=(
   "$ORDER_OPEN_REFUND_TOPIC"
   "$ORDER_COURIER_PENALTY_ADDITION_TOPIC"
   "$ORDER_COURIER_PENALTY_DEDUCTION_TOPIC"
+  "$ORDER_CREDIT_COMPENSATION_TOPIC"
 )
 
 echo "Configuring Order Service Pub/Sub topics for $environment"

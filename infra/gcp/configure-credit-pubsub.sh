@@ -48,18 +48,28 @@ pubsub_service_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccoun
 topics=(
   "$ORDER_OPEN_REFUND_TOPIC"
   "$ORDER_COMPLETION_TOPIC"
+  "$ORDER_CREDIT_COMPENSATION_TOPIC"
 )
 subscriptions=(
   "$CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION"
   "$CREDIT_ORDER_COMPLETION_SUBSCRIPTION"
+  "$CREDIT_COMPENSATION_SUBSCRIPTION"
 )
 push_paths=(
   "/api/credits/internal/order-events/open-refund"
   "/api/credits/internal/order-events/completion"
+  "/api/credits/internal/command-compensations"
 )
 
 echo "Configuring Credit Pub/Sub push delivery for $environment"
 gc services enable pubsub.googleapis.com
+
+exists gc pubsub topics describe "$CREDIT_COMPENSATION_RESULT_TOPIC" ||
+  gc pubsub topics create "$CREDIT_COMPENSATION_RESULT_TOPIC" \
+    --labels "service=credit-service,environment=$environment,purpose=compensation-result"
+gc pubsub topics add-iam-policy-binding "$CREDIT_COMPENSATION_RESULT_TOPIC" \
+  --member "serviceAccount:foc-credit-service@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role roles/pubsub.publisher >/dev/null
 
 for topic in "${topics[@]}"; do
   exists gc pubsub topics describe "$topic" || {
