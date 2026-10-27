@@ -56,6 +56,15 @@ public class CreditReservationEntity {
     @Column(name = "courier_assignment_command_id", length = 128)
     private String courierAssignmentCommandId;
 
+    @Column(name = "mutation_revision", nullable = false)
+    private long mutationRevision;
+
+    @Column(name = "last_mutation_identity", length = 128)
+    private String lastMutationIdentity;
+
+    @Column(name = "courier_assignment_identity", length = 128)
+    private String courierAssignmentIdentity;
+
     protected CreditReservationEntity() {
     }
 
@@ -88,33 +97,76 @@ public class CreditReservationEntity {
         return courierAssignmentCommandId;
     }
 
+    long mutationRevision() {
+        return mutationRevision;
+    }
+
+    String lastMutationIdentity() {
+        return lastMutationIdentity;
+    }
+
+    String courierAssignmentIdentity() {
+        return courierAssignmentIdentity;
+    }
+
     void assignCourier(String courierId, Instant now) {
-        assignCourier(courierId, null, now);
+        assignCourier(courierId, null, java.util.UUID.randomUUID().toString(), now);
     }
 
     void assignCourier(String courierId, String commandId, Instant now) {
+        assignCourier(courierId, commandId, commandId, now);
+    }
+
+    void assignCourier(String courierId, String commandId, String assignmentIdentity, Instant now) {
         this.courierId = courierId;
         courierAssignmentCommandId = commandId;
-        updatedAt = now;
+        courierAssignmentIdentity = assignmentIdentity;
+        advanceMutation(assignmentIdentity, now);
+    }
+
+    void restoreCourier(String courierId, String assignmentIdentity, Instant now) {
+        this.courierId = courierId;
+        courierAssignmentCommandId = null;
+        courierAssignmentIdentity = assignmentIdentity;
+        advanceMutation(assignmentIdentity, now);
+    }
+
+    void clearCourier(String mutationIdentity, Instant now) {
+        courierId = null;
+        courierAssignmentCommandId = null;
+        courierAssignmentIdentity = null;
+        advanceMutation(mutationIdentity, now);
     }
 
     void clearCourier(Instant now) {
-        courierId = null;
-        courierAssignmentCommandId = null;
+        clearCourier(java.util.UUID.randomUUID().toString(), now);
+    }
+
+    private void advanceMutation(String mutationIdentity, Instant now) {
+        mutationRevision++;
+        lastMutationIdentity = mutationIdentity;
         updatedAt = now;
     }
 
-    void refund(Instant now) {
+    void refund(String mutationIdentity, Instant now) {
         status = ReservationStatus.REFUNDED;
         refundedAt = now;
         paidAt = null;
-        updatedAt = now;
+        advanceMutation(mutationIdentity, now);
     }
 
-    void markPaid(Instant now) {
+    void refund(Instant now) {
+        refund(java.util.UUID.randomUUID().toString(), now);
+    }
+
+    void markPaid(String mutationIdentity, Instant now) {
         status = ReservationStatus.PAID;
         paidAt = now;
         refundedAt = null;
-        updatedAt = now;
+        advanceMutation(mutationIdentity, now);
+    }
+
+    void markPaid(Instant now) {
+        markPaid(java.util.UUID.randomUUID().toString(), now);
     }
 }

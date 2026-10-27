@@ -3105,3 +3105,36 @@ CHANGE-155 verification: final full reactor verify passed: 531 Order tests +12 c
 - **Prompt:** "Help me to commit the changes"
 - **Key response:** Confirmed Vincent, approved scope and feature/vincent-credit-compensation; reviewed explicit paths and staged patches, whitespace and secret-pattern checks. Created 00b85a6 (Order implementation/V15/backend tests), 04ff3e0 (frontend compensation regression), 038e846 (shared environment example) and bd472f8 (handoff/design/workflow records). D1/selected Overall hashes still match; existing final backend log shows60 passing focused tests, zero failures/errors/skips. No new runtime pass claimed; a redundant XML aggregation was stopped without a result. Node/npm remain unavailable. This commit handoff supersedes the earlier uncommitted status, not the outstanding feature gates. Peer/common/Compose/CI code unchanged; no push, deployment or database mutation.
 - **Author verification:** Vincent explicitly requested committing the existing partial fixture milestone. Architecture/fixture scope remains the developer's approved choice, not AI approval. PostgreSQL migration/race execution, frontend runtime checks, full verify/coverage and actual Credit/authenticated broker integration remain unverified; live compensation stays disabled. Human code review and peer implementation are still required.
+
+## Credit compensation workflow and disclosure assistance (Credit Service)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-27
+- **Mode:** Implementation, test generation, infrastructure configuration,
+  documentation, and disclosure maintenance.
+- **Affected locations:** Credit compensation API, messaging, persistence, migration,
+  configuration, security, tests, smoke script, README and deployment settings;
+  local Compose/emulator configuration; shared environment examples and Pub/Sub
+  infrastructure checks; and this AI usage log.
+- **Prompt:** “can you add ai declaration comments in the newly created files and
+  also log the ai usage in the ai logs”
+- **Key response:** Recorded the AI-assisted Credit command-compensation workflow,
+  including authenticated request consumption, durable inbox/result outbox,
+  command and reservation revision fencing, exact `CLEAR_COURIER` pre-image
+  restoration, stable result publication with retry/redrive support, migration,
+  operational configuration, and positive/negative test coverage. Added the
+  repository-standard disclosure header to every newly created Java, test, and SQL
+  file that lacked one; the new smoke script already contained its disclosure.
+- **Author verification:** The developer requested the disclosures and log entry.
+  Final human review of the compensation implementation remains pending. This
+  disclosure-only follow-up did not run live Pub/Sub, cloud deployment, or financial
+  data mutations; verification is limited to source-format and repository checks
+  recorded for this change.
+- **Verification follow-up:** The developer's local emulator smoke run reached the
+  compensation flow but exposed a PostgreSQL assertion bug: `psql` left
+  `:'command_id'` uninterpolated inside its `-c` argument. Changed the assertion to
+  pass SQL on stdin, matching the working seed statements, and enabled
+  `ON_ERROR_STOP`. Shell syntax validation passed. A read-only check of the created
+  smoke row returned reserved balance `0` and one compensation reversal, and the
+  corrected exact assertion returned `0|1`. A fresh full smoke-script rerun remains
+  for the developer; no cloud or production data was touched.

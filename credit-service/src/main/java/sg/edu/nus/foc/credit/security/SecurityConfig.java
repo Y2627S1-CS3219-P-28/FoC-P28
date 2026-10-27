@@ -38,6 +38,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
+import sg.edu.nus.foc.credit.api.CreditCompensationController;
 import sg.edu.nus.foc.credit.api.CreditOrderEventController;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -68,7 +69,8 @@ class SecurityConfig {
             // Local emulator sends unsigned HTTP push; only these two financial
             // event paths are exempt. Firebase auth on all user APIs is unchanged.
             http.securityMatcher(CreditOrderEventController.OPEN_REFUND_PATH,
-                            CreditOrderEventController.COMPLETION_PATH)
+                            CreditOrderEventController.COMPLETION_PATH,
+                            CreditCompensationController.PUSH_PATH)
                     .csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
@@ -78,7 +80,8 @@ class SecurityConfig {
         http
                 .securityMatcher(
                         CreditOrderEventController.OPEN_REFUND_PATH,
-                        CreditOrderEventController.COMPLETION_PATH)
+                        CreditOrderEventController.COMPLETION_PATH,
+                        CreditCompensationController.PUSH_PATH)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())

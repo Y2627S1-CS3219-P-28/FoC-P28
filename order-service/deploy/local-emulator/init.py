@@ -24,7 +24,8 @@ def create(path, body):
 
 for topic in ("order-completion", "open-order-refund",
               "courier-penalty-addition", "courier-penalty-deduction",
-              "user-created"):
+              "user-created", "credit-command-compensation",
+              "credit-command-compensation-result"):
     create(f"/topics/{topic}-local-v1", {})
 
 for topic, route in (("order-completion", "completion"), ("open-order-refund", "open-refund")):
@@ -33,4 +34,13 @@ for topic, route in (("order-completion", "completion"), ("open-order-refund", "
         "ackDeadlineSeconds": 30,
         "pushConfig": {"pushEndpoint": f"http://credit-service:8080/api/credits/internal/order-events/{route}"},
     })
-print("Local emulator initialized: refund/completion -> real Credit; penalty topics ready (User consumer pending); no cloud API used.")
+create("/subscriptions/credit-command-compensation-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-local-v1",
+    "ackDeadlineSeconds": 30,
+    "pushConfig": {"pushEndpoint": "http://credit-service:8080/api/credits/internal/command-compensations"},
+})
+create("/subscriptions/credit-compensation-results-test-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-result-local-v1",
+    "ackDeadlineSeconds": 30,
+})
+print("Local emulator initialized: Order outcomes and compensation -> Credit; compensation results available on a pull test subscription.")
