@@ -31,7 +31,6 @@ public class UserService {
 
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
-    private final CreditServiceClient creditServiceClient;
     private final OrderServiceClient orderServiceClient;
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
@@ -40,13 +39,11 @@ public class UserService {
 
     public UserService(UserRepository userRepository, 
             FirebaseAuthService firebaseAuthService,
-            CreditServiceClient creditServiceClient,
             OrderServiceClient orderServiceClient,
             OutboxEventRepository outboxEventRepository,
             JsonMapper objectMapper) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
-        this.creditServiceClient = creditServiceClient;
         this.orderServiceClient = orderServiceClient;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
