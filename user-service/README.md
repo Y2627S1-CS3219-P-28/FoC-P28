@@ -52,7 +52,7 @@ When running locally, follow the steps below to create the first admin account:
 7. Open the `Containers` tab
 7. Add a new variable named `ADMIN_BOOTSTRAP_ENABLED` with value `true` `ADMIN_BOOTSTRAP_EMAIL` with value `admin@u.nus.edu`. The value is the email you set in the Firebase console.
 8. Select `View diff & redeploy`. Deploy the changes.
-9. AftThe admin account is created. Attempt to sign in with it and request an email verification. No need to create/sign up with the email.
+9. The admin account is created. Attempt to sign in with it and request an email verification. No need to create/sign up with the email.
 10. After verifying the email, you can sign in with the admin account. 
 11. You can now set `ADMIN_BOOTSTRAP_ENABLED` to `false` or remove it entirely from the user-service variables.
 

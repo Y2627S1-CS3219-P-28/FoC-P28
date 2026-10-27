@@ -127,6 +127,15 @@ public class UserService {
     // Transactional so adding user and user-created event is done atomically
     @Transactional
     public User addUser(String userId, String email) {
+        return createUser(userId, email, List.of("courier", "requester"));
+    }
+
+    @Transactional
+    public User addAdmin(String userId, String email) {
+        return createUser(userId, email, List.of("courier", "requester", "admin"));
+    }
+
+    public User createUser(String userId, String email, List<String> roles) {
         if (userId == null || userId.isBlank()
             || email == null || email.isBlank()) {
         throw new IllegalArgumentException(
@@ -146,7 +155,7 @@ public class UserService {
         user.setUserId(userId);
         user.setEmail(email);
         user.setUsername("");
-        user.setRoles(List.of("courier", "requester"));
+        user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
 
