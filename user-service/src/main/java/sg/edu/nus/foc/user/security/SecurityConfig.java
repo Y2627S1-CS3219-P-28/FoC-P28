@@ -80,8 +80,7 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter =
-                new JwtAuthenticationConverter();
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 
         // Application roles come from User Service, not JWT claims.
         converter.setJwtGrantedAuthoritiesConverter(jwt -> List.of());
