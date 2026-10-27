@@ -91,7 +91,7 @@ public class UserService {
 
         Instant now = Instant.now();
 
-        return new CourierEligibility(
+        return new CourierEligibility(verifyCourier(user) &&
                 !(user.getPenalty() >= 10
                 && user.getSuspensionEndDate() != null
                 && user.getSuspensionEndDate().isAfter(now))
@@ -103,8 +103,6 @@ public class UserService {
                 .findByUserId(userId)
                 .orElseThrow(() -> 
                         new RuntimeException("User not found"));
-
-        Instant now = Instant.now();
 
         return new RequesterEligibility(verifyRequester(user));
     }

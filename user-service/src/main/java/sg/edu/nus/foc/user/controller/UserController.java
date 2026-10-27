@@ -28,6 +28,7 @@ import sg.edu.nus.foc.user.authentication.AuthenticationService;
 import sg.edu.nus.foc.user.authentication.FirebaseAuthService;
 import sg.edu.nus.foc.user.logic.AddUserRequest;
 import sg.edu.nus.foc.user.logic.ApplyPenaltyRequest;
+import sg.edu.nus.foc.user.logic.AdminEligibility;
 import sg.edu.nus.foc.user.logic.CourierEligibility;
 import sg.edu.nus.foc.user.logic.RequesterEligibility;
 import sg.edu.nus.foc.user.logic.UpdateUserRequest;
@@ -118,6 +119,19 @@ public class UserController {
 
         return ResponseEntity.ok(
                 userService.getRequesterEligibility(userId)
+        );
+    }
+
+    // GET /api/users/admin-eligibility/
+    @Operation(summary = "Get requesting user's requester eligibility from auth token")
+    @GetMapping("/admin-eligibility")
+    public ResponseEntity<AdminEligibility> getAdminEligibility(
+            JwtAuthenticationToken authentication) {
+
+        String userId = authentication.getToken().getSubject();
+
+        return ResponseEntity.ok(
+                userService.getAdminEligibility(userId)
         );
     }
 
