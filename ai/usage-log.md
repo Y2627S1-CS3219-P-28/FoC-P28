@@ -3138,3 +3138,16 @@ CHANGE-155 verification: final full reactor verify passed: 531 Order tests +12 c
   smoke row returned reserved balance `0` and one compensation reversal, and the
   corrected exact assertion returned `0|1`. A fresh full smoke-script rerun remains
   for the developer; no cloud or production data was touched.
+
+## Credit compensation handoff completion assistance (Credit and Order Services)
+
+- **Tool:** OpenAI Codex (GPT-5)
+- **Date:** 2026-10-27
+- **Mode:** Implementation, migration design, verification, documentation and branch handoff.
+- **Affected locations:** Credit publisher factory, V10 migration, publisher/migration tests and README; Order CHANGE-158, FEEDBACK-017, compensation handoff/context/active-work/change-log and deferred-conflict record. No frontend source, `main` integration or cloud activation.
+- **Exact implementation prompt:**
+
+  > PLEASE IMPLEMENT THIS PLAN: Compensation Workflow Handoff Completion Plan. Make `vincent/order-credit-compensation-workflow` complete against the handoff without merging or resolving changes from `main`; implement the publisher-mode correction and selective legacy backfill, preserve HTTP and async recovery guarantees, verify both services, update readiness records, and push Anna then Vincent.
+
+- **Key response:** Implemented DISABLED/GOOGLE/EMULATOR isolation and immutable V10 selective RESERVE/ASSIGN legacy evidence while leaving ambiguous/CLEAR history for reconciliation. Focused tests pass5; Credit verify passes126; Order562/common12 and coverage pass; local Compose/Pub/Sub duplicate smoke records one reversal/stable result ID; config/syntax/diff checks pass. Credit is READY_FOR_VERIFICATION, not VERIFIED. Fifteen current `main` conflict files are recorded and untouched.
+- **Author verification:** Vincent explicitly selected the safe selective-backfill policy, requested this implementation/branch flow, and deferred main conflicts. Final human diff review and hosted CI after push remain pending; no live/cloud approval is inferred.

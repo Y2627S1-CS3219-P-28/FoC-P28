@@ -115,11 +115,13 @@ forwards the message to the environment's shared Credit dead-letter topic for in
 
 ## Command compensation operations
 
-Order publishes `CreditCompensationRequested` version 1 to the environment's compensation topic.
-Credit validates the authenticated push, subscription, envelope, immutable command binding,
-generation, and operation-specific amount. A request arriving before the original command creates
-an absorbing `COMPENSATED/FENCED_NO_EFFECT` tombstone; a later execute cannot apply even at a higher
-generation. Exact request replays reuse the saved result and never repeat a financial change.
+The approved Order contract defines `CreditCompensationRequested` version 1 on the environment's
+compensation topic. This service implements the Credit consumer and durable result-outbox side.
+Order currently has a contract fixture only: it does not yet publish these requests or receive the
+live result event. Credit validates an authenticated push, subscription, envelope, immutable command
+binding, generation, and operation-specific amount. A request arriving before the original command
+creates an absorbing `COMPENSATED/FENCED_NO_EFFECT` tombstone; a later execute cannot apply even at a
+higher generation. Exact request replays reuse the saved result and never repeat a financial change.
 Conflicting event or command reuse returns 409 without mutation.
 
 The inbox row, command resolution, reservation/account/ledger changes, result JSON, and result
@@ -130,6 +132,12 @@ retries with exponential backoff capped at five minutes, and retains `FAILED` af
 Cloud deployment currently sets `CREDIT_MESSAGING_MODE=disabled`, leaving committed results pending
 until Order's authenticated result subscription is deployed. Change it to `google` only as part of
 that coordinated rollout. Local Compose uses `emulator`.
+
+Flyway V10 gives pre-compensation reservations the non-zero baseline revision `1`, then records an
+applied legacy RESERVE or ASSIGN_COURIER effect only when the current reservation proves the exact
+command binding and effect are still active. Settled, mismatched, superseded, and historical
+CLEAR_COURIER commands remain without invented effect/pre-image evidence and therefore resolve only
+through reconciliation.
 
 Useful PostgreSQL inspection queries:
 

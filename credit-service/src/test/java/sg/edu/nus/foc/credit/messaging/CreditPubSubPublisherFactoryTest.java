@@ -43,10 +43,10 @@ class CreditPubSubPublisherFactoryTest {
     }
 
     @Test
-    void disabledTransportCannotCreateAPublisher() {
+    void disabledTransportIgnoresAnEmulatorHostButCannotCreateAPublisher() {
         CreditPubSubPublisherFactory factory = new CreditPubSubPublisherFactory(
                 properties(CreditCompensationProperties.Mode.DISABLED, "real-project"),
-                "", "production");
+                "127.0.0.1:8085", "production");
         assertThatThrownBy(() -> factory.forTopic("real-project", "result"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("disabled");
         factory.close();

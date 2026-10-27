@@ -37,7 +37,7 @@ class CreditPubSubPublisherFactory {
                                  @Value("${PUBSUB_EMULATOR_HOST:}") String emulatorHost,
                                  @Value("${FOC_ENVIRONMENT:local}") String environment) {
         mode = properties.messagingMode();
-        if (properties.messagingMode() == CreditCompensationProperties.Mode.EMULATOR) {
+        if (mode == CreditCompensationProperties.Mode.EMULATOR) {
             if (!"local".equals(environment) || emulatorHost.isBlank()
                     || !properties.projectId().startsWith("demo-")) {
                 throw new IllegalStateException(
@@ -45,7 +45,7 @@ class CreditPubSubPublisherFactory {
             }
             emulatorChannel = ManagedChannelBuilder.forTarget(emulatorHost).usePlaintext().build();
         } else {
-            if (!emulatorHost.isBlank()) {
+            if (mode == CreditCompensationProperties.Mode.GOOGLE && !emulatorHost.isBlank()) {
                 throw new IllegalStateException("Google Credit messaging must not receive emulator settings.");
             }
             emulatorChannel = null;
