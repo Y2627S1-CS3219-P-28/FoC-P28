@@ -166,6 +166,7 @@ public class UserController {
     @PostMapping
     public ResponseEntity<User> addUser(
             JwtAuthenticationToken authentication) {
+        
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");

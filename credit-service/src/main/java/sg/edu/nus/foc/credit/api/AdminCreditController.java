@@ -1,8 +1,9 @@
 /*
  * AI Assistance Disclosure:
- * Tool: OpenAI Codex (GPT-5), date: 2026-10-14
+ * Tool: OpenAI Codex (GPT-5), dates: 2026-10-14 and 2026-10-27
  * Mode: Code generation and testing assistance.
- * Scope: Generated the admin-only Credit transaction endpoints from the user-approved API contract.
+ * Scope: Generated the admin-only Credit transaction and selected-user balance endpoints from
+ * user-approved API contracts.
  * Author review: I reviewed for correctness.
  */
 package sg.edu.nus.foc.credit.api;
@@ -28,13 +29,30 @@ import sg.edu.nus.foc.credit.credit.CreditService;
 @Validated
 @RequestMapping("/api/credits")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Credit administration", description = "Administrator access to credit transaction history")
+@Tag(name = "Credit administration",
+        description = "Administrator access to credit balances and transaction history")
 public class AdminCreditController {
 
     private final CreditService service;
 
     public AdminCreditController(CreditService service) {
         this.service = service;
+    }
+
+    @GetMapping("/users/{userId}/balance")
+    @Operation(summary = "Get a selected user's current credit balances")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Selected user's current credit balances"),
+            @ApiResponse(responseCode = "400", description = "User ID is invalid"),
+            @ApiResponse(responseCode = "401", description = "Firebase ID token is missing or invalid"),
+            @ApiResponse(responseCode = "403", description = "Caller lacks the administrator role"),
+            @ApiResponse(responseCode = "404", description = "Credit account has not been provisioned"),
+            @ApiResponse(responseCode = "503", description = "User Service role lookup is unavailable")
+    })
+    public BalanceResponse userBalance(
+            @Parameter(description = "Selected user's opaque Firebase UID")
+            @PathVariable @Size(min = 1, max = 128) String userId) {
+        return BalanceResponse.from(service.getAccount(userId));
     }
 
     @GetMapping("/users/{userId}/transactions")

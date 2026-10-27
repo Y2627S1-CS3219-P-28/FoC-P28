@@ -104,10 +104,23 @@ class OpenApiDocumentationTest {
     }
 
     @Test
-    void adminTransactionEndpointsAreDocumented() throws Exception {
+    void adminEndpointsAreDocumented() throws Exception {
         JsonNode paths = mapper.readTree(mvc.perform(get(PREFIX + "/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString()).path("paths");
+
+        assertThat(paths.has(PREFIX + "/registration-facts")).isFalse();
+
+        JsonNode userBalance = paths.path(PREFIX + "/users/{userId}/balance").path("get");
+        assertThat(userBalance.path("summary").asString()).isNotBlank();
+        assertThat(userBalance.path("parameters").toString()).contains("userId");
+        assertThat(userBalance.path("responses").toString())
+                .contains("200")
+                .contains("400")
+                .contains("401")
+                .contains("403")
+                .contains("404")
+                .contains("503");
 
         JsonNode userHistory = paths.path(PREFIX + "/users/{userId}/transactions").path("get");
         assertThat(userHistory.path("summary").asString()).isNotBlank();

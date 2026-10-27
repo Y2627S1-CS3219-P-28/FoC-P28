@@ -1,29 +1,26 @@
 <!--
 AI Assistance Disclosure:
-Tool: OpenAI Codex (GPT-5), date: 2026-10-14
+Tool: OpenAI Codex (GPT-5), dates: 2026-10-14 and 2026-10-27
 Mode: Integration handoff documentation.
-Scope: Documented the implemented Credit administrator transaction endpoints for peer-service consumers.
+Scope: Documented the implemented Credit administrator balance and transaction endpoints for peer-service consumers.
 Author review: I reviewed for correctness.
 -->
 
-# Credit Admin Transaction API Handoff
+# Credit Admin API Handoff
 
-**Date:** 2026-10-14
+**Date:** 2026-10-27
 
 **Owning service:** Credit Service
 
 **Audience:** Admin Service, frontend, gateway, and other authenticated API consumers
 
-**Implementation branch:** `feat/credit-admin`
+Credit Service now exposes three read-only operations for administrators:
 
-**Implementation commit:** `312b40c`
+1. Read one selected user's current credit balances.
+2. Read one selected user's paginated credit transaction history.
+3. Read paginated credit transaction history across the whole system.
 
-Credit Service now exposes two read-only, paginated operations for administrators:
-
-1. Read one selected user's credit transaction history.
-2. Read credit transaction history across the whole system.
-
-Both operations are implemented and covered by API, service, persistence, recovery-filter,
+All three operations are implemented and covered by API, service, persistence, recovery-filter,
 and OpenAPI tests. They are regular Firebase-authenticated Credit APIs, not internal
 service-account endpoints.
 
@@ -31,6 +28,8 @@ service-account endpoints.
 
 - Added an administrator controller under `/api/credits`, protected by
   `@PreAuthorize("hasRole('ADMIN')")`.
+- Reused the existing `BalanceResponse` and account lookup for a selected user's authoritative
+  total, reserved, and usable balances.
 - Reused the existing `TransactionPageResponse` for one selected user so its wire contract
   stays identical to `/api/credits/me/transactions`.
 - Added `AdminTransactionPageResponse` and `AdminTransactionResponse` for the system-wide
@@ -53,11 +52,47 @@ service-account endpoints.
 - Through the gateway, call the relative `/api/credits/...` paths below. The gateway already
   routes the `/api/credits` prefix.
 - Requests have no body and return JSON.
-- `page` is one-based and defaults to `1`; `size` defaults to `20` and must be from `1` to `100`.
+- For transaction endpoints, `page` is one-based and defaults to `1`; `size` defaults to `20`
+  and must be from `1` to `100`.
 - Treat user IDs and transaction IDs as opaque strings. URL-encode a user ID when placing it
   in a path segment.
 
-## 1. Read a selected user's transactions
+## 1. Read a selected user's balance
+
+```http
+GET /api/credits/users/{userId}/balance
+Authorization: Bearer <administrator-firebase-id-token>
+Accept: application/json
+```
+
+Use this operation for the authoritative Credit-owned balance on a selected-user profile.
+The selected user's token is not required and must not be impersonated. A user who has no
+Credit account returns `404`.
+
+### Successful response
+
+```json
+{
+  "userId": "firebase-uid-123",
+  "totalBalance": 105,
+  "reservedBalance": 5,
+  "usableBalance": 100,
+  "asOf": "2026-10-11T12:00:00Z"
+}
+```
+
+`usableBalance` is derived as total minus reserved. `asOf` is the account's last-update
+instant, not the time of the read request.
+
+### Example
+
+```bash
+curl \
+  --url 'http://localhost:8080/api/credits/users/firebase-uid-123/balance' \
+  --header 'Authorization: Bearer <administrator-firebase-id-token>'
+```
+
+## 2. Read a selected user's transactions
 
 ```http
 GET /api/credits/users/{userId}/transactions?page=1&size=20
@@ -103,7 +138,7 @@ curl --get \
   --data-urlencode 'size=20'
 ```
 
-## 2. Read transactions across all users
+## 3. Read transactions across all users
 
 ```http
 GET /api/credits/all/transactions?page=1&size=20
@@ -207,10 +242,10 @@ All failures use the repository-standard error envelope:
 
 | Status | Error | When |
 |---|---|---|
-| `400` | `VALIDATION_ERROR` | `page < 1`, `size` outside `1..100`, or an invalid selected `userId`. |
+| `400` | `VALIDATION_ERROR` | An invalid selected `userId`, or transaction `page < 1` or `size` outside `1..100`. |
 | `401` | `UNAUTHENTICATED` | Firebase token is missing, invalid, or expired. |
 | `403` | `FORBIDDEN` | The authenticated caller does not have the administrator role. |
-| `404` | `ACCOUNT_NOT_FOUND` | Selected-user endpoint only: no Credit account exists for `{userId}`. |
+| `404` | `ACCOUNT_NOT_FOUND` | Selected-user balance or transaction endpoint: no Credit account exists for `{userId}`. |
 | `503` | `SERVICE_UNAVAILABLE` | User Service role resolution or Credit persistence is unavailable. |
 
 An opaque `userId` must be non-blank, no longer than 128 characters, contain no `/`, not be
@@ -219,12 +254,12 @@ the authoritative Firebase UID without transforming it.
 
 ## Consumer guidance
 
-- Use the selected-user endpoint for a user detail page and the global endpoint for a global
+- Use the selected-user transaction endpoint for a user detail page and the global endpoint for a global
   feed. Do not client-filter a global page to represent a user's complete history.
+- Use the selected-user balance endpoint for authoritative balances; do not derive a balance
+  from transaction pages or substitute the administrator's `/api/credits/me` response.
 - Use `userId` from the global item to request User Service profile/summary data. Credit Service
   does not duplicate usernames or email addresses.
-- Do not derive an authoritative balance from these pages. Use Credit's balance API when an
-  administrator balance endpoint is available.
 - Do not assume enum values are presentation labels; map them to consumer-owned display text.
 - Preserve the standard `401`, `403`, and `503` behavior instead of falling back to mock or
   cached authorization data.
@@ -234,6 +269,6 @@ the authoritative Firebase UID without transforming it.
 - Swagger UI: `/api/credits/docs`
 - OpenAPI JSON: `/api/credits/v3/api-docs`
 - Credit Service verification command: `cd credit-service && ./mvnw verify`
-- Verified implementation result: 102 tests passed; Flyway migrations V1-V8 and JaCoCo line
+- Verified implementation result: 115 tests passed; Flyway migrations V1-V8 and JaCoCo line
   and branch gates passed.
 

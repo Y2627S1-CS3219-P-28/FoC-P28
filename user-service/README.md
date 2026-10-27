@@ -64,6 +64,11 @@ The Firebase ID token identifies the caller. The User Service uses the Firebase
 UID from the verified token rather than trusting a UID supplied by the client
 when retrieving the current user's profile.
 
+Creating a user commits a `UserCreated` outbox event in the same MongoDB transaction. The outbox
+publisher sends schema version 1 to the environment's `USER_CREATED_TOPIC`; Credit Service consumes
+the event asynchronously and idempotently allocates the initial 50-credit account. Registration no
+longer calls Credit Service synchronously, so a temporary Credit outage leaves the event pending for retry.
+
 | Method | Path                     | Who                                 | Purpose                                                |
 | ------ | ------------------------ | ----------------------------------- | ------------------------------------------------------ |
 | POST   | `/api/users`             | unauthenticated during registration | Create an application user after Firebase registration |
