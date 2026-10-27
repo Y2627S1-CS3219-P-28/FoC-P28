@@ -86,12 +86,10 @@ gc iam service-accounts add-iam-policy-binding "$push_service_account" \
   --member "serviceAccount:$pubsub_service_agent" \
   --role roles/iam.serviceAccountTokenCreator >/dev/null
 
-exists gc run services describe "credit-service-$environment" --region "$REGION" || {
-  echo "Deploy credit-service-$environment before configuring its push subscriptions." >&2
-  exit 1
-}
-gc run services add-iam-policy-binding "credit-service-$environment" --region "$REGION" \
-  --member "serviceAccount:$push_service_account" --role roles/run.invoker >/dev/null
+if exists gc run services describe "credit-service-$environment" --region "$REGION"; then
+  gc run services add-iam-policy-binding "credit-service-$environment" --region "$REGION" \
+    --member "serviceAccount:$push_service_account" --role roles/run.invoker >/dev/null
+fi
 
 exists gc pubsub topics describe "$dead_letter_topic" ||
   gc pubsub topics create "$dead_letter_topic" \

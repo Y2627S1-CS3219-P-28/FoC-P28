@@ -169,6 +169,7 @@ services:
     environment:
       <<: [*backend-env, *firestore-env]
       FIRESTORE_DATABASE_ID: supplier-local
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
       # Roles come from the User Service. Reads don't need it, so there is deliberately no
       # startup dependency on it; set SUPPLIER_USER_SERVICE_MODE=mock to use MOCK_ADMIN_EMAILS.
       USER_SERVICE_MODE: ${SUPPLIER_USER_SERVICE_MODE:-http}
@@ -206,6 +207,7 @@ services:
       CREDIT_COMPENSATION_SUBSCRIPTION: credit-command-compensation-local-v1
       CREDIT_COMPENSATION_RESULT_TOPIC: credit-command-compensation-result-local-v1
       CREDIT_MESSAGING_MODE: emulator
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
       CREDIT_PUBLISH_TIMEOUT: 10s
       CREDIT_RESULT_OUTBOX_BATCH_SIZE: 50
       CREDIT_RESULT_OUTBOX_RECOVERY_CRON: "0 * * * * *"
@@ -244,6 +246,7 @@ services:
       <<: [*backend-env, *order-pubsub-topics]
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
       ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-false}
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
       CREDIT_SERVICE_URL: ${CREDIT_SERVICE_URL:-http://credit-service:8080}
       SPRING_PROFILES_ACTIVE: prod
@@ -304,6 +307,8 @@ services:
       CREDIT_SERVICE_URL: http://credit-service:8080
       ORDER_COMMANDS_ENABLED: ${ORDER_COMMANDS_ENABLED:-true}
       ORDER_COMMAND_RECOVERY_POLICY: ${ORDER_COMMAND_RECOVERY_POLICY:-retry}
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
+      ORDER_AUTO_REPOST_ENABLED: ${ORDER_AUTO_REPOST_ENABLED:-false}
       ORDER_COMPENSATION_ENABLED: ${ORDER_COMPENSATION_ENABLED:-false}
       ORDER_COMPENSATION_REQUEST_TOPIC: credit-command-compensation-local-v1
       ORDER_COMPENSATION_RESULT_SUBSCRIPTION: order-credit-compensation-result-local-v1

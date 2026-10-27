@@ -46,6 +46,19 @@ server {
     }
 
     # ---- Backend services (one block per service) -------------------------
+    # Network-trusted service APIs are NEVER routed from a browser, with or without JWT.
+    location ^~ /api/users/internal/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/suppliers/internal/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/orders/internal/users/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
     location /api/users {
         set $upstream ${USER_SERVICE_URL};
         include /etc/nginx/snippets/proxy.conf;
