@@ -11,7 +11,6 @@ import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CheckCircle2Icon, LoaderCircleIcon, XIcon } from "lucide-react"
 
-import { RequireAuth } from "@/components/require-auth"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,7 +29,7 @@ const TYPES = new Set(["image/jpeg", "image/png", "image/webp"])
 
 type Preview = { file: File; url: string }
 
-export function ReportForm({ initialCategory, initialOrderId }: { initialCategory: ReportCategory; initialOrderId?: string }) {
+export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { initialCategory: ReportCategory; initialOrderId?: string; onSubmitted?: (report: ReportResponse) => void }) {
   const api = useApi()
   const inputRef = useRef<HTMLInputElement>(null)
   const photosRef = useRef<Preview[]>([])
@@ -38,14 +37,16 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
   const [description, setDescription] = useState("")
   const [orderId, setOrderId] = useState("")
   const [orders, setOrders] = useState<Order[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState("")
   const [photos, setPhotos] = useState<Preview[]>([])
   const [formError, setFormError] = useState("")
   const [successId, setSuccessId] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const required = reportCategoryRequiresOrder(category)
 
   useEffect(() => {
+    if (!required) return
     const controller = new AbortController()
     async function loadAll() {
       setOrdersLoading(true)
@@ -55,29 +56,30 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
         let page = 1
         let totalPages = 1
         do {
-          const response = await api<AssociatedOrderPage>(`/api/orders/mine/associated?page=${page}&size=100`, { signal: controller.signal })
+          const response = await api<AssociatedOrderPage>(`/api/orders/mine/active?page=${page}&size=100`, { signal: controller.signal })
           collected.push(...response.items)
           totalPages = response.totalPages
           page += 1
         } while (page <= totalPages)
         setOrders(collected)
-        if (initialOrderId && collected.some(order => order.id === initialOrderId)) setOrderId(initialOrderId)
+        if (initialOrderId && collected.some(order => order.id === initialOrderId
+          && (initialCategory !== "COURIER" || !!order.courierId))) setOrderId(initialOrderId)
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setOrdersError("Your associated orders could not be loaded. Try again shortly.")
+        if (!(error instanceof DOMException && error.name === "AbortError")) setOrdersError("Your active orders could not be loaded. Try again shortly.")
       } finally {
         setOrdersLoading(false)
       }
     }
     void loadAll()
     return () => controller.abort()
-  }, [api, initialOrderId])
+  }, [api, initialCategory, initialOrderId, required])
 
   useEffect(() => { photosRef.current = photos }, [photos])
   useEffect(() => () => photosRef.current.forEach(photo => URL.revokeObjectURL(photo.url)), [])
 
-  const required = reportCategoryRequiresOrder(category)
+  const selectableOrders = useMemo(() => category === "COURIER" ? orders.filter(order => !!order.courierId) : orders, [category, orders])
   const selectedOrder = useMemo(() => orders.find(order => order.id === orderId), [orders, orderId])
-  const orderItems = useMemo(() => Object.fromEntries(orders.map(order => [order.id, associatedOrderLabel(order)])), [orders])
+  const orderItems = useMemo(() => Object.fromEntries(selectableOrders.map(order => [order.id, associatedOrderLabel(order)])), [selectableOrders])
 
   function addPhotos(files: FileList | null) {
     if (!files) return
@@ -117,6 +119,7 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
       photos.forEach(photo => body.append("photos", photo.file))
       const result = await api<ReportResponse>("/api/reports", { method: "POST", body })
       setSuccessId(result.id)
+      onSubmitted?.(result)
       photos.forEach(photo => URL.revokeObjectURL(photo.url))
       setDescription("")
       setOrderId("")
@@ -128,13 +131,7 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
     }
   }
 
-  return <RequireAuth>
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-      <div className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Report an issue</h1>
-        <p className="text-muted-foreground">Tell the administrators what happened. Photos are stored privately and are only available to administrators.</p>
-      </div>
-
+  return <div className="mx-auto w-full max-w-3xl">
       <Card>
         <CardHeader><CardTitle>Report details</CardTitle><CardDescription>Fields marked required must be completed before submission.</CardDescription></CardHeader>
         <CardContent>
@@ -142,22 +139,29 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="report-category">Category (required)</FieldLabel>
-                <Select items={REPORT_CATEGORIES} value={category} onValueChange={value => { setCategory(value as ReportCategory); setFormError("") }}>
+                <Select items={REPORT_CATEGORIES} value={category} onValueChange={value => {
+                  const next = value as ReportCategory
+                  setCategory(next)
+                  if (!reportCategoryRequiresOrder(next) || (next === "COURIER" && selectedOrder && !selectedOrder.courierId)) setOrderId("")
+                  setFormError("")
+                }}>
                   <SelectTrigger id="report-category" className="w-full" aria-label="Report category"><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(REPORT_CATEGORIES).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
 
-              <Field>
+              {required && <Field>
                 <FieldLabel htmlFor="report-order">Associated order{required ? " (required)" : ""}</FieldLabel>
                 <Select items={orderItems} value={orderId || null} onValueChange={value => setOrderId(value ?? "")} disabled={ordersLoading || !!ordersError}>
                   <SelectTrigger id="report-order" className="w-full" aria-label="Associated order"><SelectValue placeholder={ordersLoading ? "Loading associated orders…" : "Select an order"} /></SelectTrigger>
-                  <SelectContent>{orders.map(order => <SelectItem key={order.id} value={order.id}>{associatedOrderLabel(order)}</SelectItem>)}</SelectContent>
+                  <SelectContent>{selectableOrders.map(order => <SelectItem key={order.id} value={order.id}>{associatedOrderLabel(order)}</SelectItem>)}</SelectContent>
                 </Select>
-                <FieldDescription>Every status is eligible, including completed, cancelled, aborted, and expired orders from the association service.</FieldDescription>
+                <FieldDescription>{category === "COURIER"
+                  ? "Only active orders with an assigned courier can be reported."
+                  : "Only active orders are available. An open order goes directly to administrator review."}</FieldDescription>
                 {ordersError && <FieldError>{ordersError}</FieldError>}
-                {initialOrderId && !ordersLoading && !selectedOrder && <FieldError>The linked order is not available in your associated orders and was not preselected.</FieldError>}
-              </Field>
+                {initialOrderId && !ordersLoading && !selectedOrder && <FieldError>The linked order is not active and was not preselected.</FieldError>}
+              </Field>}
 
               <Field>
                 <FieldLabel htmlFor="report-description">Description (required)</FieldLabel>
@@ -181,12 +185,11 @@ export function ReportForm({ initialCategory, initialOrderId }: { initialCategor
 
             {formError && <Alert variant="destructive"><AlertTitle>Could not submit</AlertTitle><AlertDescription>{formError}</AlertDescription></Alert>}
             {successId && <Alert><CheckCircle2Icon /><AlertTitle>Report submitted</AlertTitle><AlertDescription>Reference: {successId}</AlertDescription></Alert>}
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting || ordersLoading}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={submitting || (required && ordersLoading)}>
               {submitting ? <><LoaderCircleIcon className="animate-spin" />Submitting…</> : "Submit report"}
             </Button>
           </form>
         </CardContent>
       </Card>
     </div>
-  </RequireAuth>
 }

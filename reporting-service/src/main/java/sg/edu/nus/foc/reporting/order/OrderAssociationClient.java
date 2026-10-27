@@ -6,4 +6,9 @@
  * Author review: I reviewed for correctness
  */
 package sg.edu.nus.foc.reporting.order;
-public interface OrderAssociationClient { AssociatedOrder find(String orderId, String bearerToken); }
+
+public interface OrderAssociationClient {
+    AssociatedOrder placeReportHold(String orderId, String reportId, boolean requireAssignedCourier,
+                                    String bearerToken);
+    void releaseReportHold(String orderId, String reportId, String bearerToken);
+}

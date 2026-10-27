@@ -7,14 +7,16 @@
  */
 import type { Metadata } from "next"
 
-import { ReportForm } from "@/components/reporting/report-form"
+import { ReportingHub, type ReportingTab } from "@/components/reporting/reporting-hub"
 import { validReportCategory } from "@/lib/reporting"
 
-export const metadata: Metadata = { title: "Report an issue" }
+export const metadata: Metadata = { title: "Reporting" }
 
 export default async function ReportingPage({ searchParams }: PageProps<"/reporting">) {
   const query = await searchParams
   const category = typeof query.category === "string" ? query.category : undefined
   const orderId = typeof query.orderId === "string" ? query.orderId : undefined
-  return <ReportForm initialCategory={validReportCategory(category)} initialOrderId={orderId} />
+  const requestedTab = typeof query.tab === "string" ? query.tab : undefined
+  const initialTab: ReportingTab = requestedTab === "submitted" || requestedTab === "against-me" ? requestedTab : "create"
+  return <ReportingHub initialTab={initialTab} initialCategory={validReportCategory(category)} initialOrderId={orderId} />
 }

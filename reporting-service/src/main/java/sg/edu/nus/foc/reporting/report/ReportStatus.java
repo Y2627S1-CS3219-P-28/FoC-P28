@@ -7,4 +7,8 @@
  */
 package sg.edu.nus.foc.reporting.report;
 
-public enum ReportStatus { OPEN, RESOLVED }
+public enum ReportStatus {
+    AWAITING_COURIER_RESPONSE,
+    READY_FOR_REVIEW,
+    RESOLVED
+}

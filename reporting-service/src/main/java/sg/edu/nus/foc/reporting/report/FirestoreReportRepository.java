@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
@@ -48,6 +50,27 @@ public class FirestoreReportRepository implements ReportRepository {
                 .map(FirestoreReportRepository::fromDocument)
                 .sorted(Comparator.comparing(Report::createdAt).reversed())
                 .toList();
+        return page(reports, page, size);
+    }
+
+    @Override
+    public PageResult<Report> findByReporterId(String reporterId, int page, int size) {
+        return filtered(item -> reporterId.equals(item.reporterId()), page, size);
+    }
+
+    @Override
+    public PageResult<Report> findByCourierId(String courierId, int page, int size) {
+        return filtered(item -> courierId.equals(item.courierId()), page, size);
+    }
+
+    private PageResult<Report> filtered(Predicate<Report> predicate, int page, int size) {
+        List<Report> reports = await(firestore.collection(COLLECTION).get()).getDocuments().stream()
+                .map(FirestoreReportRepository::fromDocument).filter(predicate)
+                .sorted(Comparator.comparing(Report::createdAt).reversed()).toList();
+        return page(reports, page, size);
+    }
+
+    private static PageResult<Report> page(List<Report> reports, int page, int size) {
         int start = Math.min((page - 1) * size, reports.size());
         int end = Math.min(start + size, reports.size());
         int pages = reports.isEmpty() ? 0 : (reports.size() + size - 1) / size;
@@ -55,16 +78,16 @@ public class FirestoreReportRepository implements ReportRepository {
     }
 
     @Override
-    public Optional<Report> resolve(String id, Instant resolvedAt) {
+    public Optional<Report> update(String id, UnaryOperator<Report> operation) {
         if (!validId(id)) return Optional.empty();
         return await(firestore.runTransaction(transaction -> {
             var ref = firestore.collection(COLLECTION).document(id);
             DocumentSnapshot snapshot = transaction.get(ref).get();
             if (!snapshot.exists()) return Optional.empty();
             Report current = fromDocument(snapshot);
-            Report resolved = current.resolved(resolvedAt);
-            if (resolved != current) transaction.set(ref, toDocument(resolved));
-            return Optional.of(resolved);
+            Report updated = operation.apply(current);
+            if (!updated.equals(current)) transaction.set(ref, toDocument(updated));
+            return Optional.of(updated);
         }));
     }
 
@@ -79,28 +102,52 @@ public class FirestoreReportRepository implements ReportRepository {
         map.put("orderId", report.orderId()); map.put("courierId", report.courierId());
         map.put("status", report.status().name());
         map.put("createdAt", Timestamp.ofTimeSecondsAndNanos(report.createdAt().getEpochSecond(), report.createdAt().getNano()));
+        map.put("responseDeadlineAt", timestamp(report.responseDeadlineAt()));
+        map.put("courierResponse", report.courierResponse());
+        map.put("respondedAt", timestamp(report.respondedAt()));
         map.put("resolvedAt", report.resolvedAt() == null ? null : Timestamp.ofTimeSecondsAndNanos(report.resolvedAt().getEpochSecond(), report.resolvedAt().getNano()));
         map.put("attachments", attachments);
+        map.put("responseAttachments", report.responseAttachments().stream().map(FirestoreReportRepository::attachmentDocument).toList());
         return map;
+    }
+
+    private static Map<String, Object> attachmentDocument(Attachment item) {
+        return Map.of("id", item.id(), "objectKey", item.objectKey(), "filename", item.filename(),
+                "contentType", item.contentType(), "size", item.size(),
+                "uploadedAt", Timestamp.ofTimeSecondsAndNanos(item.uploadedAt().getEpochSecond(), item.uploadedAt().getNano()));
+    }
+
+    private static Timestamp timestamp(Instant value) {
+        return value == null ? null : Timestamp.ofTimeSecondsAndNanos(value.getEpochSecond(), value.getNano());
     }
 
     @SuppressWarnings("unchecked")
     static Report fromDocument(DocumentSnapshot snapshot) {
+        List<Attachment> attachments = attachments(snapshot.get("attachments"));
+        List<Attachment> responseAttachments = attachments(snapshot.get("responseAttachments"));
+        Timestamp created = snapshot.getTimestamp("createdAt");
+        Timestamp deadline = snapshot.getTimestamp("responseDeadlineAt");
+        Timestamp responded = snapshot.getTimestamp("respondedAt");
+        Timestamp resolved = snapshot.getTimestamp("resolvedAt");
+        String rawStatus = snapshot.getString("status");
+        ReportStatus status = "OPEN".equals(rawStatus) ? ReportStatus.READY_FOR_REVIEW : ReportStatus.valueOf(rawStatus);
+        return new Report(snapshot.getId(), snapshot.getString("reporterId"),
+                ReportCategory.valueOf(snapshot.getString("category")), snapshot.getString("description"),
+                snapshot.getString("orderId"), snapshot.getString("courierId"), status,
+                created.toDate().toInstant(), deadline == null ? null : deadline.toDate().toInstant(),
+                snapshot.getString("courierResponse"), responded == null ? null : responded.toDate().toInstant(),
+                resolved == null ? null : resolved.toDate().toInstant(), attachments, responseAttachments);
+    }
+
+    private static List<Attachment> attachments(Object raw) {
         List<Attachment> attachments = new ArrayList<>();
-        Object raw = snapshot.get("attachments");
         if (raw instanceof List<?> list) for (Object entry : list) if (entry instanceof Map<?, ?> item) {
             Timestamp uploaded = (Timestamp) item.get("uploadedAt");
             attachments.add(new Attachment((String) item.get("id"), (String) item.get("objectKey"),
                     (String) item.get("filename"), (String) item.get("contentType"),
                     ((Number) item.get("size")).longValue(), uploaded.toDate().toInstant()));
         }
-        Timestamp created = snapshot.getTimestamp("createdAt");
-        Timestamp resolved = snapshot.getTimestamp("resolvedAt");
-        return new Report(snapshot.getId(), snapshot.getString("reporterId"),
-                ReportCategory.valueOf(snapshot.getString("category")), snapshot.getString("description"),
-                snapshot.getString("orderId"), snapshot.getString("courierId"),
-                ReportStatus.valueOf(snapshot.getString("status")), created.toDate().toInstant(),
-                resolved == null ? null : resolved.toDate().toInstant(), attachments);
+        return attachments;
     }
 
     static boolean validId(String id) { return id != null && !id.isBlank() && !id.contains("/"); }

@@ -9,10 +9,13 @@ package sg.edu.nus.foc.reporting.report;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 public interface ReportRepository {
     Report save(Report report);
     Optional<Report> findById(String id);
     PageResult<Report> findAll(int page, int size);
-    Optional<Report> resolve(String id, Instant resolvedAt);
+    PageResult<Report> findByReporterId(String reporterId, int page, int size);
+    PageResult<Report> findByCourierId(String courierId, int page, int size);
+    Optional<Report> update(String id, UnaryOperator<Report> operation);
 }

@@ -5,7 +5,6 @@
  * Scope: Generated or updated frontend code for the team-specified report form, order association, navigation, and completion reminder.
  * Author review: I reviewed for correctness
  */
-import type { ReactNode } from "react"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -15,10 +14,9 @@ import type { Order } from "@/lib/orders"
 
 const mocks = vi.hoisted(() => ({ api: vi.fn() }))
 vi.mock("@/hooks/use-api", () => ({ useApi: () => mocks.api }))
-vi.mock("@/components/require-auth", () => ({ RequireAuth: ({ children }: { children: ReactNode }) => children }))
 
 const order = (id: string, status: Order["status"]): Order => ({
-  id, requesterId: "user", courierId: status === "ABORTED" ? "user" : null,
+  id, requesterId: "user", courierId: status === "OPEN" ? null : "courier",
   itemDescription: `Order ${id}`, pickupSupplierId: "a", deliverySupplierId: "b", offeredCredits: 2,
   status, createdAt: "2026-10-12T00:00:00Z", expiresAt: "2026-10-12T01:00:00Z",
   deliveryTimeLimitMinutes: 30, version: 0, originalOrderId: null, repostedOrderId: null,
@@ -32,26 +30,27 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe("report form", () => {
-  it("follows every association page, renders all statuses, and applies only a valid prefill", async () => {
+  it("uses only the active-order endpoint, follows its pages, and applies a valid prefill", async () => {
     mocks.api.mockImplementation((path: string) => path.includes("page=1")
-      ? Promise.resolve({ items: [order("completed", "COMPLETED"), order("aborted", "ABORTED")], page: 1, size: 100, totalItems: 4, totalPages: 2 })
-      : Promise.resolve({ items: [order("cancelled", "CANCELLED"), order("expired", "EXPIRED")], page: 2, size: 100, totalItems: 4, totalPages: 2 }))
-    render(<ReportForm initialCategory="ORDER" initialOrderId="cancelled" />)
-    await waitFor(() => expect(mocks.api).toHaveBeenCalledWith("/api/orders/mine/associated?page=2&size=100", expect.anything()))
+      ? Promise.resolve({ items: [order("open", "OPEN"), order("progress", "IN_PROGRESS")], page: 1, size: 100, totalItems: 3, totalPages: 2 })
+      : Promise.resolve({ items: [order("delivered", "DELIVERED")], page: 2, size: 100, totalItems: 3, totalPages: 2 }))
+    render(<ReportForm initialCategory="ORDER" initialOrderId="delivered" />)
+    await waitFor(() => expect(mocks.api).toHaveBeenCalledWith("/api/orders/mine/active?page=2&size=100", expect.anything()))
+    expect(mocks.api.mock.calls.every(([path]) => !String(path).includes("associated"))).toBe(true)
     expect(screen.queryByText("Private report")).not.toBeInTheDocument()
     expect(screen.getByText("Category (required)")).toBeInTheDocument()
     expect(screen.getByText("Associated order (required)")).toBeInTheDocument()
     expect(screen.getByText("Description (required)")).toBeInTheDocument()
     expect(screen.getByText("Photos")).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "Associated order" })).toHaveTextContent(/CANCELLED/)
+    expect(screen.getByRole("combobox", { name: "Associated order" })).toHaveTextContent(/DELIVERED/)
     fireEvent.click(screen.getByRole("combobox", { name: "Associated order" }))
-    expect(await screen.findByRole("option", { name: /COMPLETED/ })).toBeInTheDocument()
-    expect(screen.getByRole("option", { name: /CANCELLED/ })).toBeInTheDocument()
-    expect(screen.getByRole("option", { name: /ABORTED/ })).toBeInTheDocument()
-    expect(screen.getByRole("option", { name: /EXPIRED/ })).toBeInTheDocument()
+    expect(await screen.findByRole("option", { name: /OPEN/ })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /IN PROGRESS/ })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /DELIVERED/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /COMPLETED/ })).not.toBeInTheDocument()
   })
 
-  it("requires an order for ORDER and COURIER but submits optional CREDITS without one as FormData", async () => {
+  it("requires an order for ORDER and COURIER but submits unlinked CREDITS as FormData", async () => {
     mocks.api.mockImplementation((path: string) => path.startsWith("/api/orders")
       ? Promise.resolve({ items: [], page: 1, size: 100, totalItems: 0, totalPages: 0 })
       : Promise.resolve({ id: "report-1" }))
@@ -65,8 +64,7 @@ describe("report form", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Report category" }))
     fireEvent.pointerDown(await screen.findByRole("option", { name: "Credits" }), { pointerType: "mouse" })
     fireEvent.click(screen.getByRole("option", { name: "Credits" }))
-    expect(screen.getByText("Associated order")).toBeInTheDocument()
-    expect(screen.queryByText("Associated order (optional)")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Associated order")).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Submit report" }))
     await waitFor(() => expect(mocks.api.mock.calls.some(([path]) => path === "/api/reports")).toBe(true))
     const options = mocks.api.mock.calls.find(([path]) => path === "/api/reports")?.[1]
@@ -74,15 +72,23 @@ describe("report form", () => {
     expect((options.body as FormData).getAll("photos")).toHaveLength(0)
   })
 
+  it("does not offer an active order without an assigned courier for a COURIER report", async () => {
+    mocks.api.mockResolvedValue({ items: [order("open", "OPEN"), order("accepted", "ACCEPTED")], page: 1, size: 100, totalItems: 2, totalPages: 1 })
+    render(<ReportForm initialCategory="COURIER" />)
+    await waitFor(() => expect(mocks.api).toHaveBeenCalledWith("/api/orders/mine/active?page=1&size=100", expect.anything()))
+    fireEvent.click(screen.getByRole("combobox", { name: "Associated order" }))
+    expect(await screen.findByRole("option", { name: /ACCEPTED/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /OPEN/ })).not.toBeInTheDocument()
+  })
+
   it("previews and removes valid photos, rejects invalid files, and keeps contents for retry", async () => {
     let attempts = 0
-    mocks.api.mockImplementation((path: string) => {
-      if (path.startsWith("/api/orders")) return Promise.resolve({ items: [], page: 1, size: 100, totalItems: 0, totalPages: 0 })
+    mocks.api.mockImplementation(() => {
       attempts += 1
       return attempts === 1 ? Promise.reject(new ApiError(503, "SERVICE_UNAVAILABLE", "Storage is unavailable.")) : Promise.resolve({ id: "report-2" })
     })
     render(<ReportForm initialCategory="GENERAL" />)
-    await waitFor(() => expect(mocks.api).toHaveBeenCalled())
+    expect(mocks.api).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText("Description (required)"), { target: { value: "Keep this description" } })
     const photos = screen.getByLabelText("Photos")
     fireEvent.change(photos, { target: { files: [new File([new Uint8Array([1])], "bad.gif", { type: "image/gif" })] } })
@@ -102,9 +108,9 @@ describe("report form", () => {
   })
 
   it("does not accept a prefilled order absent from the authoritative response", async () => {
-    mocks.api.mockResolvedValue({ items: [order("other", "EXPIRED")], page: 1, size: 100, totalItems: 1, totalPages: 1 })
+    mocks.api.mockResolvedValue({ items: [order("other", "OPEN")], page: 1, size: 100, totalItems: 1, totalPages: 1 })
     render(<ReportForm initialCategory="ORDER" initialOrderId="unrelated" />)
-    expect(await screen.findByText(/linked order is not available/)).toBeInTheDocument()
+    expect(await screen.findByText(/linked order is not active/)).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Associated order" })).not.toHaveTextContent("unrelated")
   })
 
@@ -114,7 +120,7 @@ describe("report form", () => {
     mocks.api.mockImplementation((path: string) => path.startsWith("/api/orders")
       ? Promise.resolve({ items: [], page: 1, size: 100, totalItems: 0, totalPages: 0 }) : pending)
     render(<ReportForm initialCategory="GENERAL" />)
-    await waitFor(() => expect(mocks.api).toHaveBeenCalled())
+    expect(mocks.api).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText("Description (required)"), { target: { value: "One report only" } })
     const submit = screen.getByRole("button", { name: "Submit report" })
     fireEvent.click(submit); fireEvent.click(submit)

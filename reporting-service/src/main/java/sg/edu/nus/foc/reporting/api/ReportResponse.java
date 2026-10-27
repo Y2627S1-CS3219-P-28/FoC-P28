@@ -15,9 +15,13 @@ import sg.edu.nus.foc.reporting.report.ReportStatus;
 
 public record ReportResponse(String id, String reporterId, ReportCategory category, String description,
                              String orderId, String courierId, ReportStatus status, Instant createdAt,
-                             Instant resolvedAt, List<AttachmentResponse> attachments) {
+                             Instant responseDeadlineAt, String courierResponse, Instant respondedAt,
+                             Instant resolvedAt, List<AttachmentResponse> attachments,
+                             List<AttachmentResponse> responseAttachments) {
     public static ReportResponse from(Report report) {
         return new ReportResponse(report.id(), report.reporterId(), report.category(), report.description(), report.orderId(), report.courierId(),
-                report.status(), report.createdAt(), report.resolvedAt(), report.attachments().stream().map(AttachmentResponse::from).toList());
+                report.status(), report.createdAt(), report.responseDeadlineAt(), report.courierResponse(),
+                report.respondedAt(), report.resolvedAt(), report.attachments().stream().map(AttachmentResponse::from).toList(),
+                report.responseAttachments().stream().map(AttachmentResponse::from).toList());
     }
 }

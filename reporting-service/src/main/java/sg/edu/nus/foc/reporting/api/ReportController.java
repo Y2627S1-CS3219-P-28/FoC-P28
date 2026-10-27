@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -37,8 +38,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import sg.edu.nus.foc.reporting.error.BadRequestException;
+import sg.edu.nus.foc.reporting.error.ForbiddenException;
 import sg.edu.nus.foc.reporting.report.ReportService;
 import sg.edu.nus.foc.reporting.report.ReportStatus;
+import sg.edu.nus.foc.reporting.security.CallerRoles;
 
 @Validated
 @RestController
@@ -46,12 +49,17 @@ import sg.edu.nus.foc.reporting.report.ReportStatus;
 @SecurityRequirement(name = "bearerAuth")
 public class ReportController {
     private final ReportService reports;
-    public ReportController(ReportService reports) { this.reports = reports; }
+    private final CallerRoles callerRoles;
+    public ReportController(ReportService reports, CallerRoles callerRoles) {
+        this.reports = reports;
+        this.callerRoles = callerRoles;
+    }
 
     @Operation(summary = "Submit a report with up to five photos")
     @ApiResponse(responseCode = "201", description = "Report created")
     @ApiResponse(responseCode = "400", description = "Invalid report or photos")
     @ApiResponse(responseCode = "404", description = "Order association unavailable")
+    @ApiResponse(responseCode = "409", description = "Required courier missing or report hold conflicts")
     @ApiResponse(responseCode = "503", description = "Order or storage dependency unavailable")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<ReportResponse> create(@Valid @RequestPart("report") CreateReportRequest request,
@@ -67,31 +75,88 @@ public class ReportController {
     @PreAuthorize("@callerRoles.isAdmin(authentication)")
     @GetMapping
     PageResponse<ReportResponse> list(@Parameter(description = "1-based page") @RequestParam(defaultValue = "1") @Min(1) int page,
-                                      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+                                      @Parameter(description = "Items per page, up to 100") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         var result = reports.list(page, size);
         return new PageResponse<>(result.items().stream().map(ReportResponse::from).toList(), result.page(), result.size(), result.totalItems(), result.totalPages());
+    }
+
+    @Operation(summary = "List reports submitted by or made against the caller")
+    @ApiResponse(responseCode = "200", description = "Caller-scoped reports page")
+    @ApiResponse(responseCode = "400", description = "Invalid view or pagination")
+    @GetMapping("/mine")
+    PageResponse<ReportResponse> mine(
+            @Parameter(description = "submitted or against-me") @RequestParam String view,
+            @Parameter(description = "1-based page") @RequestParam(defaultValue = "1") @Min(1) int page,
+            @Parameter(description = "Items per page, up to 100") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @AuthenticationPrincipal Jwt jwt) {
+        var result = reports.listMine(jwt.getSubject(), view, page, size);
+        return new PageResponse<>(result.items().stream().map(ReportResponse::from).toList(), result.page(),
+                result.size(), result.totalItems(), result.totalPages());
+    }
+
+    @Operation(summary = "View a report as a participant or administrator")
+    @ApiResponse(responseCode = "200", description = "Authorized report details")
+    @ApiResponse(responseCode = "403", description = "Caller is not a participant or administrator")
+    @ApiResponse(responseCode = "404", description = "Report not found")
+    @GetMapping("/{id}")
+    ReportResponse detail(@PathVariable String id, @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
+        try {
+            return ReportResponse.from(reports.detail(id, jwt.getSubject(), false));
+        } catch (ForbiddenException denied) {
+            if (!callerRoles.isAdmin(authentication)) throw denied;
+            return ReportResponse.from(reports.detail(id, jwt.getSubject(), true));
+        }
     }
 
     @Operation(summary = "Download a report attachment")
     @ApiResponse(responseCode = "200", description = "Private attachment bytes", content = @Content(schema = @Schema(type = "string", format = "binary")))
     @ApiResponse(responseCode = "404", description = "Report or attachment not found")
-    @PreAuthorize("@callerRoles.isAdmin(authentication)")
     @GetMapping("/{reportId}/attachments/{attachmentId}")
-    ResponseEntity<byte[]> attachment(@PathVariable String reportId, @PathVariable String attachmentId) {
-        var download = reports.attachment(reportId, attachmentId);
+    ResponseEntity<byte[]> attachment(@PathVariable String reportId, @PathVariable String attachmentId,
+                                      @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
+        var download = participantAttachment(reportId, attachmentId, jwt.getSubject(), authentication);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore().cachePrivate())
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(download.metadata().filename()).build().toString())
                 .contentType(MediaType.parseMediaType(download.metadata().contentType())).contentLength(download.bytes().length).body(download.bytes());
     }
 
+    private ReportService.AttachmentDownload participantAttachment(String reportId, String attachmentId,
+                                                                   String callerId, Authentication authentication) {
+        try {
+            return reports.attachment(reportId, attachmentId, callerId, false);
+        } catch (ForbiddenException denied) {
+            if (!callerRoles.isAdmin(authentication)) throw denied;
+            return reports.attachment(reportId, attachmentId, callerId, true);
+        }
+    }
+
+
+    @Operation(summary = "Submit the reported courier's response")
+    @ApiResponse(responseCode = "200", description = "Courier response saved and report ready for review")
+    @ApiResponse(responseCode = "400", description = "Invalid response or photos")
+    @ApiResponse(responseCode = "403", description = "Caller is not the reported courier")
+    @ApiResponse(responseCode = "404", description = "Report not found")
+    @ApiResponse(responseCode = "409", description = "Response already submitted or deadline passed")
+    @PostMapping(value = "/{id}/response", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ReportResponse respond(@PathVariable String id,
+                           @Valid @RequestPart("response") CreateReportResponseRequest request,
+                           @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
+                           @AuthenticationPrincipal Jwt jwt) {
+        return ReportResponse.from(reports.respond(id, jwt.getSubject(), request.explanation(), photos));
+    }
+
     @Operation(summary = "Resolve a report")
     @ApiResponse(responseCode = "200", description = "Resolved report")
     @ApiResponse(responseCode = "404", description = "Report not found")
+    @ApiResponse(responseCode = "409", description = "Report is still awaiting a courier response")
+    @ApiResponse(responseCode = "503", description = "Order Service could not release the report hold")
     @PreAuthorize("@callerRoles.isAdmin(authentication)")
     @PatchMapping("/{id}/status")
-    ReportResponse resolve(@PathVariable String id, @Valid @org.springframework.web.bind.annotation.RequestBody UpdateReportStatusRequest request) {
+    ReportResponse resolve(@PathVariable String id,
+                           @Valid @org.springframework.web.bind.annotation.RequestBody UpdateReportStatusRequest request,
+                           @AuthenticationPrincipal Jwt jwt) {
         if (request.status() != ReportStatus.RESOLVED) throw new BadRequestException("Status must be RESOLVED.", "status");
-        return ReportResponse.from(reports.resolve(id));
+        return ReportResponse.from(reports.resolve(id, "Bearer " + jwt.getTokenValue()));
     }
 }

@@ -42,6 +42,8 @@ class GlobalExceptionHandlerTest {
     @Test void mapsMissingResourcesAndDependenciesWithoutLeakingInternals() {
         var missing = handler.notFound(new NotFoundException("Report not found."), request);
         assertEquals(404, missing.getBody().status()); assertEquals("/api/reports", missing.getBody().path());
+        assertEquals("CONFLICT", handler.conflict(new ConflictException("closed"), request).getBody().error());
+        assertEquals("FORBIDDEN", handler.forbidden(new ForbiddenException("participant only"), request).getBody().error());
         var unavailable = handler.unavailable(new DependencyUnavailableException("Storage unavailable", new RuntimeException("secret")), request);
         assertEquals(503, unavailable.getBody().status()); assertFalse(unavailable.getBody().message().contains("secret"));
         assertEquals(403, handler.forbidden(new AccessDeniedException("no"), request).getBody().status());

@@ -6,4 +6,6 @@
  * Author review: I reviewed for correctness
  */
 package sg.edu.nus.foc.reporting.order;
-public record AssociatedOrder(String id, String courierId) { }
+
+public record AssociatedOrder(String id, String requesterId, String courierId, String status,
+                              String reportId, boolean isCompletionHold) { }

@@ -15,14 +15,17 @@ See [HANDOFF.md](HANDOFF.md) for the complete implementation summary, API payloa
 ## API
 
 - `POST /api/reports` — authenticated multipart submission (`report` JSON plus zero to five `photos`).
+- `GET /api/reports/mine?view=submitted|against-me&page=1&size=20` — caller-scoped history.
+- `GET /api/reports/{id}` — details for the reporter, reported courier, or an administrator.
+- `POST /api/reports/{id}/response` — one multipart courier response within 24 hours.
 - `GET /api/reports?page=1&size=20` — admin-only, newest first.
-- `GET /api/reports/{reportId}/attachments/{attachmentId}` — admin-only private image stream.
-- `PATCH /api/reports/{id}/status` — admin-only idempotent resolution.
+- `GET /api/reports/{reportId}/attachments/{attachmentId}` — participant/admin private image stream.
+- `PATCH /api/reports/{id}/status` — admin-only resolution after the response window closes or a response arrives.
 - Swagger UI: `/api/reports/docs`; OpenAPI JSON: `/api/reports/v3/api-docs`.
 
-`ORDER` and `COURIER` submissions require an order; `CREDITS` and `GENERAL` may include one. Association is validated only with `GET /api/orders/mine/associated/{orderId}` using the caller's bearer token. The service intentionally performs no lifecycle filtering and no client-ID ownership comparison.
+`ORDER` and `COURIER` submissions require an active order. `CREDITS` and `GENERAL` reject `orderId`. Reporting generates the report ID first, then uses the atomic Order Service hold operation documented in `HANDOFF.md`; it never fetches an order and validates it separately. Assigned couriers have one 24-hour response opportunity. Legacy persisted `OPEN` reports are read as `READY_FOR_REVIEW`.
 
-`REPORTING-ORDER-001` is a blocking Order Service dependency. Reporting integration is not complete until those endpoints are on `main` and this branch is rebased onto them.
+`REPORTING-ORDER-001` is a blocking Order Service dependency. The required active-order list and atomic validate-and-hold APIs are documented in [HANDOFF.md](HANDOFF.md). Reporting integration is not complete until both are secured, documented in Order Service OpenAPI, contract-tested, and merged.
 
 ## Configuration
 

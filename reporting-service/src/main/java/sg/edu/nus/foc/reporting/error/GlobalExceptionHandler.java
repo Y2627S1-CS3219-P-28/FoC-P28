@@ -53,13 +53,21 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiError> notFound(NotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(404).body(body(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), request));
     }
+    @ExceptionHandler(ConflictException.class)
+    ResponseEntity<ApiError> conflict(ConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(409).body(body(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), request));
+    }
+    @ExceptionHandler(ForbiddenException.class)
+    ResponseEntity<ApiError> forbidden(ForbiddenException ex, HttpServletRequest request) {
+        return ResponseEntity.status(403).body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.getMessage(), request));
+    }
     @ExceptionHandler(DependencyUnavailableException.class)
     ResponseEntity<ApiError> unavailable(DependencyUnavailableException ex, HttpServletRequest request) {
         return ResponseEntity.status(503).body(body(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", ex.getMessage(), request));
     }
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ApiError> forbidden(AccessDeniedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(403).body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only administrators can access this resource.", request));
+        return ResponseEntity.status(403).body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not have permission to access this resource.", request));
     }
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<ApiError> method(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {

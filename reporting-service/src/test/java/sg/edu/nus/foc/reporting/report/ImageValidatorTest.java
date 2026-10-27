@@ -34,12 +34,24 @@ class ImageValidatorTest {
         assertThrows(BadRequestException.class, () -> validator.validate(List.of(new MockMultipartFile("photos", "x.png", "image/png", new byte[]{1, 2, 3}))));
     }
 
-    @Test void validatesAllSupportedSignaturesAndFallbackNames() {
+    @Test void validatesAllSupportedSignaturesAndFallbackNames() throws Exception {
         byte[] jpeg = {(byte) 0xff, (byte) 0xd8, (byte) 0xff};
         byte[] webp = "RIFFxxxxWEBP".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         assertEquals("photo.jpg", validator.validate(List.of(new MockMultipartFile("photos", "..", "image/jpeg", jpeg))).getFirst().filename());
         assertEquals("photo.webp", validator.validate(List.of(new MockMultipartFile("photos", null, "image/webp", webp))).getFirst().filename());
         assertFalse(ImageValidator.matches("image/other", jpeg));
+        assertEquals("photo.png", ImageValidator.sanitize(".", "image/png"));
+        assertEquals(100, ImageValidator.sanitize("x".repeat(101), "image/jpeg").length());
+
+        assertFalse(ImageValidator.matches("image/jpeg", new byte[]{0, (byte) 0xd8, (byte) 0xff}));
+        assertFalse(ImageValidator.matches("image/jpeg", new byte[]{(byte) 0xff, 0, (byte) 0xff}));
+        assertFalse(ImageValidator.matches("image/jpeg", new byte[]{(byte) 0xff, (byte) 0xd8, 0}));
+        byte[] invalidPng = png("x").getBytes();
+        invalidPng[4] = 0;
+        assertFalse(ImageValidator.matches("image/png", invalidPng));
+        assertFalse(ImageValidator.matches("image/webp", "RIFF".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+        assertFalse(ImageValidator.matches("image/webp", "NOPExxxxWEBP".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+        assertFalse(ImageValidator.matches("image/webp", "RIFFxxxxNOPE".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
     }
 
     private static MockMultipartFile png(String name) {
