@@ -50,6 +50,7 @@ x-order-pubsub-topics: &order-pubsub-topics
   ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
   ORDER_COURIER_PENALTY_ADDITION_TOPIC: courier-penalty-addition-local-v1
   ORDER_COURIER_PENALTY_DEDUCTION_TOPIC: courier-penalty-deduction-local-v1
+  ORDER_CREDIT_COMPENSATION_TOPIC: credit-command-compensation-local-v1
   USER_CREATED_TOPIC: user-created-local-v1
 
 services:
@@ -202,6 +203,12 @@ services:
       CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-credit-push-local@demo-foc.iam.gserviceaccount.com
       CREDIT_ORDER_COMPLETION_SUBSCRIPTION: credit-order-completion-local-v1
       CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: credit-open-order-refund-local-v1
+      CREDIT_COMPENSATION_SUBSCRIPTION: credit-command-compensation-local-v1
+      CREDIT_COMPENSATION_RESULT_TOPIC: credit-command-compensation-result-local-v1
+      CREDIT_MESSAGING_MODE: emulator
+      CREDIT_PUBLISH_TIMEOUT: 10s
+      CREDIT_RESULT_OUTBOX_BATCH_SIZE: 50
+      CREDIT_RESULT_OUTBOX_RECOVERY_CRON: "0 * * * * *"
     depends_on:
       <<: *backend-depends
       credit-postgres:

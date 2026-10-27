@@ -188,7 +188,7 @@ fi
 
 echo "Order Service Pub/Sub topics"
 for env in "${environments[@]}"; do
-  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_COURIER_PENALTY_ADDITION_TOPIC ORDER_COURIER_PENALTY_DEDUCTION_TOPIC; do
+  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_COURIER_PENALTY_ADDITION_TOPIC ORDER_COURIER_PENALTY_DEDUCTION_TOPIC ORDER_CREDIT_COMPENSATION_TOPIC; do
     topic=$(environment_value "$env" "$key")
     if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
       problem "order-service: Pub/Sub topic '$topic' ($env) does not exist"
@@ -237,6 +237,17 @@ for env in "${environments[@]}"; do
   dlq_topic=$(credit_dlq_topic "$env")
   dlq_subscription=$(credit_dlq_subscription "$env")
   pubsub_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+  result_topic=$(environment_value "$env" CREDIT_COMPENSATION_RESULT_TOPIC)
+
+  if ! gcloud pubsub topics describe "$result_topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "credit-service: compensation result topic '$result_topic' does not exist"
+  elif gcloud pubsub topics get-iam-policy "$result_topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$(runtime_sa credit-service)" \
+        '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+    ok "credit-service: may publish compensation results to '$result_topic'"
+  else
+    problem "credit-service: $(runtime_sa credit-service) cannot publish to '$result_topic'"
+  fi
 
   if gcloud iam service-accounts describe "$push_sa" --project "$PROJECT_ID" >/dev/null 2>&1; then
     ok "credit-service: Pub/Sub push identity '$push_sa'"
@@ -262,14 +273,17 @@ for env in "${environments[@]}"; do
   topics=(
     "$(environment_value "$env" ORDER_OPEN_REFUND_TOPIC)"
     "$(environment_value "$env" ORDER_COMPLETION_TOPIC)"
+    "$(environment_value "$env" ORDER_CREDIT_COMPENSATION_TOPIC)"
   )
   subscriptions=(
     "$(environment_value "$env" CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
+    "$(environment_value "$env" CREDIT_COMPENSATION_SUBSCRIPTION)"
   )
   push_paths=(
     "/api/credits/internal/order-events/open-refund"
     "/api/credits/internal/order-events/completion"
+    "/api/credits/internal/command-compensations"
   )
   for index in "${!subscriptions[@]}"; do
     topic=${topics[$index]}

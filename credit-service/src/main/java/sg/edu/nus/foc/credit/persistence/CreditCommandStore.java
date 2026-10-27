@@ -68,9 +68,6 @@ public class CreditCommandStore {
                            long highestGeneration, String resultJson) {
     }
 
-    public record CompensationResult(CreditCommandResult result, boolean reconciliationRequired) {
-    }
-
     private record SavedFailure(String code, String message) {
     }
 
@@ -111,30 +108,36 @@ public class CreditCommandStore {
         if (command.outcome() != CreditCommandOutcome.PENDING) {
             return new CommandMutationResult<>(savedReservation(command), command.toResult(), true);
         }
+        CreditReservationEntity insertedReservation = null;
         try {
             Instant now = clock.instant();
-            CreditAccountEntity account = accounts.findByUserIdForUpdate(command.actorId())
-                    .orElseThrow(() -> new AccountNotFoundException(command.actorId()));
-            if (account.toDomain().usableBalance() < command.amount()) {
-                throw new InsufficientCreditsException(account.toDomain().usableBalance(), command.amount());
-            }
             int created = reservations.insertIfAbsent(command.orderId(), command.actorId(),
-                    command.amount(), command.commandId(), now);
+                    command.amount(), command.commandId(), command.commandId(), now);
             CreditReservationEntity reservation = reservations.findByOrderIdForUpdate(command.orderId())
                     .orElseThrow();
             if (created == 0) {
                 throw new ReservationConflictException(command.orderId());
+            }
+            insertedReservation = reservation;
+            CreditAccountEntity account = accounts.findByUserIdForUpdate(command.actorId())
+                    .orElseThrow(() -> new AccountNotFoundException(command.actorId()));
+            if (account.toDomain().usableBalance() < command.amount()) {
+                throw new InsufficientCreditsException(account.toDomain().usableBalance(), command.amount());
             }
             account.reserve(command.amount(), now);
             ledger.save(CreditLedgerEntity.commandReservation(
                     command.actorId(), command.orderId(), command.commandId(), command.amount(), now));
             ReservationResult result = new ReservationResult(
                     reservation.toDomain(), account.toDomain(), true);
+            command.recordEffect(reservation.mutationRevision());
             command.complete(CreditCommandOutcome.APPLIED, "SUCCEEDED", json(result), now);
             return new CommandMutationResult<>(result, command.toResult(), false);
         } catch (RuntimeException failure) {
             if (!isDefiniteBusinessFailure(failure)) {
                 throw failure;
+            }
+            if (insertedReservation != null) {
+                reservations.delete(insertedReservation);
             }
             reject(command, failure);
             return new CommandMutationResult<>(null, command.toResult(), false);
@@ -151,6 +154,9 @@ public class CreditCommandStore {
         try {
             CreditReservationEntity reservation = lockedReservation(command.orderId());
             requireReserved(reservation, command.orderId());
+            if (reservation.requesterId().equals(command.actorId())) {
+                throw new ForbiddenException("The requester cannot be assigned as courier for the same order.");
+            }
             if (reservation.courierId() != null) {
                 throw new ReservationStateConflictException(command.orderId(),
                         "is already assigned and cannot be proven to belong to this command.");
@@ -160,6 +166,7 @@ public class CreditCommandStore {
             }
             Instant now = clock.instant();
             reservation.assignCourier(command.actorId(), command.commandId(), now);
+            command.recordEffect(reservation.mutationRevision());
             command.complete(CreditCommandOutcome.APPLIED, "SUCCEEDED", null, now);
             return new CommandMutationResult<>(null, command.toResult(), false);
         } catch (RuntimeException failure) {
@@ -186,7 +193,10 @@ public class CreditCommandStore {
                         "Only the assigned courier may reset this credit reservation.");
             }
             Instant now = clock.instant();
-            reservation.clearCourier(now);
+            command.recordClearPreimage(reservation.courierId(),
+                    reservation.courierAssignmentIdentity(), reservation.mutationRevision());
+            reservation.clearCourier(command.commandId(), now);
+            command.recordEffect(reservation.mutationRevision());
             command.complete(CreditCommandOutcome.APPLIED, "SUCCEEDED", null, now);
             return new CommandMutationResult<>(null, command.toResult(), false);
         } catch (RuntimeException failure) {
@@ -196,69 +206,6 @@ public class CreditCommandStore {
             reject(command, failure);
             return new CommandMutationResult<>(null, command.toResult(), false);
         }
-    }
-
-    @Transactional
-    public CompensationResult compensate(String commandId, long generation, String actorId) {
-        CreditCommandRecordEntity command = lockedCommand(commandId);
-        requireOwner(command, actorId);
-        if (command.outcome() == CreditCommandOutcome.COMPENSATED) {
-            return new CompensationResult(command.toResult(), false);
-        }
-        if (generation < command.highestGeneration()) {
-            throw stale(commandId);
-        }
-        Instant now = clock.instant();
-        if (generation > command.highestGeneration()) {
-            command.advanceGeneration(generation, now);
-        }
-        if (command.outcome() == CreditCommandOutcome.PENDING
-                || command.outcome() == CreditCommandOutcome.REJECTED) {
-            command.complete(CreditCommandOutcome.COMPENSATED, "FENCED_NO_EFFECT", null, now);
-            return new CompensationResult(command.toResult(), false);
-        }
-
-        boolean reversed = switch (command.operation()) {
-            case RESERVE -> reverseReservation(command, now);
-            case ASSIGN_COURIER -> reverseAssignment(command, now);
-            case CLEAR_COURIER -> false;
-        };
-        if (!reversed) {
-            return new CompensationResult(command.toResult(), true);
-        }
-        command.complete(CreditCommandOutcome.COMPENSATED, "REVERSED", null, now);
-        return new CompensationResult(command.toResult(), false);
-    }
-
-    private boolean reverseReservation(CreditCommandRecordEntity command, Instant now) {
-        CreditReservationEntity reservation = reservations.findByOrderIdForUpdate(command.orderId())
-                .orElse(null);
-        if (reservation == null
-                || !command.commandId().equals(reservation.reserveCommandId())
-                || reservation.status() != ReservationStatus.RESERVED
-                || reservation.courierId() != null) {
-            return false;
-        }
-        CreditAccountEntity account = accounts.findByUserIdForUpdate(command.actorId())
-                .orElseThrow(() -> new AccountNotFoundException(command.actorId()));
-        account.release(reservation.amount(), now);
-        reservation.refund(now);
-        ledger.save(CreditLedgerEntity.commandCompensation(
-                command.actorId(), command.orderId(), command.commandId(), reservation.amount(), now));
-        return true;
-    }
-
-    private boolean reverseAssignment(CreditCommandRecordEntity command, Instant now) {
-        CreditReservationEntity reservation = reservations.findByOrderIdForUpdate(command.orderId())
-                .orElse(null);
-        if (reservation == null
-                || reservation.status() != ReservationStatus.RESERVED
-                || !command.commandId().equals(reservation.courierAssignmentCommandId())
-                || !command.actorId().equals(reservation.courierId())) {
-            return false;
-        }
-        reservation.clearCourier(now);
-        return true;
     }
 
     private CreditCommandRecordEntity lockedForExecution(String commandId, long generation,
@@ -387,7 +334,7 @@ public class CreditCommandStore {
         return new CreditCommandException(code, message, commandId, outcome);
     }
 
-    private static String bindingHash(Binding binding) {
+    static String bindingHash(Binding binding) {
         String canonical = binding.operation().name() + "\n" + binding.actorId() + "\n"
                 + binding.orderId() + "\n" + (binding.amount() == null ? "" : binding.amount());
         try {

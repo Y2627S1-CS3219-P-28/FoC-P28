@@ -38,6 +38,24 @@ interface CreditCommandJpaRepository extends JpaRepository<CreditCommandRecordEn
                        @Param("generation") long generation,
                        @Param("now") Instant now);
 
+    @Modifying
+    @Query(value = """
+            insert into credit_command_records
+                (command_id, operation, actor_id, order_id, amount, payload_hash,
+                 highest_generation, outcome, code, created_at, updated_at, completed_at)
+            values (:commandId, :#{#operation.name()}, :actorId, :orderId, :amount, :payloadHash,
+                    :generation, 'COMPENSATED', 'FENCED_NO_EFFECT', :now, :now, :now)
+            on conflict (command_id) do nothing
+            """, nativeQuery = true)
+    int insertCompensatedIfAbsent(@Param("commandId") String commandId,
+                                  @Param("operation") CreditCommandOperation operation,
+                                  @Param("actorId") String actorId,
+                                  @Param("orderId") String orderId,
+                                  @Param("amount") Long amount,
+                                  @Param("payloadHash") String payloadHash,
+                                  @Param("generation") long generation,
+                                  @Param("now") Instant now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select command from CreditCommandRecordEntity command where command.commandId = :commandId")
     Optional<CreditCommandRecordEntity> findByCommandIdForUpdate(@Param("commandId") String commandId);
