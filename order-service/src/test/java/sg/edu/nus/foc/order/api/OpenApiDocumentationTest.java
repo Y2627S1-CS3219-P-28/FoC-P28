@@ -47,7 +47,7 @@ import tools.jackson.databind.json.JsonMapper;
 @WebMvcTest(controllers = {OrderController.class, AdminOrderController.class,
         OrderCommandController.class, OrderOutboxAdminController.class,
         OrderCompletionHoldController.class, OrderInvolvementController.class, AdminMockController.class,
-        CreditCompensationResultController.class},
+        CreditCompensationResultController.class, UserDeletionEligibilityController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -63,6 +63,7 @@ import tools.jackson.databind.json.JsonMapper;
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
     "order.admin-mock.enabled=true",
     "order.commands.compensation.enabled=true",
+    "FOC_INTERNAL_ORDER_API_ENABLED=true",
     "FOC_ENVIRONMENT=local",
     "order.security.auth.emulator-host=localhost:9099",
     "order.lifecycle-token=test-lifecycle-token"

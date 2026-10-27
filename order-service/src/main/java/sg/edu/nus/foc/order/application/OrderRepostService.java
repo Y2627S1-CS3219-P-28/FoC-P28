@@ -36,6 +36,9 @@ public class OrderRepostService {
     @org.springframework.beans.factory.annotation.Value("${order.commands.recovery-policy:retry}")
     private String recoveryPolicy = "retry";
 
+    @org.springframework.beans.factory.annotation.Value("${order.peers.mode:mock}")
+    private String peersMode = "mock";
+
     @Transactional
     public Order configure(
             String commandId,
@@ -50,6 +53,9 @@ public class OrderRepostService {
 
     @Transactional
     public Order automatic(String commandId, String id, Instant now, String authorization) {
+        if ("http".equals(peersMode)) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Automatic repost requires its durable server-owned command.");
+        }
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "AUTO_REPOST",
                 commandId);
@@ -146,6 +152,21 @@ public class OrderRepostService {
         String fingerprint = CommandReceipt.fingerprint("MANUAL_REPOST", id, actor, version,
                 description, amount, duration, expiresAt);
         return saveRepost("MANUAL_REPOST", commandId, original, repost, now, null, fingerprint);
+    }
+
+    @Transactional
+    public Order automaticConfirmed(String commandId, String id, String candidateId, long version) {
+        Order original = findForUpdate(id);
+        original.requireVersion(version);
+        Instant now = Instant.now();
+        if (!original.eligibleForAutomaticRepost(now)) {
+            throw OrderProblem.conflict("Order is no longer eligible for automatic repost.");
+        }
+        RepostPlan plan = original.getRepostPlan();
+        Order repost = original.createRepostWithId(candidateId, original.getItemDescription(),
+                plan.getCreditAmount(), plan.getDeliveryDurationMinutes(), now, plan.getExpiresAt());
+        return saveRepost("AUTO_REPOST", commandId, original, repost, now, null,
+                CommandReceipt.fingerprint("AUTO_REPOST", id));
     }
 
     private Order saveRepost(

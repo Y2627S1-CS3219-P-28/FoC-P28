@@ -18,6 +18,18 @@ import sg.edu.nus.foc.order.domain.Order;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
+    @Query(value = "select exists(select 1 from orders where status not in ('COMPLETED','CANCELLED','EXPIRED') "
+            + "and (requester_id = :userId or courier_id = :userId))", nativeQuery = true)
+    boolean existsNonTerminalUserInvolvement(@Param("userId") String userId);
+
+    @Query(value = "select o.id from orders o where o.status='EXPIRED' and not o.completion_hold "
+            + "and o.enabled and not o.used and o.due_at<=:now and o.repost_expires_at>:now "
+            + "and o.reposted_order_id is null and not exists "
+            + "(select 1 from order_commands c where c.command_id='AUTO_REPOST:' || o.id) "
+            + "and not exists(select 1 from order_commands c where c.order_id=o.id and c.status='PENDING') "
+            + "order by o.due_at,o.id limit 100", nativeQuery = true)
+    List<String> findDueAutomaticRepostIds(@Param("now") Instant now);
+
     @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
             + "and (requester_id = :userId or courier_id = :userId))", nativeQuery = true)
     boolean existsActiveUserInvolvement(@Param("userId") String userId,

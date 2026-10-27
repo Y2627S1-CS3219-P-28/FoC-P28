@@ -36,6 +36,16 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    public List<String> findDueAutomaticRepostIds(Instant now) {
+        return repository.findDueAutomaticRepostIds(now);
+    }
+
+    @Override
+    public boolean hasNonTerminalUserInvolvement(String userId) {
+        return repository.existsNonTerminalUserInvolvement(userId);
+    }
+
+    @Override
     public boolean hasActiveUserInvolvement(String userId) {
         return repository.existsActiveUserInvolvement(userId, ACTIVE_STATUSES);
     }

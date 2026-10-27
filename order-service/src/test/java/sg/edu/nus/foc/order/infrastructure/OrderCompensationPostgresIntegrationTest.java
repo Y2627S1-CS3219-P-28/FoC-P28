@@ -206,7 +206,10 @@ class OrderCompensationPostgresIntegrationTest {
         var flyway = org.flywaydb.core.Flyway.configure().dataSource(DB.getJdbcUrl(), DB.getUsername(), DB.getPassword())
                 .schemas(schema).defaultSchema(schema).load();
         flyway.migrate();
-        assertEquals("15", flyway.info().current().getVersion().toString());
+        // V16 is additive: upgrading must not delegate legacy user-authorized commands.
+        assertEquals("16", flyway.info().current().getVersion().toString());
+        assertFalse(Boolean.TRUE.equals(jdbc.queryForObject("select automatic_execution from " + schema
+                + ".order_commands where command_id=?", Boolean.class, k)));
         assertEquals("RETRY", jdbc.queryForObject("select recovery_policy from " + schema + ".order_commands where command_id=?", String.class, k));
         // Compensating a never-created Order can still enqueue against its command.
         jdbc.update("insert into " + schema + ".order_event_outbox(event_id,command_id,event_type,event_version,order_version,payload,state,attempt_count,created_at,next_attempt_at) "

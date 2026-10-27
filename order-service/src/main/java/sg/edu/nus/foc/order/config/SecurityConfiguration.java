@@ -49,6 +49,16 @@ public class SecurityConfiguration {
     };
 
     @Bean
+    @org.springframework.core.annotation.Order(0)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "FOC_INTERNAL_ORDER_API_ENABLED", havingValue = "true")
+    SecurityFilterChain internalOrderQueries(HttpSecurity http) throws Exception {
+        return http.securityMatcher("/api/orders/internal/users/*/can-delete")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
+    }
+
+    @Bean
     @Profile("!prod")
     SecurityFilterChain localSecurity(HttpSecurity http) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)

@@ -79,5 +79,6 @@ order:
       courier-penalty-addition: ${ORDER_COURIER_PENALTY_ADDITION_TOPIC:courier-penalty-addition-dev-v1}
       courier-penalty-deduction: ${ORDER_COURIER_PENALTY_DEDUCTION_TOPIC:courier-penalty-deduction-dev-v1}
   lifecycle:
+    automatic-repost-enabled: ${ORDER_AUTO_REPOST_ENABLED:false}
     external-enabled: ${ORDER_LIFECYCLE_EXTERNAL_ENABLED:false}
     cron: ${ORDER_LIFECYCLE_CRON:0 * * * * *}

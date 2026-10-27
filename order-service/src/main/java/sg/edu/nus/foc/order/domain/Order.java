@@ -456,7 +456,7 @@ public class Order {
     }
 
     public boolean eligibleForAutomaticRepost(Instant now) {
-        return status == OrderStatus.EXPIRED && repostedOrderId == null && repostPlan != null
+        return status == OrderStatus.EXPIRED && !completionHold && repostedOrderId == null && repostPlan != null
                 && repostPlan.isEnabled() && repostPlan.isDueAt(now) && !repostPlan.isUsed()
                 && repostPlan.hasFutureExpiry(now);
     }
@@ -478,7 +478,7 @@ public class Order {
         return createRepostWithId(UUID.randomUUID().toString(), description, credits, duration, createdAt, expiresAt);
     }
 
-    private Order createRepostWithId(String candidateId, String description, long credits, int duration,
+    public Order createRepostWithId(String candidateId, String description, long credits, int duration,
             Instant createdAt, Instant expiresAt) {
         if (status != OrderStatus.EXPIRED || repostedOrderId != null) {
             throw OrderProblem.conflict("Order is not eligible for repost.");

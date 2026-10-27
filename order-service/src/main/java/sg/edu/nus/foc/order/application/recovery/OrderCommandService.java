@@ -45,6 +45,7 @@ public class OrderCommandService {
     @Value("${order.commands.compensation.enabled:false}") private boolean compensationTransportEnabled;
     @org.springframework.beans.factory.annotation.Autowired private OrderCompensationWorkflow compensationWorkflow;
     @org.springframework.beans.factory.annotation.Autowired private OrderCompensationJournal compensationJournal;
+    @org.springframework.beans.factory.annotation.Autowired private ObjectProvider<BackgroundRepostChecks> backgroundChecks;
 
     public boolean compensationSelected() { return "compensate".equals(recoveryPolicy); }
     public boolean enabled() {
@@ -84,6 +85,43 @@ public class OrderCommandService {
             });
         }
         return execute(key, authorization, true);
+    }
+
+    /** Called only by the server lifecycle coordinator, never from browser input. */
+    public CommandView submitAutomatic(String originalId, Instant now) {
+        requireEnabled();
+        if (!"mock".equals(mode) && !compensationTransportEnabled) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Automatic repost requires compensation transport.");
+        }
+        String key = "AUTO_REPOST:" + originalId;
+        if (store.find(key).isEmpty()) {
+            Order snapshot = orders.get(originalId).orElseThrow(() -> OrderProblem.notFound("Order not found."));
+            if (!backgroundChecks.getObject().fundingReady(originalId, snapshot.getRequesterId())) {
+                // No forward command exists yet: a later timer may check this read-only prerequisite again.
+                throw new OrderProblem("SERVICE_UNAVAILABLE", "Waiting for the original reservation refund.");
+            }
+        }
+        try (CommandScope ignored = new CommandScope(key)) {
+            tx().executeWithoutResult(tx -> {
+                Order original = orders.getForUpdate(originalId)
+                        .orElseThrow(() -> OrderProblem.notFound("Order not found."));
+                if (store.find(key).isPresent()) {
+                    if (!store.automaticExecution(key)) throw OrderProblem.conflict("Automatic command key is already bound.");
+                    return;
+                }
+                if (!original.eligibleForAutomaticRepost(now)) {
+                    throw OrderProblem.conflict("Order is not eligible for automatic repost.");
+                }
+                RepostPlan plan = original.getRepostPlan();
+                CommandRequest.Creation fields = new CommandRequest.Creation(original.getItemDescription(),
+                        original.getPickupSupplierId(), original.getDeliverySupplierId(), plan.getCreditAmount(),
+                        plan.getDeliveryDurationMinutes(), plan.getExpiresAt(), false, null, 0, 0, null);
+                store.registerAutomatic(key, new CommandRequest("REPOST", original.getRequesterId(),
+                        originalId, original.getVersion(), fields), Math.max(1, resolutionSeconds));
+            });
+        }
+        // Only the first claim may perform the effect. Subsequent claims choose compensation.
+        return executeCompensation(key, null, true);
     }
 
     private CommandRequest frozenRepost(String key, CommandRequest input, Order original) {
@@ -244,11 +282,13 @@ public class OrderCommandService {
         var claim = candidate.get();
         try (CommandScope ignored = new CommandScope(key)) {
             compensationWorkflow.execute(claim, mutation(claim), authorization, () -> {
-                authorize(claim.input(), authorization);
+                boolean automatic = store.automaticExecution(key);
+                if (!automatic) authorize(claim.input(), authorization);
                 tx().executeWithoutResult(tx -> { store.assertOwned(claim); validate(claim); });
                 if ("CREATE".equals(claim.kind()) || "REPOST".equals(claim.kind())) {
                     var fields = claim.input().creation();
-                    suppliers.validatePair(fields.pickup(), fields.delivery(), authorization);
+                    if (automatic) backgroundChecks.getObject().validate(claim.actorId(), fields.pickup(), fields.delivery());
+                    else suppliers.validatePair(fields.pickup(), fields.delivery(), authorization);
                 }
             }, () -> {
                 Order result = finalizeOrder(claim, authorization);
@@ -277,6 +317,14 @@ public class OrderCommandService {
                     throw OrderProblem.forbidden("Only the requester may repost.");
                 }
                 CommandRequest.Creation fields = input.creation();
+                if (store.automaticExecution(claim.key())) {
+                    if (!original.eligibleForAutomaticRepost(Instant.now())) {
+                        throw OrderProblem.conflict("Automatic repost is no longer eligible.");
+                    }
+                    original.createRepostWithId(claim.candidateOrderId(), fields.description(), fields.amount(),
+                            fields.duration(), Instant.now(), fields.expiresAt());
+                    return;
+                }
                 if (fields.expiresAt() != null && !fields.expiresAt().isAfter(Instant.now())) {
                     throw new OrderProblem("REPOST_EXPIRED", "Repost expiry has passed.");
                 }
@@ -302,6 +350,9 @@ public class OrderCommandService {
             case "ACCEPT" -> assignment.acceptConfirmed(claim.key(), claim.orderId(), input.actorId(), input.expectedVersion(), authorization);
             case "ABORT" -> transitions.abortConfirmed(claim.key(), claim.orderId(), input.actorId(), input.expectedVersion(), authorization);
             case "REPOST" -> {
+                if (store.automaticExecution(claim.key())) {
+                    yield reposts.automaticConfirmed(claim.key(), claim.orderId(), claim.candidateOrderId(), input.expectedVersion());
+                }
                 CommandRequest.Creation fields = input.creation();
                 yield reposts.manualConfirmed(claim.key(), claim.orderId(), claim.candidateOrderId(), input.actorId(),
                         input.expectedVersion(), fields.description(), fields.amount(), fields.duration(),
@@ -312,7 +363,8 @@ public class OrderCommandService {
     }
 
     private CreditCommandGateway.Mutation mutation(OrderCommandStore.Entry claim) {
-        return new CreditCommandGateway.Mutation("REPOST".equals(claim.kind()) ? "CREATE" : claim.kind(),
+        return new CreditCommandGateway.Mutation(store.automaticExecution(claim.key()) && "http".equals(mode) ? "AUTO_REPOST"
+                : "REPOST".equals(claim.kind()) ? "CREATE" : claim.kind(),
                 "REPOST".equals(claim.kind()) ? claim.candidateOrderId() : claim.orderId(), claim.actorId(),
                 claim.input().creation() == null ? 0 : claim.input().creation().amount());
     }

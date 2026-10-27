@@ -146,7 +146,7 @@ class OrderControllerCoverageTest {
 
     @Test
     void retainedRepostEndpointValidatesTokenAndReturnsCount() {
-        when(lifecycle.repostDue(any(), eq("Bearer lifecycle-secret"))).thenReturn(1);
+        when(lifecycle.repostDue(any(), isNull())).thenReturn(1);
         assertEquals(Map.of("reposted", 1), controller.automaticRepost("lifecycle-secret"));
         assertThrows(OrderProblem.class, () -> controller.automaticRepost("wrong"));
         assertThrows(OrderProblem.class, () -> controller.automaticRepost(null));

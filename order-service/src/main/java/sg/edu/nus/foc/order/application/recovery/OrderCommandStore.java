@@ -38,6 +38,15 @@ public class OrderCommandStore {
 
     @Transactional
     public Entry register(String key, CommandRequest request, String policy, int resolutionSeconds) {
+        return register(key, request, policy, resolutionSeconds, false);
+    }
+
+    @Transactional
+    public Entry registerAutomatic(String key, CommandRequest request, int resolutionSeconds) {
+        return register(key, request, "COMPENSATE", resolutionSeconds, true);
+    }
+
+    private Entry register(String key, CommandRequest request, String policy, int resolutionSeconds, boolean automatic) {
         if (policy == null || !List.of("RETRY", "COMPENSATE").contains(policy) || resolutionSeconds < 1) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid recovery policy or deadline.");
         }
@@ -46,22 +55,26 @@ public class OrderCommandStore {
                 || (!request.kind().equals("CREATE") && invalidIdentity(request.orderId(), 36))) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid command identity or operation.");
         }
+        // Predictable scheduler keys must not be claimable through a browser command.
+        if (automatic != key.startsWith("AUTO_REPOST:") || automatic && !"REPOST".equals(request.kind())) {
+            throw new OrderProblem("VALIDATION_ERROR", "Automatic repost command keys are reserved for the scheduler.");
+        }
         String payload = json.writeValueAsString(request);
         String target = request.kind().equals("CREATE") ? UUID.randomUUID().toString() : request.orderId();
         String candidate = request.kind().equals("REPOST") ? UUID.randomUUID().toString() : null;
         try {
             jdbc.update("""
                 insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload,
-                  candidate_order_id,recovery_policy,resolution_deadline_at)
-                values (?, ?, ?, ?, ?, ?::jsonb, ?, ?, clock_timestamp()+(? * interval '1 second'))
+                  candidate_order_id,recovery_policy,resolution_deadline_at,automatic_execution)
+                values (?, ?, ?, ?, ?, ?::jsonb, ?, ?, clock_timestamp()+(? * interval '1 second'), ?)
                 on conflict(command_id) do nothing
-                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate, policy, resolutionSeconds);
+                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate, policy, resolutionSeconds, automatic);
         } catch (DuplicateKeyException conflict) {
             throw OrderProblem.conflict("An unresolved request already guards this order.");
         }
         Entry saved = get(key);
         if (!saved.actorId().equals(request.actorId()) || !saved.inputHash().equals(digest(payload))
-                || !policy.equals(recoveryPolicy(key))) {
+                || !policy.equals(recoveryPolicy(key)) || automatic != automaticExecution(key)) {
             throw OrderProblem.conflict("This command key belongs to different request details.");
         }
         return saved;
@@ -84,6 +97,11 @@ public class OrderCommandStore {
 
     public String recoveryPolicy(String key) {
         return jdbc.queryForObject("select recovery_policy from order_commands where command_id=?", String.class, key);
+    }
+
+    public boolean automaticExecution(String key) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "select automatic_execution from order_commands where command_id=?", Boolean.class, key));
     }
 
     @Transactional

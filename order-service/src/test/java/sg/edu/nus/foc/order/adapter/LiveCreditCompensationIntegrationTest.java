@@ -81,6 +81,7 @@ class LiveCreditCompensationIntegrationTest {
             .withEnv("FIREBASE_AUTH_PROJECT_ID", "demo-foc")
             .withEnv("FIREBASE_AUTH_EMULATOR_HOST", "local-fixture:9099")
             .withEnv("FOC_ENVIRONMENT", "local").withEnv("USER_SERVICE_MODE", "mock")
+            .withEnv("FOC_INTERNAL_ORDER_API_ENABLED", "true")
             .withEnv("CREDIT_PUBSUB_PUSH_MODE", "emulator")
             .withEnv("PUBSUB_EMULATOR_HOST", "pubsub-emulator:8085")
             .withEnv("PUBSUB_PROJECT_ID", "demo-foc-local")
@@ -138,16 +139,20 @@ class LiveCreditCompensationIntegrationTest {
     @Autowired OrderOutboxDispatcher dispatcher;
     @Autowired OrderTransitionService transitions;
     @Autowired sg.edu.nus.foc.order.application.OrderLifecycleScheduler lifecycle;
+    @Autowired sg.edu.nus.foc.order.application.LifecycleProcessingService lifecycleProcessing;
     @Autowired JdbcTemplate orderDb;
     @MockitoSpyBean HttpCreditCommandGateway gateway;
     @MockitoSpyBean HttpPeerAdapters peers;
     @MockitoSpyBean OrderCreationService creation;
+    @MockitoSpyBean HttpBackgroundRepostChecks backgroundChecks;
     private static boolean subscriptionsReady;
 
     @BeforeEach void fixturesAndSubscriptions() {
         doAnswer(call -> call.getArgument(0)).when(peers).verifyRequester(anyString(), nullable(String.class));
         doAnswer(call -> call.getArgument(0)).when(peers).verifyCourier(anyString(), nullable(String.class));
         doNothing().when(peers).validatePair(anyString(), anyString(), nullable(String.class));
+        doNothing().when(backgroundChecks).validate(anyString(), anyString(), anyString());
+        // Funding reads still call actual Credit through HTTP, not a fixture.
         assertTrue(commands.enabled(), "Explicit real transport gate must be open for this harness");
         if (!subscriptionsReady) {
             RestClient broker = broker();
@@ -381,6 +386,103 @@ class LiveCreditCompensationIntegrationTest {
         assertEquals("REFUNDED", creditText("select status from credit_reservations where order_id=?", candidate));
         assertNull(orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
         assertEquals(0, orderDb.queryForObject("select count(*) from orders where id=?", Integer.class, candidate));
+    }
+
+    @Test void automaticRepostUsesNoJwtAndCreatesOnlyOneLinkedSuccessor() throws Exception {
+        String actor = account();
+        OrderResponse original = automaticOriginal(actor);
+        CommandView first = commands.submitAutomatic(original.getId(), Instant.now());
+        assertEquals("SUCCESS", first.outcome(), first.message());
+        CommandView duplicate = commands.submitAutomatic(original.getId(), Instant.now());
+        assertEquals(first.commandId(), duplicate.commandId());
+        assertEquals(first.result().getId(), duplicate.result().getId());
+        assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        assertEquals("RESERVED", creditText("select status from credit_reservations where order_id=?", first.result().getId()));
+    }
+
+    @Test void refundDeliveryLagDoesNotRegisterOrAttemptAnAutomaticReservation() {
+        String actor = account();
+        Instant now = Instant.now();
+        CommandRequest.Creation fields = new CommandRequest.Creation("refund lag", "pickup", "delivery", 5, 15,
+                now.plusSeconds(3600), true, now.plusSeconds(3600), 4, 15, now.plusSeconds(7200));
+        OrderResponse original = commands.submit(key(), new CommandRequest("CREATE", actor, null, 0, fields), token(actor)).result();
+        assertNotNull(original);
+        // Model expiry committed while its refund delivery is still outstanding.
+        orderDb.update("update orders set status='EXPIRED', expires_at=clock_timestamp()-interval '2 seconds', "
+                + "due_at=clock_timestamp()-interval '1 second',version=version+1 where id=?", original.getId());
+        OrderProblem waiting = assertThrows(OrderProblem.class,
+                () -> commands.submitAutomatic(original.getId(), Instant.now()));
+        assertEquals("SERVICE_UNAVAILABLE", waiting.getCode());
+        assertTrue(store.find("AUTO_REPOST:" + original.getId()).isEmpty());
+        verify(gateway, never()).execute(eq("AUTO_REPOST:" + original.getId()), any(), anyLong(), any());
+    }
+
+    @Test void minuteSchedulerCreatesOneAutomaticSuccessorAndSkipsAnExpiredHeldOriginal() throws Exception {
+        String actor = account();
+        OrderResponse original = automaticOriginal(actor);
+        OrderResponse held = automaticOriginal(actor);
+        orderDb.update("update orders set completion_hold=true where id=?", held.getId());
+        org.springframework.test.util.ReflectionTestUtils.setField(lifecycleProcessing, "automaticRepostEnabled", true);
+        try {
+            lifecycle.processDueOrders();
+            lifecycle.processDueOrders();
+            assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+            assertEquals(0, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, held.getId()));
+            assertTrue(store.find("AUTO_REPOST:" + held.getId()).isEmpty());
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(lifecycleProcessing, "automaticRepostEnabled", false);
+        }
+    }
+
+    @Test void manualRepostCannotPassTheAutomaticPendingOriginalGuard() throws Exception {
+        String actor = account();
+        OrderResponse original = automaticOriginal(actor);
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        doAnswer(call -> {
+            entered.countDown();
+            assertTrue(release.await(15, TimeUnit.SECONDS));
+            return null;
+        }).when(backgroundChecks).validate(eq(actor), anyString(), anyString());
+        try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            java.util.concurrent.Future<CommandView> automatic =
+                    pool.submit(() -> commands.submitAutomatic(original.getId(), Instant.now()));
+            assertTrue(entered.await(15, TimeUnit.SECONDS));
+            try {
+                long version = orderDb.queryForObject("select version from orders where id=?", Long.class, original.getId());
+                OrderProblem blocked = assertThrows(OrderProblem.class, () -> commands.submit(key(),
+                        new CommandRequest("REPOST", actor, original.getId(), version, input(actor).creation()), token(actor)));
+                assertEquals("CONFLICT", blocked.getCode());
+            } finally { release.countDown(); }
+            assertEquals("SUCCESS", automatic.get(20, TimeUnit.SECONDS).outcome());
+            assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        }
+    }
+
+    @Test void automaticLostCreditReplyCompensatesWithoutCreatingAnOrderOrForwardRetry() throws Exception {
+        String actor = account();
+        OrderResponse original = automaticOriginal(actor);
+        String key = "AUTO_REPOST:" + original.getId();
+        doAnswer(call -> { call.callRealMethod(); throw new IllegalStateException("lost background reply"); })
+                .when(gateway).execute(eq(key), any(), anyLong(), isNull());
+        CommandView pending = commands.submitAutomatic(original.getId(), Instant.now());
+        awaitRejected(key);
+        assertEquals("REFUNDED", creditText("select status from credit_reservations where order_id=?", store.get(key).candidateOrderId()));
+        assertNull(orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
+        assertEquals("REJECTED", commands.submitAutomatic(original.getId(), Instant.now()).outcome());
+        verify(gateway, times(1)).execute(eq(key), any(), anyLong(), isNull());
+    }
+
+    private OrderResponse automaticOriginal(String actor) throws Exception {
+        Instant now = Instant.now();
+        CommandRequest.Creation fields = new CommandRequest.Creation("automatic test", "pickup", "delivery", 5, 15,
+                now.plusSeconds(3600), true, now.plusSeconds(3600), 4, 15, now.plusSeconds(7200));
+        OrderResponse original = commands.submit(key(), new CommandRequest("CREATE", actor, null, 0, fields), token(actor)).result();
+        assertNotNull(original);
+        orderDb.update("update orders set expires_at=clock_timestamp()-interval '2 seconds', due_at=clock_timestamp()-interval '1 second' where id=?", original.getId());
+        lifecycle.processDueOrders();
+        await(() -> "REFUNDED".equals(creditText("select status from credit_reservations where order_id=?", original.getId())));
+        return original;
     }
 
     private void loseResponse(String key) {

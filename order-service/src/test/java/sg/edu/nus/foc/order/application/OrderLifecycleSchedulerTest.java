@@ -28,8 +28,23 @@ class OrderLifecycleSchedulerTest {
         inOrder.verify(commands).recoverDue();
         inOrder.verify(lifecycle).expireDue(expiry.capture());
         inOrder.verify(lifecycle).autoCompleteDue(completion.capture());
+        inOrder.verify(lifecycle).repostDue(completion.getValue(), null);
         assertEquals(expiry.getValue(), completion.getValue());
         verifyNoMoreInteractions(commands, lifecycle);
+    }
+
+    @Test
+    void repostFailureDoesNotPreventTheNextLifecyclePass() {
+        LifecycleProcessingService lifecycle = mock(LifecycleProcessingService.class);
+        OrderCommandService commands = mock(OrderCommandService.class);
+        when(lifecycle.repostDue(any(), isNull())).thenThrow(new IllegalStateException("repost unavailable"));
+        OrderLifecycleScheduler scheduler = new OrderLifecycleScheduler(lifecycle, commands);
+        assertDoesNotThrow(scheduler::processDueOrders);
+        assertDoesNotThrow(scheduler::processDueOrders);
+        verify(commands, times(2)).recoverDue();
+        verify(lifecycle, times(2)).expireDue(any());
+        verify(lifecycle, times(2)).autoCompleteDue(any());
+        verify(lifecycle, times(2)).repostDue(any(), isNull());
     }
 
     @Test
@@ -62,6 +77,7 @@ class OrderLifecycleSchedulerTest {
         inOrder.verify(commands).recoverDue();
         inOrder.verify(lifecycle).expireDue(any());
         inOrder.verify(lifecycle).autoCompleteDue(any());
+        inOrder.verify(lifecycle).repostDue(any(), isNull());
         verifyNoMoreInteractions(commands, lifecycle);
     }
 
@@ -106,6 +122,7 @@ class OrderLifecycleSchedulerTest {
             inOrder.verify(commands).recoverDue();
             inOrder.verify(lifecycle).expireDue(any());
             inOrder.verify(lifecycle).autoCompleteDue(any());
+            inOrder.verify(lifecycle).repostDue(any(), isNull());
         }
         verifyNoMoreInteractions(commands, lifecycle);
     }
