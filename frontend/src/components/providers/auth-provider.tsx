@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user = userCredential.user;
             const idToken = await user.getIdToken();
                     
-            // Create user doc on MongoDB and initialise credits
+            // Create user doc on MongoDB
             const response = await fetch(`${config.apiBaseUrl}/api/users`, {
                 method: 'POST',
                 headers: {

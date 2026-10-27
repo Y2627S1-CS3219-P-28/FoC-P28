@@ -152,15 +152,11 @@ public class UserController {
     @PostMapping
     public ResponseEntity<User> addUser(
             JwtAuthenticationToken authentication) {
-        
-        // Get the original Firebase ID token
-        String tokenToPass = authentication.getToken().getTokenValue();
-
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");
 
-        User user = userService.addUser(tokenToPass, userId, email);
+        User user = userService.addUser(userId, email);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
@@ -253,31 +249,28 @@ public class UserController {
     }
 
     // DELETE /api/users/me
-    // User can delete their own account
-    // TODO: Change to soft delete (i.e. deactivate)
-    // Also implement account deletion event
-    // Check active orders before deactivation
-    @Operation(summary = "Delete user themselves from database")
+    @Operation(summary = "Delete user from Firebase, disables MongoDB user doc")
     @DeleteMapping("/me")
-    public ResponseEntity<String> deleteUser(
+    public ResponseEntity<String> deactivateSelf(
             JwtAuthenticationToken authentication) {
 
+        String token = authentication.getToken().getTokenValue();
         String userId = authentication.getToken().getSubject();
 
-        userService.deleteUser(userId);
+        userService.deactivateUser(token, userId);
 
-        return ResponseEntity.ok("User deleted");
+        return ResponseEntity.ok("User's own account disabled");
     }
 
     // DELETE /api/users/:id
     // Only admins can delete other users
-    // TODO: Change to soft delete (i.e. deactivate)
-    @Operation(summary = "Delete specified user from database")
+    @Operation(summary = "Delete specified user from Firebase, disables MongoDB user doc")
     @DeleteMapping("/{userId}")
-    public ResponseEntity<String> deleteUserAsAdmin(
+    public ResponseEntity<String> deactivateUser(
             @PathVariable String userId,
             JwtAuthenticationToken authentication) {
 
+        String requesterToken = authentication.getToken().getTokenValue();
         String requesterId = authentication.getToken().getSubject();
         User requester = userService.getUserByUserId(requesterId);
 
@@ -288,12 +281,12 @@ public class UserController {
             );
         }
         
-        userService.deleteUser(userId);
+        userService.deactivateUser(requesterToken, userId);
 
-        return ResponseEntity.ok("User removed");
+        return ResponseEntity.ok("User disabled");
     }
 
-    //TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
+    // TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
     
     // TODO: PUT or POST /api/users/:userid/suspension
     // Admin manual suspension
