@@ -1,6 +1,6 @@
 package sg.edu.nus.foc.order.application.recovery;
 
-/** Contract-fixture boundary. No live implementation until FEEDBACK-017 is verified. */
+/** Durable outbox transport boundary; actual Pub/Sub adapter is opt-in under ADR-055. */
 public interface CreditCompensationPublisher {
     void publish(CreditCompensationRequest request);
 }

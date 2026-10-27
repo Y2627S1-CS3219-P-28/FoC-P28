@@ -57,6 +57,13 @@ order:
     lease-seconds: ${ORDER_COMMAND_LEASE_SECONDS:120}
     retry-seconds: ${ORDER_COMMAND_RETRY_SECONDS:15}
     batch-size: ${ORDER_COMMAND_BATCH_SIZE:20}
+    compensation:
+      enabled: ${ORDER_COMPENSATION_ENABLED:false}
+      request-topic: ${ORDER_COMPENSATION_REQUEST_TOPIC:}
+      result-subscription: ${ORDER_COMPENSATION_RESULT_SUBSCRIPTION:}
+      push-mode: ${ORDER_COMPENSATION_PUSH_MODE:google}
+      audience: ${ORDER_COMPENSATION_PUSH_AUDIENCE:}
+      service-account: ${ORDER_COMPENSATION_PUSH_SERVICE_ACCOUNT:}
   lifecycle-token: ${ORDER_LIFECYCLE_TOKEN:local-lifecycle}
   messaging:
     mode: ${ORDER_MESSAGING_MODE:cloud}

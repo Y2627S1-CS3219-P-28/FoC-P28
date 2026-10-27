@@ -42,14 +42,15 @@ public class OrderCommandService {
 
     @Value("${order.commands.recovery-policy:retry}") private String recoveryPolicy = "retry";
     @Value("${order.commands.resolution-seconds:120}") private int resolutionSeconds = 120;
+    @Value("${order.commands.compensation.enabled:false}") private boolean compensationTransportEnabled;
     @org.springframework.beans.factory.annotation.Autowired private OrderCompensationWorkflow compensationWorkflow;
     @org.springframework.beans.factory.annotation.Autowired private OrderCompensationJournal compensationJournal;
 
     public boolean compensationSelected() { return "compensate".equals(recoveryPolicy); }
     public boolean enabled() {
-        // ADR-054 fixture milestone: no env switch can enable unverified live compensation.
+        // ADR-055: actual transport is an explicit, startup-validated opt-in.
         return flag && ("retry".equals(recoveryPolicy) || compensationSelected())
-                && (!compensationSelected() || "mock".equals(mode))
+                && (!compensationSelected() || "mock".equals(mode) || compensationTransportEnabled)
                 && ("mock".equals(mode) || "http".equals(mode)) && gateway.getIfAvailable() != null;
     }
     private void requireEnabled() {
@@ -75,7 +76,10 @@ public class OrderCommandService {
                     throw OrderProblem.conflict("This key belongs to a legacy operation. Use its original workflow.");
                 }
                 var frozen = "REPOST".equals(input.kind()) ? frozenRepost(key, input, original) : input;
-                if (compensationSelected()) store.register(key, frozen, "COMPENSATE", Math.max(1, resolutionSeconds));
+                if (store.find(key).isPresent()) {
+                    // A rolling policy cutover cannot reinterpret an immutable K.
+                    store.register(key, frozen, store.recoveryPolicy(key), Math.max(1, resolutionSeconds));
+                } else if (compensationSelected()) store.register(key, frozen, "COMPENSATE", Math.max(1, resolutionSeconds));
                 else store.register(key, frozen);
             });
         }
@@ -118,12 +122,11 @@ public class OrderCommandService {
 
     public void recoverDue() {
         if (!enabled()) return;
-        if (compensationSelected()) {
+        if (compensationJournal != null && ("mock".equals(mode) || compensationTransportEnabled)) {
             for (String key : compensationJournal.due(Math.max(1, Math.min(batchSize, 100)))) {
                 try { compensationJournal.recover(key); }
                 catch (RuntimeException failure) { audit.action("COMMAND_COMPENSATION", null, null, key, "pending"); }
             }
-            return;
         }
         for (String key : store.due(Math.max(1, Math.min(batchSize, 100)))) {
             try { execute(key, null, false); }
@@ -162,10 +165,10 @@ public class OrderCommandService {
     }
 
     private CommandView execute(String key, String authorization, boolean userResume) {
-        if (compensationSelected()) return executeCompensation(key, authorization, userResume);
         if ("COMPENSATE".equals(store.recoveryPolicy(key))) {
-            // Never reinterpret an existing compensation command after a config rollback.
-            return view(store.get(key));
+            // Persisted policy, not today's registration default, owns recovery.
+            if (!"mock".equals(mode) && !compensationTransportEnabled) return view(store.get(key));
+            return executeCompensation(key, authorization, userResume);
         }
         var candidate = store.claim(key, UUID.randomUUID().toString(), Math.max(1, leaseSeconds), userResume);
         if (candidate.isEmpty()) return view(store.get(key));

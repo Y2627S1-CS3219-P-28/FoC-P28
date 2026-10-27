@@ -91,6 +91,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    @org.springframework.context.annotation.Primary
     @Profile("prod")
     JwtDecoder jwtDecoder(
             @Value("${order.security.auth.project-id:demo-foc}") String projectId,

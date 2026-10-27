@@ -125,7 +125,7 @@ public class OrderCompensationJournal {
         events.publishEvent(new OrderOutboxDispatchRequested(id));
     }
 
-    /** Fixture entry point only: a production push receiver requires verified OIDC transport. */
+    /** Trusted receiver boundary; called only after broker authentication and envelope validation. */
     @Transactional
     public void accept(CreditCompensationResult result) {
         validate(result);

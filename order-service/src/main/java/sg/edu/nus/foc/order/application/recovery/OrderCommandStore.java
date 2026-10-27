@@ -38,13 +38,12 @@ public class OrderCommandStore {
 
     @Transactional
     public Entry register(String key, CommandRequest request, String policy, int resolutionSeconds) {
-        if (!List.of("RETRY", "COMPENSATE").contains(policy) || resolutionSeconds < 1) {
+        if (policy == null || !List.of("RETRY", "COMPENSATE").contains(policy) || resolutionSeconds < 1) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid recovery policy or deadline.");
         }
-        if (key == null || key.isBlank() || key.length() > 128 || request.actorId() == null
-                || request.actorId().isBlank() || request.actorId().length() > 128
-                || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
-                || (!request.kind().equals("CREATE") && (request.orderId() == null || request.orderId().length() > 36))) {
+        if (request == null || invalidIdentity(key, 128) || invalidIdentity(request.actorId(), 128)
+                || request.kind() == null || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
+                || (!request.kind().equals("CREATE") && invalidIdentity(request.orderId(), 36))) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid command identity or operation.");
         }
         String payload = json.writeValueAsString(request);
@@ -66,6 +65,13 @@ public class OrderCommandStore {
             throw OrderProblem.conflict("This command key belongs to different request details.");
         }
         return saved;
+    }
+
+    /** Match Credit's existing opaque identifier contract before saving intent. */
+    private static boolean invalidIdentity(String value, int max) {
+        return value == null || value.isBlank() || value.length() > max || value.contains("/")
+                || value.equals(".") || value.equals("..")
+                || value.startsWith("__") && value.endsWith("__");
     }
 
     public Entry get(String key) {
