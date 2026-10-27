@@ -184,6 +184,41 @@ class CreditApiIntegrationTest {
     }
 
     @Test
+    void adminCanReadAnotherUsersCurrentBalance() throws Exception {
+        register(USER);
+        reserve("order-1", USER, 20);
+
+        mvc.perform(get("/api/credits/users/{userId}/balance", USER)
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(USER))
+                .andExpect(jsonPath("$.totalBalance").value(50))
+                .andExpect(jsonPath("$.reservedBalance").value(20))
+                .andExpect(jsonPath("$.usableBalance").value(30))
+                .andExpect(jsonPath("$.asOf").exists())
+                .andExpect(jsonPath("$.version").doesNotExist());
+    }
+
+    @Test
+    void adminBalanceRejectsInvalidOrUnauthorizedRequests() throws Exception {
+        mvc.perform(get("/api/credits/users/missing-user/balance"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
+        mvc.perform(get("/api/credits/users/missing-user/balance")
+                        .with(jwt().jwt(token -> token.subject(USER))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        mvc.perform(get("/api/credits/users/missing-user/balance")
+                        .with(adminJwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_NOT_FOUND"));
+        mvc.perform(get("/api/credits/users/__reserved__/balance")
+                        .with(adminJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void adminCanReadAnotherUsersTransactionsWithoutChangingTheExistingWireShape() throws Exception {
         register(USER);
         reserve("order-1", USER, 20);
