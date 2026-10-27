@@ -43,4 +43,9 @@ create("/subscriptions/credit-compensation-results-test-local-v1", {
     "topic": "projects/demo-foc-local/topics/credit-command-compensation-result-local-v1",
     "ackDeadlineSeconds": 30,
 })
-print("Local emulator initialized: Order outcomes and compensation -> Credit; compensation results available on a pull test subscription.")
+create("/subscriptions/order-credit-compensation-result-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-result-local-v1",
+    "ackDeadlineSeconds": 30,
+    "pushConfig": {"pushEndpoint": "http://order-service:8080/api/orders/internal/credit-compensations"},
+})
+print("Local emulator initialized: Order outcomes/compensation -> Credit; results -> gated Order receiver and independent pull test subscription.")

@@ -69,6 +69,12 @@ server {
     # Pub/Sub pushes order events straight to the Credit Service (its own URL in the cloud,
     # credit-service:8080 locally), never through this public entry point. Not routing them here
     # keeps internal endpoints off the public surface; locally Credit even accepts unsigned emulator pushes.
+    # Only the trusted broker reaches Order's result receiver directly.
+    location = /api/orders/internal/credit-compensations {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+
     location /api/credits/internal/ {
         default_type application/json;
         return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
