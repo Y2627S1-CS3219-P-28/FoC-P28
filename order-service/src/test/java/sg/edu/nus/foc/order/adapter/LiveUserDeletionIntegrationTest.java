@@ -48,7 +48,8 @@ class LiveUserDeletionIntegrationTest {
     private static final Set<OrderStatus> TERMINAL = Set.of(
             OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.EXPIRED);
     @Container static final PostgreSQLContainer<?> DATABASE = new PostgreSQLContainer<>("postgres:15-alpine");
-    @Container static final GenericContainer<?> MONGO = new GenericContainer<>("mongo:8")
+    // MongoDB 8 exits on the CI runner's Linux 6.19+ kernel (SERVER-121912).
+    @Container static final GenericContainer<?> MONGO = new GenericContainer<>("mongo:7.0.43")
             .withNetwork(NETWORK).withNetworkAliases("mongo").withExposedPorts(27017);
     @Container static final GenericContainer<?> AUTH = new GenericContainer<>(image("infra/firebase-emulator", "auth"))
             .withNetwork(NETWORK).withNetworkAliases("auth").withExposedPorts(9099)
