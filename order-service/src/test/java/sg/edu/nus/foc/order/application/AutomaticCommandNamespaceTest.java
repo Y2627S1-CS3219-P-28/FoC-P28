@@ -12,7 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 class AutomaticCommandNamespaceTest {
     @Test void clientCannotPreemptThePredictableSchedulerKeyWithItsOwnCommand() {
         JdbcTemplate sql = mock(JdbcTemplate.class);
-        OrderCommandStore store = new OrderCommandStore(sql, JsonMapper.builder().build());
+        OrderCommandStore store = new OrderCommandStore(sql, JsonMapper.builder().build(), mock(sg.edu.nus.foc.order.domain.repository.UserDeletionGuard.class));
         OrderProblem invalid = assertThrows(OrderProblem.class,
                 () -> store.register("AUTO_REPOST:original", new CommandRequest("CREATE", "actor", null, 0, null)));
         assertEquals("VALIDATION_ERROR", invalid.getCode());
@@ -22,7 +22,7 @@ class AutomaticCommandNamespaceTest {
     @Test void onlyServerOwnedRepostRegistrationMayUseThatNamespace() {
         IllegalStateException inserted = new IllegalStateException("reached persistence");
         JdbcTemplate sql = mock(JdbcTemplate.class, invocation -> { throw inserted; });
-        OrderCommandStore store = new OrderCommandStore(sql, JsonMapper.builder().build());
+        OrderCommandStore store = new OrderCommandStore(sql, JsonMapper.builder().build(), mock(sg.edu.nus.foc.order.domain.repository.UserDeletionGuard.class));
         assertSame(inserted, assertThrows(IllegalStateException.class,
                 () -> store.registerAutomatic("AUTO_REPOST:original", new CommandRequest("REPOST", "actor", "original", 0, null), 120)));
     }

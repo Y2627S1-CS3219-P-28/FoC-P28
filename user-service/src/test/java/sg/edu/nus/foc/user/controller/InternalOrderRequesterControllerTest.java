@@ -26,6 +26,7 @@ class InternalOrderRequesterControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean UserService users;
     @MockitoBean JwtDecoder decoder;
+    @MockitoBean sg.edu.nus.foc.user.repository.UserRepository repository;
 
     @Test void requesterRoleIsCheckedWithoutJwtAndAdminOnlyIsNotARequester() throws Exception {
         User requester = new User(); requester.setUserId("u"); requester.setRoles(List.of("requester", "courier"));

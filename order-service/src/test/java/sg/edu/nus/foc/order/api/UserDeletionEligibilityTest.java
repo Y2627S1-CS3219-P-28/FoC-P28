@@ -11,7 +11,8 @@ import sg.edu.nus.foc.order.application.OrderInvolvementService;
 
 class UserDeletionEligibilityTest {
     private final OrderInvolvementService involvement = mock(OrderInvolvementService.class);
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new UserDeletionEligibilityController(involvement)).build();
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new UserDeletionEligibilityController(involvement,
+            mock(sg.edu.nus.foc.order.domain.repository.UserDeletionGuard.class))).build();
 
     @Test
     void activeRequesterOrCourierBlocksDeletionAndNoActiveOrderAllowsIt() throws Exception {

@@ -27,6 +27,7 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpeci
             + "and o.reposted_order_id is null and not exists "
             + "(select 1 from order_commands c where c.command_id='AUTO_REPOST:' || o.id) "
             + "and not exists(select 1 from order_commands c where c.order_id=o.id and c.status='PENDING') "
+            + "and not exists(select 1 from order_user_deletion_guards g where g.user_id=o.requester_id and g.blocked) "
             + "order by o.due_at,o.id limit 100", nativeQuery = true)
     List<String> findDueAutomaticRepostIds(@Param("now") Instant now);
 

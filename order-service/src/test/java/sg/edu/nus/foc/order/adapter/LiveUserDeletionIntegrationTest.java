@@ -65,12 +65,14 @@ class LiveUserDeletionIntegrationTest {
             .withEnv("PUBSUB_EMULATOR_HOST", "127.0.0.1:9")
             .withEnv("PUBSUB_PROJECT_ID", "demo-foc-local")
             .withEnv("USER_OUTBOX_RECOVERY_CRON", "-")
+            .withEnv("USER_ACCOUNT_DELETION_RECOVERY_DELAY_MS", "1000")
             .withEnv("LOG_LEVEL", "WARN")
             .waitingFor(Wait.forHttp("/actuator/health").forStatusCode(200))
             .withStartupTimeout(Duration.ofMinutes(3));
 
     @Autowired private JpaOrderRepository orders;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
     @MockitoBean private OrderOutboxDispatcher dispatcher;
 
     @DynamicPropertySource
@@ -113,6 +115,45 @@ class LiveUserDeletionIntegrationTest {
         Map<String, String> account = account();
         saveOrder("unrelated-owner", "unrelated-courier", OrderStatus.ACCEPTED);
         assertDeletion(account, true);
+    }
+
+    @Test
+    void pendingCreationWithoutAnOrderCardStillBlocksIdentityDeletion() throws Exception {
+        Map<String, String> account = account();
+        String uid = account.get("localId");
+        commands.register(UUID.randomUUID().toString(),
+                new sg.edu.nus.foc.order.application.recovery.CommandRequest("CREATE", uid, null, 0,
+                        new sg.edu.nus.foc.order.application.recovery.CommandRequest.Creation("pending", "pickup", "delivery",
+                                1, 15, Instant.now().plusSeconds(7200), false, null, 0, 0, null)));
+        // The old diagnostic GET sees no committed Order; only preparation sees the unresolved intent.
+        assertDeletion(account, false, account.get("idToken"), "/api/users/me", true);
+    }
+
+    @Test
+    void crashedDeletionRecoversThePersistedOperationWithoutNewCredentials() throws Exception {
+        Map<String, String> account = account();
+        String uid = account.get("localId");
+        String operation = UUID.randomUUID().toString();
+        assertEquals(Boolean.TRUE, RestClient.create("http://127.0.0.1:" + ORDER_PORT).post()
+                .uri("/api/orders/internal/users/{uid}/deletion-preparations/{operation}", uid, operation)
+                .retrieve().body(Boolean.class));
+        assertEquals(0, MONGO.execInContainer("mongosh", "UserServiceDB", "--quiet", "--eval",
+                "db.users.updateOne({userId:'" + uid + "'},{$set:{status:'DEACTIVATION_PENDING',deletionOperationId:'"
+                        + operation + "',deletionCanRestore:false}})").getExitCode());
+        Instant deadline = Instant.now().plusSeconds(30);
+        String status;
+        do {
+            status = MONGO.execInContainer("mongosh", "UserServiceDB", "--quiet", "--eval",
+                    "print(db.users.findOne({userId:'" + uid + "'}).status)").getStdout().trim();
+            if ("DEACTIVATED".equals(status)) break;
+            TimeUnit.MILLISECONDS.sleep(200);
+        } while (Instant.now().isBefore(deadline));
+        assertEquals("DEACTIVATED", status);
+        assertEquals(operation, jdbc.queryForObject("select operation_id from order_user_deletion_guards where user_id=?",
+                String.class, uid));
+        assertEquals(1, jdbc.queryForObject("select count(*) from order_user_deletion_preparations where user_id=?",
+                Integer.class, uid));
+        assertInactiveToken(account);
     }
 
     @Test
@@ -171,10 +212,15 @@ class LiveUserDeletionIntegrationTest {
     }
 
     private void assertDeletion(Map<String, String> account, boolean allowed, String token, String path) throws Exception {
+        assertDeletion(account, allowed, token, path, allowed);
+    }
+
+    private void assertDeletion(Map<String, String> account, boolean allowed, String token, String path,
+            boolean snapshotAllowed) throws Exception {
         String uid = account.get("localId");
         Boolean actual = RestClient.create("http://127.0.0.1:" + ORDER_PORT).get()
                 .uri("/api/orders/internal/users/{uid}/can-delete", uid).retrieve().body(Boolean.class);
-        assertEquals(allowed, actual);
+        assertEquals(snapshotAllowed, actual);
         int status = RestClient.create("http://" + USER.getHost() + ":" + USER.getMappedPort(8080))
                 .delete().uri(path).headers(h -> h.setBearerAuth(token))
                 .exchange((request, response) -> response.getStatusCode().value());
@@ -187,6 +233,11 @@ class LiveUserDeletionIntegrationTest {
                 .get().uri("/api/users/internal/order-requesters/{uid}", uid).retrieve().body(Map.class);
         assertNotNull(requester);
         assertEquals(!allowed, requester.get("eligible"), "Deactivated requesters must not automatically repost");
+        if (allowed) {
+            assertTrue(Boolean.TRUE.equals(jdbc.queryForObject(
+                    "select blocked from order_user_deletion_guards where user_id=?", Boolean.class, uid)));
+            assertInactiveToken(account);
+        }
         int identity = auth().post().uri("/identitytoolkit.googleapis.com/v1/accounts:lookup?key=demo-key")
                 .body(Map.of("idToken", account.get("idToken")))
                 .exchange((request, response) -> response.getStatusCode().value());
@@ -217,6 +268,19 @@ class LiveUserDeletionIntegrationTest {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(failure);
         }
+    }
+
+    private void assertInactiveToken(Map<String, String> account) {
+        RestClient client = RestClient.create("http://" + USER.getHost() + ":" + USER.getMappedPort(8080));
+        Map<?, ?> context = client.get().uri("/api/users/role-context")
+                .headers(headers -> headers.setBearerAuth(account.get("idToken"))).retrieve().body(Map.class);
+        assertNotNull(context);
+        assertEquals(java.util.List.of(), context.get("roles"));
+        int updateStatus = client.put().uri("/api/users/me")
+                .headers(headers -> headers.setBearerAuth(account.get("idToken")))
+                .body(Map.of("username", "must-not-update"))
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(403, updateStatus);
     }
 
     private static int callbackPort() {

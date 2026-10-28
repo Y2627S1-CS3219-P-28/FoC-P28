@@ -19,16 +19,13 @@ public class AccountDeletionRecoveryJob {
             LoggerFactory.getLogger(AccountDeletionRecoveryJob.class);
 
     private final UserRepository userRepository;
-    private final FirebaseAuthService firebaseAuthService;
-    private final OrderServiceClient orderServiceClient;
+    private final UserService users;
 
     public AccountDeletionRecoveryJob(
             UserRepository userRepository,
-            FirebaseAuthService firebaseAuthService,
-            OrderServiceClient orderServiceClient) {
+            UserService users) {
         this.userRepository = userRepository;
-        this.firebaseAuthService = firebaseAuthService;
-        this.orderServiceClient = orderServiceClient;
+        this.users = users;
     }
 
     @Scheduled(
@@ -42,19 +39,7 @@ public class AccountDeletionRecoveryJob {
 
         for (User user : pendingUsers) {
             try {
-                // Never let retries bypass the same eligibility rule as a new deletion.
-                if (!orderServiceClient.canDeleteUser(user.getUserId())) {
-                    log.warn("Account deactivation remains pending: active orders for userId={}", user.getUserId());
-                    continue;
-                }
-                // Delete the Firebase account, or succeed if it
-                // has already been deleted.
-                firebaseAuthService.deleteUserIfExists(
-                        user.getUserId());
-
-                // Firebase deletion is now confirmed.
-                user.setStatus(AccountStatus.DEACTIVATED);
-                userRepository.save(user);
+                users.recoverDeletion(user);
 
                 log.info(
                         "Completed account deactivation for userId={}",

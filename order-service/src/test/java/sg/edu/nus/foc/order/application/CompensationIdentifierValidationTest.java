@@ -14,7 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
 class CompensationIdentifierValidationTest {
     @Test void unrepresentableKeysAndActorsNeverReachPersistenceOrCredit() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        OrderCommandStore store = new OrderCommandStore(jdbc, JsonMapper.builder().build());
+        OrderCommandStore store = new OrderCommandStore(jdbc, JsonMapper.builder().build(), mock(sg.edu.nus.foc.order.domain.repository.UserDeletionGuard.class));
         for (String invalid : java.util.Arrays.asList(null, "", " ", ".", "..", "a/b", "__reserved__", "a".repeat(129))) {
             OrderProblem keyError = assertThrows(OrderProblem.class,
                     () -> store.register(invalid, input("actor"), "COMPENSATE", 120));
@@ -29,7 +29,7 @@ class CompensationIdentifierValidationTest {
     @Test void simpleAndUuidKeysStillReachNormalRegistration() {
         IllegalStateException reachedInsert = new IllegalStateException("database boundary reached");
         JdbcTemplate jdbc = mock(JdbcTemplate.class, invocation -> { throw reachedInsert; });
-        OrderCommandStore store = new OrderCommandStore(jdbc, JsonMapper.builder().build());
+        OrderCommandStore store = new OrderCommandStore(jdbc, JsonMapper.builder().build(), mock(sg.edu.nus.foc.order.domain.repository.UserDeletionGuard.class));
         for (String key : java.util.List.of("12345678", java.util.UUID.randomUUID().toString())) {
             assertSame(reachedInsert, assertThrows(IllegalStateException.class,
                     () -> store.register(key, input("actor"), "COMPENSATE", 120)));

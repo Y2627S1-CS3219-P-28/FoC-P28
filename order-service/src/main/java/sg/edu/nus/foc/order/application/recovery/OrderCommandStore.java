@@ -24,6 +24,7 @@ import sg.edu.nus.foc.order.domain.OrderProblem;
 public class OrderCommandStore {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
+    private final sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
 
     public record Entry(String key, String actorId, String kind, String orderId,
                         CommandRequest input, String inputHash, String status, String outcome,
@@ -59,6 +60,7 @@ public class OrderCommandStore {
         if (automatic != key.startsWith("AUTO_REPOST:") || automatic && !"REPOST".equals(request.kind())) {
             throw new OrderProblem("VALIDATION_ERROR", "Automatic repost command keys are reserved for the scheduler.");
         }
+        deletionGuard.requireAllowed(request.actorId());
         String payload = json.writeValueAsString(request);
         String target = request.kind().equals("CREATE") ? UUID.randomUUID().toString() : request.orderId();
         String candidate = request.kind().equals("REPOST") ? UUID.randomUUID().toString() : null;

@@ -28,6 +28,7 @@ public class OrderPersistenceAdapter implements OrderRepository {
 
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
+    private final sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
     private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -87,9 +88,14 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    @Transactional
     public Order save(Order order) {
         if (order.getAttemptId() != null) {
             throw new IllegalArgumentException("Courier history cannot be saved as a current Order.");
+        }
+        if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELLED
+                && order.getStatus() != OrderStatus.EXPIRED) {
+            deletionGuard.requireAllowed(order.getRequesterId(), order.getCourierId());
         }
         return repository.save(order);
     }

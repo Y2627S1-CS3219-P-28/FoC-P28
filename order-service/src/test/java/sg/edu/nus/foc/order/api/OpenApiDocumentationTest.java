@@ -92,6 +92,7 @@ class OpenApiDocumentationTest {
     @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderCompletionHoldService completionHolds;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderInvolvementService involvement;
+    @MockitoBean private sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
     @MockitoBean private sg.edu.nus.foc.order.application.adminmock.AdminMockService adminSamples;
 
 

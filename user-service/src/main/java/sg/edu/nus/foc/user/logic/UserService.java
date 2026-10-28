@@ -34,6 +34,7 @@ public class UserService {
     private final OrderServiceClient orderServiceClient;
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
+    private final UserLifecycleStore lifecycle;
 
     private static final int MAX_PENALTY = 10;
 
@@ -41,12 +42,14 @@ public class UserService {
             FirebaseAuthService firebaseAuthService,
             OrderServiceClient orderServiceClient,
             OutboxEventRepository outboxEventRepository,
-            JsonMapper objectMapper) {
+            JsonMapper objectMapper,
+            UserLifecycleStore lifecycle) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
         this.orderServiceClient = orderServiceClient;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
+        this.lifecycle = lifecycle;
     }
 
     public List<User> fetchAllUsers() {
@@ -75,7 +78,9 @@ public class UserService {
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
-        return new UserRoleContext(user.getUserId(), user.getRoles());
+        return new UserRoleContext(user.getUserId(),
+                user.getStatus() == AccountStatus.ACTIVE && user.getRoles() != null
+                        ? List.copyOf(user.getRoles()) : List.of());
     }
 
     public CourierEligibility getCourierEligibility(String userId) {
@@ -142,6 +147,10 @@ public class UserService {
                 "User ID and email are required.");
         }
 
+        if (userRepository.findByUserId(userId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This identity already has an account.");
+        }
+
         Optional<User> existingUser = userRepository.findFirstByEmailAndStatus(email, AccountStatus.ACTIVE);
 
         if (existingUser.isPresent()) {
@@ -196,7 +205,7 @@ public class UserService {
             user.setUsername(username);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Syncs MongoDB user email with Firebase
@@ -210,7 +219,7 @@ public class UserService {
         // Update MongoDB only after Firebase verification succeeds.
         user.setEmail(verifiedEmail);
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Updates email
@@ -223,7 +232,7 @@ public class UserService {
             firebaseAuthService.updateUserEmail(userId, email);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     /*public void deleteUser(String token, String userId) {
@@ -298,26 +307,26 @@ public class UserService {
             }
         }
 
-        // Order owns the exact terminal-status rule and current requester/courier involvement.
-        // Failures propagate before either database or Firebase is changed.
-        if (!orderServiceClient.canDeleteUser(userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Cannot disable user with active orders"
-            );
-        }
+        User pending = lifecycle.begin(userId);
+        recoverDeletion(pending);
+    }
 
-        // Keep the MongoDB user document and mark it as undergoing deactivation.
-        user.setStatus(AccountStatus.DEACTIVATION_PENDING);
-        userRepository.save(user);
-
-        // Delete the Firebase identity.
+    public void recoverDeletion(User pending) {
         try {
-            firebaseAuthService.deleteUser(user.getUserId());
-
-            // Firebase deletion confirmed.
-            user.setStatus(AccountStatus.DEACTIVATED);
-            userRepository.save(user);
+            if (pending.getDeletionOperationId() == null) {
+                pending = lifecycle.attachLegacyOperation(pending.getUserId());
+            }
+            if (pending == null || pending.getStatus() != AccountStatus.DEACTIVATION_PENDING) return;
+            if (!orderServiceClient.prepareDeletion(pending.getUserId(), pending.getDeletionOperationId())) {
+                // Only an authoritative, durable denial permits reversing a new deletion attempt.
+                lifecycle.restoreAfterDenial(pending);
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot disable user with active orders or unresolved requests.");
+            }
+            if (!lifecycle.seal(pending)) return;
+            firebaseAuthService.deleteUserIfExists(pending.getUserId());
+            lifecycle.complete(pending);
+        } catch (ResponseStatusException expected) {
+            throw expected;
         } catch (RuntimeException e) {
             // Leave the account pending if the Firebase deletion outcome is uncertain.
             // A recovery process can reconcile the state.
@@ -344,7 +353,7 @@ public class UserService {
             user.setRoles(roles);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Single method to update a user's penalty
@@ -374,7 +383,7 @@ public class UserService {
 
         user.setPenalty(newPenalty);
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Single method to suspend a user
@@ -393,7 +402,7 @@ public class UserService {
         user.setIsCourierSuspended(true);
         user.setSuspensionEndDate(Instant.now().plus(1, ChronoUnit.MONTHS));
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     private User refreshSuspensionStatus(User user) {
@@ -407,7 +416,7 @@ public class UserService {
             roles.add("courier");
             user.setRoles(roles);
 
-            return userRepository.save(user);
+            return lifecycle.saveActive(user);
         }
 
         return user;
@@ -417,7 +426,7 @@ public class UserService {
     // Helper functions
     public boolean verifyAdmin(User user) {
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("admin") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("admin");
     }
 
     public boolean verifyAdmin(String userId) {
@@ -427,12 +436,12 @@ public class UserService {
                         new RuntimeException("User not found"));
 
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("admin") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("admin");
     }
 
     public boolean verifyRequester(User user) {
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("requester") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("requester");
     }
 
     public boolean verifyRequester(String userId) {
@@ -442,12 +451,12 @@ public class UserService {
                         new RuntimeException("User not found"));
 
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("requester") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("requester");
     }
 
     public boolean verifyCourier(User user) {
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("courier") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("courier");
     }
 
     public boolean verifyCourier(String userId) {
@@ -457,6 +466,6 @@ public class UserService {
                         new RuntimeException("User not found"));
 
         List<String> roles = user.getRoles();
-        return roles == null || (!roles.contains("courier") && user.getStatus() == AccountStatus.ACTIVE);
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("courier");
     }
 }

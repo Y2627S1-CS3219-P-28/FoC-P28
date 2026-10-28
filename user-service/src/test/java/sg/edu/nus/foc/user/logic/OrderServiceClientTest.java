@@ -69,4 +69,23 @@ class OrderServiceClientTest {
                 () -> client.canDeleteUser("student"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.getStatusCode());
     }
+
+    @Test
+    void preparationUsesStableOperationAndOnlyAuthoritativeActiveDenialAllowsRestore() throws Exception {
+        assertTrue(client(200, "true").prepareDeletion("student", "saved-operation"));
+        assertEquals("/api/orders/internal/users/student/deletion-preparations/saved-operation", path.get());
+        assertNull(authorization.get());
+        server.stop(0);
+        assertFalse(client(409, "{\"error\":\"ACTIVE_ORDER_INVOLVEMENT\"}").prepareDeletion("student", "saved-operation"));
+    }
+
+    @Test
+    void genericConflictAndUnexpectedBooleanRemainUncertain() throws Exception {
+        OrderServiceClient wrongOperation = client(409, "{\"error\":\"CONFLICT\"}");
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, assertThrows(ResponseStatusException.class,
+                () -> wrongOperation.prepareDeletion("student", "saved-operation")).getStatusCode());
+        server.stop(0);
+        OrderServiceClient falseSuccess = client(200, "false");
+        assertThrows(ResponseStatusException.class, () -> falseSuccess.prepareDeletion("student", "saved-operation"));
+    }
 }

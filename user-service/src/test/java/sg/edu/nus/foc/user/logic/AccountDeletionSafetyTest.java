@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import sg.edu.nus.foc.user.authentication.FirebaseAuthService;
 import sg.edu.nus.foc.user.model.AccountStatus;
@@ -20,8 +21,9 @@ class AccountDeletionSafetyTest {
     private final UserRepository repository = mock(UserRepository.class);
     private final FirebaseAuthService firebase = mock(FirebaseAuthService.class);
     private final OrderServiceClient orders = mock(OrderServiceClient.class);
+    private final UserLifecycleStore lifecycle = mock(UserLifecycleStore.class);
     private final UserService service = new UserService(repository, firebase, orders,
-            mock(OutboxEventRepository.class), JsonMapper.builder().build());
+            mock(OutboxEventRepository.class), JsonMapper.builder().build(), lifecycle);
     private User user;
 
     @BeforeEach
@@ -30,88 +32,102 @@ class AccountDeletionSafetyTest {
         user.setUserId("student");
         user.setRoles(List.of("requester", "courier"));
         when(repository.findByUserId("student")).thenReturn(Optional.of(user));
+        when(lifecycle.begin("student")).thenAnswer(call -> { pending(user, "op"); return user; });
+        when(lifecycle.seal(any())).thenReturn(true);
+        when(lifecycle.restoreAfterDenial(any())).thenAnswer(call -> {
+            ((User) call.getArgument(0)).setStatus(AccountStatus.ACTIVE); return true;
+        });
+        doAnswer(call -> { ((User) call.getArgument(0)).setStatus(AccountStatus.DEACTIVATED); return null; })
+                .when(lifecycle).complete(any());
     }
 
     @Test
-    void anyActiveOrderBlocksBeforeMongoOrFirebaseMutation() {
-        when(orders.canDeleteUser("student")).thenReturn(false);
+    void authoritativeActiveOrderDenialRestoresAccountWithoutDeletingIdentity() {
+        when(orders.prepareDeletion("student", "op")).thenReturn(false);
         ResponseStatusException failure = assertThrows(ResponseStatusException.class,
                 () -> service.deactivateUser("caller-token", "student"));
         assertEquals(HttpStatus.CONFLICT, failure.getStatusCode());
         assertEquals(AccountStatus.ACTIVE, user.getStatus());
-        verify(repository, never()).save(any());
+        verify(lifecycle).restoreAfterDenial(user);
         verifyNoInteractions(firebase);
+        verify(repository, never()).save(any());
     }
 
     @Test
-    void unavailableEligibilityNeverBecomesPermission() {
-        when(orders.canDeleteUser("student")).thenThrow(
-                new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE));
+    void lostPreparationReplyStaysPendingAndRecoveryReusesExactlyTheSameOperation() {
+        when(orders.prepareDeletion("student", "op"))
+                .thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE)).thenReturn(true);
         ResponseStatusException failure = assertThrows(ResponseStatusException.class,
                 () -> service.deactivateUser("caller-token", "student"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.getStatusCode());
-        assertEquals(AccountStatus.ACTIVE, user.getStatus());
-        verify(repository, never()).save(any());
+        assertEquals(AccountStatus.DEACTIVATION_PENDING, user.getStatus());
         verifyNoInteractions(firebase);
+        verify(lifecycle, never()).restoreAfterDenial(any());
+        service.recoverDeletion(user);
+        verify(orders, times(2)).prepareDeletion("student", "op");
+        verify(firebase).deleteUserIfExists("student");
+        assertEquals(AccountStatus.DEACTIVATED, user.getStatus());
     }
 
     @Test
-    void noActiveOrderRetainsMongoDocumentAndDeletesFirebaseIdentity() {
-        when(orders.canDeleteUser("student")).thenReturn(true);
+    void barrierBeforeFirebaseAndConditionalCompletionRetainHistoricalMongoDocument() {
+        when(orders.prepareDeletion("student", "op")).thenReturn(true);
         service.deactivateUser("caller-token", "student");
+        org.mockito.InOrder sequence = inOrder(lifecycle, orders, firebase);
+        sequence.verify(lifecycle).begin("student");
+        sequence.verify(orders).prepareDeletion("student", "op");
+        sequence.verify(lifecycle).seal(user);
+        sequence.verify(firebase).deleteUserIfExists("student");
+        sequence.verify(lifecycle).complete(user);
         assertEquals(AccountStatus.DEACTIVATED, user.getStatus());
-        verify(orders).canDeleteUser("student");
-        verify(firebase).deleteUser("student");
-        verify(repository, times(2)).save(user);
         verify(repository, never()).delete(any());
+        verify(repository, never()).save(any());
     }
 
     @Test
     void lastAdministratorRuleIsPreserved() {
         user.setRoles(List.of("admin"));
         when(repository.countByRolesContainingAndStatus("admin", AccountStatus.ACTIVE)).thenReturn(1L);
-        ResponseStatusException failure = assertThrows(ResponseStatusException.class,
-                () -> service.deactivateUser("admin-token", "student"));
-        assertEquals(HttpStatus.CONFLICT, failure.getStatusCode());
-        verifyNoInteractions(orders, firebase);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                () -> service.deactivateUser("admin-token", "student")).getStatusCode());
+        verifyNoInteractions(orders, firebase, lifecycle);
     }
 
     @Test
-    void uncertainFirebaseOutcomeRemainsPendingForRecovery() {
-        when(orders.canDeleteUser("student")).thenReturn(true);
-        doThrow(new IllegalStateException("lost Firebase response")).when(firebase).deleteUser("student");
-        ResponseStatusException failure = assertThrows(ResponseStatusException.class,
-                () -> service.deactivateUser("caller-token", "student"));
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.getStatusCode());
+    void uncertainFirebaseOutcomeRemainsPendingAndCannotRestoreActive() {
+        when(orders.prepareDeletion("student", "op")).thenReturn(true);
+        doThrow(new IllegalStateException("lost Firebase response")).when(firebase).deleteUserIfExists("student");
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, assertThrows(ResponseStatusException.class,
+                () -> service.deactivateUser("caller-token", "student")).getStatusCode());
         assertEquals(AccountStatus.DEACTIVATION_PENDING, user.getStatus());
-        verify(repository).save(user);
+        verify(lifecycle, never()).complete(any());
+        verify(lifecycle, never()).restoreAfterDenial(any());
     }
 
     @Test
-    void recoveryCannotBypassTheActiveOrderRuleAndContinuesOtherUsers() {
-        User safe = new User();
-        safe.setUserId("safe");
-        safe.setStatus(AccountStatus.DEACTIVATION_PENDING);
-        user.setStatus(AccountStatus.DEACTIVATION_PENDING);
+    void recoveryUsesSameGuardAndContinuesLaterUsersAfterDependencyFailure() {
+        User safe = new User(); safe.setUserId("safe"); pending(safe, "safe-op"); pending(user, "op");
         when(repository.findByStatus(AccountStatus.DEACTIVATION_PENDING)).thenReturn(List.of(user, safe));
-        when(orders.canDeleteUser("student")).thenReturn(false);
-        when(orders.canDeleteUser("safe")).thenReturn(true);
-        new AccountDeletionRecoveryJob(repository, firebase, orders).recoverPendingDeletions();
+        when(orders.prepareDeletion("student", "op")).thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE));
+        when(orders.prepareDeletion("safe", "safe-op")).thenReturn(true);
+        assertDoesNotThrow(() -> new AccountDeletionRecoveryJob(repository, service).recoverPendingDeletions());
         assertEquals(AccountStatus.DEACTIVATION_PENDING, user.getStatus());
         verify(firebase, never()).deleteUserIfExists("student");
-        verify(repository, never()).save(user);
         verify(firebase).deleteUserIfExists("safe");
         assertEquals(AccountStatus.DEACTIVATED, safe.getStatus());
     }
 
     @Test
-    void recoveryEligibilityOutageDoesNotDeleteTheAccount() {
+    void completedAndAlreadyPendingRequestsDoNotStartAnotherOperation() {
+        user.setStatus(AccountStatus.DEACTIVATED);
+        service.deactivateUser("token", "student");
         user.setStatus(AccountStatus.DEACTIVATION_PENDING);
-        when(repository.findByStatus(AccountStatus.DEACTIVATION_PENDING)).thenReturn(List.of(user));
-        when(orders.canDeleteUser("student")).thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE));
-        assertDoesNotThrow(() -> new AccountDeletionRecoveryJob(repository, firebase, orders).recoverPendingDeletions());
-        assertEquals(AccountStatus.DEACTIVATION_PENDING, user.getStatus());
-        verifyNoInteractions(firebase);
-        verify(repository, never()).save(any());
+        assertThrows(ResponseStatusException.class, () -> service.deactivateUser("token", "student"));
+        verifyNoInteractions(lifecycle, orders, firebase);
+    }
+
+    private void pending(User target, String operation) {
+        target.setStatus(AccountStatus.DEACTIVATION_PENDING);
+        ReflectionTestUtils.setField(target, "deletionOperationId", operation);
     }
 }

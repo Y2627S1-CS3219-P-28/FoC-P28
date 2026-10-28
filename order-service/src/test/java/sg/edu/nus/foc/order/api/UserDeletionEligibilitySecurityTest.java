@@ -22,14 +22,20 @@ import sg.edu.nus.foc.order.security.RoleProvider;
 class UserDeletionEligibilitySecurityTest {
     @Autowired MockMvc mvc;
     @MockitoBean OrderInvolvementService involvement;
+    @MockitoBean sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
     @MockitoBean JwtDecoder decoder;
     @MockitoBean RoleProvider roles;
 
-    @Test void onlyTheExactPrivateQueryIsAvailableWithoutJwt() throws Exception {
+    @Test void onlyTheExactPrivateQueryAndPreparationAreAvailableWithoutJwt() throws Exception {
         when(involvement.canDeleteUser("U")).thenReturn(true);
         mvc.perform(get("/api/orders/internal/users/U/can-delete"))
                 .andExpect(status().isOk()).andExpect(content().string("true"));
         verify(involvement).canDeleteUser("U");
+        when(deletionGuard.prepare("U", "saved-operation")).thenReturn(true);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                        "/api/orders/internal/users/U/deletion-preparations/saved-operation"))
+                .andExpect(status().isOk()).andExpect(content().string("true"));
+        verify(deletionGuard).prepare("U", "saved-operation");
         verifyNoInteractions(roles, decoder);
     }
 

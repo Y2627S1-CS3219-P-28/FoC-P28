@@ -26,6 +26,16 @@ public class User {
     private Instant suspensionEndDate;
 
     private AccountStatus status = AccountStatus.ACTIVE;
+    private String deletionOperationId;
+    private boolean deletionCanRestore;
+
+    public String getDeletionOperationId() {
+        return deletionOperationId;
+    }
+
+    public boolean isDeletionCanRestore() {
+        return deletionCanRestore;
+    }
 
     public User() {
     }
