@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { useApi } from "@/hooks/use-api"
-import { useVisiblePolling } from "@/hooks/use-visible-polling"
+import { CREDIT_POLL_INTERVAL_MS, useVisiblePolling } from "@/hooks/use-visible-polling"
 import { CREDIT_BALANCE_INVALIDATED_EVENT } from "@/lib/credit-balance-events"
 import type { CreditTransaction, CreditTransactionPage } from "@/lib/credit-transactions"
 
@@ -63,7 +63,7 @@ export function useCreditTransactions(page: number) {
     }
   }, [api, authLoading, key, page, user])
 
-  const refresh = useVisiblePolling(load, !authLoading && !!user)
+  const refresh = useVisiblePolling(load, !authLoading && !!user, CREDIT_POLL_INTERVAL_MS)
 
   useEffect(() => {
     if (!user) return

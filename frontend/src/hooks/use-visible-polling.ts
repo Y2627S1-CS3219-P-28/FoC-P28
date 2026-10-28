@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react"
 
 export const ORDER_POLL_INTERVAL_MS = 5_000
+export const CREDIT_POLL_INTERVAL_MS = 5_000
 const DEFAULT_POLL_INTERVAL_MS = 15_000
 
 /** Read-only refreshes; callers supply auth readiness and handle user-facing errors. */

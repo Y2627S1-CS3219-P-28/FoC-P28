@@ -18,7 +18,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 it("waits for auth, polls balances, and immediately refreshes after mutations", async () => {
   const { result, rerender } = renderHook(() => useCreditBalance())
-  await act(() => vi.advanceTimersByTimeAsync(15_000))
+  await act(() => vi.advanceTimersByTimeAsync(5_000))
   expect(mocks.api).not.toHaveBeenCalled()
   mocks.auth.loading = false
   rerender()
@@ -27,7 +27,7 @@ it("waits for auth, polls balances, and immediately refreshes after mutations", 
   mocks.api.mockResolvedValue({ userId: "a", usableBalance: 49 })
   await act(async () => window.dispatchEvent(new Event(CREDIT_BALANCE_INVALIDATED_EVENT)))
   expect(result.current.balance?.usableBalance).toBe(49)
-  await act(() => vi.advanceTimersByTimeAsync(15_000))
+  await act(() => vi.advanceTimersByTimeAsync(5_000))
   expect(mocks.api).toHaveBeenCalledTimes(3)
 })
 
