@@ -19,12 +19,14 @@
 #   - per-environment databases and users exist on the shared instance
 #   - credit-service runtime identity can connect and read its password secrets
 # Order Service Pub/Sub, per environment:
-#   - its three topics exist and order-service's runtime identity may publish to them
+#   - its four topics exist and order-service's runtime identity may publish to them
+# User Service Pub/Sub, per environment:
+#   - its user-created topic exists and user-service's runtime identity may publish to it
 # User Service MongoDB, per environment:
 #   - its connection-string secret exists and user-service's identity can read it
 #   - the secret has a value once user-service-<environment> is deployed
 # Credit Service Pub/Sub push (when enabled in project.env):
-#   - three Order-topic subscriptions target the authenticated Credit push endpoint
+#   - two Order-topic and one User-topic subscription target authenticated Credit push endpoints
 #   - shared dead-letter topic/recovery subscription and required IAM bindings exist
 # Network (Cloud Run Direct VPC egress; only the gateway is public):
 #   - VPC subnet with Private Google Access, which the deployer may use, and Cloud NAT
@@ -202,6 +204,20 @@ for env in "${environments[@]}"; do
   done
 done
 
+echo "User Service Pub/Sub topic"
+for env in "${environments[@]}"; do
+  topic=$(environment_value "$env" USER_CREATED_TOPIC)
+  if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "user-service: Pub/Sub topic '$topic' ($env) does not exist"
+  elif gcloud pubsub topics get-iam-policy "$topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$(runtime_sa user-service)" \
+        '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+    ok "user-service: may publish to '$topic' ($env)"
+  else
+    problem "user-service: $(runtime_sa user-service) cannot publish to '$topic' ($env)"
+  fi
+done
+
 echo "User Service MongoDB connection string"
 for env in "${environments[@]}"; do
   secret=$(user_mongodb_secret "$env")
@@ -274,23 +290,26 @@ for env in "${environments[@]}"; do
     "$(environment_value "$env" ORDER_OPEN_REFUND_TOPIC)"
     "$(environment_value "$env" ORDER_COMPLETION_TOPIC)"
     "$(environment_value "$env" ORDER_CREDIT_COMPENSATION_TOPIC)"
+    "$(environment_value "$env" USER_CREATED_TOPIC)"
   )
   subscriptions=(
     "$(environment_value "$env" CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_COMPENSATION_SUBSCRIPTION)"
+    "$(environment_value "$env" CREDIT_USER_CREATED_SUBSCRIPTION)"
   )
   push_paths=(
     "/api/credits/internal/order-events/open-refund"
     "/api/credits/internal/order-events/completion"
     "/api/credits/internal/command-compensations"
+    "/api/credits/internal/user-events/created"
   )
   for index in "${!subscriptions[@]}"; do
     topic=${topics[$index]}
     subscription=${subscriptions[$index]}
     push_endpoint="$push_url${push_paths[$index]}"
     if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
-      problem "order-service: Pub/Sub topic '$topic' does not exist"
+      problem "event publisher: Pub/Sub topic '$topic' does not exist"
       continue
     fi
     if ! subscription_json=$(gcloud pubsub subscriptions describe "$subscription" \

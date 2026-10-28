@@ -57,6 +57,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import sg.edu.nus.foc.credit.api.CreditController;
 import sg.edu.nus.foc.credit.api.CreditCompensationController;
 import sg.edu.nus.foc.credit.api.CreditOrderEventController;
+import sg.edu.nus.foc.credit.api.CreditUserEventController;
 import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.credit.CreditService;
@@ -69,10 +70,13 @@ import sg.edu.nus.foc.credit.messaging.CreditCompensationService;
 import sg.edu.nus.foc.credit.messaging.OrderCompletionEventHandler;
 import sg.edu.nus.foc.credit.messaging.OrderEventMessage;
 import sg.edu.nus.foc.credit.messaging.OrderEventPayloadDecoder;
+import sg.edu.nus.foc.credit.messaging.UserCreatedEventHandler;
+import sg.edu.nus.foc.credit.messaging.UserCreatedEventMessage;
+import sg.edu.nus.foc.credit.messaging.UserCreatedEventPayloadDecoder;
 
 @WebMvcTest
 @ContextConfiguration(classes = {CreditController.class, CreditOrderEventController.class,
-        CreditCompensationController.class, GlobalExceptionHandler.class,
+        CreditCompensationController.class, CreditUserEventController.class, GlobalExceptionHandler.class,
         PubSubPushSecurityTest.LocalKeySecurityConfig.class, PubSubPushSecurityTest.TestBeans.class})
 class PubSubPushSecurityTest {
 
@@ -95,6 +99,8 @@ class PubSubPushSecurityTest {
     @MockitoBean OrderCompletionEventHandler completionHandler;
     @MockitoBean CreditCompensationPayloadDecoder compensationDecoder;
     @MockitoBean CreditCompensationService compensationService;
+    @MockitoBean UserCreatedEventPayloadDecoder userCreatedDecoder;
+    @MockitoBean UserCreatedEventHandler userCreatedHandler;
     @MockitoBean(name = "jwtDecoder") JwtDecoder firebaseDecoder;
 
     @BeforeEach
@@ -110,6 +116,11 @@ class PubSubPushSecurityTest {
                 .thenReturn(new OrderEventMessage(
                         "security-test-event", "OpenOrderRefundTaskEvent",
                         "order-1", "CANCELLED", 10, Instant.now(), null));
+        when(userCreatedDecoder.decode(eq("projects/test-project/subscriptions/user-created"),
+                anyString(), any(), eq("projects/test-project/subscriptions/user-created")))
+                .thenReturn(new UserCreatedEventMessage(
+                        java.util.UUID.fromString("c91e4571-329a-4399-b87f-a756a6ab7243"),
+                        "user-1", "user@example.com", Instant.now(), 1));
     }
 
     @AfterAll
@@ -127,7 +138,31 @@ class PubSubPushSecurityTest {
                 eq(SUBSCRIPTION), eq("OpenOrderRefundTaskEvent"));
         verify(openRefundHandler).handle(any(OrderEventMessage.class));
         verifyNoInteractions(completionHandler);
+        verifyNoInteractions(userCreatedDecoder, userCreatedHandler);
         verifyNoInteractions(roles, firebaseDecoder, credits);
+    }
+
+    @Test
+    void signedUserCreatedPushReachesItsTypedHandler() throws Exception {
+        String eventId = "c91e4571-329a-4399-b87f-a756a6ab7243";
+        String payload = "{\"eventId\":\"" + eventId + "\"}";
+        String data = Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        String body = "{\"message\":{\"data\":\"" + data
+                + "\",\"messageId\":\"test-message\",\"attributes\":{\"eventId\":\""
+                + eventId + "\",\"eventType\":\"UserCreated\",\"eventVersion\":\"1\"}},"
+                + "\"subscription\":\"projects/test-project/subscriptions/user-created\"}";
+
+        mvc.perform(post(CreditUserEventController.USER_CREATED_PATH)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token("valid"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+
+        verify(userCreatedDecoder).decode(
+                eq("projects/test-project/subscriptions/user-created"),
+                eq(payload), any(), eq("projects/test-project/subscriptions/user-created"));
+        verify(userCreatedHandler).handle(any(UserCreatedEventMessage.class));
+        verifyNoInteractions(decoder, openRefundHandler, completionHandler, roles, firebaseDecoder, credits);
     }
 
     @ParameterizedTest
@@ -143,7 +178,8 @@ class PubSubPushSecurityTest {
         for (String path : List.of(
                 CreditOrderEventController.OPEN_REFUND_PATH,
                 CreditOrderEventController.COMPLETION_PATH,
-                CreditCompensationController.PUSH_PATH)) {
+                CreditCompensationController.PUSH_PATH,
+                CreditUserEventController.USER_CREATED_PATH)) {
             mvc.perform(post(path)
                     .contentType(MediaType.APPLICATION_JSON).content(envelope()))
                     .andExpect(status().isUnauthorized());
@@ -237,7 +273,8 @@ class PubSubPushSecurityTest {
     }
 
     private void verifyNoEventInteractions() {
-        verifyNoInteractions(decoder, openRefundHandler, completionHandler);
+        verifyNoInteractions(decoder, openRefundHandler, completionHandler,
+                userCreatedDecoder, userCreatedHandler, compensationDecoder, compensationService);
     }
 
     private static String envelope() {
@@ -314,7 +351,7 @@ class PubSubPushSecurityTest {
         }
         @Bean CreditPushProperties pushProperties() {
             return new CreditPushProperties("test-project", AUDIENCE, SERVICE_ACCOUNT,
-                    "completion", "refund", "compensation");
+                    "completion", "refund", "compensation", "user-created");
         }
     }
 }

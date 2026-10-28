@@ -32,7 +32,8 @@ class CompensationWiringTest(unittest.TestCase):
             requests[request.full_url] = json.loads(request.data)
             return Response()
 
-        script = ROOT / "deploy/local-emulator/init.py"
+        # Exercise the initializer actually mounted by the merged Compose file.
+        script = ROOT.parent / "infra/pubsub-emulator-init.py"
         with patch.dict(os.environ, {"PUBSUB_EMULATOR_HOST": "pubsub-emulator:8085"}), patch(
                 "urllib.request.urlopen", side_effect=capture):
             runpy.run_path(str(script))
@@ -43,6 +44,8 @@ class CompensationWiringTest(unittest.TestCase):
         self.assertEqual(requests[base + "credit-command-compensation-local-v1"]["pushConfig"]["pushEndpoint"],
                          "http://credit-service:8080/api/credits/internal/command-compensations")
         self.assertNotIn("pushConfig", requests[base + "credit-compensation-results-test-local-v1"])
+        self.assertEqual(requests[base + "credit-user-created-local-v1"]["pushConfig"]["pushEndpoint"],
+                         "http://credit-service:8080/api/credits/internal/user-events/created")
         with patch.dict(os.environ, {"PUBSUB_EMULATOR_HOST": "cloud.example:8085"}), patch(
                 "urllib.request.urlopen") as network:
             with self.assertRaises(SystemExit):

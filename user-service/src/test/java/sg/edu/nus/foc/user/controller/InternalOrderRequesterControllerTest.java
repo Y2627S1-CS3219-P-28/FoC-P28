@@ -17,6 +17,7 @@ import sg.edu.nus.foc.user.config.InternalOrderSecurityConfiguration;
 import sg.edu.nus.foc.user.config.SecurityConfig;
 import sg.edu.nus.foc.user.logic.UserService;
 import sg.edu.nus.foc.user.model.User;
+import sg.edu.nus.foc.user.model.AccountStatus;
 
 @WebMvcTest(controllers = InternalOrderRequesterController.class,
         properties = {"FOC_INTERNAL_ORDER_API_ENABLED=true", "FOC_ENVIRONMENT=staging"})
@@ -42,5 +43,17 @@ class InternalOrderRequesterControllerTest {
         mvc.perform(get("/api/users/internal/order-requesters/gone")).andExpect(status().isNotFound());
         mvc.perform(get("/api/users/internal/order-requesters/" + "x".repeat(129))).andExpect(status().isBadRequest());
         mvc.perform(get("/api/users/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test void pendingAndDeactivatedRequestersCannotAutomaticallyRepost() throws Exception {
+        for (AccountStatus status : List.of(AccountStatus.DEACTIVATION_PENDING, AccountStatus.DEACTIVATED)) {
+            User requester = new User();
+            requester.setUserId("u");
+            requester.setRoles(List.of("requester"));
+            requester.setStatus(status);
+            when(users.getUserByUserId("u")).thenReturn(requester);
+            mvc.perform(get("/api/users/internal/order-requesters/u"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false));
+        }
     }
 }

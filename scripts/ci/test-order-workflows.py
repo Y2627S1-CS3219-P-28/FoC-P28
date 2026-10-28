@@ -84,6 +84,18 @@ class CloudWorkflowTest(unittest.TestCase):
                 self.assertIn("order-compensations-dead-letter-" + suffix + "-v1-recovery", state["subscriptions"])
                 self.assertTrue(any("roles/iam.serviceAccountTokenCreator" in x for x in again["calls"]))
                 self.assertTrue(any("roles/pubsub.subscriber" in x for x in again["calls"]))
+                # Both branches' input channels must survive the merge with the right topic/path.
+                credit_url = "https://credit-service-" + environment + "-374055363871.asia-southeast1.run.app"
+                for stem, topic_stem, route in [
+                        ("credit-command-compensation", "credit-command-compensation", "command-compensations"),
+                        ("credit-user-created", "user-created", "user-events/created")]:
+                    source = stem + "-" + suffix + "-v1"
+                    self.assertEqual(topic_stem + "-" + suffix + "-v1", state["subscriptions"][source])
+                    creation = next(x for x in state["calls"]
+                                    if x[:4] == ["pubsub", "subscriptions", "create", source])
+                    self.assertEqual(credit_url + "/api/credits/internal/" + route,
+                                     creation[creation.index("--push-endpoint") + 1])
+                    self.assertEqual(credit_url, creation[creation.index("--push-auth-token-audience") + 1])
 
     def test_existing_wrong_topic_is_not_silently_rebound(self):
         state, _ = self.provision("staging")
@@ -101,6 +113,11 @@ class CloudWorkflowTest(unittest.TestCase):
         self.assertIn('ORDER_COMPENSATION_ENABLED: "true"', order)
         self.assertIn('ORDER_COMMAND_RECOVERY_POLICY: "compensate"', order)
         self.assertIn('ORDER_AUTO_REPOST_ENABLED: "true"', order)
+        user = (ROOT / "user-service/deploy/env.yaml").read_text()
+        self.assertIn('ORDER_SERVICE_URL: "${ORDER_SERVICE_URL}"', user)
+        self.assertIn('USER_CREATED_TOPIC: "${USER_CREATED_TOPIC}"', user)
+        self.assertIn('CREDIT_USER_CREATED_SUBSCRIPTION: "${CREDIT_USER_CREATED_SUBSCRIPTION}"', credit)
+        self.assertIn('CREDIT_COMPENSATION_SUBSCRIPTION: "${CREDIT_COMPENSATION_SUBSCRIPTION}"', credit)
         for environment in ("staging", "production"):
             env = (ROOT / ("infra/environments/" + environment + ".env")).read_text()
             self.assertIn("CREDIT_MESSAGING_MODE=google", env)

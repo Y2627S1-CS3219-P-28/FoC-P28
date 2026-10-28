@@ -186,7 +186,7 @@ are pre-built images, used unmodified:
 | `mongo:8` | [Docker Official Image](https://hub.docker.com/_/mongo) (MongoDB) | User Service database (local) |
 | `postgres:15-alpine` | [Docker Official Image](https://hub.docker.com/_/postgres) (PostgreSQL) | Order and Credit Service databases (local) |
 | `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators` (pinned by digest in compose) | [Google Cloud CLI](https://cloud.google.com/sdk/docs/downloads-docker) | Pub/Sub emulator (local); Firestore emulator in integration tests (Testcontainers) |
-| `python:3.12-alpine` | [Docker Official Image](https://hub.docker.com/_/python) (Python) | `pubsub-init`: creates the local Pub/Sub topics and subscriptions (`order-service/deploy/local-emulator/init.py`) |
+| `python:3.12-alpine` | [Docker Official Image](https://hub.docker.com/_/python) (Python) | `pubsub-init`: creates the local Pub/Sub topics and subscriptions (`infra/pubsub-emulator-init.py`) |
 | `firebase-tools@15.31.0` (npm) | [Firebase CLI](https://github.com/firebase/firebase-tools) | Firebase Auth and Firestore emulators (`infra/firebase-emulator`) |
 
 ---

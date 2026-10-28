@@ -40,6 +40,7 @@ import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
 import sg.edu.nus.foc.credit.api.CreditCompensationController;
 import sg.edu.nus.foc.credit.api.CreditOrderEventController;
+import sg.edu.nus.foc.credit.api.CreditUserEventController;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
@@ -66,11 +67,12 @@ class SecurityConfig {
                                                        @Value("${PUBSUB_EMULATOR_HOST:}") String emulatorHost,
                                                        @Value("${FOC_ENVIRONMENT:local}") String environment) throws Exception {
         if (emulatorPushEnabled(pushMode, emulatorHost, environment, creditProperties, properties)) {
-            // Local emulator sends unsigned HTTP push; only these two financial
+            // Local emulator sends unsigned HTTP push; only these explicitly configured
             // event paths are exempt. Firebase auth on all user APIs is unchanged.
             http.securityMatcher(CreditOrderEventController.OPEN_REFUND_PATH,
                             CreditOrderEventController.COMPLETION_PATH,
-                            CreditCompensationController.PUSH_PATH)
+                            CreditCompensationController.PUSH_PATH,
+                            CreditUserEventController.USER_CREATED_PATH)
                     .csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
@@ -81,7 +83,8 @@ class SecurityConfig {
                 .securityMatcher(
                         CreditOrderEventController.OPEN_REFUND_PATH,
                         CreditOrderEventController.COMPLETION_PATH,
-                        CreditCompensationController.PUSH_PATH)
+                        CreditCompensationController.PUSH_PATH,
+                            CreditUserEventController.USER_CREATED_PATH)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())

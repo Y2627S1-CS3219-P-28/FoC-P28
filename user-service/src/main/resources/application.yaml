@@ -18,6 +18,9 @@ p28:
 
 credit-service:
   url: ${CREDIT_SERVICE_URL:http://localhost:8084}
+
+order-service:
+  url: ${ORDER_SERVICE_URL:http://localhost:8083}
     
 firebase:
   auth:
@@ -42,6 +45,8 @@ management:
       show-details: never
 
 user:
+  account-deletion:
+    recovery-delay-ms: 60000
   messaging:
     mode: ${USER_MESSAGING_MODE:cloud}
     emulator-host: ${PUBSUB_EMULATOR_HOST:}

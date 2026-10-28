@@ -4,7 +4,7 @@
 # Mode: Config setup generation.
 # Scope: Generate configuration for credit pubsub as required.
 # Author review: I reviewed for correctness.
-# Provisions Credit Service's authenticated Order-event push subscriptions and DLQ.
+# Provisions Credit Service's authenticated Order/User-event push subscriptions and DLQ.
 # Usage: infra/gcp/configure-credit-pubsub.sh <staging|production>
 set -euo pipefail
 
@@ -49,16 +49,19 @@ topics=(
   "$ORDER_OPEN_REFUND_TOPIC"
   "$ORDER_COMPLETION_TOPIC"
   "$ORDER_CREDIT_COMPENSATION_TOPIC"
+  "$USER_CREATED_TOPIC"
 )
 subscriptions=(
   "$CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION"
   "$CREDIT_ORDER_COMPLETION_SUBSCRIPTION"
   "$CREDIT_COMPENSATION_SUBSCRIPTION"
+  "$CREDIT_USER_CREATED_SUBSCRIPTION"
 )
 push_paths=(
   "/api/credits/internal/order-events/open-refund"
   "/api/credits/internal/order-events/completion"
   "/api/credits/internal/command-compensations"
+  "/api/credits/internal/user-events/created"
 )
 
 echo "Configuring Credit Pub/Sub push delivery for $environment"
@@ -69,6 +72,13 @@ exists gc pubsub topics describe "$CREDIT_COMPENSATION_RESULT_TOPIC" ||
     --labels "service=credit-service,environment=$environment,purpose=compensation-result"
 gc pubsub topics add-iam-policy-binding "$CREDIT_COMPENSATION_RESULT_TOPIC" \
   --member "serviceAccount:foc-credit-service@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role roles/pubsub.publisher >/dev/null
+
+exists gc pubsub topics describe "$USER_CREATED_TOPIC" ||
+  gc pubsub topics create "$USER_CREATED_TOPIC" \
+    --labels "service=user-service,environment=$environment"
+gc pubsub topics add-iam-policy-binding "$USER_CREATED_TOPIC" \
+  --member "serviceAccount:foc-user-service@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role roles/pubsub.publisher >/dev/null
 
 for topic in "${topics[@]}"; do
@@ -154,4 +164,4 @@ for index in "${!subscriptions[@]}"; do
     --member "serviceAccount:$pubsub_service_agent" --role roles/pubsub.subscriber >/dev/null
 done
 
-echo "Credit Pub/Sub push delivery is configured for $environment under $push_service_url/api/credits/internal/order-events"
+echo "Credit Pub/Sub push delivery is configured for $environment under $push_service_url/api/credits/internal"

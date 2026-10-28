@@ -17,7 +17,8 @@ public record CreditPushProperties(
         String serviceAccount,
         String completionSubscription,
         String openRefundSubscription,
-        String compensationSubscription) {
+        String compensationSubscription,
+        String userCreatedSubscription) {
 
     public CreditPushProperties {
         projectId = defaultValue(projectId, "demo-foc");
@@ -27,6 +28,7 @@ public record CreditPushProperties(
         openRefundSubscription = defaultValue(openRefundSubscription, "credit-open-order-refund-dev-v1");
         compensationSubscription = defaultValue(compensationSubscription,
                 "credit-command-compensation-dev-v1");
+        userCreatedSubscription = defaultValue(userCreatedSubscription, "credit-user-created-dev-v1");
     }
 
     public String completionSubscriptionPath() {
@@ -39,6 +41,10 @@ public record CreditPushProperties(
 
     public String compensationSubscriptionPath() {
         return subscriptionPath(compensationSubscription);
+    }
+
+    public String userCreatedSubscriptionPath() {
+        return subscriptionPath(userCreatedSubscription);
     }
 
     private String subscriptionPath(String subscriptionId) {

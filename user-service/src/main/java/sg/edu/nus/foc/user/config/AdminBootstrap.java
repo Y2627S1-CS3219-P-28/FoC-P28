@@ -3,19 +3,21 @@ package sg.edu.nus.foc.user.config;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
-import sg.edu.nus.foc.user.model.User;
+
+import sg.edu.nus.foc.user.logic.UserService;
 import sg.edu.nus.foc.user.repository.UserRepository;
+
+import com.fasterxml.jackson.core.JacksonException;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
 
 @Component
 public class AdminBootstrap implements CommandLineRunner {
     private final UserRepository userRepository;
+    private final UserService userService;
 
     @Value("${admin.bootstrap-enabled:false}")
     private boolean enabled;
@@ -23,8 +25,9 @@ public class AdminBootstrap implements CommandLineRunner {
     @Value("${admin.bootstrap-email:}")
     private String bootstrapEmail;
 
-    public AdminBootstrap(UserRepository userRepository) {
+    public AdminBootstrap(UserRepository userRepository, UserService userService) {
         this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     // Executes on user service startup
@@ -45,39 +48,15 @@ public class AdminBootstrap implements CommandLineRunner {
             return;
         }
 
-        if (bootstrapEmail.isBlank()) {
+        if (bootstrapEmail == null || bootstrapEmail.isBlank()) {
             throw new IllegalStateException(
                 "Admin bootstrap is enabled but no email was configured."
             );
         }
 
         try {
-            // Find the Firebase Auth account
-            UserRecord firebaseUser =
-                FirebaseAuth.getInstance()
-                    .getUserByEmail(bootstrapEmail);
-
-            // Create MongoDB user
-            User user = new User();
-
-            user.setUserId(firebaseUser.getUid());
-            user.setEmail(firebaseUser.getEmail());
-            user.setUsername("");
-
-            List<String> roles = new ArrayList<>();
-            roles.add("admin");
-            roles.add("courier");
-            roles.add("requester");
-
-            user.setRoles(roles);
-
-            user.setPenalty(0);
-            user.setIsCourierSuspended(false);
-
-            userRepository.save(user);
-
-            // TODO: Create user created event for credit service
-
+            UserRecord firebaseUser = FirebaseAuth.getInstance().getUserByEmail(bootstrapEmail);
+            userService.addAdmin(firebaseUser.getUid(), firebaseUser.getEmail());
         } catch (FirebaseAuthException e) {
             throw new RuntimeException(
                 "Could not find bootstrap admin in Firebase: "

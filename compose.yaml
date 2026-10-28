@@ -71,7 +71,7 @@ services:
     environment:
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
     volumes:
-      - ./order-service/deploy/local-emulator/init.py:/setup/init.py:ro
+      - ./infra/pubsub-emulator-init.py:/setup/init.py:ro
     depends_on:
       pubsub-emulator:
         condition: service_healthy
@@ -211,6 +211,7 @@ services:
       CREDIT_PUBLISH_TIMEOUT: 10s
       CREDIT_RESULT_OUTBOX_BATCH_SIZE: 50
       CREDIT_RESULT_OUTBOX_RECOVERY_CRON: "0 * * * * *"
+      CREDIT_USER_CREATED_SUBSCRIPTION: credit-user-created-local-v1
     depends_on:
       <<: *backend-depends
       credit-postgres:
@@ -246,9 +247,9 @@ services:
       <<: [*backend-env, *order-pubsub-topics]
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
       ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-false}
+      ORDER_SERVICE_URL: http://order-service:8080
       FOC_INTERNAL_ORDER_API_ENABLED: "true"
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
-      CREDIT_SERVICE_URL: ${CREDIT_SERVICE_URL:-http://credit-service:8080}
       SPRING_PROFILES_ACTIVE: prod
       USER_MESSAGING_MODE: emulator
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085

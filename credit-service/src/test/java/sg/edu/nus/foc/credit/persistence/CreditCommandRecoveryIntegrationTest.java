@@ -50,7 +50,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import sg.edu.nus.foc.credit.api.CourierAssignmentRequest;
 import sg.edu.nus.foc.credit.CreditServiceApplication;
-import sg.edu.nus.foc.credit.api.RegistrationFactRequest;
 import sg.edu.nus.foc.credit.api.ReserveCreditsRequest;
 import sg.edu.nus.foc.credit.credit.CommandMutationResult;
 import sg.edu.nus.foc.credit.credit.CreditCommandOperation;
@@ -58,6 +57,8 @@ import sg.edu.nus.foc.credit.credit.CreditCommandOutcome;
 import sg.edu.nus.foc.credit.credit.CreditCommandService;
 import sg.edu.nus.foc.credit.credit.ReservationResult;
 import sg.edu.nus.foc.credit.error.CreditCommandException;
+import sg.edu.nus.foc.credit.messaging.UserCreatedEventHandler;
+import sg.edu.nus.foc.credit.messaging.UserCreatedEventMessage;
 import sg.edu.nus.foc.credit.support.PostgreSqlTestContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -80,6 +81,7 @@ class CreditCommandRecoveryIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired CreditCommandService commands;
     @Autowired CreditCommandStore store;
+    @Autowired UserCreatedEventHandler userCreatedEvents;
     @Autowired DataSource dataSource;
 
     @MockitoSpyBean CreditLedgerJpaRepository ledgerRepository;
@@ -591,12 +593,9 @@ class CreditCommandRecoveryIntegrationTest {
     }
 
     private void register(String userId) throws Exception {
-        mvc.perform(post("/api/credits/registration-facts")
-                        .with(jwt().jwt(token -> token.subject(userId)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsBytes(new RegistrationFactRequest(
-                                UUID.randomUUID(), userId, Instant.parse("2026-10-11T00:00:00Z")))))
-                .andExpect(status().isCreated());
+        userCreatedEvents.handle(new UserCreatedEventMessage(
+                UUID.randomUUID(), userId, userId + "@example.com",
+                Instant.parse("2026-10-11T00:00:00Z"), 1));
     }
 
     private void legacyReserve(String orderId, String requester, long amount) throws Exception {

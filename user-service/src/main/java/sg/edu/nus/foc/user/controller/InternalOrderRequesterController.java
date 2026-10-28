@@ -35,7 +35,8 @@ public class InternalOrderRequesterController {
         }
         // Do not use verifyRequester(User): that legacy helper inverts role membership.
         sg.edu.nus.foc.user.model.User user = users.getUserByUserId(userId);
-        boolean eligible = user.getRoles() != null && user.getRoles().contains("requester");
+        boolean eligible = user.getStatus() == sg.edu.nus.foc.user.model.AccountStatus.ACTIVE
+                && user.getRoles() != null && user.getRoles().contains("requester");
         return new RequesterResult(user.getUserId(), eligible);
     }
 }

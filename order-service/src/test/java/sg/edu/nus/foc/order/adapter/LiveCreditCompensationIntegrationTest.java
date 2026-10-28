@@ -87,6 +87,7 @@ class LiveCreditCompensationIntegrationTest {
             .withEnv("PUBSUB_PROJECT_ID", "demo-foc-local")
             .withEnv("CREDIT_COMPENSATION_SUBSCRIPTION", "credit-compensation-requests")
             .withEnv("CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION", "credit-open-order-refund-local-v1")
+            .withEnv("CREDIT_USER_CREATED_SUBSCRIPTION", "credit-user-created-local-v1")
             .withEnv("CREDIT_COMPENSATION_RESULT_TOPIC", "compensation-results")
             .withEnv("CREDIT_MESSAGING_MODE", "emulator")
             .withEnv("CREDIT_RESULT_OUTBOX_RECOVERY_CRON", "-").withEnv("LOG_LEVEL", "WARN")
@@ -156,7 +157,7 @@ class LiveCreditCompensationIntegrationTest {
         assertTrue(commands.enabled(), "Explicit real transport gate must be open for this harness");
         if (!subscriptionsReady) {
             RestClient broker = broker();
-            for (String topic : java.util.List.of("compensation-requests", "compensation-results", "open-order-refund-local-v1")) {
+            for (String topic : java.util.List.of("compensation-requests", "compensation-results", "open-order-refund-local-v1", "user-created-local-v1")) {
                 broker.put().uri("/topics/" + topic).body(Map.of()).retrieve().toBodilessEntity();
             }
             subscription("credit-compensation-requests", "compensation-requests",
@@ -165,6 +166,8 @@ class LiveCreditCompensationIntegrationTest {
                     "http://host.testcontainers.internal:" + port + "/api/orders/internal/credit-compensations");
             subscription("credit-open-order-refund-local-v1", "open-order-refund-local-v1",
                     "http://credit:8080/api/credits/internal/order-events/open-refund");
+            subscription("credit-user-created-local-v1", "user-created-local-v1",
+                    "http://credit:8080/api/credits/internal/user-events/created");
             subscriptionsReady = true;
         }
     }
@@ -494,14 +497,19 @@ class LiveCreditCompensationIntegrationTest {
         assertEquals("REJECTED", store.get(key).outcome());
         assertEquals("FULLY_COMPENSATED", orderDb.queryForObject("select final_stage_status from order_commands where command_id=?", String.class, key));
     }
-    private void await(java.util.function.BooleanSupplier condition) throws Exception {
+    private void await(java.util.function.BooleanSupplier condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(45);
         while (System.nanoTime() < deadline) {
             // Explicit deterministic recovery tick, not a mocked delivery. The
             // immediate attempt can precede a DB-clock next_attempt_at on Windows.
             dispatcher.dispatchDueBatch();
             if (condition.getAsBoolean()) return;
-            Thread.sleep(100);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while awaiting actual compensation delivery", interrupted);
+            }
         }
         fail("Actual compensation delivery did not reach the expected committed state.");
     }
@@ -533,9 +541,17 @@ class LiveCreditCompensationIntegrationTest {
     }
     private String account() {
         String actor = key();
-        RestClient.builder().baseUrl("http://" + CREDIT.getHost() + ":" + CREDIT.getMappedPort(8080)).build()
-                .post().uri("/api/credits/registration-facts").header("Authorization", token(actor))
-                .body(Map.of("eventId", key(), "userId", actor, "occurredAt", Instant.now().toString())).retrieve().toBodilessEntity();
+        String eventId = key();
+        String payload = """
+                {"eventId":"%s","userId":"%s","email":"%s@example.com",
+                 "occurredAt":"%s","schemaVersion":1}
+                """.formatted(eventId, actor, actor, Instant.now());
+        broker().post().uri("/topics/user-created-local-v1:publish")
+                .body(Map.of("messages", java.util.List.of(Map.of(
+                        "data", Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8)),
+                        "attributes", Map.of("eventId", eventId, "eventType", "UserCreated", "eventVersion", "1")))))
+                .retrieve().toBodilessEntity();
+        await(() -> creditDb().queryForObject("select count(*) from credit_accounts where user_id=?", Integer.class, actor) == 1);
         return actor;
     }
     private CommandRequest input(String actor) {
