@@ -41,6 +41,17 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Architecture
 
+## Gated actual compensation transport - CHANGE-158 / ADR-055
+
+The existing journal/outbox/result-inbox sequence now has an opt-in real Pub/Sub
+request publisher and separately Google-OIDC-authenticated result receiver.
+Credit owns reverse/fence/preimages/revisions and its transactional result outbox.
+Persisted policy, not the current new-command default, selects each recovery path.
+Local demo Auth/PubSub emulator gating is fail-closed; public gateway blocks the
+exact receiver path. Default transport off/default retry/deployment unchanged.
+No new schema, lifecycle states or automatic repost. Local verification evidence
+and outstanding cloud provisioning/security rollout gates are in CHANGE-158.
+
 ## ADR-054 / CHANGE-156 - Opt-in compensation fixture architecture
 
 `OrderCommandService` selects persisted-policy execution. For the new mock-only

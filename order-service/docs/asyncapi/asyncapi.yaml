@@ -2,10 +2,10 @@ asyncapi: 3.0.0
 id: urn:foc:order-service:pubsub
 info:
   title: Friend on Campus - Order Service Pub/Sub
-  version: 1.3.0
+  version: 1.4.0
   description: |
-    Order Service's existing outgoing Google Cloud Pub/Sub contracts.
-    This document describes the publisher, not a new consumer or infrastructure deployment.
+    Existing lifecycle/penalty contracts plus ADR-055 opt-in compensation request/result.
+    Compensation transport is disabled by default; no cloud deployment is implied.
     Refund/completion use compact schema v2; explicit penalty add/deduct use seven fields v1.
     Accepted-cancellation publishing/replay is retired (CHANGE-155). Published history is retained.
     ADR-044 adds admin cancellation refunds and one highest optional addition;
@@ -43,6 +43,27 @@ servers:
       push subscriptions. Ordinary application APIs still verify Firebase user JWTs.
       Emulator delivery does not verify cloud IAM/OIDC or User penalty processing.
 channels:
+  compensationRequest:
+    address: projects/{projectId}/topics/{topicId}
+    description: Opt-in durable reversal/fence request; Credit owns the financial decision.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID for the environment.}
+      topicId: {description: Explicit ORDER_COMPENSATION_REQUEST_TOPIC; no default.}
+    x-topic-environment-variable: ORDER_COMPENSATION_REQUEST_TOPIC
+    messages:
+      request: {$ref: '#/components/messages/CreditCompensationRequested'}
+  compensationResult:
+    address: projects/{projectId}/topics/{topicId}
+    description: |
+      Credit committed result, received at POST /api/orders/internal/credit-compensations.
+      ORDER_COMPENSATION_RESULT_SUBSCRIPTION identifies the exact authorized subscription.
+      Separate Google OIDC identity chain; unsigned push only in gated local demo emulators.
+      ACK only after Order inbox/finalization commit. Duplicates retain their IDs.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID for the environment.}
+      topicId: {description: Credit's configured CREDIT_COMPENSATION_RESULT_TOPIC.}
+    messages:
+      result: {$ref: '#/components/messages/CreditCompensationResult'}
   openRefund:
     address: projects/{projectId}/topics/{topicId}
     title: OPEN cancellation or expiry refund
@@ -144,6 +165,14 @@ channels:
       penalty:
         $ref: '#/components/messages/PenaltyScoreDeductionEvent'
 operations:
+  publishCompensation:
+    action: send
+    channel: {$ref: '#/channels/compensationRequest'}
+    messages: [{$ref: '#/channels/compensationRequest/messages/request'}]
+  receiveCompensationResult:
+    action: receive
+    channel: {$ref: '#/channels/compensationResult'}
+    messages: [{$ref: '#/channels/compensationResult/messages/result'}]
   publishOpenRefund:
     action: send
     title: Publish refund task after cancellation or expiry commits
@@ -182,6 +211,47 @@ components:
         and not Google's transport messageId. Same event retains this ID across retries.
       location: $message.payload#/eventId
   messages:
+    CreditCompensationRequested:
+      name: CreditCompensationRequested
+      headers:
+        type: object
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: CreditCompensationRequested}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/CreditCompensationRequested'}
+      examples:
+        - headers: {eventId: '11111111-1111-4111-8111-111111111111', eventType: CreditCompensationRequested, eventVersion: '1'}
+          payload:
+            eventId: '11111111-1111-4111-8111-111111111111'
+            commandId: K
+            operation: RESERVE
+            orderId: '22087f91-26d8-4704-be72-0f7ba5df702b'
+            actorId: requester
+            generation: 2
+            amount: 5
+    CreditCompensationResult:
+      name: CreditCompensationResult
+      headers:
+        type: object
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: CreditCompensationResult}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/CreditCompensationResult'}
+      examples:
+        - headers: {eventId: '22222222-2222-4222-8222-222222222222', eventType: CreditCompensationResult, eventVersion: '1'}
+          payload:
+            eventId: '22222222-2222-4222-8222-222222222222'
+            compensationId: '11111111-1111-4111-8111-111111111111'
+            commandId: K
+            operation: RESERVE
+            orderId: '22087f91-26d8-4704-be72-0f7ba5df702b'
+            generation: 2
+            outcome: COMPENSATED
+            code: REVERSED
     PenaltyScoreAdditionEvent:
       name: PenaltyScoreAdditionEvent
       contentType: application/json
@@ -338,6 +408,38 @@ components:
             occurredAt: '2026-10-10T10:00:00Z'
             courierId: courier-example
   schemas:
+    CreditCompensationRequested:
+      type: object
+      additionalProperties: false
+      required: [eventId, commandId, operation, orderId, actorId, generation]
+      properties:
+        eventId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        operation: {enum: [RESERVE, ASSIGN_COURIER, CLEAR_COURIER]}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        actorId: {type: string, minLength: 1, maxLength: 128}
+        generation: {type: integer, minimum: 1}
+        amount: {type: integer, minimum: 1}
+      allOf:
+        - if: {properties: {operation: {const: RESERVE}}}
+          then: {required: [amount]}
+          else: {not: {required: [amount]}}
+    CreditCompensationResult:
+      type: object
+      additionalProperties: false
+      required: [eventId, compensationId, commandId, operation, orderId, generation, outcome, code]
+      properties:
+        eventId: {type: string, format: uuid}
+        compensationId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        operation: {enum: [RESERVE, ASSIGN_COURIER, CLEAR_COURIER]}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        generation: {type: integer, minimum: 1}
+        outcome: {enum: [COMPENSATED, RECONCILIATION_REQUIRED]}
+        code: {type: string, minLength: 1, maxLength: 80}
+      allOf:
+        - if: {properties: {outcome: {const: COMPENSATED}}}
+          then: {properties: {code: {enum: [REVERSED, FENCED_NO_EFFECT]}}}
     PenaltyScoreAdditionEvent:
       type: object
       additionalProperties: false

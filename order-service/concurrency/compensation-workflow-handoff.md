@@ -1,5 +1,21 @@
 # Compensation-first recovery: Order / Credit handoff
 
+## Current integration update - 2026-10-27
+
+CHANGE-158/ADR-055 extends the historical fixture milestone below with Vincent's
+explicit approval: actual Order request publisher and separately authenticated
+result receiver, strict local emulator gate, real Credit/DB/broker tests.
+Credit 8ecb1e8/5ff41c3 now implements consumer/inbox, absent-key tombstones,
+revision/preimage clear restoration and durable result outbox. Credit full verify
+passes126 tests/coverage; real compensation11/11 and retained protocol16/16 pass.
+Final Order584/common12=596 tests/coverage pass with no failures/errors/skips.
+Credit126 separately passes; source a6cceee. Order now rejects slash/dot/reserved
+opaque IDs before registration; simple keys and UUIDs remain valid.
+No schemas/endpoints below were replaced. New transport defaults off and recovery
+defaults retry; deployed settings/IAM/subscriptions remain a separate rollout.
+Historical future/missing statements below describe the original handoff, not
+the current code. Do not remove old endpoints or migrate old command policy.
+
 Owner/requester: Vincent. Date: 2026-10-26. CHANGE-156 / ADR-054 / FEEDBACK-017.
 
 **Approved milestone:** Order implementation against contract fixtures; live

@@ -3,9 +3,11 @@ admin_table_page_size_140 = "Orders live/mock20; sample Users20; supplier cards1
 admin_calendar_toolbar_139 = "41px desktop row; native calendar DD/MM/YYYY; RefreshCwIcon only; local dates->inclusive/exclusive Instants; SQL status/orderId/date before pagination; mock fixtures only; no schema or peer changes"
 admin_resolution_ui_change138 = "single-row toolbar/dialog; explicit penalty and required UI reason; optional API resolutionReason; V11; shared policy lookup; isolated mock/live; legacy hashes unchanged"
 schema_version = 1
-compensation_recovery_156 = "ADR-054; Vincent; feature/vincent-credit-compensation; opt-in mock/contract fixtures only; HTTP disabled; V15; one initial effect then durable compensation intent/result inbox; FEEDBACK-017 blocks live"
+compensation_recovery_156 = "ADR-054 fixture extended by CHANGE-158/ADR-055 opt-in actual HTTP/PubSub; default off; V15 retained; local Order/common596+Credit126 all pass; deployment/IAM gated"
 compensation_recovery_handoff = "concurrency/compensation-workflow-handoff.md"
-compensation_clear_reversal = "explicitly approved safe restoration of exact previous assignment; current Credit implementation missing"
+compensation_clear_reversal = "Credit V9/V10 implement exact preimage/revision restoration; actual local verification CHANGE-158"
+compensation_transport_158 = "Vincent 2026-10-27; Order/Credit edits; separate Google OIDC receiver; strict local demo gate; default retry/deployment unchanged"
+compensation_verification_158 = "a6cceee; real compensation11/legacy16 pass; Order95.01% LINE/82.16% BRANCH; local wiring/gateway/AsyncAPI pass; no cloud/browser claim"
 admin_completion_137 = "ADR-046; assigned active and held ->COMPLETED; existing Credit event and highest selected addition only; null/empty no score; locked atomic outbox/replay; V10 reused; no UI/peer/topic/migration change"
 admin_controller_refactor_136 = "AdminOrderController owns existing list and cancel; redundant controller removed; imported Schema and stable JSON names; no URI/business/schema/peer/UI change"
 persisted_delivery_verification_135 = "Fresh common12+Order458=470 tests pass, both coverage gates/JAR; frontend typecheck/AsyncAPI checks; local backed-up V9->V10 preserves7 Orders and backfills3 timings; app rebuild and peer/cloud review pending"

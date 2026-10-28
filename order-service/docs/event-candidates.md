@@ -1,5 +1,12 @@
 # D1-Supported Event Candidate Registry
 
+## EV-DEC-158 / ADR-055 - Gated actual compensation exchange
+
+Vincent approves actual transport and local tests for the unchanged hybrid
+contract, 2026-10-27. EV-7 remains stable. Compensation send/result receive are
+opt-in/default off, separately Google-OIDC-authenticated, with durable outbox/
+inboxes, exact matching and retained failures. Cloud activation stays separate.
+
 ## EV-DEC-156 / ADR-054 - Credit compensation fixture interaction
 
 EV-7 remains the stable Credit-outcome candidate. Vincent approves the hybrid

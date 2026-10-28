@@ -1,5 +1,45 @@
 # Vincent - Active Work
 
+## Real compensation integration - 2026-10-27 [x] local / [~] rollout
+
+- Baseline ba27147 clean; profile/allocation/branch match Vincent. User authorizes
+  Order/Credit changes and explicitly approves gated transport and real tests.
+- CHANGE-158 / ADR-055 extend ADR-054 with the same schemas; no deployment,
+  default-policy switch, auto repost, new schema or frontend edits.
+- D1/selected Overall fingerprints match. Actual Credit consumer/tombstone/
+  preimage/revision/result outbox inspected; FEEDBACK-017 READY_FOR_VERIFICATION.
+- Docker27.5.1 available. Credit full verify running. Next: tests-first real HTTP
+  and broker loop; scoped fixes; regression/security/coverage evidence.
+- Credit full126 tests/coverage pass. Initial missing transport RED and2 cutover
+  RED regressions fixed. Harness callback mapping/100ms timeout/subscription
+  mismatches corrected, never by weakening financial assertions.
+- Actual compensation11/11 and retained real protocol16/16 pass. Initial full
+  Order582/common12=594 passes with no failures/errors/skips; fresh Order coverage
+  LINE3041/3202=94.97%,BRANCH1528/1866=81.89%,unchanged gates/package pass.
+- Identifier audit:2 tests,1 expected behavioral failure; valid simple/UUID keys
+  already pass. Early provider-compatible ID validation fixed. Final full verify
+  rerunning fresh: target/change158-final-verify.log (session75467).
+- Credit fixture fix uses explicit due timestamp and due-selection assertion;
+  an Instant JDBC binding mistake and a test method typo were corrected, not
+  represented as meaningful behavioral RED.
+- Actual isolated gateway health200/private result404/nginx syntax pass.
+  Rendered Compose retains retry/false;2 wiring tests and AsyncAPI6 channels/
+  eight examples/source parity pass. No app stack/database/cloud mutation.
+- Remaining: final verify/review/atomic commits; cloud OIDC/IAM/subscriptions and
+  direct/unkeyed financial-call boundary review before activation. No push.
+- Final PASS/exit0: Order584/common12=596 tests,0 failures/errors/skips; fresh
+  LINE3044/3204=95.01%,BRANCH1543/1878=82.16%; gates/package pass. Credit126
+  independently passes. Real compensation11/11 and retained live16/16 pass.
+  Final log target/change158-final-verify.log. No required backend tests skipped.
+- Default and explicit opt-in Compose renders, actual gateway health200/result404/
+  nginx syntax,2 wiring tests and AsyncAPI checks pass. D1/Overall hashes match.
+  Backend-only approved; public UI contract unchanged, no browser claim.
+- Atomic commits: cc9c074 Credit test; f6aa6fc wiring; a6cceee Order source/tests.
+  Documentation/disclosure recorded with this handoff. Existing nonfatal Surefire/Hikari diagnostic
+  warnings retained, not represented as fixed.
+- Next: human review/hosted CI, then separately approved OIDC/IAM/subscription/
+  direct-call-boundary review and cloud activation. No push or auto repost.
+
 ## CI Maven verify reproduction and repair - 2026-10-26 [x] local repair
 
 - User reports failed upstream Order Maven verify and explicitly requests local

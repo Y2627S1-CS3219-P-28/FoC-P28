@@ -23,6 +23,16 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Architecture Evolution
 
+## CHANGE-158 / ADR-055 - Gated actual compensation transport
+
+Vincent explicitly approves the real publisher, separate Google OIDC result
+receiver, strictly local emulator gate and actual integration tests, 2026-10-27.
+This extends the fixture milestone without changing message schemas or deployed
+settings/default retry. Credit application integration is locally verified:
+Order/common596 and Credit126 tests/gates pass, real compensation11/legacy16.
+Cloud IAM/OIDC/subscription/direct-call review remains gated. No new financial
+rules, schema or automatic repost approval.
+
 ## CHANGE-156 / ADR-054 - Compensation-first contract-fixture milestone
 
 Architecture change approved by Vincent2026-10-26 for an opt-in fixture policy:

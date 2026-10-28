@@ -1341,6 +1341,23 @@ No schema, event/topic, frontend, shared configuration or sibling backend change
 
 ## FEEDBACK-017 - Compensation-first Credit command protocol
 
+### Current verification update - CHANGE-158, 2026-10-27
+
+Status: READY_FOR_VERIFICATION for final rollout; local application integration
+has actual evidence. Credit8ecb1e8/5ff41c3 supplies consumer/inbox, absent-K
+tombstones, revisions/exact CLEAR_COURIER restoration, result outbox/publisher,
+push isolation and retained FAILED redrive. Shapes MATCHES_APPROVED_CONTRACT.
+Credit full126 tests/coverage pass. Actual Order/Credit/PostgreSQL/emulator
+suite11/11 and retained real protocol16/16 pass. Final Order584/common12=596
+tests pass with no failures/errors/skips, including the identifier audit.
+Order95.01% LINE/82.16% BRANCH, original gates pass. Source a6cceee; local
+contract/financial integration verified, cloud rollout remains gated.
+
+Cloud OIDC/IAM/subscription provisioning, direct/unkeyed financial-call boundary
+and coordinated activation are unverified. Default transport off/retry preserved.
+The original missing-provider description below is historical. Local emulator
+evidence is not a whole-feature/cloud VERIFIED claim.
+
 - Date/owner: 2026-10-26; Credit service owner. Requested by Vincent under
   CHANGE-156/ADR-054. Status: OPEN; actual asynchronous interface MISSING.
 - Expected: original keyed synchronous mutation; compensation request via Pub/Sub;

@@ -1,5 +1,12 @@
 # Order Service Work Allocation
 
+## Vincent actual compensation integration - 2026-10-27
+
+Vincent authorizes Order/Credit fixes to the agreed compensation workflow, then
+approves gated Order transport, Google OIDC receiver and real local tests under
+CHANGE-158/ADR-055. Narrow extension of the fixture/read-only boundary below;
+no other peer, auto repost, deployment/IAM or unrelated reassignment.
+
 ## Vincent compensation fixture extension - 2026-10-26
 
 Vincent confirms feature/vincent-credit-compensation from main and approves

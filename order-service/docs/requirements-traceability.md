@@ -25,6 +25,20 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 ## CHANGE-156 / ADR-054 - Compensation fixture traceability [~]
 
+CHANGE-158/ADR-055 extends the milestone with actual transport. Credit126 tests
+and coverage pass. Actual Order/Credit HTTP, separate PostgreSQL and Pub/Sub push
+tests11/11 pass: timeout, missing original/higher generation, duplicates/lost
+result, exact clear restoration, local rollback, manual candidate identity,
+late-owner race, retained RETRY cutover and production user-API401. Existing
+real-provider suite16/16 passes. Full Order/common verify594 tests passes with
+no failures/errors/skips and unchanged gates; final key-validation audit follows.
+Cloud activation, real IAM and direct/unkeyed bypass review remain separate.
+
+Final CHANGE-158: Order584/common12=596 and independent Credit126 all pass with
+0 failures/errors/skips; Order95.01% LINE/82.16% BRANCH,unchanged gates pass.
+Source a6cceee, wiring f6aa6fc, Credit fixture cc9c074. Local milestone[x];
+overall rollout[~]. No new schema or frontend behavior.
+
 CHANGE-157 verification follow-up: the PostgreSQL fixture now uses supported
 messaging configuration and an explicit broker transport fixture. All11 database
 cases and2 configuration regressions pass with no skips, including clean V15 and

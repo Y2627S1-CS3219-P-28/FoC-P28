@@ -41,6 +41,25 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service
 
+## Opt-in compensation integration (CHANGE-158 / ADR-055)
+
+Actual Credit HTTP and Pub/Sub request/result transport is implemented behind
+ORDER_COMPENSATION_ENABLED (default false). New commands use the configured
+ORDER_COMMAND_RECOVERY_POLICY (default retry); saved commands retain their policy.
+Local Compose already provisions request and result subscriptions; to test this
+policy deliberately set both ORDER_COMPENSATION_ENABLED=true and
+ORDER_COMMAND_RECOVERY_POLICY=compensate, then rebuild the local stack normally.
+No local database reset is needed. These instructions do not enable any cloud
+deployment. Real integration tests use disposable databases, not Compose volumes.
+
+Cloud configuration additionally requires explicit request topic, result
+subscription, Google push audience and service-account email, no emulators,
+dedicated OIDC/IAM/subscriptions and prior rollout review. Credit result publishing
+must be enabled in the same coordinated rollout. See
+concurrency/compensation-workflow-handoff.md and CHANGE-158 for tests/remaining gates.
+The new request-topic variable must match the existing infrastructure setting
+ORDER_CREDIT_COMPENSATION_TOPIC. No cloud provisioning was performed here.
+
 ## Compensation-first recovery fixture milestone (CHANGE-156)
 
 The default `ORDER_COMMAND_RECOVERY_POLICY=retry` retains the current live

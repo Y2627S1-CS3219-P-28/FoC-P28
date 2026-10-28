@@ -1,5 +1,12 @@
 # Approved Change Log
 
+## CHANGE-158 - Gated real compensation integration
+
+Vincent2026-10-27 approves actual transport and real local integration tests.
+ADR-055: persisted-policy cutover repair, exact gateway isolation and default-off
+local wiring; Credit recovery-fixture clock repair; unchanged message schemas.
+See changes/CHANGE-158-real-compensation-integration.md for evidence/rollout gates.
+
 ## CHANGE-157 - Compensation CI fixture repair
 
 Vincent requests reproducing/fixing upstream Maven verify. Correct the compensation

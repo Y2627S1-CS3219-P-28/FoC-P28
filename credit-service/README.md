@@ -117,8 +117,9 @@ forwards the message to the environment's shared Credit dead-letter topic for in
 
 The approved Order contract defines `CreditCompensationRequested` version 1 on the environment's
 compensation topic. This service implements the Credit consumer and durable result-outbox side.
-Order currently has a contract fixture only: it does not yet publish these requests or receive the
-live result event. Credit validates an authenticated push, subscription, envelope, immutable command
+Order CHANGE-158/ADR-055 now provides opt-in request publishing and a separately authenticated
+result receiver; both deployed policies remain unchanged until coordinated rollout.
+Credit validates an authenticated push, subscription, envelope, immutable command
 binding, generation, and operation-specific amount. A request arriving before the original command
 creates an absorbing `COMPENSATED/FENCED_NO_EFFECT` tombstone; a later execute cannot apply even at a
 higher generation. Exact request replays reuse the saved result and never repeat a financial change.
