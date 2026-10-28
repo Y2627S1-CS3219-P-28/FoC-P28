@@ -442,13 +442,13 @@ done
 
 if [[ ${#problems[@]} -gt 0 ]]; then
   echo
-  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, infra/gcp/configure-order-pubsub.sh <environment> and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
+  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, then infra/gcp/configure-compensation-pubsub.sh staging and infra/gcp/configure-compensation-pubsub.sh production; then re-run this check."
   if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     {
       echo "### Cloud infrastructure incomplete"
       printf -- '- %s\n' "${problems[@]}"
       echo
-      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\` and the enabled Credit Pub/Sub provisioning script, then re-runs this job."
+      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\`, then \`infra/gcp/configure-compensation-pubsub.sh staging\` and \`infra/gcp/configure-compensation-pubsub.sh production\`, then re-runs this job."
     } >>"$GITHUB_STEP_SUMMARY"
   fi
   exit 1
