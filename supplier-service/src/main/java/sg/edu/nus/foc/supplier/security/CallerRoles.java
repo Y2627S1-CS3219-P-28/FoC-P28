@@ -33,6 +33,9 @@ public class CallerRoles {
 
     /** @throws RoleLookupException if the User Service cannot be reached */
     public boolean isAdmin(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken token && roleProvider instanceof CachingRoleProvider cached) {
+            return cached.currentRolesFor(token.getToken()).contains(Role.ADMIN);
+        }
         return of(authentication).contains(Role.ADMIN);
     }
 }
