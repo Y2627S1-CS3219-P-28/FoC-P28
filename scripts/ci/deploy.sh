@@ -83,10 +83,23 @@ gateway_path() (
   fi
 )
 
-# Deploy order: backends, then the frontend, then the gateway in front of them.
+# When rolling out Order's private protocol, protect the public boundary first
+# and update providers before the Order producer. Other rollout ordering is retained.
 ordered=()
-for svc in "${services[@]}"; do is_backend "$svc" && ordered+=("$svc"); done
+order_slice=false
+for svc in "${services[@]}"; do [[ $svc != order-service ]] || order_slice=true; done
+if $order_slice; then
+  for first in gateway user-service supplier-service credit-service; do
+    for svc in "${services[@]}"; do [[ $svc != "$first" ]] || ordered+=("$svc"); done
+  done
+fi
+for svc in "${services[@]}"; do
+  is_backend "$svc" || continue
+  if $order_slice && [[ $svc == user-service || $svc == supplier-service || $svc == credit-service ]]; then continue; fi
+  ordered+=("$svc")
+done
 for svc in frontend gateway; do
+  if $order_slice && [[ $svc == gateway ]]; then continue; fi
   for s in "${services[@]}"; do [[ $s == "$svc" ]] && ordered+=("$svc"); done
 done
 

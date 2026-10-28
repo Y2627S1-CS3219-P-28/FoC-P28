@@ -47,7 +47,7 @@ public class UserController {
     private final UserService userService;
 
     public UserController(
-            UserService userService, 
+            UserService userService,
             AuthenticationService authenticationService) {
 
         this.userService = userService;
@@ -146,7 +146,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<User> getMyProfile(
             JwtAuthenticationToken authentication) {
-        
+
         String userId = authentication.getToken().getSubject();
 
         User user = userService.getUserByUserId(userId);
@@ -160,7 +160,7 @@ public class UserController {
     @PostMapping
     public ResponseEntity<User> addUser(
             JwtAuthenticationToken authentication) {
-        
+
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");
@@ -205,7 +205,7 @@ public class UserController {
     public ResponseEntity<User> updateUser(
             @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
-            JwtAuthenticationToken authentication) {    
+            JwtAuthenticationToken authentication) {
 
         User user = userService.updateUser(userId, request);
 
@@ -233,7 +233,7 @@ public class UserController {
     public ResponseEntity<User> updateUserPenalty(
             @PathVariable String userId,
             @RequestBody ApplyPenaltyRequest request) {
-            
+
         User user = userService.adjustPenalty(userId, request.getPenalty());
 
         return ResponseEntity.ok(user);
@@ -263,14 +263,14 @@ public class UserController {
             JwtAuthenticationToken authentication) {
 
         String requesterToken = authentication.getToken().getTokenValue();
-        
+
         userService.deactivateUser(requesterToken, userId);
 
         return ResponseEntity.ok("User disabled");
     }
 
     // TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
-    
+
     // TODO: PUT or POST /api/users/:userid/suspension
     // Admin manual suspension
     @Operation(summary = "Update any user's info")
@@ -280,7 +280,7 @@ public class UserController {
             @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
             JwtAuthenticationToken authentication) {
-            
+
         User user = userService.suspendUser(userId);
 
         return ResponseEntity.ok(user);

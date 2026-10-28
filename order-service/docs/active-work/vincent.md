@@ -1,5 +1,195 @@
 # Vincent - Active Work
 
+## Real compensation integration - 2026-10-27 [x] local / [~] rollout
+
+- Baseline ba27147 clean; profile/allocation/branch match Vincent. User authorizes
+  Order/Credit changes and explicitly approves gated transport and real tests.
+- CHANGE-158 / ADR-055 extend ADR-054 with the same schemas; no deployment,
+  default-policy switch, auto repost, new schema or frontend edits.
+- D1/selected Overall fingerprints match. Actual Credit consumer/tombstone/
+  preimage/revision/result outbox inspected; FEEDBACK-017 READY_FOR_VERIFICATION.
+- Docker27.5.1 available. Credit full verify running. Next: tests-first real HTTP
+  and broker loop; scoped fixes; regression/security/coverage evidence.
+- Credit full126 tests/coverage pass. Initial missing transport RED and2 cutover
+  RED regressions fixed. Harness callback mapping/100ms timeout/subscription
+  mismatches corrected, never by weakening financial assertions.
+- Actual compensation11/11 and retained real protocol16/16 pass. Initial full
+  Order582/common12=594 passes with no failures/errors/skips; fresh Order coverage
+  LINE3041/3202=94.97%,BRANCH1528/1866=81.89%,unchanged gates/package pass.
+- Identifier audit:2 tests,1 expected behavioral failure; valid simple/UUID keys
+  already pass. Early provider-compatible ID validation fixed. Final full verify
+  rerunning fresh: target/change158-final-verify.log (session75467).
+- Credit fixture fix uses explicit due timestamp and due-selection assertion;
+  an Instant JDBC binding mistake and a test method typo were corrected, not
+  represented as meaningful behavioral RED.
+- Actual isolated gateway health200/private result404/nginx syntax pass.
+  Rendered Compose retains retry/false;2 wiring tests and AsyncAPI6 channels/
+  eight examples/source parity pass. No app stack/database/cloud mutation.
+- Remaining: final verify/review/atomic commits; cloud OIDC/IAM/subscriptions and
+  direct/unkeyed financial-call boundary review before activation. No push.
+- Final PASS/exit0: Order584/common12=596 tests,0 failures/errors/skips; fresh
+  LINE3044/3204=95.01%,BRANCH1543/1878=82.16%; gates/package pass. Credit126
+  independently passes. Real compensation11/11 and retained live16/16 pass.
+  Final log target/change158-final-verify.log. No required backend tests skipped.
+- Default and explicit opt-in Compose renders, actual gateway health200/result404/
+  nginx syntax,2 wiring tests and AsyncAPI checks pass. D1/Overall hashes match.
+  Backend-only approved; public UI contract unchanged, no browser claim.
+- Atomic commits: cc9c074 Credit test; f6aa6fc wiring; a6cceee Order source/tests.
+  Documentation/disclosure recorded with this handoff. Existing nonfatal Surefire/Hikari diagnostic
+  warnings retained, not represented as fixed.
+- Next: human review/hosted CI, then separately approved OIDC/IAM/subscription/
+  direct-call-boundary review and cloud activation. No push or auto repost.
+
+## CI Maven verify reproduction and repair - 2026-10-26 [x] local repair
+
+- User reports failed upstream Order Maven verify and explicitly requests local
+  reproduction/fix. Same Vincent/feature/vincent-credit-compensation scope. Preserve
+  three existing uncommitted automatic-repost review/disclosure files; no auto
+  repost implementation or peer edits authorized by this repair.
+- CI uses Java21 root reactor `-pl order-service -am verify`, including PostgreSQL
+  integration tests and unchanged >=80% line/branch coverage. Focused 60-test
+  evidence from CHANGE-156 is not full verify evidence.
+- Current D1/selected Overall hashes match; ADR-054 fixture scope/live gate remains.
+  References: F1/F3/F11/F13, NTH4, durability/concurrency/testing NFRs and CHANGE-156.
+- Started equivalent offline root-wrapper run with installed Java21/local Maven
+  cache. Docker initially stopped; requested hidden background Docker Desktop
+  startup for isolated Testcontainers only, not Compose or user database writes.
+- Requested CI run URL/error tail while local reproduction continues. Do not lower
+  coverage thresholds, skip failing tests or silently reinterpret peer contracts.
+- Next: capture exact RED, classify fixture/implementation/environment/coverage
+  root cause, apply minimal repair, then focused and full verify evidence.
+- Confirmed actual upstream CI run205/job121400978683 at c097c95:559 Order tests,
+  0 failures,10 context errors,0 skips. All10 new PostgreSQL cases fail because
+  `order.messaging.mode=mock` is unsupported by the factory; coverage not reached.
+- CHANGE-157 is a fixture/configuration implementation detail under ADR-054.
+  New two-case context regression reproduces exact error first (1 failure/0 errors);
+  supported cloud mode plus explicit mocked transport fixes it without network
+  calls or production validation changes. Original10 DB cases retained, one new
+  fixture-transport case added.
+- Docker27.5.1 available after user startup. Focused GREEN13 tests,0 failures,
+  errors or skips (11 PostgreSQL +2 configuration), including V14->V15 upgrade.
+  Full verify running with fresh coverage data backed up first; no gate changes.
+- Final Java21 root verify PASSES/exit0: common12 + Order562 =574 tests,0 failures,
+  errors or skips; includes16 existing real Credit/emulator recovery tests. Fresh
+  Order coverage94.73% LINE (3090/3262),81.02% BRANCH (1447/1786); both modules'
+  original gates/JAR packaging pass. `target/change157-full-verify.log`.
+- Local Surefire30-second post-System.exit(0) shutdown warning remains; tests and
+  Maven succeed. Do not mistake it for the CI context error or claim it fixed.
+- Test-only repair committed as `a1053c7`. CHANGE-157/change-log/traceability and
+  CHANGE-156 follow-up carry evidence. Earlier automatic-repost notes in this file,
+  feedback and AI log are preserved; overlapping records stay uncommitted rather
+  than mixing earlier notes into the verified repair commit.
+- Separate verification-documentation commit: `544f121`. Index is empty after
+  both commits; only the three overlapping review/disclosure records remain dirty.
+- Next: user pushes fix to the existing upstream branch and reruns CI. No push,
+  deployment, application database or peer source mutation performed. New live
+  compensation and automatic repost remain deferred; the whole feature is [~].
+
+## Automatic repost resumption review - 2026-10-26 [!]
+
+- User requests resuming automatic repost without JWT credentials, assuming peer
+  trust, and conditionally permits small coordinated peer endpoint changes. This
+  is not yet approval for a larger financial/security/transport redesign.
+- Current Vincent profile/branch match; starting tracked worktree clean. D1 and
+  selected Overall hashes match. Read actual repost/lifecycle/scheduler/adapters,
+  Credit command/controller/security, Supplier validation/security, User role and
+  eligibility/security, gateway blocking and deployment ingress configuration.
+- Found: automatic still calls legacy unkeyed reserve inside the local transaction
+  with a fresh candidate UUID; minute scheduler does not call repostDue. New
+  compensation policy refuses that legacy path. Supplier and User routes require
+  Firebase; Credit reserve also binds token subject to requester. Required
+  credential-free background contracts are MISSING (existing FEEDBACK-005).
+- Deployment scripts configure internal ingress with allow-unauthenticated;
+  gateway and peers share VPC access. This is network-wide trust, not proof of
+  Order identity. Gateway currently blocks Credit internal paths but has no
+  equivalent User/Supplier internal block. Local debug ports are loopback-bound,
+  not authenticated; local host callers remain in the trusted boundary.
+- Proposed, NOT APPROVED detailed implementation: restricted internal peer
+  validation/reservation contracts; persisted consent and current requester checks;
+  durable AUTO_REPOST key/candidate plus shared original guard; independent minute
+  phase after expiry; atomic new Order/link/receipt/result. Retain expiry rules,
+  one successor and financial compensation safety. No forward-retry fallback.
+- Existing ADR-054 remains fixture-only and FEEDBACK-017 unresolved. Live automatic
+  compensation requires completing/verifying that Credit protocol too, not merely
+  adding one reserve route. Need explicit broader-slice approval and confirmation
+  of network-only trust vs a service-auth boundary before implementation.
+- No application, peer, schema, gateway, deployment or test code changed; no tests
+  run or cloud state checked. Only existing review/disclosure records updated.
+- Resume: approve the expanded scope/trust model and fixture-vs-live milestone;
+  record effective design, then write failing tests before implementation.
+
+## Compensation slice commit handoff - 2026-10-26 [~]
+
+- User explicitly requests committing the existing CHANGE-156 changes. Current
+  developer/scope/branch match; no pre-staged paths or unrelated peer changes.
+- Commit-only task: preserve approved fixture scope and live gate. Review exact
+  paths and existing verification, then separate implementation, frontend test,
+  shared environment documentation, workflow/handoff and AI disclosure commits.
+- No push, deployment, database mutation or new feature behavior authorized.
+- Feature remains [~]: PostgreSQL/frontend/full coverage and peer/live gates open.
+- Committed implementation/V15/backend tests: `00b85a6`; frontend pending-state
+  regression: `04ff3e0`; shared environment example: `038e846`.
+- Commit review: explicit staged paths, staged diff/stat, whitespace and backend
+  secret-pattern checks pass. Existing final backend log confirms 60 passes with
+  zero failures/errors/skips; no fresh runtime pass is claimed. A redundant XML
+  report-aggregation process was stopped without a result; the log remains the
+  evidence. Node/npm still unavailable. Peer/common/Compose/CI source unchanged.
+- Documentation/handoff and AI disclosure are committed separately after these
+  units. No push requested or performed; resume feature verification, not rollout.
+
+## Compensation-first recovery fixture implementation - 2026-10-26 [~]
+
+- Vincent confirms identity and requests a new compensation branch from main.
+  Created feature/vincent-credit-compensation; initial tracked worktree clean.
+- Requested: durable pre-call intent; definitive remote observations; timeout/crash
+  compensation via Pub/Sub; Credit result event; scheduler recovery of unresolved
+  commands; peer handoff with minimal schemas; inventory other unsafe peer calls.
+- Vincent explicitly selected safe restoration of the exact previous assignment
+  for ABORT and Order implementation against contract fixtures, with live disabled
+  until Credit is verified. CHANGE-156/ADR-054 record this approved milestone;
+  FEEDBACK-017 remains OPEN/MISSING actual provider support.
+- Implemented opt-in COMPENSATE policy for CREATE/ACCEPT/ABORT/manual REPOST:
+  one initial effect, remote observation vs final commit, absorbing compensation
+  decision with owner/generation fencing, durable command-owned outbox and result
+  inbox, identical-key retries and confirmed-result-only terminal rejection.
+- V15 is additive; V1-V14 untouched. Existing commands stay RETRY, and new policy
+  cannot rebind them. Outbox lifecycle Order FK retained; command FK permits
+  compensation before CREATE produced an Order. No real database migrated.
+- Existing pending UI/keys are reused; added a frontend compensation regression.
+  No new live transport/push receiver is exposed. HTTP+compensate fails closed;
+  default existing retry protocol remains during coordinated migration. Legacy
+  automatic repost cannot bypass the new journal. Peer/cloud source unchanged.
+- Outbound audit: three Credit mutations plus existing HTTP compensation; manual
+  and legacy repost share reservation. Supplier POST validation and User GET
+  role/eligibility are read-only; no other unsafe peer HTTP operation found.
+- Handoff: concurrency/compensation-workflow-handoff.md contains exact bodies,
+  response/event formats, Credit algorithms/add/change/drain-retirement steps,
+  missing-key tombstones, safe CLEAR_COURIER pre-images/revisions, OIDC/IAM and
+  real-provider verification scenarios. Prior handoff is preserved and linked.
+- TDD: RED test compilation fails for missing new workflow/journal classes
+  (target/change156-red.log). Fixture signature error corrected before GREEN.
+  Final focused Java21/root-wrapper run: 60 passed, zero failures/errors/skips
+  (target/change156-final-unit.log). Includes 6 workflow,9 journal,2 outbox tests,
+  live gate and existing service/domain/security/OpenAPI regressions.
+- Duplicate semantic compensation results with a new delivery ID initially failed
+  the added regression (target/change156-duplicate-red.log). Fixed: save inbox
+  evidence but do not finalize/audit an already fully-compensated command again.
+- Required PostgreSQL suite attempted: initialization ERROR because no valid
+  Docker environment; no SQL/race test passed or skipped. Ten scenarios are now
+  written/compiled, including clean startup, V14 upgrade/reference integrity,
+  timeout/local rollback, pending guards, wrong/duplicate results and lock races.
+  Evidence target/change156-postgres.log and surefire report; V15 not runtime verified.
+- Frontend regression execution unavailable: Node/npm absent from PATH; temporary
+  official portable-runtime attempts did not finish and were stopped. No global
+  installation or passing frontend result claimed. New test still requires execution.
+- D1/Overall hashes match, git diff --check passes, peer/common/Compose/CI diffs
+  empty. Full verify/coverage, actual Credit/emulator/OIDC/cloud and browser gates
+  remain open. Initially left uncommitted pending verification; the user now
+  explicitly requests the commit handoff above. PostgreSQL/frontend verification
+  and peer readiness remain unresolved; committing does not close those gates.
+- Resume: provide working Docker/Node, run README focused/PostgreSQL/UI commands,
+  review migrations, then coordinate FEEDBACK-017 and actual two-service tests.
+
 ## Command polling race fix - CHANGE-110, 2026-10-11, [~]
 
 - Vincent explicitly approves the diagnosed narrow fix: "Yes, fix it".

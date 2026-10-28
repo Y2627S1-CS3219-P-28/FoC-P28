@@ -51,4 +51,9 @@ public class CachingRoleProvider implements RoleProvider {
         }
         return roles;
     }
+
+    /** Security decisions must not reuse a positive role after account deactivation. */
+    public Set<Role> currentRolesFor(Jwt caller) {
+        return Set.copyOf(delegate.rolesFor(caller));
+    }
 }

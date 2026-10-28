@@ -1,5 +1,22 @@
 # D1-Supported Event Candidate Registry
 
+## EV-DEC-158 / ADR-055 - Gated actual compensation exchange
+
+Vincent approves actual transport and local tests for the unchanged hybrid
+contract, 2026-10-27. EV-7 remains stable. Compensation send/result receive are
+opt-in/default off, separately Google-OIDC-authenticated, with durable outbox/
+inboxes, exact matching and retained failures. Cloud activation stays separate.
+
+## EV-DEC-156 / ADR-054 - Credit compensation fixture interaction
+
+EV-7 remains the stable Credit-outcome candidate. Vincent approves the hybrid
+compensation-first fixture milestone under CHANGE-156: initial synchronous
+mutation, durable request/result boundary and frontend polling. No new live broker
+channel is enabled; FEEDBACK-017 blocks provider activation. Compare alternatives
+and delivery/security/operational costs in ADR-054 and the compensation handoff.
+The four current deployed producer channels remain current; this fixture decision
+does not renumber EV-1..EV-7 or treat a missing peer consumer as implemented.
+
 ## Effective retirement of accepted-cancellation publishing - CHANGE-155 / ADR-053 (2026-10-19)
 
 User approved removing AcceptedOrderCancellationTaskEvent publishing AND legacy replay after inspecting staging: eight legacy rows were PUBLISHED, with no pending/failed rows shown. Preserve published history; this task does not modify any database or GCP resource. Production was not inspected: before rollout, verify no PENDING, IN_PROGRESS or FAILED legacy rows in each target database. Resolve any such rows explicitly before deployment; do not convert them into new score events or mark them PUBLISHED without broker confirmation.

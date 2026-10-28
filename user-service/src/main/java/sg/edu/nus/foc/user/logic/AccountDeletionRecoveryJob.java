@@ -19,13 +19,13 @@ public class AccountDeletionRecoveryJob {
             LoggerFactory.getLogger(AccountDeletionRecoveryJob.class);
 
     private final UserRepository userRepository;
-    private final FirebaseAuthService firebaseAuthService;
+    private final UserService users;
 
     public AccountDeletionRecoveryJob(
             UserRepository userRepository,
-            FirebaseAuthService firebaseAuthService) {
+            UserService users) {
         this.userRepository = userRepository;
-        this.firebaseAuthService = firebaseAuthService;
+        this.users = users;
     }
 
     @Scheduled(
@@ -39,14 +39,7 @@ public class AccountDeletionRecoveryJob {
 
         for (User user : pendingUsers) {
             try {
-                // Delete the Firebase account, or succeed if it
-                // has already been deleted.
-                firebaseAuthService.deleteUserIfExists(
-                        user.getUserId());
-
-                // Firebase deletion is now confirmed.
-                user.setStatus(AccountStatus.DEACTIVATED);
-                userRepository.save(user);
+                users.recoverDeletion(user);
 
                 log.info(
                         "Completed account deactivation for userId={}",

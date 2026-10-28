@@ -15,6 +15,21 @@ describe("durable Order UI intent", () => {
     m.read.mockResolvedValue(null); m.write.mockResolvedValue(undefined); m.remove.mockResolvedValue(undefined)
     m.api.mockImplementation(async (path: string) => path.endsWith("capabilities") ? { enabled: true } : { items: [] })
   })
+  it("keeps the action pending through compensation and clears only after confirmed terminal rejection", async () => {
+    const rejected = vi.fn();
+    const hook = renderHook(() => useOrderCommand("create", vi.fn(), rejected));
+    await waitFor(() => expect(hook.result.current.ready).toBe(true));
+    m.api.mockResolvedValue({ commandId: "K", status: "PENDING", reason: "COMPENSATING", message: "We are reversing the Credit request." });
+    await act(() => hook.result.current.run("CREATE", "/api/orders", { commandId: "K", requesterId: "user-a" }));
+    expect(hook.result.current.pending).toBe(true);
+    expect(hook.result.current.needsAuthorization).toBe(false);
+    expect(m.remove).not.toHaveBeenCalled();
+    m.api.mockResolvedValue({ commandId: "K", status: "COMPLETED", outcome: "REJECTED", reason: "COMPENSATED", message: "Credit confirmed reversal." });
+    await act(() => m.poll!());
+    expect(hook.result.current.pending).toBe(false);
+    expect(m.remove).toHaveBeenCalledWith("user-a", "create");
+    expect(rejected).toHaveBeenCalledWith("Credit confirmed reversal.");
+  })
   it.each(["CREATE", "REPOST"] as const)("keeps one frozen key after timeout/reload and clears only after terminal success: %s", async (kind) => {
     const scope = kind === "CREATE" ? "create" : "repost:old-order"
     const path = kind === "CREATE" ? "/api/orders" : "/api/orders/old-order/repost"

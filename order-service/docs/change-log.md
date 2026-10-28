@@ -1,5 +1,31 @@
 # Approved Change Log
 
+## CHANGE-158 - Gated real compensation integration
+
+Vincent2026-10-27 approves actual transport and real local integration tests.
+ADR-055: persisted-policy cutover repair, exact gateway isolation and default-off
+local wiring; Credit recovery-fixture clock repair; unchanged message schemas.
+See changes/CHANGE-158-real-compensation-integration.md for evidence/rollout gates.
+
+## CHANGE-157 - Compensation CI fixture repair
+
+Vincent requests reproducing/fixing upstream Maven verify. Correct the compensation
+integration fixture's unsupported messaging mode and isolate its transport;
+preserve real PostgreSQL scenarios, production validation and coverage gates.
+See [CHANGE-157](../changes/CHANGE-157-compensation-ci-fixture-repair.md) for exact
+CI root cause and RED/GREEN/full verification evidence. ADR-054/live gate unchanged.
+
+## CHANGE-156 - Compensation-first recovery fixture milestone
+
+Vincent-approved opt-in compensation policy for the initial three Credit mutations
+and manual repost reservation. Durable step/final status, V15 command-owned outbox
+references and result inbox; one initial financial attempt, fenced compensation
+decision and matching-result completion. New HTTP mode fails closed. Actual Credit
+consumer/result publisher, missing-key tombstones and safe clear reversal remain
+FEEDBACK-017. See [change record](../changes/CHANGE-156-compensation-first-recovery.md)
+and [peer handoff](../concurrency/compensation-workflow-handoff.md). Verification
+evidence/limitations are recorded there; no whole-feature/Sprint completion claim.
+
 ## CHANGE-140 — Twenty-row admin table pages
 
 Orders/mock Users table pages now request20, retaining server pagination and actual smaller result counts. See [CHANGE-140](../changes/CHANGE-140-admin-table-page-size.md).

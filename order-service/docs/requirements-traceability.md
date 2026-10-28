@@ -23,6 +23,42 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Requirements Traceability
 
+## CHANGE-156 / ADR-054 - Compensation fixture traceability [~]
+
+CHANGE-158/ADR-055 extends the milestone with actual transport. Credit126 tests
+and coverage pass. Actual Order/Credit HTTP, separate PostgreSQL and Pub/Sub push
+tests11/11 pass: timeout, missing original/higher generation, duplicates/lost
+result, exact clear restoration, local rollback, manual candidate identity,
+late-owner race, retained RETRY cutover and production user-API401. Existing
+real-provider suite16/16 passes. Full Order/common verify594 tests passes with
+no failures/errors/skips and unchanged gates; final key-validation audit follows.
+Cloud activation, real IAM and direct/unkeyed bypass review remain separate.
+
+Final CHANGE-158: Order584/common12=596 and independent Credit126 all pass with
+0 failures/errors/skips; Order95.01% LINE/82.16% BRANCH,unchanged gates pass.
+Source a6cceee, wiring f6aa6fc, Credit fixture cc9c074. Local milestone[x];
+overall rollout[~]. No new schema or frontend behavior.
+
+CHANGE-157 verification follow-up: the PostgreSQL fixture now uses supported
+messaging configuration and an explicit broker transport fixture. All11 database
+cases and2 configuration regressions pass with no skips, including clean V15 and
+V14 upgrade. Actual Credit/broker cooperation is still unverified; full-regression
+and coverage evidence is recorded in CHANGE-157, not inferred from these13 checks.
+Final CHANGE-157 root verify: common12 + Order562 pass,0 failures/errors/skips;
+fresh Order coverage94.73% LINE/81.02% BRANCH passes unchanged gates. Existing
+live Credit recovery16 cases pass; the new compensation protocol remains a fixture.
+
+| Requirement / amendment | Implementation | Verification |
+| --- | --- | --- |
+| F1, F3, F11, F13; ADR-033/035; approved compensation amendment | Immutable persisted policy/deadline; one initial keyed Credit mutation; fenced compensation rather than forward replay | OrderCompensationWorkflowTest, OrderCompensationJournalTest, OrderCommandGateTest |
+| NTH4; ADR-037 | REPOST reserves the candidate under the same policy; legacy automatic path refuses bypass | PostgreSQL fixture test and existing repost regression; delegated automatic behavior still deferred |
+| Durability/consistency/testing NFRs; ADR-036/054 | V15 step/final markers, command-owned outbox, atomic result inbox and final local transaction | OrderCompensationPostgresIntegrationTest: required real PostgreSQL; unavailable runtime is not a pass |
+| Existing USER Requester/Courier pending UI; ADR-038 | Existing polling/key retention; pending COMPENSATING -> terminal rejection | use-order-command.test.tsx compensation case; runtime evidence in CHANGE-156 |
+| Cross-service safe reversal/fencing | Exact peer contract, safe CLEAR_COURIER pre-image restoration, missing-K tombstone and result outbox | FEEDBACK-017 blocks live; Order fixtures never verify actual Credit |
+
+No new Order lifecycle state, penalty policy, supplier ownership or event-contract
+replacement is inferred. Existing live contracts remain until coordinated rollout.
+
 ## CHANGE-140: Admin table density
 
 D1 NTH1 oversight; user-selected20-row pages are a presentation/request-size detail within existing contracts, not a new business rule. Existing mock/live adapter assertions cover20-row Orders, mock Users, exact-search metadata and retained supplier-card behavior; admin page/action regressions cover existing pagination/navigation. No new backend or peer implementation.

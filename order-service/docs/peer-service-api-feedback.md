@@ -1338,3 +1338,77 @@ Yao Xiang approved placing a requester-owned completion hold on any Order status
 The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
 
 No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.
+
+## FEEDBACK-017 - Compensation-first Credit command protocol
+
+### Current verification update - CHANGE-158, 2026-10-27
+
+Status: READY_FOR_VERIFICATION for final rollout; local application integration
+has actual evidence. Credit8ecb1e8/5ff41c3 supplies consumer/inbox, absent-K
+tombstones, revisions/exact CLEAR_COURIER restoration, result outbox/publisher,
+push isolation and retained FAILED redrive. Shapes MATCHES_APPROVED_CONTRACT.
+Credit full126 tests/coverage pass. Actual Order/Credit/PostgreSQL/emulator
+suite11/11 and retained real protocol16/16 pass. Final Order584/common12=596
+tests pass with no failures/errors/skips, including the identifier audit.
+Order95.01% LINE/82.16% BRANCH, original gates pass. Source a6cceee; local
+contract/financial integration verified, cloud rollout remains gated.
+
+Cloud OIDC/IAM/subscription provisioning, direct/unkeyed financial-call boundary
+and coordinated activation are unverified. Default transport off/retry preserved.
+The original missing-provider description below is historical. Local emulator
+evidence is not a whole-feature/cloud VERIFIED claim.
+
+- Date/owner: 2026-10-26; Credit service owner. Requested by Vincent under
+  CHANGE-156/ADR-054. Status: OPEN; actual asynchronous interface MISSING.
+- Expected: original keyed synchronous mutation; compensation request via Pub/Sub;
+  atomic reverse-or-fence, including missing original command; durable committed
+  result event back to Order. Safe pre-image/revision restoration for CLEAR_COURIER
+  was explicitly selected. No JWTs, supplier details or Order snapshots in events.
+- Actual inspected code: CreditController three mutations and HTTP status/compensate;
+  CreditCommandStore registered-command reversals/fencing; CreditOrderEventController
+  only completion/open-refund pushes; V6 command schema and existing recovery tests.
+  Initial APIs MATCHES_APPROVED_CONTRACT. New request/result consumers/publishers
+  are MISSING; absent-K fencing and CLEAR_COURIER reversal are
+  INCOMPLETE_OR_INCOMPATIBLE. Current clear compensation returns reconciliation;
+  command lookup/compensate requires a previously registered command.
+- Required additions: compensation inbox/consumer, missing-key binding/tombstone,
+  exact assignment pre-images and mutation revisions, conditional clear reversal,
+  saved idempotent result plus transactional Credit outbox/publisher, OIDC/IAM,
+  environment topics/subscriptions/retry/DLQ and actual contract/integration tests.
+- Exact input/output/algorithms/retirement plan:
+  [compensation-workflow-handoff.md](../concurrency/compensation-workflow-handoff.md).
+  Existing HTTP keys/generations/history/compensate and ordinary Credit consumers
+  remain until old clients/commands are drained; do not delete applied migrations.
+- Order stopping point: explicitly approved contract-fixture implementation only;
+  no live compensation transport/receiver enabled, no peer source changed. A
+  publisher ACK alone never completes the command. No original mutation replay
+  after uncertainty in the new policy. Existing default live protocol retained.
+- Resume condition: peer supplies implemented schemas, tombstone race tests,
+  exact-clear-restoration tests, financial/inbox/outbox atomicity and authenticated
+  request/result delivery. Set READY_FOR_VERIFICATION first; inspect actual code
+  and run both services with isolated PostgreSQL/emulator before VERIFIED or activation.
+- Tests affected: new Order workflow/journal/gate/UI fixtures and real PostgreSQL
+  concurrency tests; actual Credit failure/duplicate/delayed-execute/ABA/restart
+  and Google OIDC tests remain required. No User/Supplier mutation API requested:
+  inspected Order calls to them are reads, including Supplier POST validation.
+
+### FEEDBACK-005 resumption inspection - 2026-10-26
+
+Vincent requests credential-free automatic repost, assuming services trust each
+other, and permits peer edits if minor. Actual background interfaces are still
+MISSING: User roles/eligibility derive UID from JWT, Supplier validation requires
+authentication, and Credit reservation requires JWT subject=requester plus role
+for keyed commands. Existing internal-ingress deployment permits network-wide
+callers, including the gateway; it does not authenticate Order as a distinct caller.
+Gateway blocks Credit internal routes but needs matching isolation for any new
+User/Supplier routes. Local loopback debug ports also trust local host callers.
+
+Opening a reservation endpoint without a user JWT is a security/financial contract
+change, not merely a controller alias. The durable automatic workflow also needs
+stable command/candidate identity, saved consent, current requester validation,
+one-successor locking and final-commit/compensation handling. The existing automatic
+path uses legacy reserve inside its local transaction and is not invoked by the
+minute job. ADR-054/FEEDBACK-017 still block live compensation; tokenless routes
+alone cannot close either gap. No peer edits made during this review. Detailed
+expanded-scope/trust/activation approval is required before TDD; existing feedback
+and handoff records will be reused rather than creating per-peer duplicate docs.

@@ -154,8 +154,9 @@ public class JpaCreditRepository implements CreditRepository {
         }
 
         Instant now = clock.instant();
-        int created = reservations.insertIfAbsent(orderId, requesterId, amount, null, now);
-        CreditReservationEntity reservation = reservations.findById(orderId).orElseThrow();
+        int created = reservations.insertIfAbsent(orderId, requesterId, amount, null,
+                UUID.randomUUID().toString(), now);
+        CreditReservationEntity reservation = reservations.findByOrderIdForUpdate(orderId).orElseThrow();
         if (created == 0) {
             return replayReservation(reservation, orderId, requesterId, amount);
         }
@@ -195,6 +196,9 @@ public class JpaCreditRepository implements CreditRepository {
     public void assignCourier(String orderId, String courierId) {
         CreditReservationEntity reservation = lockedReservation(orderId);
         requireReserved(reservation, orderId);
+        if (reservation.requesterId().equals(courierId)) {
+            throw new ForbiddenException("The requester cannot be assigned as courier for the same order.");
+        }
         if (courierId.equals(reservation.courierId())) {
             return;
         }
@@ -244,7 +248,7 @@ public class JpaCreditRepository implements CreditRepository {
         Instant now = clock.instant();
         CreditAccountEntity requester = lockedAccount(reservation.requesterId());
         requester.release(reservation.amount(), now);
-        reservation.refund(now);
+        reservation.refund(event.eventId(), now);
         ledger.save(CreditLedgerEntity.refund(
                 reservation.requesterId(), event.orderId(), event.type().name(), event.eventId(),
                 refundReason(event.orderStatus()), reservation.amount(), event.occurredAt(), now));
@@ -283,7 +287,7 @@ public class JpaCreditRepository implements CreditRepository {
         }
         requester.pay(reservation.amount(), now);
         courier.receive(reservation.amount(), now);
-        reservation.markPaid(now);
+        reservation.markPaid(event.eventId(), now);
         ledger.save(CreditLedgerEntity.paymentSent(
                 reservation.requesterId(), event.orderId(), event.eventId(), reservation.amount(),
                 event.occurredAt(), now));

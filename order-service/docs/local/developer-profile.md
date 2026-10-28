@@ -1,5 +1,17 @@
 # Current Developer Profile
 
+## Effective current profile - Vincent, 2026-10-26
+
+- Name: Vincent (Developer 2).
+- Branch: feature/vincent-credit-compensation, created from main with explicit
+  confirmation in chat on 2026-10-26.
+- Scope: approved CHANGE-156/ADR-054 Order compensation-first contract-fixture
+  implementation and Credit cooperation handoff. Vincent explicitly selects
+  safe previous-assignment restoration for ABORT and fixture implementation with
+  live compensation disabled until Credit is verified. Peer backend source and
+  cloud resources remain read-only. No blanket reassignment of prior work.
+- Historical Yao Xiang allocations and current application behavior are retained.
+
 CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
 reader: persist deliveryDeadlineAt at courier START plus delivery duration and
 deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without

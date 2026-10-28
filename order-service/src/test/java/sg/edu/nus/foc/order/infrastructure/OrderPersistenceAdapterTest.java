@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Query;
 import sg.edu.nus.foc.order.domain.OrderStatus;
+import sg.edu.nus.foc.order.domain.repository.UserDeletionGuard;
 
 class OrderPersistenceAdapterTest {
     @Test
@@ -43,7 +44,7 @@ class OrderPersistenceAdapterTest {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         Instant cutoff = Instant.parse("2026-10-05T10:00:00Z");
         when(jpa.findDueForAutoCompletion(OrderStatus.DELIVERED, cutoff)).thenReturn(List.of());
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class), mock(UserDeletionGuard.class));
 
         adapter.findDueForAutoCompletion(cutoff);
 
@@ -53,7 +54,7 @@ class OrderPersistenceAdapterTest {
     @Test
     void lifecycleIdSelectionAndRowLockDelegateToInfrastructure() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class), mock(UserDeletionGuard.class));
         Instant cutoff = Instant.parse("2026-10-05T10:00:00Z");
         when(jpa.findDueUnassignedIds(OrderStatus.OPEN, cutoff)).thenReturn(List.of("expired"));
         when(jpa.findDueForAutoCompletionIds(OrderStatus.DELIVERED, cutoff)).thenReturn(List.of("delivered"));
@@ -69,7 +70,7 @@ class OrderPersistenceAdapterTest {
     void absentStatusUsesPagedUnfilteredQuerySortedNewestFirst() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         when(jpa.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class), mock(UserDeletionGuard.class));
 
         adapter.findAllOrders(null, 2, 25);
 
@@ -83,7 +84,7 @@ class OrderPersistenceAdapterTest {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         when(jpa.findByStatusOrderByCreatedAtDesc(eq(OrderStatus.COMPLETED), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class), mock(UserDeletionGuard.class));
 
         adapter.findAllOrders(OrderStatus.COMPLETED, 0, 200);
 
@@ -96,7 +97,7 @@ class OrderPersistenceAdapterTest {
     @Test
     void personalStatusFiltersUseDatabasePaginationAndPreserveFilteredTotals() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class));
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, mock(JpaOrderCourierAttemptRepository.class), mock(UserDeletionGuard.class));
         PageRequest page = PageRequest.of(1, 10);
         when(jpa.findRequesterOrdersByStatus("requester", OrderStatus.EXPIRED, page))
                 .thenReturn(new PageImpl<>(List.of(), page, 12));
@@ -119,7 +120,7 @@ class OrderPersistenceAdapterTest {
     void abortedStatusReturnsImmutableAttemptViewsWithoutReadingCurrentReopenedState() {
         JpaOrderRepository jpa = mock(JpaOrderRepository.class);
         JpaOrderCourierAttemptRepository attempts = mock(JpaOrderCourierAttemptRepository.class);
-        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, attempts);
+        OrderPersistenceAdapter adapter = new OrderPersistenceAdapter(jpa, attempts, mock(UserDeletionGuard.class));
         Instant now = Instant.parse("2026-10-09T10:00:00Z");
         Order order = Order.open("requester", "item", "pickup", "delivery", 3, 30, now, now.plusSeconds(3600));
         order.accept("courier", 0, now.plusSeconds(1));

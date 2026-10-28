@@ -52,9 +52,18 @@ order:
     read-timeout: ${ORDER_PEER_READ_TIMEOUT:5s}
   commands:
     enabled: ${ORDER_COMMANDS_ENABLED:true}
+    recovery-policy: ${ORDER_COMMAND_RECOVERY_POLICY:retry}
+    resolution-seconds: ${ORDER_COMMAND_RESOLUTION_SECONDS:120}
     lease-seconds: ${ORDER_COMMAND_LEASE_SECONDS:120}
     retry-seconds: ${ORDER_COMMAND_RETRY_SECONDS:15}
     batch-size: ${ORDER_COMMAND_BATCH_SIZE:20}
+    compensation:
+      enabled: ${ORDER_COMPENSATION_ENABLED:false}
+      request-topic: ${ORDER_COMPENSATION_REQUEST_TOPIC:}
+      result-subscription: ${ORDER_COMPENSATION_RESULT_SUBSCRIPTION:}
+      push-mode: ${ORDER_COMPENSATION_PUSH_MODE:google}
+      audience: ${ORDER_COMPENSATION_PUSH_AUDIENCE:}
+      service-account: ${ORDER_COMPENSATION_PUSH_SERVICE_ACCOUNT:}
   lifecycle-token: ${ORDER_LIFECYCLE_TOKEN:local-lifecycle}
   messaging:
     mode: ${ORDER_MESSAGING_MODE:cloud}
@@ -70,5 +79,6 @@ order:
       courier-penalty-addition: ${ORDER_COURIER_PENALTY_ADDITION_TOPIC:courier-penalty-addition-dev-v1}
       courier-penalty-deduction: ${ORDER_COURIER_PENALTY_DEDUCTION_TOPIC:courier-penalty-deduction-dev-v1}
   lifecycle:
+    automatic-repost-enabled: ${ORDER_AUTO_REPOST_ENABLED:false}
     external-enabled: ${ORDER_LIFECYCLE_EXTERNAL_ENABLED:false}
     cron: ${ORDER_LIFECYCLE_CRON:0 * * * * *}

@@ -25,7 +25,7 @@ import sg.edu.nus.foc.credit.messaging.UserCreatedEventMessage;
 class CreditUserEventControllerTest {
 
     private static final CreditPushProperties PROPERTIES = new CreditPushProperties(
-            "project", "audience", "push@example.com", "completion", "refund", "user-created");
+            "project", "audience", "push@example.com", "completion", "refund", "compensation", "user-created");
     private static final UserCreatedEventMessage MESSAGE = new UserCreatedEventMessage(
             UUID.fromString("c91e4571-329a-4399-b87f-a756a6ab7243"),
             "user-1", "user@example.com", Instant.parse("2026-10-25T08:00:00Z"), 1);

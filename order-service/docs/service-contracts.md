@@ -41,6 +41,43 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Service Contracts
 
+## Current gated compensation transport - ADR-055 / CHANGE-158
+
+Credit implements the ADR-054 v1 request/result shapes. Initial mutations retain
+Firebase user JWT/key/generation. Order publishes CreditCompensationRequested
+from its durable outbox. Credit atomically reverses/fences, saves its inbox and
+result outbox, then publishes CreditCompensationResult. Order's opt-in receiver
+is POST /api/orders/internal/credit-compensations with a wrapped Pub/Sub envelope.
+Separate Google OIDC verification checks issuer/signature/timestamps, audience
+and verified configured service-account email, without Firebase role conversion.
+Exact subscription/type/version and saved command/compensation/order/operation/
+generation must match. 204 follows committed inbox/finalization only; invalid400,
+unauthenticated401, conflicting409, persistence503/5xx for redelivery.
+Order validates Credit-compatible opaque IDs before registration: no slash,
+dot-only or reserved double-underscore IDs; simple keys/UUIDs remain accepted.
+
+ORDER_COMPENSATION_ENABLED defaults false; explicit topic/subscription required.
+Unsigned push requires local demo Auth and Pub/Sub emulators. Default recovery
+remains retry; each saved command retains its policy across configuration changes.
+No stored JWT, auto repost or cloud activation. Runtime evidence: CHANGE-158.
+
+## Historical compensation-first fixture contract - ADR-054 / CHANGE-156
+
+Existing live credit-command-v1 remains the default. Selecting
+order.commands.recovery-policy=compensate uses credit-compensation-v1-fixture;
+HTTP peers fail closed. Original business bodies/key headers stay minimal.
+The exact new compensation request/result JSON, reserved future push paths,
+matching/ownership/duplicate semantics and Credit work are specified in
+[compensation-workflow-handoff.md](../concurrency/compensation-workflow-handoff.md).
+No live endpoint or new deployed topic is asserted by this contract-fixture scope.
+
+Public CommandView stays PENDING/COMPLETED and SUCCESS/REJECTED. COMPENSATING and
+RECONCILIATION_REQUIRED are pending reasons; no user authorization is needed to
+receive trusted compensation results. COMPLETED+REJECTED is returned only after
+confirmed reversal/fence or authoritative no-effect closure. Browser polling
+retains its key until that terminal result. Existing commands retain their saved
+recovery policy; reusing a key to change policy conflicts.
+
 ## Admin table page size — CHANGE-140
 
 CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.
