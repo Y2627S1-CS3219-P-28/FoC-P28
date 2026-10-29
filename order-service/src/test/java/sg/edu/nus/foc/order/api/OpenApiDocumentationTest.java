@@ -46,8 +46,9 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @WebMvcTest(controllers = {OrderController.class, AdminOrderController.class,
         OrderCommandController.class, OrderOutboxAdminController.class,
-        OrderCompletionHoldController.class, OrderInvolvementController.class, AdminMockController.class,
-        CreditCompensationResultController.class, UserDeletionEligibilityController.class},
+        OrderCompletionHoldController.class, OrderInvolvementController.class,
+        CreditCompensationResultController.class, UserDeletionEligibilityController.class,
+        AdminReportResolutionController.class, ReportCompensationResultController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -63,12 +64,16 @@ import tools.jackson.databind.json.JsonMapper;
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
     "order.admin-mock.enabled=true",
     "order.commands.compensation.enabled=true",
+    "order.reports.resolution.enabled=true",
     "FOC_INTERNAL_ORDER_API_ENABLED=true",
     "FOC_ENVIRONMENT=local",
     "order.security.auth.emulator-host=localhost:9099",
     "order.lifecycle-token=test-lifecycle-token"
 })
 class OpenApiDocumentationTest {
+    @MockitoBean private sg.edu.nus.foc.order.application.reportresolution.ReportResolutionService reportResolutions;
+    @MockitoBean private sg.edu.nus.foc.order.application.reportresolution.ReportResolutionJournal reportJournal;
+    @MockitoBean private sg.edu.nus.foc.order.config.ReportResolutionSettings reportSettings;
     @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCompensationJournal compensationJournal;
     @MockitoBean private sg.edu.nus.foc.order.config.CompensationTransportSettings compensationSettings;
     @MockitoBean private sg.edu.nus.foc.order.application.AdminApplyPenaltyService penalties;
@@ -93,7 +98,6 @@ class OpenApiDocumentationTest {
     @MockitoBean private sg.edu.nus.foc.order.application.OrderCompletionHoldService completionHolds;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderInvolvementService involvement;
     @MockitoBean private sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
-    @MockitoBean private sg.edu.nus.foc.order.application.adminmock.AdminMockService adminSamples;
 
 
     @Autowired private MockMvc mvc;
@@ -107,6 +111,9 @@ class OpenApiDocumentationTest {
         JsonNode paths = mapper.readTree(json).path("paths");
         assertThat(paths.path(CreditCompensationResultController.PATH).path("post")
                 .path("responses").has("204")).isTrue();
+        assertThat(paths.path(ReportCompensationResultController.PATH).path("post").path("responses").has("204")).isTrue();
+        assertThat(paths.path(PREFIX + "/admin/{orderId}/reports/{reportId}/resolve").path("post").path("responses").has("202")).isTrue();
+        assertThat(paths.path(PREFIX + "/admin/report-resolutions/{commandId}").has("get")).isTrue();
 
         assertThat(paths.has(PREFIX + "/internal/lifecycle/expire")).isFalse();
         assertThat(paths.path(PREFIX + "/internal/lifecycle/repost").has("post")).isTrue();
@@ -153,12 +160,12 @@ class OpenApiDocumentationTest {
         assertThat(paths.has("/api/orders/admin/{orderId}/penalties/{penaltyId}")).isFalse();
         assertThat(paths.path("/api/orders/admin/{orderId}/apply-penalty").path("post").path("responses").has("403")).isTrue();
         assertThat(paths.path("/api/orders/admin/{orderId}/apply-penalty").path("post").path("responses").has("409")).isTrue();
-        assertThat(paths.has("/api/orders/admin-mock/orders")).isTrue();
-        assertThat(paths.has("/api/orders/admin-mock/users/{id}/transactions")).isTrue();
+        assertThat(paths.has("/api/orders/admin-mock/orders")).isFalse();
+        assertThat(paths.has("/api/orders/admin-mock/users/{id}/transactions")).isFalse();
         assertThat(paths.path("/api/orders/users/{userId}/active-involvement").path("get").path("responses").has("403")).isTrue();
         assertThat(paths.path("/api/orders/suppliers/{supplierId}/active-involvement").path("get").path("parameters").toString()).contains("supplierId");
         assertThat(paths.has("/api/orders/commands/{key}/resume")).isTrue();
-        JsonNode hold = paths.path("/api/orders/internal/{orderId}/completion-holds/{reportId}").path("put");
+        JsonNode hold = paths.path("/api/orders/mine/active/{orderId}/report-holds/{reportId}").path("put");
         assertThat(hold.path("responses").has("403")).isTrue();
         assertThat(hold.path("responses").has("409")).isTrue();
         assertThat(paths.isEmpty()).as("OpenAPI document lists no paths").isFalse();
@@ -192,7 +199,7 @@ class OpenApiDocumentationTest {
         assertThat(schemas.path("OrderResponse").path("properties").has("isOverdue")).isTrue();
         assertThat(schemas.path("OrderResponse").path("properties").has("deliveryDeadlineAt")).isTrue();
         assertThat(schemas.path("OrderResponse").path("properties").has("deliveredAt")).isTrue();
-        assertThat(schemas.path("CompletionHoldResponse").path("properties").has("isCompletionHold")).isTrue();
+        assertThat(schemas.path("ActiveReportHoldResponse").path("properties").has("isCompletionHold")).isTrue();
         assertThat(schemas.path("CommandView").path("properties").has("displayDetails")).isTrue();
         assertThat(schemas.path("DisplayDetails").path("properties").propertyNames()).containsExactlyInAnyOrder(
                 "itemDescription", "pickupSupplierId", "deliverySupplierId", "offeredCredits",

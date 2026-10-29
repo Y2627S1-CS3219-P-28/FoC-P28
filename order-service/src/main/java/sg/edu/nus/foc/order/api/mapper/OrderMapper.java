@@ -89,6 +89,15 @@ public interface OrderMapper {
     CompletionHoldResponse toHoldResponse(Order order, String reportId);
 
     @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "order.id")
+    @Mapping(target = "requesterId", source = "order.requesterId")
+    @Mapping(target = "courierId", source = "order.courierId")
+    @Mapping(target = "status", source = "order.status")
+    @Mapping(target = "reportId", source = "reportId")
+    @Mapping(target = "isCompletionHold", source = "order.completionHold")
+    sg.edu.nus.foc.order.api.dto.response.ActiveReportHoldResponse toActiveHoldResponse(Order order, String reportId);
+
+    @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "items", source = "items")
     @Mapping(target = "page", expression = "java(orderPage.getPage() + 1)")
     @Mapping(target = "size", source = "size")

@@ -369,7 +369,7 @@ public class Order {
                 && status != OrderStatus.DELIVERED) {
             throw OrderProblem.conflict("Only active orders can be cancelled by an administrator.");
         }
-        penalty = higherPenalty(appliedPenalty, penalty);
+        if (penalty != null) penalty = higherPenalty(appliedPenalty, penalty);
         recordAdminDecision(resolvedAt, penalty, "cancellation", resolutionReason);
         status = OrderStatus.CANCELLED;
     }

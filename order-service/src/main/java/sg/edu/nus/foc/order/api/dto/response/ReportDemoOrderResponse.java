@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class AdminMockOrderResponse extends OrderResponse {
+public class ReportDemoOrderResponse extends OrderResponse {
 
     private String requesterName;
     private String courierName;

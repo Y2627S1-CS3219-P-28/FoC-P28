@@ -83,6 +83,27 @@ class AdminOrderCancellationServiceTest {
     }
 
     @Test
+    void explicitNoPenaltyOverridesStoredPenalty() {
+        order.accept("courier", 0, order.getCreatedAt().plusSeconds(1));
+        order.applyPenalty("courier", 0, PenaltySystemPolicy.DELIBERATE_ITEM_RETENTION_OR_THEFT,
+                "admin", "Initial investigation", order.getCreatedAt());
+        service.cancel(order.getId(), "requester", "courier", List.of(), "admin", "Courier cleared");
+        assertEquals(0, order.getAdminPenaltyAmount());
+        assertEquals(PenaltySystemPolicy.DELIBERATE_ITEM_RETENTION_OR_THEFT, order.getAppliedPenalty());
+        verify(outbox).enqueue(any(OpenOrderRefundTaskEvent.class));
+        verify(outbox, never()).enqueue(any(PenaltyScoreAdditionEvent.class));
+    }
+
+    @Test
+    void selectedPenaltyRetainsHigherStoredPenalty() {
+        order.accept("courier", 0, order.getCreatedAt().plusSeconds(1));
+        order.applyPenalty("courier", 0, PenaltySystemPolicy.DELIBERATE_ITEM_RETENTION_OR_THEFT,
+                "admin", "Initial investigation", order.getCreatedAt());
+        service.cancel(order.getId(), "requester", "courier", List.of(PenaltySystemPolicy.WRONG_LOCATION_DELIVERY), "admin");
+        assertEquals(10, order.getAdminPenaltyAmount());
+    }
+
+    @Test
     void addsOnlyTheHighestPenaltyAndBindsReplayToCanonicalInput() {
         order.accept("courier", 0, order.getCreatedAt().plusSeconds(1));
         List<PenaltySystemPolicy> reasons = List.of(PenaltySystemPolicy.OVERDUE_DELIVERY,

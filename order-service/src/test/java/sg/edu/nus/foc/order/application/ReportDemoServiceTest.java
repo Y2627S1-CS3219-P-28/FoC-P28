@@ -7,16 +7,16 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
-import sg.edu.nus.foc.order.api.mapper.AdminMockMapper;
+import sg.edu.nus.foc.order.api.mapper.ReportDemoMapper;
 import sg.edu.nus.foc.order.api.dto.request.ReportDemoRequest;
 import sg.edu.nus.foc.order.api.dto.response.ReportDemoResponse;
-import sg.edu.nus.foc.order.application.adminmock.AdminMockService;
+import sg.edu.nus.foc.order.application.adminmock.ReportDemoOrderStore;
 import sg.edu.nus.foc.order.application.adminmock.ReportDemoService;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 class ReportDemoServiceTest {
-    private final AdminMockMapper mapper = Mappers.getMapper(AdminMockMapper.class);
-    private final AdminMockService orders = new AdminMockService(mapper);
+    private final ReportDemoMapper mapper = Mappers.getMapper(ReportDemoMapper.class);
+    private final ReportDemoOrderStore orders = new ReportDemoOrderStore(mapper);
     private final Instant now = Instant.parse("2026-10-18T10:00:00Z");
     private final Clock clock = org.mockito.Mockito.mock(Clock.class);
     private final ReportDemoService reports = new ReportDemoService(orders, mapper, clock);

@@ -78,3 +78,16 @@ ADR-050 — Deferred monotonic Order penalty (CHANGE-146), approved Yao Xiang202
 [ADR-052 — Non-completed Order hold eligibility](ADR-052-noncompleted-order-hold-eligibility.md): CHANGE-153, approved2026-10-19; broader placement with existing funding guards retained.
 
 [ADR-053 - Retire accepted-cancellation publishing](ADR-053-retire-accepted-cancellation-publishing.md): CHANGE-155, approved2026-10-19; preserve published history and require deployment backlog checks.
+
+[ADR-056 - Report hold contract and admin provider links](ADR-056-report-hold-contract-and-admin-provider-links.md): approved independent scope; Report orchestration remains proposed/blocked.
+
+
+- [ADR-057 — Ready Admin APIs and local-only Reports](ADR-057-ready-admin-api-and-local-report-demo.md), accepted CHANGE-160,2026-10-28.
+
+- [ADR-058 — Real Admin User directory and resolution display](ADR-058-admin-user-directory-and-resolution-display.md), approved2026-10-29, CHANGE-161.
+
+
+- [ADR-059 — Report resolution compensation saga](ADR-059-report-resolution-compensation-saga.md), user-approved guarded contract stub, CHANGE-162,2026-10-29; default disabled pending real Report protocol.
+
+
+- [ADR-060 — Report response window and early resolution](ADR-060-report-response-window-and-early-resolution.md), user-approved documentation requirements2026-10-29, CHANGE-163; required deadline, confirmed early admin resolution, private reply and saga peer responsibilities.

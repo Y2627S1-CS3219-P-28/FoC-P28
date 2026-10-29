@@ -93,21 +93,27 @@ public class OrderCommandService {
         if (!"mock".equals(mode) && !compensationTransportEnabled) {
             throw new OrderProblem("SERVICE_UNAVAILABLE", "Automatic repost requires compensation transport.");
         }
-        String key = "AUTO_REPOST:" + originalId;
-        if (store.find(key).isEmpty()) {
-            Order snapshot = orders.get(originalId).orElseThrow(() -> OrderProblem.notFound("Order not found."));
-            if (!backgroundChecks.getObject().fundingReady(originalId, snapshot.getRequesterId())) {
-                // No forward command exists yet: a later timer may check this read-only prerequisite again.
-                throw new OrderProblem("SERVICE_UNAVAILABLE", "Waiting for the original reservation refund.");
-            }
+        Order snapshot = orders.get(originalId).orElseThrow(() -> OrderProblem.notFound("Order not found."));
+        var previous = store.latestAutomatic(originalId, snapshot.getRequesterId()).orElse(null);
+        if (previous != null && !store.automaticRetrySafe(previous.key())) {
+            // A pending/uncertain attempt belongs to recovery, never another forward worker.
+            // Successful exact retries likewise return their immutable result.
+            return view(previous);
         }
+        if (!backgroundChecks.getObject().fundingReady(originalId, snapshot.getRequesterId())) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Waiting for the original reservation refund.");
+        }
+        String root = "AUTO_REPOST:" + originalId;
+        // Keep old keys/results/fences intact. Only a safe terminal attempt permits a new Credit identity.
+        String key = previous == null ? root : root + ":retry:" + UUID.randomUUID();
         try (CommandScope ignored = new CommandScope(key)) {
             tx().executeWithoutResult(tx -> {
                 Order original = orders.getForUpdate(originalId)
                         .orElseThrow(() -> OrderProblem.notFound("Order not found."));
-                if (store.find(key).isPresent()) {
-                    if (!store.automaticExecution(key)) throw OrderProblem.conflict("Automatic command key is already bound.");
-                    return;
+                var current = store.latestAutomatic(originalId, original.getRequesterId()).orElse(null);
+                if (current != null && (previous == null || !current.key().equals(previous.key())
+                        || !store.automaticRetrySafe(current.key()))) {
+                    throw OrderProblem.conflict("Another automatic repost attempt already owns this order.");
                 }
                 if (!original.eligibleForAutomaticRepost(now)) {
                     throw OrderProblem.conflict("Order is not eligible for automatic repost.");
@@ -120,7 +126,7 @@ public class OrderCommandService {
                         originalId, original.getVersion(), fields), Math.max(1, resolutionSeconds));
             });
         }
-        // Only the first claim may perform the effect. Subsequent claims choose compensation.
+        // One forward effect per immutable attempt; another attempt waits for a terminal safe outcome.
         return executeCompensation(key, null, true);
     }
 

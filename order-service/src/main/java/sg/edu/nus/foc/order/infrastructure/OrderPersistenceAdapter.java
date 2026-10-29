@@ -69,6 +69,21 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> getActiveForReportHoldUpdate(String id, String requesterId) {
+        Optional<Order> locked = repository.findActiveRequesterOrderForUpdate(id, requesterId,
+                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList());
+        if (locked.isPresent() && commands != null) commands.guard(id);
+        return locked;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderPage findActiveRequestedBy(String requesterId, int page, int size) {
+        return toOrderPage(repository.findActiveRequesterOrders(requesterId,
+                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList(), pageRequest(page, size)));
+    }
+
+    @Override
     public Optional<Order> getForLifecycleUpdate(String id) {
         Optional<Order> locked = repository.findByIdForLifecycleUpdate(id);
         if (commands != null) commands.guard(id);

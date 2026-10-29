@@ -55,7 +55,7 @@ describe("Admin mode authorization", () => {
     expect(screen.queryByText("Protected admin content")).not.toBeInTheDocument()
     fireEvent.click(screen.getByText("Enter"))
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/admin/orders"))
-    expect(mocks.api.mock.calls[0][0]).toContain("userId=user-a")
+    expect(mocks.api.mock.calls[0][0]).toBe("/api/users/role-context")
     expect(screen.getByText("Protected admin content")).toBeInTheDocument()
     fireEvent.click(screen.getByText("Leave"))
     expect(mocks.push).toHaveBeenLastCalledWith("/")

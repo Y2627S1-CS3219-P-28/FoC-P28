@@ -100,8 +100,8 @@ services:
       - "${FRONTEND_PORT:-3000}:8080"
     environment:
       FOC_ENVIRONMENT: local
-      # Base Compose is the Admin UI demo; compose.http-peers.yaml selects live APIs.
-      FOC_ADMIN_API_MODE: mock
+      # Ready Admin sections use real peer APIs. Reports alone keep local sample data.
+      FOC_REPORT_API_MODE: mock
       # The browser reaches the frontend on :3000, while APIs are exposed by
       # the host gateway on :8080. Keep this explicit for direct frontend use.
       # Explicit IPv4 avoids broken localhost IPv6 forwarding on Docker Desktop.
@@ -299,8 +299,8 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       ORDER_PEERS_MODE: http
       SPRING_PROFILES_ACTIVE: prod
-      # Sample Admin UI endpoints require local environment and Firebase emulator.
-      ORDER_ADMIN_MOCK_ENABLED: ${ORDER_ADMIN_MOCK_ENABLED:-true}
+      # Sample Reports endpoints require local environment and Firebase emulator.
+      ORDER_REPORT_DEMO_ENABLED: ${ORDER_REPORT_DEMO_ENABLED:-true}
       ORDER_USER_SERVICE_MODE: http
       USER_SERVICE_MODE: http
       USER_SERVICE_URL: http://user-service:8080

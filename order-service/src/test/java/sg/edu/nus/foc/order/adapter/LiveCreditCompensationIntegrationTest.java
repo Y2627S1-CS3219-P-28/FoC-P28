@@ -142,6 +142,7 @@ class LiveCreditCompensationIntegrationTest {
     @Autowired sg.edu.nus.foc.order.application.OrderLifecycleScheduler lifecycle;
     @Autowired sg.edu.nus.foc.order.application.LifecycleProcessingService lifecycleProcessing;
     @Autowired JdbcTemplate orderDb;
+    @Autowired sg.edu.nus.foc.order.infrastructure.JpaOrderRepository orderRepository;
     @MockitoSpyBean HttpCreditCommandGateway gateway;
     @MockitoSpyBean HttpPeerAdapters peers;
     @MockitoSpyBean OrderCreationService creation;
@@ -472,8 +473,118 @@ class LiveCreditCompensationIntegrationTest {
         awaitRejected(key);
         assertEquals("REFUNDED", creditText("select status from credit_reservations where order_id=?", store.get(key).candidateOrderId()));
         assertNull(orderDb.queryForObject("select reposted_order_id from orders where id=?", String.class, original.getId()));
-        assertEquals("REJECTED", commands.submitAutomatic(original.getId(), Instant.now()).outcome());
+        assertTrue(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        CommandView retry = commands.submitAutomatic(original.getId(), Instant.now());
+        assertEquals("SUCCESS", retry.outcome());
+        assertNotEquals(key, retry.commandId());
+        assertNotEquals(store.get(key).candidateOrderId(), retry.result().getId());
+        assertEquals("RESERVED", creditText("select status from credit_reservations where order_id=?", retry.result().getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
         verify(gateway, times(1)).execute(eq(key), any(), anyLong(), isNull());
+    }
+
+    @Test void automaticRepostRetriesTemporaryPreCreditFailuresOnLaterSchedulerPasses() throws Exception {
+        String actor = account(); OrderResponse original = automaticOriginal(actor);
+        doThrow(new OrderProblem("SERVICE_UNAVAILABLE", "Temporary requester lookup failure"))
+                .doThrow(new IllegalStateException("Temporary supplier timeout"))
+                .doNothing().when(backgroundChecks).validate(eq(actor), anyString(), anyString());
+        org.springframework.test.util.ReflectionTestUtils.setField(lifecycleProcessing, "automaticRepostEnabled", true);
+        try {
+            lifecycle.processDueOrders();
+            assertEquals(1, automaticCount(original.getId()));
+            assertTrue(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+            lifecycle.processDueOrders();
+            assertEquals(2, automaticCount(original.getId()));
+            assertEquals(0, orderDb.queryForObject("select count(*) from order_commands where order_id=? and automatic_execution and possible_effect", Integer.class, original.getId()));
+            lifecycle.processDueOrders(); lifecycle.processDueOrders();
+            assertEquals(3, automaticCount(original.getId()));
+            assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+            assertTrue(Boolean.TRUE.equals(orderDb.queryForObject("select used from orders where id=?", Boolean.class, original.getId())));
+            assertFalse(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        } finally { org.springframework.test.util.ReflectionTestUtils.setField(lifecycleProcessing, "automaticRepostEnabled", false); }
+    }
+
+    @Test void automaticRepostRetriesAnAuthoritativeCreditRejectionWithAFreshKey() throws Exception {
+        String actor = account(); OrderResponse original = automaticOriginal(actor);
+        creditDb().update("update credit_accounts set total_balance=0 where user_id=?", actor);
+        CommandView rejected = commands.submitAutomatic(original.getId(), Instant.now());
+        assertEquals("REJECTED", rejected.outcome()); assertEquals("INSUFFICIENT_CREDITS", rejected.reason());
+        assertTrue(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        creditDb().update("update credit_accounts set total_balance=50 where user_id=?", actor);
+        CommandView success = commands.submitAutomatic(original.getId(), Instant.now());
+        assertEquals("SUCCESS", success.outcome()); assertNotEquals(rejected.commandId(), success.commandId());
+        assertEquals("REJECTED", store.get(rejected.commandId()).outcome());
+        assertEquals(4L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, actor));
+        assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+    }
+
+    @Test void unresolvedAutomaticCreditEffectBlocksANewAttemptUntilCompensationCommits() throws Exception {
+        String actor = account(); OrderResponse original = automaticOriginal(actor);
+        String firstKey = "AUTO_REPOST:" + original.getId();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        doAnswer(call -> {
+            call.callRealMethod(); entered.countDown();
+            assertTrue(release.await(15, TimeUnit.SECONDS));
+            throw new IllegalStateException("Lost reservation response");
+        }).when(gateway).execute(eq(firstKey), any(), anyLong(), isNull());
+        try (var worker = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var request = worker.submit(() -> commands.submitAutomatic(original.getId(), Instant.now()));
+            assertTrue(entered.await(15, TimeUnit.SECONDS));
+            try {
+                assertEquals("PENDING", commands.submitAutomatic(original.getId(), Instant.now()).status());
+                assertEquals(1, automaticCount(original.getId()));
+                assertFalse(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+            } finally { release.countDown(); }
+            request.get(20, TimeUnit.SECONDS);
+        }
+        awaitRejected(firstKey);
+        assertEquals("SUCCESS", commands.submitAutomatic(original.getId(), Instant.now()).outcome());
+        assertEquals(2, automaticCount(original.getId()));
+        verify(gateway, times(1)).execute(eq(firstKey), any(), anyLong(), isNull());
+    }
+
+    @Test void failedAutomaticRepostStillRespectsHoldsAndTheConfiguredPlanExpiry() throws Exception {
+        String actor = account(); OrderResponse original = automaticOriginal(actor);
+        doThrow(new OrderProblem("SERVICE_UNAVAILABLE", "Temporary lookup failure"))
+                .when(backgroundChecks).validate(eq(actor), anyString(), anyString());
+        assertEquals("REJECTED", commands.submitAutomatic(original.getId(), Instant.now()).outcome());
+        assertTrue(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        orderDb.update("update orders set completion_hold=true where id=?", original.getId());
+        assertFalse(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        orderDb.update("update orders set completion_hold=false,repost_expires_at=clock_timestamp()-interval '1 second' where id=?", original.getId());
+        assertFalse(orderRepository.findDueAutomaticRepostIds(Instant.now()).contains(original.getId()));
+        assertThrows(OrderProblem.class, () -> commands.submitAutomatic(original.getId(), Instant.now()));
+        assertEquals(1, automaticCount(original.getId()));
+    }
+
+    private int automaticCount(String orderId) {
+        return orderDb.queryForObject("select count(*) from order_commands where order_id=? and automatic_execution", Integer.class, orderId);
+    }
+
+    @Test void concurrentRetriesAfterASafeFailureCreateOnlyOneFreshAttempt() throws Exception {
+        String actor = account(); OrderResponse original = automaticOriginal(actor);
+        doThrow(new OrderProblem("SERVICE_UNAVAILABLE", "Temporary lookup failure"))
+                .doNothing().when(backgroundChecks).validate(eq(actor), anyString(), anyString());
+        assertEquals("REJECTED", commands.submitAutomatic(original.getId(), Instant.now()).outcome());
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        doAnswer(call -> {
+            boolean refunded = (boolean) call.callRealMethod();
+            ready.countDown(); assertTrue(ready.await(15, TimeUnit.SECONDS)); return refunded;
+        }).when(backgroundChecks).fundingReady(eq(original.getId()), eq(actor));
+        try (var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<CommandView> retry = () -> {
+                try { return commands.submitAutomatic(original.getId(), Instant.now()); }
+                catch (OrderProblem conflict) { assertEquals("CONFLICT", conflict.getCode()); return null; }
+                catch (org.springframework.dao.PessimisticLockingFailureException busy) { return null; }
+            };
+            var first = workers.submit(retry); var second = workers.submit(retry);
+            CommandView a = first.get(25, TimeUnit.SECONDS), b = second.get(25, TimeUnit.SECONDS);
+            assertTrue(a != null && "SUCCESS".equals(a.outcome()) || b != null && "SUCCESS".equals(b.outcome()));
+        }
+        assertEquals(2, automaticCount(original.getId()));
+        assertEquals(1, orderDb.queryForObject("select count(*) from orders where original_order_id=?", Integer.class, original.getId()));
+        assertEquals(4L, creditDb().queryForObject("select reserved_balance from credit_accounts where user_id=?", Long.class, actor));
     }
 
     private OrderResponse automaticOriginal(String actor) throws Exception {

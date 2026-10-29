@@ -45,14 +45,58 @@ public class OrderCompletionHoldService {
         return saved;
     }
 
+    /** Reporting contract: active/requester scope is part of the locked SQL lookup. */
+    @Transactional
+    public Order placeActive(String orderId, String reportId, String requesterId,
+                             boolean requireAssignedCourier, String authorization) {
+        if (reportId == null || reportId.isBlank() || reportId.length() > 128 || !reportId.equals(reportId.strip())) {
+            throw new OrderProblem("VALIDATION_ERROR", "A report ID of 1 through 128 characters is required.");
+        }
+        String actor = users.verifyRequester(requesterId, authorization);
+        Order order = orders.getActiveForReportHoldUpdate(orderId, actor)
+                .orElseThrow(() -> OrderProblem.notFound("Active order not found."));
+        Optional<OrderCompletionHold> previous = holds.findByReportId(reportId);
+        if (previous.isPresent()) {
+            previous.get().requireBinding(orderId, actor);
+            if (previous.get().getReleasedAt() != null) throw OrderProblem.conflict("This report hold has already been released.");
+        }
+        if (requireAssignedCourier && order.getCourierId() == null) {
+            throw OrderProblem.conflict("A courier must be assigned for this report.");
+        }
+        if (previous.isPresent()) return order;
+        order.placeCompletionHold(actor);
+        holds.save(new OrderCompletionHold(reportId, orderId, actor, Instant.now()));
+        Order saved = orders.save(order);
+        audit.action("PLACE_COMPLETION_HOLD", orderId, actor, reportId, "accepted");
+        return saved;
+    }
+
+    private sg.edu.nus.foc.order.application.reportresolution.ReportResolutionReleaseGuard resolutionGuard;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setResolutionGuard(sg.edu.nus.foc.order.application.reportresolution.ReportResolutionReleaseGuard guard) { this.resolutionGuard = guard; }
+
     @Transactional
     public Order release(String orderId, String reportId, String adminId) {
+        return releaseInternal(orderId, reportId, adminId, null, null);
+    }
+
+    @Transactional
+    public Order releaseForReportResolution(String orderId, String reportId, String adminId, String commandId, String owner) {
+        return releaseInternal(orderId, reportId, adminId, commandId, owner);
+    }
+
+    private Order releaseInternal(String orderId, String reportId, String adminId, String commandId, String owner) {
         Order order = orders.getForLifecycleUpdate(orderId)
                 .orElseThrow(() -> OrderProblem.notFound("Order not found."));
         OrderCompletionHold hold = holds.findByReportId(reportId)
                 .orElseThrow(() -> OrderProblem.notFound("Report hold not found."));
         if (!orderId.equals(hold.getOrderId())) {
             throw OrderProblem.conflict("Report hold belongs to a different order.");
+        }
+        if (resolutionGuard != null) {
+            if (commandId == null) resolutionGuard.manual(reportId);
+            else resolutionGuard.coordinated(reportId, commandId, owner);
         }
         if (hold.getReleasedAt() != null) return order;
         hold.release(adminId, Instant.now());

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import * as React from "react"
 import { AdminReportsPage } from "./reports-page"
 const mocks = vi.hoisted(() => ({ mode: "mock", list: vi.fn(), detail: vi.fn(), resolve: vi.fn(), refresh: vi.fn(), uid: "courier" }))
-vi.mock("@/components/providers/config-provider", () => ({ useConfig: () => ({ adminApiMode: mocks.mode }) }))
+vi.mock("@/components/providers/config-provider", () => ({ useConfig: () => ({ reportApiMode: mocks.mode }) }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: { uid: mocks.uid }, loading: false }) }))
 vi.mock("@/components/require-auth", () => ({ RequireAuth: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock("@/hooks/use-reports", () => ({ useReportApi: () => mocks,
@@ -25,10 +25,12 @@ describe("Reports", () => {
   it("shows Coming soon without fetching samples in live mode", () => {
     mocks.mode = "live"; render(<AdminReportsPage />)
     expect(screen.getByText("Coming soon")).toBeInTheDocument(); expect(mocks.list).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Sample reports/)).not.toBeInTheDocument()
   })
   it("searches exact Order ID, filters report status and clears both without a refresh button", async () => {
     mocks.list.mockImplementation(async (_user: string, _mode: string, page: number) => ({ items: [report], page, totalPages: 2, totalItems: 21 }))
     render(<AdminReportsPage />)
+    expect(screen.getByText(/Sample reports/)).toBeInTheDocument()
     fireEvent.click(await screen.findByRole("button", { name: "Next" }))
     await waitFor(() => expect(mocks.list).toHaveBeenCalledWith("courier", "admin", 2, "", expect.any(AbortSignal), { orderId: "", status: "" }))
     expect(screen.queryByRole("button", { name: "Refresh reports" })).not.toBeInTheDocument()

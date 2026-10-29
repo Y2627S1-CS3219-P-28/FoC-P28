@@ -1,3 +1,5 @@
+admin_directory_161 = "ADR-058; GET /api/users/admin/search implemented in explicitly approved narrow User scope, active-admin only; Mongo initial page/filter/count/paging and safe DTO; frontend ID+Name real20/page; Admin resolution full-width below repost, retired/empty fields hidden; no Order lifecycle/schema/saga change; Report-only missing Admin HTTP contracts; User subscriber/Supplier guard separate"
+admin_ready_160 = "ADR-057; non-Report Admin always real, including both local Compose modes; ID-only profile lookup; generic mock routes/transport removed; Report-only local+emulator gate via independent settings; cloud Reports Coming soon; peer lists pending-only with history archive; no migration/peer backend/cloud edit"
 delivered_review_141 = "ADR-048; V12; stored delivery overdue; audited precompletion waiver suppresses normal penalty and reward; report-specific admin hold release; local-only Reports prototype, live Coming soon; FEEDBACK-015 pending"
 admin_table_page_size_140 = "Orders live/mock20; sample Users20; supplier cards10; Credit history20; live User directory pending; no backend changes"
 admin_calendar_toolbar_139 = "41px desktop row; native calendar DD/MM/YYYY; RefreshCwIcon only; local dates->inclusive/exclusive Instants; SQL status/orderId/date before pagination; mock fixtures only; no schema or peer changes"
@@ -492,3 +494,47 @@ admin_only_report_ui_152 = "normal Report routes/navigation/forms/response/uploa
 noncompleted_holds_153 = "requester-owned new hold allowed on every status except COMPLETED; status unchanged; delivery progression continues; normal completion/cancel/expiry/abort funding guards preserved; prior admin cancel override remains; no schema/peer change"
 
 retired_accepted_cancellation_155 = "legacy producer/replay/snapshot types and topic config/CI/provisioning removed; four current channels unchanged; preserve published history; deployment database backlog check required; no DB/GCP edits"
+
+report_contract_159 = "token-only active list/locked report hold; current-snapshot retries without V18; admin no-penalty cancellation overrides stored scoring; ready User profile/promotion/deactivation and Credit balance linked; directory and Report resolution coordinator pending"
+
+
+[report_resolution_saga_162]
+date = "2026-10-29"
+owner = "Yao Xiang on order-service/admin-ui-linking"
+status = "approved Order contract-stub; default disabled; real Report absent"
+protocol = "synchronous admin resolve; durable possible effect; atomic local release/success; outbox compensation generation2; authenticated committed result inbox"
+recovery = "existing minute SQL-selected limit20; independent transactions; no token persisted; success terminal; pending holds guarded even if disabled"
+schema = "additive V18 report resolution journal/inbox; V1-V17 unchanged; no hold placement snapshots"
+activation = "Report conditional restore/fence/dedup/result outbox and real authenticated integration required; no GCP/provisioning/UI activation"
+handoff = "docs/report-servicehandoff.md"
+
+
+[report_review_clarification_163]
+date = "2026-10-29"
+owner = "Yao Xiang on order-service/admin-ui-linking"
+status = "approved documentation requirements; Report/UI implementation pending"
+deadline = "required server-owned responseDeadlineAt; ready on timely response or expiry; duration not changed"
+early_resolution = "admin allowed from awaiting with UI warning and confirmation; no new Order request field"
+reply = "required resolutionNote plus resolvedBy/resolvedAt; submitter/admin only"
+saga = "ADR-059 journal/preimage/revision/dedup/fence/conditional restore/result outbox; restore prior state with original deadline reconciliation"
+category = "undecided; no enum/mapping change approved"
+source = "unchanged; no Report backend present; default-disabled Order contract stub retained"
+
+
+[automatic_repost_retry_164]
+date = "2026-10-29"
+owner = "Yao Xiang on order-service/admin-ui-linking"
+scope = "approved implementation repair; Order only; no migration or peer/API/config change"
+retry = "fresh immutable command/candidate on later minute pass after terminal rejected FULLY_COMPENSATED FAILED/COMPENSATED Credit step; no attempt-count cutoff"
+safety = "pending/uncertain compensation blocks new attempt; original lock + unique pending target; refund/requester/supplier/current plan revalidated; one atomic successor/link/used/success"
+identity = "legacy first AUTO_REPOST key retained; subsequent reserved-namespace retry UUID keys; preserve all old commands/fences/results"
+selection = "SQL status/hold/plan/expiry/deletion/command predicates; oldest due or last failure first limit100; latest attempt actor/order SQL limit1"
+limits = "configured plan expiry, holds and enablement retained; no bypass of FAILED publication or reconciliation; deployment gates unchanged"
+
+
+[user_directory_ci_image_165]
+date = "2026-10-29"
+owner = "Yao Xiang on order-service/admin-ui-linking"
+scope = "explicit User CI test-only fix; pinned mongo:7.0.43; production/pom/env/workflow unchanged"
+verification = "standalone User verify native exit0;36 tests including4 real Mongo directory tests;0 failures/errors/skips; disposable databases removed"
+remaining = "push correction and rerun GitHub CI; exact original container crash output absent"

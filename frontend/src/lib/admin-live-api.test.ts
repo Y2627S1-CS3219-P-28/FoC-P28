@@ -6,7 +6,7 @@ import { createAdminApi } from "@/lib/admin-api"
 describe("Live Admin API adapter", () => {
   it("combines calendar bounds, status and exact ID on the server before pagination", async () => {
     const request = vi.fn().mockResolvedValue({ items: [], totalItems: 0 })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     await api.orders({ page: 2, status: "DELIVERED", orderId: "order/1", fromDate: "2026-10-16", toDate: "2026-10-17" })
     const params = new URLSearchParams(request.mock.calls[0][0].split("?")[1])
     expect(request.mock.calls[0][0]).toMatch(/^\/api\/orders\?/)
@@ -17,21 +17,21 @@ describe("Live Admin API adapter", () => {
   })
   it("posts an explicit resolution to the real endpoint and never falls back on failure", async () => {
     const request = vi.fn().mockRejectedValue(new ApiError(409, "CONFLICT", "Order changed"))
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     const input = { requesterId: "owner", courierId: "worker", appliedPenalties: [], resolutionReason: "Delivery confirmed" }
     await expect(api.resolveOrder("order/1", "cancel", input)).rejects.toThrow("Order changed")
     expect(request).toHaveBeenCalledExactlyOnceWith("/api/orders/admin/order%2F1/cancel", { method: "POST", body: input })
   })
   it("checks the authenticated role context without sending a trusted caller ID", async () => {
     const request = vi.fn().mockResolvedValue({ userId: "signed-in", roles: ["admin"] })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     await api.roleContext("signed-in")
     expect(request).toHaveBeenCalledWith("/api/users/role-context", { signal: undefined })
   })
 
   it("uses real server-filtered Order pages and exact details", async () => {
     const request = vi.fn().mockResolvedValue({ items: [{ id: "order-1" }], page: 2, size: 20, totalItems: 21, totalPages: 2 })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     const result = await api.orders({ page: 2, status: "COMPLETED", orderId: "" })
     expect(request).toHaveBeenCalledWith("/api/orders?page=2&size=20&status=COMPLETED", { signal: undefined })
     expect(result.totalItems).toBe(21)
@@ -45,7 +45,7 @@ describe("Live Admin API adapter", () => {
 
   it("turns only missing exact searches into empty results; real errors never fall back to mocks", async () => {
     const request = vi.fn().mockRejectedValue(new ApiError(404, "NOT_FOUND", "Missing"))
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     expect((await api.suppliers({ page: 1, searchBy: "id", q: "missing" })).items).toEqual([])
     expect((await api.orders({ page: 1, status: null, orderId: "missing" })).items).toEqual([])
     for (const status of [401, 403, 503]) {
@@ -58,7 +58,7 @@ describe("Live Admin API adapter", () => {
 
   it("reuses Supplier search/create/soft-deactivation contracts", async () => {
     const request = vi.fn().mockResolvedValue({ items: [] })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     await api.suppliers({ page: 2, searchBy: "name", q: " Deck " })
     expect(request).toHaveBeenLastCalledWith("/api/suppliers?page=2&size=10&status=all&q=Deck", { signal: undefined })
     const input = { name: "Deck", type: "Food", building: "Arts", floor: "", locationDescription: "",
@@ -72,16 +72,16 @@ describe("Live Admin API adapter", () => {
   it("preserves existing summary facts without fabricating missing profile or credit fields", async () => {
     const request = vi.fn().mockResolvedValue({ userId: "user/1", username: "Alex", email: "alex@u.nus.edu",
       roles: ["courier"], penalty: 2, isCourierSuspended: false, suspensionEndDate: null })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     const user = await api.user("user/1")
-    expect(request).toHaveBeenLastCalledWith("/api/users/summary/user%2F1", { signal: undefined })
+    expect(request).toHaveBeenLastCalledWith("/api/users/user%2F1", { signal: undefined })
     expect(user).toMatchObject({ userId: "user/1", username: "Alex", penalty: 2, active: null,
       id: null, phoneNumber: null, address: null, usableBalance: null, reservedBalance: null, totalBalance: null })
   })
 
   it("rejects a mismatched selected profile and resolves related labels through existing endpoints", async () => {
     const request = vi.fn().mockResolvedValue({ userId: "another-user", username: "Wrong" })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     await expect(api.user("user-1")).rejects.toThrow("does not match")
     request.mockResolvedValue({ userId: "user-1", username: "Alex" })
     expect(await api.recordName("users", "user-1")).toBe("Alex")
@@ -95,7 +95,7 @@ describe("Live Admin API adapter", () => {
 
   it("does not attach another record's name and handles empty lookup results", async () => {
     const request = vi.fn().mockResolvedValue({ userId: "other", username: "Wrong user" })
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     await expect(api.recordName("users", "user-1")).rejects.toThrow("does not match")
     request.mockResolvedValue({ id: "other", name: "Wrong location" })
     await expect(api.recordName("suppliers", "supplier-1")).rejects.toThrow("does not match")
@@ -106,24 +106,12 @@ describe("Live Admin API adapter", () => {
     expect(await api.recordName("users", "user-1")).toBeNull()
   })
 
-  it("refuses every unfinished operation without issuing a peer request", async () => {
-    const request = vi.fn()
-    const api = createAdminApi(request, "live")
-    for (const operation of [() => api.users({ page: 1, searchBy: "name", q: "" }),
-      () => api.suspendUser("user-1", "2099-01-01T00:00:00Z"),
-      () => api.promoteUser("user-1"), () => api.deactivateUser("user-1")]) {
-      await expect(operation()).rejects.toThrow("Coming soon")
-    }
-    expect(request).not.toHaveBeenCalled()
-    expect(api.capabilities).toEqual({ userDirectory: false, userActions: false, creditTransactions: true })
-  })
-
   it("loads the selected user's real Credit history with pagination and cancellation", async () => {
     const history = { items: [{ transactionId: "transaction-1", type: "REFUNDED_EXPIRY",
       amount: 5, direction: "CREDIT", occurredAt: "2026-10-15T00:00:00Z", orderId: "order-1" }],
       page: 2, size: 20, totalItems: 21, totalPages: 2 }
     const request = vi.fn().mockResolvedValue(history)
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     const signal = new AbortController().signal
     expect(await api.userTransactions("user/1", 2, signal)).toEqual(history)
     expect(request).toHaveBeenCalledExactlyOnceWith(
@@ -134,7 +122,7 @@ describe("Live Admin API adapter", () => {
   it("preserves empty Credit pages and propagates account/auth/service errors without a mock fallback", async () => {
     const empty = { items: [], page: 1, size: 20, totalItems: 0, totalPages: 0 }
     const request = vi.fn().mockResolvedValue(empty)
-    const api = createAdminApi(request, "live")
+    const api = createAdminApi(request)
     expect(await api.userTransactions("user-1", 1)).toEqual(empty)
     for (const status of [401, 403, 404, 503]) {
       const error = new ApiError(status, "FAILURE", "Credit request failed")

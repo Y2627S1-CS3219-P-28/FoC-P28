@@ -19,6 +19,10 @@ public interface OrderRepository {
 
     Optional<Order> getForUpdate(String id);
 
+    Optional<Order> getActiveForReportHoldUpdate(String id, String requesterId);
+
+    OrderPage findActiveRequestedBy(String requesterId, int page, int size);
+
     Optional<Order> getForLifecycleUpdate(String id);
 
     Order save(Order order);
