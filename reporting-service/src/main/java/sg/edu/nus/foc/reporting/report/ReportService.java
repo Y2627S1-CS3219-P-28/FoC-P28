@@ -22,13 +22,16 @@ import sg.edu.nus.foc.reporting.storage.StoredObject;
 public class ReportService {
     private static final Duration RESPONSE_WINDOW = Duration.ofHours(24);
     private static final List<String> ACTIVE_STATUSES = List.of(
-            "OPEN", "ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED");
+            "ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED");
 
     private final ReportRepository repository;
     private final AttachmentStorage storage;
     private final OrderAssociationClient orders;
     private final ImageValidator images;
     private final Clock clock;
+    private ReportDeadlineScheduler deadlines;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setDeadlines(ReportDeadlineScheduler deadlines) { this.deadlines=deadlines; }
 
     public ReportService(ReportRepository repository, AttachmentStorage storage,
                          OrderAssociationClient orders, ImageValidator images, Clock clock) {
@@ -55,7 +58,7 @@ public class ReportService {
         try {
             List<Attachment> attachments = upload(reportId, "submission", validated, uploadAttempts);
             AssociatedOrder associated = orderId == null ? null
-                    : orders.placeReportHold(orderId, reportId, category == ReportCategory.COURIER, bearerToken);
+                    : orders.placeReportHold(orderId, reportId, true, bearerToken);
             if (associated != null) validateHold(associated, reporterId, reportId, category);
 
             Instant createdAt = clock.instant();
@@ -78,6 +81,11 @@ public class ReportService {
 
     public PageResult<Report> list(int page, int size) {
         return reconcile(repository.findAll(page, size));
+    }
+
+    public PageResult<Report> list(int page, int size, String orderId, ReportStatus status) {
+        if (deadlines != null) deadlines.reconcileDue();
+        return reconcile(repository.findAll(page, size, orderId, status));
     }
 
     public PageResult<Report> listMine(String callerId, String view, int page, int size) {
@@ -115,14 +123,7 @@ public class ReportService {
     }
 
     public Report resolve(String id, String bearerToken) {
-        Report current = reconcileOne(id);
-        if (current.status() == ReportStatus.RESOLVED) return current;
-        if (current.status() != ReportStatus.READY_FOR_REVIEW) {
-            throw new ConflictException("The courier may respond before this report is resolved.");
-        }
-        if (current.orderId() != null) orders.releaseReportHold(current.orderId(), current.id(), bearerToken);
-        return repository.update(id, report -> report.resolved(clock.instant()))
-                .orElseThrow(() -> new NotFoundException("Report not found."));
+        throw new ConflictException("Resolve this report with a reply and stable command ID through the resolution coordinator.");
     }
 
     public AttachmentDownload attachment(String reportId, String attachmentId,

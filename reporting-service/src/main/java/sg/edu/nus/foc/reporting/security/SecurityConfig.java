@@ -33,7 +33,8 @@ import tools.jackson.databind.json.JsonMapper;
 @EnableMethodSecurity
 class SecurityConfig {
     private static final String[] PUBLIC = { "/actuator/health", "/actuator/health/**", "/actuator/info", "/api/reports/docs", "/api/reports/docs/**", "/api/reports/v3/api-docs", "/api/reports/v3/api-docs/**", "/api/reports/swagger-ui/**", "/error" };
-    @Bean SecurityFilterChain security(HttpSecurity http, JwtAuthenticationConverter converter, JsonSecurityHandlers handlers) throws Exception {
+    @Bean @org.springframework.core.annotation.Order(2)
+    SecurityFilterChain security(HttpSecurity http, JwtAuthenticationConverter converter, JsonSecurityHandlers handlers) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable).cors(Customizer.withDefaults())
                 .sessionManagement(value -> value.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll().requestMatchers(PUBLIC).permitAll().anyRequest().authenticated())

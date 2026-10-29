@@ -70,14 +70,21 @@ public class ReportController {
                 request.category(), request.description(), request.orderId(), photos)));
     }
 
-    @Operation(summary = "List all reports newest first")
+    PageResponse<ReportResponse> list(int page, int size) {
+        var result = reports.list(page, size);
+        return new PageResponse<>(result.items().stream().map(r -> ReportResponse.from(r, null, true)).toList(), result.page(), result.size(), result.totalItems(), result.totalPages());
+    }
+
+    @Operation(summary = "List reports newest first with optional exact Order ID and status filters")
     @ApiResponse(responseCode = "200", description = "Reports page")
     @PreAuthorize("@callerRoles.isAdmin(authentication)")
     @GetMapping
-    PageResponse<ReportResponse> list(@Parameter(description = "1-based page") @RequestParam(defaultValue = "1") @Min(1) int page,
-                                      @Parameter(description = "Items per page, up to 100") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        var result = reports.list(page, size);
-        return new PageResponse<>(result.items().stream().map(ReportResponse::from).toList(), result.page(), result.size(), result.totalItems(), result.totalPages());
+    PageResponse<ReportResponse> listFiltered(@Parameter(description = "1-based page") @RequestParam(defaultValue = "1") @Min(1) @Max(1000000) int page,
+                                      @Parameter(description = "Items per page, up to 100") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+                                      @Parameter(description = "Exact Order ID") @RequestParam(required = false) @jakarta.validation.constraints.Size(max=36) String orderId,
+                                      @Parameter(description = "Report status") @RequestParam(required = false) ReportStatus status) {
+        var result = reports.list(page, size, orderId, status);
+        return new PageResponse<>(result.items().stream().map(r -> ReportResponse.from(r, null, true)).toList(), result.page(), result.size(), result.totalItems(), result.totalPages());
     }
 
     @Operation(summary = "List reports submitted by or made against the caller")
@@ -90,7 +97,7 @@ public class ReportController {
             @Parameter(description = "Items per page, up to 100") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @AuthenticationPrincipal Jwt jwt) {
         var result = reports.listMine(jwt.getSubject(), view, page, size);
-        return new PageResponse<>(result.items().stream().map(ReportResponse::from).toList(), result.page(),
+        return new PageResponse<>(result.items().stream().map(r -> ReportResponse.from(r, jwt.getSubject(), false)).toList(), result.page(),
                 result.size(), result.totalItems(), result.totalPages());
     }
 
@@ -101,10 +108,10 @@ public class ReportController {
     @GetMapping("/{id}")
     ReportResponse detail(@PathVariable String id, @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
         try {
-            return ReportResponse.from(reports.detail(id, jwt.getSubject(), false));
+            return ReportResponse.from(reports.detail(id, jwt.getSubject(), false), jwt.getSubject(), false);
         } catch (ForbiddenException denied) {
             if (!callerRoles.isAdmin(authentication)) throw denied;
-            return ReportResponse.from(reports.detail(id, jwt.getSubject(), true));
+            return ReportResponse.from(reports.detail(id, jwt.getSubject(), true), jwt.getSubject(), true);
         }
     }
 
@@ -146,10 +153,10 @@ public class ReportController {
         return ReportResponse.from(reports.respond(id, jwt.getSubject(), request.explanation(), photos));
     }
 
-    @Operation(summary = "Resolve a report")
+    @Operation(summary = "Legacy resolution route: use the command-based resolve endpoint", deprecated = true)
     @ApiResponse(responseCode = "200", description = "Resolved report")
     @ApiResponse(responseCode = "404", description = "Report not found")
-    @ApiResponse(responseCode = "409", description = "Report is still awaiting a courier response")
+    @ApiResponse(responseCode = "409", description = "Use the command-based endpoint with a required admin reply")
     @ApiResponse(responseCode = "503", description = "Order Service could not release the report hold")
     @PreAuthorize("@callerRoles.isAdmin(authentication)")
     @PatchMapping("/{id}/status")

@@ -55,6 +55,16 @@ class FirestoreReportRepositoryIntegrationTest {
         assertTrue(repository.update("missing", item -> item).isEmpty()); assertTrue(repository.update("a/b", item -> item).isEmpty());
     }
 
+    @Test void adminFiltersAndCountAreAppliedBeforePaging() {
+        var created=Instant.parse("2026-10-29T00:00:00Z");
+        repository.save(report("a",created,List.of()));
+        repository.save(report("b",created.plusSeconds(1),List.of()));
+        repository.update("b",r->r.resolved(created.plusSeconds(2)));
+        assertEquals(List.of("a"), repository.findAll(1,1,"order",ReportStatus.READY_FOR_REVIEW).items().stream().map(Report::id).toList());
+        assertEquals(1,repository.findAll(1,1,"order",ReportStatus.RESOLVED).totalItems());
+        assertEquals(0,repository.findAll(1,20,"missing",null).totalItems());
+    }
+
     @Test void persistsCourierResponseAndReadsLegacyOpenAsReadyForReview() throws Exception {
         Instant created = Instant.parse("2026-10-13T01:00:00Z");
         Instant deadline = created.plusSeconds(86_400);

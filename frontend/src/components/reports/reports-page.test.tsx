@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import * as React from "react"
 import { AdminReportsPage } from "./reports-page"
-const mocks = vi.hoisted(() => ({ mode: "mock", list: vi.fn(), detail: vi.fn(), resolve: vi.fn(), refresh: vi.fn(), uid: "courier" }))
+const mocks = vi.hoisted(() => ({ mode: "mock", list: vi.fn(), detail: vi.fn(), resolve: vi.fn(), resolution: vi.fn(), refresh: vi.fn(), uid: "courier" }))
 vi.mock("@/components/providers/config-provider", () => ({ useConfig: () => ({ adminApiMode: mocks.mode }) }))
 vi.mock("@/components/providers/auth-provider", () => ({ useAuth: () => ({ user: { uid: mocks.uid }, loading: false }) }))
 vi.mock("@/components/require-auth", () => ({ RequireAuth: ({ children }: { children: React.ReactNode }) => children }))
@@ -19,12 +19,13 @@ const report = { id: "report-1", requesterId: "owner", courierId: "courier", sta
   violationCategory: "WRONG_LOCATION_DELIVERY", requesterExplanation: "Delivered to a different building", requesterAttachments: [], courierAttachments: [],
   courierExplanation: null, courierResponseSubmittedAt: null, createdAt: "2026-10-18T10:00:00Z",
   order: { id: "order-1", status: "DELIVERED", isCompletionHold: true, isOverdue: true, requesterId: "owner", courierId: "courier", requesterName: "Alex", courierName: "Jamie", itemDescription: "Books", pickupSupplierId: "p", deliverySupplierId: "d", offeredCredits: 5, deliveryTimeLimitMinutes: 30, expiresAt: "2026-10-18T11:00:00Z" } }
-beforeEach(() => { vi.clearAllMocks(); mocks.mode = "mock"; mocks.uid = "courier"; mocks.detail.mockResolvedValue(report); mocks.list.mockImplementation(async (_user: string, _mode: string, _page: number, status: string) => ({ items: status === "RESOLVED" ? [] : [report], page: 1, totalPages: status === "RESOLVED" ? 0 : 1, totalItems: status === "RESOLVED" ? 0 : 1 })); mocks.resolve.mockResolvedValue({ ...report, status: "RESOLVED" }) })
+beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); mocks.resolution.mockResolvedValue({ status: "PENDING" }); mocks.mode = "mock"; mocks.uid = "courier"; mocks.detail.mockResolvedValue(report); mocks.list.mockImplementation(async (_user: string, _mode: string, _page: number, status: string) => ({ items: status === "RESOLVED" ? [] : [report], page: 1, totalPages: status === "RESOLVED" ? 0 : 1, totalItems: status === "RESOLVED" ? 0 : 1 })); mocks.resolve.mockResolvedValue({ ...report, status: "RESOLVED" }) })
 afterEach(cleanup)
 describe("Reports", () => {
-  it("shows Coming soon without fetching samples in live mode", () => {
+  it("loads real reports in live mode", async () => {
     mocks.mode = "live"; render(<AdminReportsPage />)
-    expect(screen.getByText("Coming soon")).toBeInTheDocument(); expect(mocks.list).not.toHaveBeenCalled()
+    expect(await screen.findByRole("link", { name: "View report" })).toBeInTheDocument()
+    expect(screen.queryByText("Coming soon")).not.toBeInTheDocument(); expect(mocks.list).toHaveBeenCalled()
   })
   it("searches exact Order ID, filters report status and clears both without a refresh button", async () => {
     mocks.list.mockImplementation(async (_user: string, _mode: string, page: number) => ({ items: [report], page, totalPages: 2, totalItems: 21 }))
@@ -81,7 +82,7 @@ describe("Reports", () => {
     expect(screen.getByRole("button", { name: "Confirm resolved" })).toBeDisabled()
     fireEvent.change(screen.getByLabelText("Admin reply"), { target: { value: "Evidence reviewed." } })
     fireEvent.click(screen.getByRole("button", { name: "Confirm resolved" }))
-    await waitFor(() => expect(mocks.resolve).toHaveBeenCalledWith("report-1", "admin", "Evidence reviewed."))
+    await waitFor(() => expect(mocks.resolve).toHaveBeenCalledWith("report-1", "admin", "Evidence reviewed.", expect.any(String)))
   })
   it("shows resolution history without requester or courier editing", async () => {
     mocks.detail.mockResolvedValue({ ...report, status: "RESOLVED", resolvedAt: "2026-10-18T19:00:00Z", resolvedBy: "admin" })
@@ -90,5 +91,35 @@ describe("Reports", () => {
     expect(screen.queryByRole("button", { name: "Submit response" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Submit report" })).not.toBeInTheDocument()
     expect(screen.getByText("Admin reply")).toBeInTheDocument()
+  })
+  it("warns before early resolution and cancellation sends no mutation", async () => {
+    render(<AdminReportsPage reportId="report-1" />)
+    fireEvent.click(await screen.findByRole("button", { name: "Mark report resolved" }))
+    expect(screen.getByText(/courier has not responded and their response deadline has not passed/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Back" }))
+    expect(mocks.resolve).not.toHaveBeenCalled()
+  })
+  it("keeps the same command ID and reply after an uncertain failure", async () => {
+    mocks.resolve.mockRejectedValueOnce(new Error("Network failure")).mockResolvedValueOnce({ status: "SUCCEEDED" })
+    render(<AdminReportsPage reportId="report-1" />)
+    fireEvent.click(await screen.findByRole("button", { name: "Mark report resolved" }))
+    fireEvent.change(screen.getByLabelText("Admin reply"), { target: { value: "Reviewed" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirm resolved" }))
+    expect(await screen.findByText("Network failure")).toBeInTheDocument()
+    expect(screen.getByLabelText("Admin reply")).toBeDisabled()
+    fireEvent.click(screen.getByRole("button", { name: "Retry same request" }))
+    await waitFor(() => expect(mocks.resolve).toHaveBeenCalledTimes(2))
+    expect(mocks.resolve.mock.calls[1]).toEqual(mocks.resolve.mock.calls[0])
+    await waitFor(() => expect(sessionStorage.getItem("report-resolution:courier:report-1")).toBeNull())
+  })
+  it("keeps a pending coordinator result pending and does not claim success", async () => {
+    mocks.resolve.mockResolvedValue({ status: "COMPENSATING" })
+    render(<AdminReportsPage reportId="report-1" />)
+    fireEvent.click(await screen.findByRole("button", { name: "Mark report resolved" }))
+    fireEvent.change(screen.getByLabelText("Admin reply"), { target: { value: "Reviewed" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirm resolved" }))
+    expect(await screen.findByText(/Resolution is being checked/)).toBeInTheDocument()
+    expect(mocks.refresh).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: "Retry same request" })).toBeDisabled()
   })
 })

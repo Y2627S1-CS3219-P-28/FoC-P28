@@ -17,11 +17,16 @@ public record ReportResponse(String id, String reporterId, ReportCategory catego
                              String orderId, String courierId, ReportStatus status, Instant createdAt,
                              Instant responseDeadlineAt, String courierResponse, Instant respondedAt,
                              Instant resolvedAt, List<AttachmentResponse> attachments,
-                             List<AttachmentResponse> responseAttachments) {
+                             List<AttachmentResponse> responseAttachments, String resolutionNote, String resolvedBy) {
     public static ReportResponse from(Report report) {
+        return from(report, null, false);
+    }
+    public static ReportResponse from(Report report, String callerId, boolean admin) {
+        boolean privateReply = admin || report.reporterId().equals(callerId);
         return new ReportResponse(report.id(), report.reporterId(), report.category(), report.description(), report.orderId(), report.courierId(),
                 report.status(), report.createdAt(), report.responseDeadlineAt(), report.courierResponse(),
                 report.respondedAt(), report.resolvedAt(), report.attachments().stream().map(AttachmentResponse::from).toList(),
-                report.responseAttachments().stream().map(AttachmentResponse::from).toList());
+                report.responseAttachments().stream().map(AttachmentResponse::from).toList(),
+                privateReply ? report.resolutionNote() : null, privateReply ? report.resolvedBy() : null);
     }
 }

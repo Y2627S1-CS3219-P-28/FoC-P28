@@ -15,7 +15,11 @@ public interface ReportRepository {
     Report save(Report report);
     Optional<Report> findById(String id);
     PageResult<Report> findAll(int page, int size);
+    default PageResult<Report> findAll(int page, int size, String orderId, ReportStatus status) {
+        return findAll(page, size);
+    }
     PageResult<Report> findByReporterId(String reporterId, int page, int size);
     PageResult<Report> findByCourierId(String courierId, int page, int size);
     Optional<Report> update(String id, UnaryOperator<Report> operation);
+    default java.util.List<String> dueResponseIds(Instant now) { return java.util.List.of(); }
 }

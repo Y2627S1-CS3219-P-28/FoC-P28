@@ -44,6 +44,7 @@ export type RequestOptions = {
   body?: unknown | FormData
   token?: string | null
   signal?: AbortSignal
+  responseType?: "json" | "blob"
 }
 
 export async function apiRequest<T>(baseUrl: string, path: string, options: RequestOptions = {}): Promise<T> {
@@ -67,6 +68,7 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
   }
 
   if (response.status === 204) return undefined as T
+  if (response.ok && options.responseType === "blob") return await response.blob() as T
 
   const payload = await response.json().catch(() => null)
   if (!response.ok) {

@@ -362,6 +362,13 @@ services:
       REPORTING_STORAGE_BUCKET: demo-foc-reporting-local
       ORDER_SERVICE_URL: http://order-service:8080
       USER_SERVICE_MODE: http
+        # Requires the contract-capable Order branch and both saga subscriptions.
+        REPORT_RESOLUTION_ENABLED: ${REPORT_RESOLUTION_ENABLED:-false}
+        REPORT_PUBSUB_PROJECT_ID: demo-foc
+        PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+        REPORT_RESOLUTION_RESULT_TOPIC: ${REPORT_RESOLUTION_RESULT_TOPIC:-report-resolution-compensation-result-local-v1}
+        REPORT_RESOLUTION_COMPENSATION_SUBSCRIPTION: ${REPORT_RESOLUTION_COMPENSATION_SUBSCRIPTION:-projects/demo-foc/subscriptions/report-resolution-request-local}
+        REPORT_RESOLUTION_PUSH_MODE: emulator
     depends_on:
       <<: *backend-depends
       order-service:

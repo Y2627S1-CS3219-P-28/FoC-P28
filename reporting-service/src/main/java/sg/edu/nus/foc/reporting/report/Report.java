@@ -17,7 +17,15 @@ public record Report(String id, String reporterId, ReportCategory category, Stri
                      String orderId, String courierId, ReportStatus status, Instant createdAt,
                      Instant responseDeadlineAt, String courierResponse, Instant respondedAt,
                      Instant resolvedAt, List<Attachment> attachments,
-                     List<Attachment> responseAttachments) {
+                     List<Attachment> responseAttachments, String resolutionNote, String resolvedBy) {
+    public Report(String id, String reporterId, ReportCategory category, String description,
+                  String orderId, String courierId, ReportStatus status, Instant createdAt,
+                  Instant responseDeadlineAt, String courierResponse, Instant respondedAt,
+                  Instant resolvedAt, List<Attachment> attachments, List<Attachment> responseAttachments) {
+        this(id, reporterId, category, description, orderId, courierId, status, createdAt,
+                responseDeadlineAt, courierResponse, respondedAt, resolvedAt, attachments,
+                responseAttachments, null, null);
+    }
     public Report {
         attachments = List.copyOf(attachments == null ? List.of() : attachments);
         responseAttachments = List.copyOf(responseAttachments == null ? List.of() : responseAttachments);
@@ -47,9 +55,6 @@ public record Report(String id, String reporterId, ReportCategory category, Stri
     public Report resolved(Instant at) {
         Report current = reconcile(at);
         if (current.status == ReportStatus.RESOLVED) return current;
-        if (current.status != ReportStatus.READY_FOR_REVIEW) {
-            throw new ConflictException("The courier may respond before this report is resolved.");
-        }
         return copy(ReportStatus.RESOLVED, current.responseDeadlineAt, current.courierResponse,
                 current.respondedAt, at, current.responseAttachments);
     }
@@ -61,6 +66,6 @@ public record Report(String id, String reporterId, ReportCategory category, Stri
     private Report copy(ReportStatus nextStatus, Instant deadline, String response, Instant responseAt,
                         Instant resolutionAt, List<Attachment> responseEvidence) {
         return new Report(id, reporterId, category, description, orderId, courierId, nextStatus, createdAt,
-                deadline, response, responseAt, resolutionAt, attachments, responseEvidence);
+                deadline, response, responseAt, resolutionAt, attachments, responseEvidence, resolutionNote, resolvedBy);
     }
 }

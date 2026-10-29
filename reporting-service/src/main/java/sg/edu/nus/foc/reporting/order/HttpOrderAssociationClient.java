@@ -45,7 +45,7 @@ public class HttpOrderAssociationClient implements OrderAssociationClient {
                     .header(HttpHeaders.AUTHORIZATION, bearerToken)
                     .body(new PlaceReportHoldRequest(requireAssignedCourier))
                     .retrieve().body(AssociatedOrder.class);
-            if (result == null || result.id() == null || result.requesterId() == null
+            if (result == null || !orderId.equals(result.id()) || result.requesterId() == null
                     || result.status() == null || !reportId.equals(result.reportId())
                     || !result.isCompletionHold()) {
                 throw new DependencyUnavailableException("Order Service returned an invalid report hold.");

@@ -5,9 +5,10 @@ import Link from "next/link"
 import { ArrowUpRightIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/providers/auth-provider"
-import { useConfig } from "@/components/providers/config-provider"
 import { useOrderDisplayNames } from "@/hooks/use-order-display-names"
 import { useReportApi, useReportResource } from "@/hooks/use-reports"
+import { useVisiblePolling } from "@/hooks/use-visible-polling"
+import { useApi } from "@/hooks/use-api"
 import { REPORT_CATEGORIES, REPORT_STATUSES, type DeliveryReport, type ReportEvidence } from "@/lib/reports"
 import type { AdminOrder } from "@/lib/admin-api"
 import { StatusSelect } from "@/components/orders/status-select"
@@ -19,14 +20,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { AdminComingSoon, AdminFilterActions, AdminFilterForm, AdminHeading, AdminLoadState, AdminPagination, CopyId, adminDate } from "@/components/admin/admin-ui"
+import { AdminFilterActions, AdminFilterForm, AdminHeading, AdminLoadState, AdminPagination, CopyId, adminDate } from "@/components/admin/admin-ui"
 
 export function AdminReportsPage({ reportId }: { reportId?: string }) {
-  const { adminApiMode } = useConfig()
   return <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
     <AdminHeading title={reportId ? "Report details" : "Reports"} description="Review delivered-item issues, evidence and responses." />
-    {adminApiMode !== "mock" ? <AdminComingSoon title="Delivery reports" />
-      : reportId ? <ReportCase key={reportId} id={reportId} /> : <ReportList />}
+    {reportId ? <ReportCase key={reportId} id={reportId} /> : <ReportList />}
   </section>
 }
 
@@ -79,8 +78,21 @@ function ReportList() {
 }
 
 function Evidence({ files }: { files: ReportEvidence[] }) {
-  return files.length ? <ul className="space-y-2">{files.map((file, index) => <li key={index}><a href={file.dataUrl} download={file.name} className="text-sm underline underline-offset-4">{file.name}</a></li>)}</ul>
+  return files.length ? <ul className="space-y-2">{files.map((file, index) => <li key={index}><EvidenceDownload file={file} /></li>)}</ul>
     : <p className="text-sm text-muted-foreground">No attachments provided.</p>
+}
+function EvidenceDownload({ file }: { file: ReportEvidence }) {
+  const api = useApi()
+  const [busy, setBusy] = useState(false); const [error, setError] = useState("")
+  async function download() {
+    setBusy(true); setError("")
+    try {
+      const blob = await api<Blob>(`/api/reports/${encodeURIComponent(file.reportId!)}/attachments/${encodeURIComponent(file.attachmentId!)}`, { responseType: "blob" })
+      const url = URL.createObjectURL(blob); const link = document.createElement("a")
+      link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch { setError("Attachment could not be downloaded. Try again.") } finally { setBusy(false) }
+  }
+  return <><Button size="sm" variant="link" disabled={busy} onClick={() => void download()}>{file.name}</Button>{error && <p role="alert">{error}</p>}</>
 }
 
 function SummaryFields({ rows }: { rows: [string, React.ReactNode][] }) {
@@ -117,15 +129,15 @@ function ReportCase({ id }: { id: string }) {
   const load = useCallback((signal: AbortSignal) => api.detail(id, user?.uid ?? "", signal), [api, id, user?.uid])
   const { data: report, error, loading, refresh } = useReportResource(load, Boolean(user) && !authLoading)
   const [resolving, setResolving] = useState(false)
-  const displayName = useOrderDisplayNames(report ? [report.order] : [])
+  const displayName = useOrderDisplayNames(report?.order ? [report.order] : [])
   if (!report) return <AdminLoadState loading={loading} error={error} empty={false} retry={refresh} />
   const root = "/admin/reports"
-  const order = { ...report.order, requesterName: displayName("users", report.requesterId, report.order.requesterName), courierName: displayName("users", report.courierId, report.order.courierName), pickupSupplierName: displayName("suppliers", report.order.pickupSupplierId, report.order.pickupSupplierName), deliverySupplierName: displayName("suppliers", report.order.deliverySupplierId, report.order.deliverySupplierName) }
+  const order = report.order ? { ...report.order, requesterName: displayName("users", report.requesterId, report.order.requesterName), courierName: displayName("users", report.courierId, report.order.courierName), pickupSupplierName: displayName("suppliers", report.order.pickupSupplierId, report.order.pickupSupplierName), deliverySupplierName: displayName("suppliers", report.order.deliverySupplierId, report.order.deliverySupplierName) } : null
   return <>
     <Link href={root} className={buttonVariants({ variant: "outline" })}>Back to reports</Link>
     {error && <p role="status" className="text-sm text-muted-foreground">Could not refresh. Showing the last available case.</p>}
     <Card className="gap-0 py-0" aria-label="Report case">
-      <ReportOrderSummary order={order} />
+      {order && <ReportOrderSummary order={order} />}
       <ReportSection title="Report information">
         <SummaryFields rows={[
           ["Report ID", <CopyId key="id" id={report.id} />],
@@ -137,19 +149,19 @@ function ReportCase({ id }: { id: string }) {
         ]} />
       </ReportSection>
       <ReportSection title="Requester account">
-        <SummaryFields rows={[["Requester name", <Participant key="requester" id={report.requesterId} name={order.requesterName} />],
+        <SummaryFields rows={[["Requester name", <Participant key="requester" id={report.requesterId} name={order?.requesterName ?? null} />],
           ["Requester ID", <CopyId key="requester-id" id={report.requesterId} />],
           ["Explanation", report.requesterExplanation], ["Attachments", <Evidence key="requester-evidence" files={report.requesterAttachments} />]]} />
       </ReportSection>
       <ReportSection title="Courier account">
-        <SummaryFields rows={[["Courier name", <Participant key="courier" id={report.courierId} name={order.courierName} />],
-          ["Courier ID", <CopyId key="courier-id" id={report.courierId} />],
+        <SummaryFields rows={[["Courier name", report.courierId ? <Participant key="courier" id={report.courierId} name={order?.courierName ?? null} /> : "Unassigned"],
+          ["Courier ID", report.courierId ? <CopyId key="courier-id" id={report.courierId} /> : "Unassigned"],
           ["Explanation", report.courierExplanation || "No response submitted."], ["Attachments", <Evidence key="courier-evidence" files={report.courierAttachments} />]]} />
       </ReportSection>
       {report.status === "RESOLVED" && <ReportSection title="Resolution"><SummaryFields rows={[
         ["Admin reply", report.resolutionNote], ["Resolved", adminDate(report.resolvedAt!)], ["Resolved by", report.resolvedBy],
       ]} /></ReportSection>}
-      {report.status !== "RESOLVED" && <div className="flex justify-end border-t px-5 py-5 sm:px-8"><Button onClick={() => setResolving(true)}>Mark report resolved</Button></div>}
+      {(report.status !== "RESOLVED" || sessionStorage.getItem(resolutionKey(report.id, user?.uid ?? ""))) && <div className="flex justify-end border-t px-5 py-5 sm:px-8"><Button onClick={() => setResolving(true)}>{report.status === "RESOLVED" ? "Resume resolution" : "Mark report resolved"}</Button></div>}
     </Card>
     {resolving && <ResolveReportDialog report={report} onClose={() => setResolving(false)} onDone={() => { setResolving(false); refresh() }} />}
   </>
@@ -159,17 +171,50 @@ function Participant({ id, name }: { id: string; name: string | null }) {
 }
 function ResolveReportDialog({ report, onClose, onDone }: { report: DeliveryReport; onClose: () => void; onDone: () => void }) {
   const api = useReportApi(); const { user } = useAuth()
-  const [note, setNote] = useState(""); const [busy, setBusy] = useState(false); const locked = useRef(false); const [error, setError] = useState<string | null>(null)
+  const storageKey = resolutionKey(report.id, user?.uid ?? "")
+  const [attempt, setAttempt] = useState<{ commandId: string; reply: string } | null>(() => {
+    try { const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null"); return saved?.commandId && typeof saved.reply === "string" ? saved : null } catch { return null }
+  })
+  const [note, setNote] = useState(attempt?.reply ?? ""); const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState(false); const [final, setFinal] = useState(false)
+  const locked = useRef(false); const [error, setError] = useState<string | null>(null)
+  const succeeded = useRef(false)
+  const complete = useCallback(() => {
+    if (succeeded.current) return
+    succeeded.current = true; sessionStorage.removeItem(storageKey); toast.success("Report resolved."); onDone()
+  }, [onDone, storageKey])
+  const poll = useCallback(async (signal: AbortSignal) => {
+    if (!attempt) return
+    try {
+      const result = await api.resolution(attempt.commandId, signal)
+      if (signal.aborted) return
+      if (result.status === "SUCCEEDED") complete()
+      else if (result.status === "COMPENSATED" || result.status === "REJECTED") { setPending(false); setFinal(true); setError("The resolution did not complete. You can start a new request.") }
+      else if (result.status === "RECONCILIATION_REQUIRED") { setPending(false); setError("This resolution needs operator review. The order remains on hold.") }
+    } catch { if (!signal.aborted) setError("Could not check the resolution yet. Your request has been kept.") }
+  }, [api, attempt, complete])
+  useVisiblePolling(poll, pending && !!attempt && !!report.order, 5000)
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (!user || !note.trim() || locked.current) return
     locked.current = true; setBusy(true); setError(null)
-    try { await api.resolve(report.id, user.uid, note.trim()); toast.success("Sample report resolved; its completion hold is released."); onDone() }
+    const current = attempt ?? { commandId: crypto.randomUUID(), reply: note.trim() }
+    setAttempt(current); sessionStorage.setItem(storageKey, JSON.stringify(current))
+    try {
+      const result = await api.resolve(report.id, user.uid, current.reply, current.commandId)
+      if (result.status === "SUCCEEDED" || result.status === "RESOLVED") complete()
+      else { setPending(true); setError("Resolution is being checked. The order stays on hold until confirmation.") }
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not resolve report.") }
     finally { locked.current = false; setBusy(false) }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose() }}><DialogContent className="sm:max-w-lg"><form onSubmit={submit} className="space-y-4">
     <DialogHeader><DialogTitle>Resolve report</DialogTitle><DialogDescription>Your reply is only visible to the submitter. Reviewing admins can also view it. Resolving the case releases this report’s completion hold. Order and penalty actions remain separate.</DialogDescription></DialogHeader>
-    <Label htmlFor="resolution-note">Admin reply</Label><Textarea id="resolution-note" maxLength={2000} required value={note} onChange={event => setNote(event.target.value)} disabled={busy} />
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Back</Button><Button type="submit" disabled={busy || !note.trim()}>{busy ? "Saving…" : "Confirm resolved"}</Button></DialogFooter>
+    {report.status === "AWAITING_COURIER_RESPONSE" && <p role="alert" className="rounded-md border p-3 text-sm">The courier has not responded and their response deadline has not passed. Are you sure you want to resolve this report?</p>}
+    <Label htmlFor="resolution-note">Admin reply</Label><Textarea id="resolution-note" maxLength={2000} required value={note} onChange={event => setNote(event.target.value)} disabled={busy || !!attempt} />
+    {error && <p role="status" className="text-sm text-muted-foreground">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Back</Button>
+      {final ? <Button type="button" onClick={() => { sessionStorage.removeItem(storageKey); setAttempt(null); setFinal(false); setError(null) }}>Start new request</Button>
+        : <Button type="submit" disabled={busy || pending || !note.trim()}>{busy ? "Saving…" : attempt ? "Retry same request" : "Confirm resolved"}</Button>}
+    </DialogFooter>
   </form></DialogContent></Dialog>
 }
+function resolutionKey(reportId: string, userId: string) { return `report-resolution:${userId}:${reportId}` }

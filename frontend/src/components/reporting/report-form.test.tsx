@@ -44,7 +44,7 @@ describe("report form", () => {
     expect(screen.getByText("Photos")).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Associated order" })).toHaveTextContent(/DELIVERED/)
     fireEvent.click(screen.getByRole("combobox", { name: "Associated order" }))
-    expect(await screen.findByRole("option", { name: /OPEN/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /OPEN/ })).not.toBeInTheDocument()
     expect(screen.getByRole("option", { name: /IN PROGRESS/ })).toBeInTheDocument()
     expect(screen.getByRole("option", { name: /DELIVERED/ })).toBeInTheDocument()
     expect(screen.queryByRole("option", { name: /COMPLETED/ })).not.toBeInTheDocument()

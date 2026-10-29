@@ -38,7 +38,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(error);
     }
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
-            HttpMessageNotReadableException.class, MissingServletRequestPartException.class})
+            HttpMessageNotReadableException.class, MissingServletRequestPartException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> validation(Exception ex, HttpServletRequest request) {
         List<ApiError.FieldProblem> details = ex instanceof MethodArgumentNotValidException invalid
                 ? invalid.getBindingResult().getFieldErrors().stream().map(error -> new ApiError.FieldProblem(error.getField(), error.getDefaultMessage())).toList()

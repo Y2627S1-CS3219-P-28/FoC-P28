@@ -57,7 +57,7 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
         let totalPages = 1
         do {
           const response = await api<AssociatedOrderPage>(`/api/orders/mine/active?page=${page}&size=100`, { signal: controller.signal })
-          collected.push(...response.items)
+          collected.push(...response.items.filter(order => ["ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED"].includes(order.status)))
           totalPages = response.totalPages
           page += 1
         } while (page <= totalPages)

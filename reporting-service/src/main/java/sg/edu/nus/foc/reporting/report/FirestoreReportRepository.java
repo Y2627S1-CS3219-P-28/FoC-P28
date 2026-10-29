@@ -46,11 +46,20 @@ public class FirestoreReportRepository implements ReportRepository {
 
     @Override
     public PageResult<Report> findAll(int page, int size) {
-        List<Report> reports = await(firestore.collection(COLLECTION).get()).getDocuments().stream()
-                .map(FirestoreReportRepository::fromDocument)
-                .sorted(Comparator.comparing(Report::createdAt).reversed())
-                .toList();
-        return page(reports, page, size);
+        return findAll(page, size, null, null);
+    }
+
+    @Override
+    public PageResult<Report> findAll(int page, int size, String orderId, ReportStatus status) {
+        com.google.cloud.firestore.Query query = firestore.collection(COLLECTION);
+        if (orderId != null && !orderId.isBlank()) query = query.whereEqualTo("orderId", orderId.strip());
+        if (status != null) query = query.whereEqualTo("status", status.name());
+        long total = await(query.count().get()).getCount();
+        var rows = await(query.orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
+                .orderBy(com.google.cloud.firestore.FieldPath.documentId(), com.google.cloud.firestore.Query.Direction.DESCENDING)
+                .offset(Math.multiplyExact(page - 1, size)).limit(size).get()).getDocuments();
+        return new PageResult<>(rows.stream().map(FirestoreReportRepository::fromDocument).toList(),
+                page, size, total, (int)((total+size-1)/size));
     }
 
     @Override
@@ -86,12 +95,23 @@ public class FirestoreReportRepository implements ReportRepository {
             if (!snapshot.exists()) return Optional.empty();
             Report current = fromDocument(snapshot);
             Report updated = operation.apply(current);
-            if (!updated.equals(current)) transaction.set(ref, toDocument(updated));
+            if (!updated.equals(current)) {
+                var document = toDocument(updated);
+                document.put("revision", snapshot.contains("revision") ? snapshot.getLong("revision") + 1 : 1L);
+                transaction.set(ref, document);
+            }
             return Optional.of(updated);
         }));
     }
 
-    private static Map<String, Object> toDocument(Report report) {
+    @Override
+    public List<String> dueResponseIds(Instant now) {
+        return await(firestore.collection(COLLECTION).whereEqualTo("status", "AWAITING_COURIER_RESPONSE")
+                .whereLessThanOrEqualTo("responseDeadlineAt", timestamp(now))
+                .orderBy("responseDeadlineAt").limit(100).get()).getDocuments().stream().map(DocumentSnapshot::getId).toList();
+    }
+
+    static Map<String, Object> toDocument(Report report) {
         List<Map<String, Object>> attachments = report.attachments().stream().map(item -> Map.<String, Object>of(
                 "id", item.id(), "objectKey", item.objectKey(), "filename", item.filename(),
                 "contentType", item.contentType(), "size", item.size(),
@@ -101,6 +121,8 @@ public class FirestoreReportRepository implements ReportRepository {
         map.put("category", report.category().name()); map.put("description", report.description());
         map.put("orderId", report.orderId()); map.put("courierId", report.courierId());
         map.put("status", report.status().name());
+        map.put("resolutionNote", report.resolutionNote());
+        map.put("resolvedBy", report.resolvedBy());
         map.put("createdAt", Timestamp.ofTimeSecondsAndNanos(report.createdAt().getEpochSecond(), report.createdAt().getNano()));
         map.put("responseDeadlineAt", timestamp(report.responseDeadlineAt()));
         map.put("courierResponse", report.courierResponse());
@@ -136,7 +158,8 @@ public class FirestoreReportRepository implements ReportRepository {
                 snapshot.getString("orderId"), snapshot.getString("courierId"), status,
                 created.toDate().toInstant(), deadline == null ? null : deadline.toDate().toInstant(),
                 snapshot.getString("courierResponse"), responded == null ? null : responded.toDate().toInstant(),
-                resolved == null ? null : resolved.toDate().toInstant(), attachments, responseAttachments);
+                resolved == null ? null : resolved.toDate().toInstant(), attachments, responseAttachments,
+                snapshot.getString("resolutionNote"), snapshot.getString("resolvedBy"));
     }
 
     private static List<Attachment> attachments(Object raw) {
@@ -154,6 +177,12 @@ public class FirestoreReportRepository implements ReportRepository {
     private static <T> T await(ApiFuture<T> future) {
         try { return future.get(); }
         catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new DependencyUnavailableException("Report storage is unavailable.", e); }
-        catch (ExecutionException e) { throw new DependencyUnavailableException("Report storage is unavailable.", e.getCause()); }
+        catch (ExecutionException e) {
+            for (Throwable cause = e.getCause(); cause != null; cause = cause.getCause()) {
+                if (cause instanceof sg.edu.nus.foc.reporting.error.ConflictException conflict) throw conflict;
+                if (cause instanceof sg.edu.nus.foc.reporting.error.ForbiddenException forbidden) throw forbidden;
+            }
+            throw new DependencyUnavailableException("Report storage is unavailable.", e.getCause());
+        }
     }
 }

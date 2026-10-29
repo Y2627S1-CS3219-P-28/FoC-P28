@@ -42,21 +42,19 @@ class ReportServiceTest {
         assertEquals(ReportStatus.AWAITING_COURIER_RESPONSE, report.status());
         assertEquals(NOW.plusSeconds(24 * 60 * 60), report.responseDeadlineAt());
         assertEquals("courier", report.courierId());
-        assertEquals(List.of(false), orders.requireCourier);
+        assertEquals(List.of(true), orders.requireCourier);
         assertEquals("Bearer token", orders.tokens.getFirst());
         assertEquals(1, report.attachments().size());
     }
 
-    @Test void courierRequiresAssignmentAndOpenOrderGoesStraightToReview() {
+    @Test void openOrdersAreRejectedForBothOrderLinkedCategories() {
         orders.status = "OPEN";
-        Report open = service.submit("requester", "Bearer token", ReportCategory.ORDER,
-                "No courier accepted", "order", List.of());
-        assertEquals(ReportStatus.READY_FOR_REVIEW, open.status());
-        assertNull(open.responseDeadlineAt());
-
-        assertThrows(ConflictException.class, () -> service.submit("requester", "Bearer token",
+        assertThrows(NotFoundException.class, () -> service.submit("requester", "Bearer token", ReportCategory.ORDER,
+                "No courier accepted", "order", List.of()));
+        assertThrows(NotFoundException.class, () -> service.submit("requester", "Bearer token",
                 ReportCategory.COURIER, "No courier", "order", List.of()));
-        assertEquals(List.of(false, true), orders.requireCourier);
+        assertEquals(List.of(true, true), orders.requireCourier);
+        assertTrue(repository.values.isEmpty());
     }
 
     @Test void nonOrderCategoriesAreUnlinkedAndOrderCategoriesRequireAnOrder() {
@@ -72,6 +70,7 @@ class ReportServiceTest {
     }
 
     @Test void rejectsUnownedTerminalOrInvalidHoldSnapshotsBeforeSaving() {
+        orders.courierId = "courier";
         orders.requesterId = "someone-else";
         assertThrows(DependencyUnavailableException.class, () -> service.submit("requester", "Bearer token",
                 ReportCategory.ORDER, "Unowned", "order", List.of()));
@@ -100,7 +99,7 @@ class ReportServiceTest {
         assertEquals("Collected intact", before.courierResponse());
         assertEquals(1, before.responseAttachments().size());
         assertThrows(ConflictException.class, () -> service.respond(report.id(), "courier", "Again", List.of()));
-        Report resolved = at(report.responseDeadlineAt().minusNanos(1)).resolve(report.id(), "Bearer admin");
+        Report resolved = repository.update(report.id(), r -> r.resolved(report.responseDeadlineAt().minusNanos(1))).orElseThrow();
         assertEquals(ReportStatus.RESOLVED, resolved.status());
         assertThrows(ConflictException.class, () -> service.respond(report.id(), "courier", "After resolution", List.of()));
 
@@ -123,7 +122,7 @@ class ReportServiceTest {
         assertThrows(NotFoundException.class, () -> service.attachment(report.id(), "missing", "requester", false));
     }
 
-    @Test void mineListsAreScopedAndResolutionWaitsThenReleasesTheHold() {
+    @Test void mineListsAreScopedAndLegacyResolutionCannotReleaseAHold() {
         orders.courierId = "courier";
         Report report = service.submit("requester", "Bearer requester", ReportCategory.ORDER,
                 "Issue", "order", List.of());
@@ -134,10 +133,9 @@ class ReportServiceTest {
         assertThrows(ConflictException.class, () -> service.resolve(report.id(), "Bearer admin"));
 
         at(report.responseDeadlineAt()).detail(report.id(), "requester", false);
-        Report resolved = at(report.responseDeadlineAt()).resolve(report.id(), "Bearer admin");
-        assertEquals(ReportStatus.RESOLVED, resolved.status());
-        assertEquals(List.of(report.id()), orders.releasedReports);
-        assertEquals(resolved, at(report.responseDeadlineAt().plusSeconds(1)).resolve(report.id(), "Bearer admin"));
+        assertThrows(ConflictException.class, () -> at(report.responseDeadlineAt()).resolve(report.id(), "Bearer admin"));
+        assertTrue(orders.releasedReports.isEmpty());
+        assertEquals(ReportStatus.READY_FOR_REVIEW, repository.findById(report.id()).orElseThrow().status());
     }
 
     private ReportService at(Instant instant) {
@@ -156,6 +154,7 @@ class ReportServiceTest {
         final List<String> releasedReports = new ArrayList<>();
         @Override public AssociatedOrder placeReportHold(String id, String reportId, boolean required, String token) {
             requireCourier.add(required); tokens.add(token);
+            if (status.equals("OPEN")) throw new NotFoundException("not reportable");
             if (required && courierId == null) throw new ConflictException("missing courier");
             return new AssociatedOrder(id, requesterId, courierId, status, reportId, completionHold);
         }

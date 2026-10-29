@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import sg.edu.nus.foc.reporting.config.ReportingProperties;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 @EnableConfigurationProperties(ReportingProperties.class)
 public class ReportingServiceApplication {
     public static void main(String[] args) {

@@ -31,6 +31,8 @@ export type ReportResponse = {
   courierResponse: string | null
   respondedAt: string | null
   resolvedAt: string | null
+  resolutionNote?: string | null
+  resolvedBy?: string | null
   attachments: ReportAttachment[]
   responseAttachments: ReportAttachment[]
 }

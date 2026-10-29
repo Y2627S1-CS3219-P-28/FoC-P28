@@ -75,7 +75,7 @@ export function ReportingHub({ initialTab, initialCategory, initialOrderId }: {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Reporting</h1>
-        <p className="text-muted-foreground">Report active-order issues, review what you submitted, or respond to a report about your delivery.</p>
+        <p className="text-muted-foreground">Report issues with your accepted, in-progress, picked-up or delivered orders. Open and completed orders cannot be reported.</p>
       </div>
 
       <div role="tablist" aria-label="Reporting sections" className="mb-6 grid grid-cols-3 gap-1 rounded-xl border bg-muted/40 p-1">
@@ -148,6 +148,7 @@ function ReportCard({ report, againstMe, onResponded }: { report: ReportResponse
     <CardContent className="space-y-4">
       <p className="whitespace-pre-wrap text-sm">{report.description}</p>
       {report.orderId && <p className="text-sm text-muted-foreground">Order: {report.orderId}</p>}
+      {!againstMe && report.resolutionNote && <div className="rounded-lg border p-3"><p className="text-sm font-medium">Admin reply</p><p className="whitespace-pre-wrap text-sm">{report.resolutionNote}</p></div>}
       {report.responseDeadlineAt && report.status === "AWAITING_COURIER_RESPONSE" && <p className="text-sm font-medium">Courier response due by {formatDate(report.responseDeadlineAt)}</p>}
       {report.courierResponse && <div className="rounded-lg border bg-muted/30 p-3">
         <p className="mb-1 text-sm font-medium">Courier response</p>
