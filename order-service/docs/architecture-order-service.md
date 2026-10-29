@@ -41,6 +41,34 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Architecture
 
+## Gated actual compensation transport - CHANGE-158 / ADR-055
+
+The existing journal/outbox/result-inbox sequence now has an opt-in real Pub/Sub
+request publisher and separately Google-OIDC-authenticated result receiver.
+Credit owns reverse/fence/preimages/revisions and its transactional result outbox.
+Persisted policy, not the current new-command default, selects each recovery path.
+Local demo Auth/PubSub emulator gating is fail-closed; public gateway blocks the
+exact receiver path. Default transport off/default retry/deployment unchanged.
+No new schema, lifecycle states or automatic repost. Local verification evidence
+and outstanding cloud provisioning/security rollout gates are in CHANGE-158.
+
+## ADR-054 / CHANGE-156 - Opt-in compensation fixture architecture
+
+`OrderCommandService` selects persisted-policy execution. For the new mock-only
+policy, `OrderCompensationWorkflow` permits one initial gateway execution and
+delegates uncertainty to `OrderCompensationJournal`. The latter locks the command,
+fences its old worker and atomically saves a command-owned outbox message. Existing
+outbox dispatch uses the fixture `CreditCompensationPublisher` boundary; a trusted
+result fixture enters the journal's transactional inbox. No live push receiver
+or Pub/Sub adapter is enabled. Existing Order transition services still own all
+local business writes; success and terminal command result commit together.
+
+V15 holds Credit step/final stage state separately; the original public command
+status remains compatible. Current live ADR-035 behavior is unchanged by default;
+new `compensate` selection with HTTP peers fails closed before mutation. Sequence,
+schema, safe-clear requirement and readiness gates are in the
+[handoff](../concurrency/compensation-workflow-handoff.md). FEEDBACK-017 blocks live.
+
 ## Compact calendar toolbar — CHANGE-139
 
 CHANGE-139, user-directed2026-10-17: Admin Orders toolbar is a compact41px desktop table-top row, with existing RefreshCwIcon-only refresh and two native calendar-icon date fields (DD/MM/YYYY to DD/MM/YYYY), no visible Created-from label. Wrap on mobile; keep existing Order-ID/status search and financial dialogs/navigation. Creation-date bounds are local calendar days converted to explicit instants (start inclusive, day after end exclusive). Refresh retains filters and clears stale selection. Additive admin list filters execute in SQL before sorting/count/pagination; samples filter only isolated fixtures. No schema/financial/event/peer/config change. See changes/CHANGE-139-compact-admin-toolbar-date-filter.md.

@@ -249,8 +249,8 @@ class OrderApplicationServicesTest {
         due.expire(0, START);
         when(orders.findDueUnassigned(OrderStatus.EXPIRED, START))
             .thenReturn(List.of(due));
-        assertEquals(1, lifecycle.repostDue(START, AUTH));
-        verify(reposts).automatic(startsWith("AUTO_REPOST:"), eq(due.getId()), eq(START), eq(AUTH));
+        assertEquals(0, lifecycle.repostDue(START, AUTH));
+        verify(reposts, never()).automatic(anyString(), anyString(), any(), any());
     }
 
     @Test

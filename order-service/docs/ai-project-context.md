@@ -41,6 +41,29 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service Permanent Project Context
 
+## Current Vincent compensation integration - 2026-10-27
+
+CHANGE-158/ADR-055: Vincent authorizes Order/Credit corrections and explicitly
+approves opt-in Pub/Sub transport, separate Google OIDC result receiver and local
+demo-emulator integration tests. Credit consumer/tombstones/preimages/revisions/
+result outbox exist; real local provider verification passes (CHANGE-158:
+Order/common596 plus Credit126, no failures/errors/skips, original coverage gates).
+Default retry
+and deployed settings unchanged, transport off by default. Saved command policy
+owns replay/draining across cutovers. Existing pending UI/schemas retained.
+No auto repost, new schema, cloud mutation, stored JWT or unrelated peer edits.
+
+## Historical Vincent compensation fixture slice - 2026-10-26
+
+CHANGE-156 / ADR-054 on feature/vincent-credit-compensation: user-approved
+compensation-first Order implementation against explicit contract fixtures.
+Safe prior-assignment restoration is required for ABORT. New policy is opt-in
+and HTTP/live-disabled; default existing retry protocol is retained during rollout.
+V15 extends command step/final state, adds command-owned outbox references and
+result inbox. FEEDBACK-017 records missing actual Credit async/restore support.
+Use the new concurrency/compensation-workflow-handoff.md; the earlier handoff is
+the current live protocol, not silently superseded. No peer/cloud edits authorized.
+
 ## Admin table page size — CHANGE-140
 
 CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.

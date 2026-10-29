@@ -24,6 +24,7 @@ import sg.edu.nus.foc.order.domain.OrderProblem;
 public class OrderCommandStore {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
+    private final sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
 
     public record Entry(String key, String actorId, String kind, String orderId,
                         CommandRequest input, String inputHash, String status, String outcome,
@@ -33,28 +34,59 @@ public class OrderCommandStore {
 
     @Transactional
     public Entry register(String key, CommandRequest request) {
-        if (key == null || key.isBlank() || key.length() > 128 || request.actorId() == null
-                || request.actorId().isBlank() || request.actorId().length() > 128
-                || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
-                || (!request.kind().equals("CREATE") && (request.orderId() == null || request.orderId().length() > 36))) {
+        return register(key, request, "RETRY", 120);
+    }
+
+    @Transactional
+    public Entry register(String key, CommandRequest request, String policy, int resolutionSeconds) {
+        return register(key, request, policy, resolutionSeconds, false);
+    }
+
+    @Transactional
+    public Entry registerAutomatic(String key, CommandRequest request, int resolutionSeconds) {
+        return register(key, request, "COMPENSATE", resolutionSeconds, true);
+    }
+
+    private Entry register(String key, CommandRequest request, String policy, int resolutionSeconds, boolean automatic) {
+        if (policy == null || !List.of("RETRY", "COMPENSATE").contains(policy) || resolutionSeconds < 1) {
+            throw new OrderProblem("VALIDATION_ERROR", "Invalid recovery policy or deadline.");
+        }
+        if (request == null || invalidIdentity(key, 128) || invalidIdentity(request.actorId(), 128)
+                || request.kind() == null || !List.of("CREATE", "ACCEPT", "ABORT", "REPOST").contains(request.kind())
+                || (!request.kind().equals("CREATE") && invalidIdentity(request.orderId(), 36))) {
             throw new OrderProblem("VALIDATION_ERROR", "Invalid command identity or operation.");
         }
+        // Predictable scheduler keys must not be claimable through a browser command.
+        if (automatic != key.startsWith("AUTO_REPOST:") || automatic && !"REPOST".equals(request.kind())) {
+            throw new OrderProblem("VALIDATION_ERROR", "Automatic repost command keys are reserved for the scheduler.");
+        }
+        deletionGuard.requireAllowed(request.actorId());
         String payload = json.writeValueAsString(request);
         String target = request.kind().equals("CREATE") ? UUID.randomUUID().toString() : request.orderId();
         String candidate = request.kind().equals("REPOST") ? UUID.randomUUID().toString() : null;
         try {
             jdbc.update("""
-                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload, candidate_order_id)
-                values (?, ?, ?, ?, ?, ?::jsonb, ?) on conflict(command_id) do nothing
-                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate);
+                insert into order_commands(command_id, actor_id, kind, order_id, input_hash, payload,
+                  candidate_order_id,recovery_policy,resolution_deadline_at,automatic_execution)
+                values (?, ?, ?, ?, ?, ?::jsonb, ?, ?, clock_timestamp()+(? * interval '1 second'), ?)
+                on conflict(command_id) do nothing
+                """, key, request.actorId(), request.kind(), target, digest(payload), payload, candidate, policy, resolutionSeconds, automatic);
         } catch (DuplicateKeyException conflict) {
             throw OrderProblem.conflict("An unresolved request already guards this order.");
         }
         Entry saved = get(key);
-        if (!saved.actorId().equals(request.actorId()) || !saved.inputHash().equals(digest(payload))) {
+        if (!saved.actorId().equals(request.actorId()) || !saved.inputHash().equals(digest(payload))
+                || !policy.equals(recoveryPolicy(key)) || automatic != automaticExecution(key)) {
             throw OrderProblem.conflict("This command key belongs to different request details.");
         }
         return saved;
+    }
+
+    /** Match Credit's existing opaque identifier contract before saving intent. */
+    private static boolean invalidIdentity(String value, int max) {
+        return value == null || value.isBlank() || value.length() > max || value.contains("/")
+                || value.equals(".") || value.equals("..")
+                || value.startsWith("__") && value.endsWith("__");
     }
 
     public Entry get(String key) {
@@ -65,13 +97,22 @@ public class OrderCommandStore {
         return jdbc.query("select * from order_commands where command_id=?", this::map, key).stream().findFirst();
     }
 
+    public String recoveryPolicy(String key) {
+        return jdbc.queryForObject("select recovery_policy from order_commands where command_id=?", String.class, key);
+    }
+
+    public boolean automaticExecution(String key) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "select automatic_execution from order_commands where command_id=?", Boolean.class, key));
+    }
+
     @Transactional
     public Optional<Entry> claim(String key, String owner, int seconds, boolean authorizedResume) {
         int changed = jdbc.update("""
             update order_commands set owner=?, lease_expires_at=clock_timestamp() + (? * interval '1 second'),
               generation=generation+1, attempt_count=attempt_count+1, reason='PROCESSING',
               message='Processing your request.', updated_at=clock_timestamp()
-            where command_id=? and status='PENDING'
+            where command_id=? and status='PENDING' and compensation_id is null
               and (next_retry_at<=clock_timestamp() or ?)
               and (lease_expires_at is null or lease_expires_at<=clock_timestamp())
               and (reason<>'AUTHORIZATION_REQUIRED' or ?)
@@ -81,7 +122,7 @@ public class OrderCommandStore {
 
     public void assertOwned(Entry claim) {
         List<String> owned = jdbc.queryForList("""
-            select command_id from order_commands where command_id=? and status='PENDING'
+            select command_id from order_commands where command_id=? and status='PENDING' and compensation_id is null
               and owner=? and generation=? and lease_expires_at>clock_timestamp() for update
             """, String.class, claim.key(), claim.owner(), claim.generation());
         if (owned.isEmpty()) throw OrderProblem.conflict("Command ownership changed; checking its outcome.");
@@ -89,15 +130,22 @@ public class OrderCommandStore {
 
     public void markPossibleEffect(Entry claim) {
         assertOwned(claim);
-        jdbc.update("update order_commands set possible_effect=true where command_id=?", claim.key());
+        int changed = jdbc.update("""
+            update order_commands set possible_effect=true where command_id=?
+              and (recovery_policy<>'COMPENSATE' or resolution_deadline_at>clock_timestamp())
+            """, claim.key());
+        if (changed != 1) throw OrderProblem.conflict("The command recovery deadline has passed.");
     }
 
     public void complete(Entry claim, String outcome, String reason, String message, OrderResponse result) {
         assertOwned(claim);
         jdbc.update("""
             update order_commands set status='COMPLETED', outcome=?, reason=?, message=?, result=?::jsonb,
+              final_stage_status=case when recovery_policy='COMPENSATE' then
+                case when ?='SUCCESS' then 'SUCCESS' else 'FULLY_COMPENSATED' end
+                else final_stage_status end,
               owner=null, lease_expires_at=null, updated_at=clock_timestamp() where command_id=?
-            """, outcome, reason, message, result == null ? null : json.writeValueAsString(result), claim.key());
+            """, outcome, reason, message, result == null ? null : json.writeValueAsString(result), outcome, claim.key());
     }
 
     @Transactional
@@ -110,11 +158,16 @@ public class OrderCommandStore {
     }
 
     public List<String> due(int limit) {
+        return due(limit, "RETRY");
+    }
+
+    public List<String> due(int limit, String policy) {
         return jdbc.queryForList("""
             select command_id from order_commands where status='PENDING' and next_retry_at<=clock_timestamp()
+              and recovery_policy=? and compensation_id is null
               and (lease_expires_at is null or lease_expires_at<=clock_timestamp())
               and reason<>'AUTHORIZATION_REQUIRED' order by next_retry_at limit ?
-            """, String.class, limit);
+            """, String.class, policy, limit);
     }
 
     public List<Entry> pendingFor(String actor, int page, int size) {

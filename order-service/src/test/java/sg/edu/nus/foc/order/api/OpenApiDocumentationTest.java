@@ -46,7 +46,8 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @WebMvcTest(controllers = {OrderController.class, AdminOrderController.class,
         OrderCommandController.class, OrderOutboxAdminController.class,
-        OrderCompletionHoldController.class, OrderInvolvementController.class, AdminMockController.class},
+        OrderCompletionHoldController.class, OrderInvolvementController.class, AdminMockController.class,
+        CreditCompensationResultController.class, UserDeletionEligibilityController.class},
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
         OAuth2ResourceServerAutoConfiguration.class
@@ -61,11 +62,15 @@ import tools.jackson.databind.json.JsonMapper;
 @TestPropertySource(properties = {
     "springdoc.api-docs.path=/api/orders/v3/api-docs",
     "order.admin-mock.enabled=true",
+    "order.commands.compensation.enabled=true",
+    "FOC_INTERNAL_ORDER_API_ENABLED=true",
     "FOC_ENVIRONMENT=local",
     "order.security.auth.emulator-host=localhost:9099",
     "order.lifecycle-token=test-lifecycle-token"
 })
 class OpenApiDocumentationTest {
+    @MockitoBean private sg.edu.nus.foc.order.application.recovery.OrderCompensationJournal compensationJournal;
+    @MockitoBean private sg.edu.nus.foc.order.config.CompensationTransportSettings compensationSettings;
     @MockitoBean private sg.edu.nus.foc.order.application.AdminApplyPenaltyService penalties;
 
 
@@ -87,6 +92,7 @@ class OpenApiDocumentationTest {
     @MockitoBean private sg.edu.nus.foc.order.application.OrderOutboxAfterCommitListener publication;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderCompletionHoldService completionHolds;
     @MockitoBean private sg.edu.nus.foc.order.application.OrderInvolvementService involvement;
+    @MockitoBean private sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
     @MockitoBean private sg.edu.nus.foc.order.application.adminmock.AdminMockService adminSamples;
 
 
@@ -99,6 +105,8 @@ class OpenApiDocumentationTest {
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
         JsonNode paths = mapper.readTree(json).path("paths");
+        assertThat(paths.path(CreditCompensationResultController.PATH).path("post")
+                .path("responses").has("204")).isTrue();
 
         assertThat(paths.has(PREFIX + "/internal/lifecycle/expire")).isFalse();
         assertThat(paths.path(PREFIX + "/internal/lifecycle/repost").has("post")).isTrue();

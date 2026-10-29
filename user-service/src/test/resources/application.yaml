@@ -10,6 +10,12 @@ springdoc:
   swagger-ui:
     path: /api/users/docs
 
+credit-service:
+  url: http://localhost:8084
+
+order-service:
+  url: http://localhost:8082
+
 # Test-only fail-closed default. Never discover ADC or contact cloud topics.
 # Real broker tests override this with their isolated emulator's mapped address.
 user:

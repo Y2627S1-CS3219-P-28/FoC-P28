@@ -33,9 +33,10 @@ public class SecurityConfig {
     };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http)
+    SecurityFilterChain securityFilterChain(HttpSecurity http, sg.edu.nus.foc.user.repository.UserRepository users)
             throws Exception {
-        http
+        http.addFilterAfter(new sg.edu.nus.foc.user.security.ActiveAccountFilter(users),
+                        org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
                 .csrf(AbstractHttpConfigurer::disable) // bearer tokens, no cookies
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -80,8 +81,7 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter =
-                new JwtAuthenticationConverter();
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 
         // Application roles come from User Service, not JWT claims.
         converter.setJwtGrantedAuthoritiesConverter(jwt -> List.of());

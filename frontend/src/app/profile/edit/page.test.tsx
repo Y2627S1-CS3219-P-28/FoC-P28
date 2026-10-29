@@ -46,11 +46,11 @@ async function requestEmail() {
   await screen.findByRole("button", { name: "I've verified my email" })
 }
 
-it("loads own profile with the current identity-only auth context and no delete control", async () => {
+it("loads own profile with the current identity-only auth context and displays the delete-account control", async () => {
   await loaded()
   expect(mocks.api).toHaveBeenCalledWith("/api/users/me", expect.objectContaining({ signal: expect.any(AbortSignal) }))
   expect(screen.getByLabelText("Email")).toHaveValue(profile.email)
-  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument()
+  expect(screen.getByRole("button", { name: /delete account/i })).toBeInTheDocument()
 })
 
 it("waits for authentication and redirects signed-out users without a profile call", async () => {

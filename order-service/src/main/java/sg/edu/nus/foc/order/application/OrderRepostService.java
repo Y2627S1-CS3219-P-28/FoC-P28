@@ -33,6 +33,12 @@ public class OrderRepostService {
     private final OrderAuditLogger audit;
     private final RepostFailureRecorder failures;
 
+    @org.springframework.beans.factory.annotation.Value("${order.commands.recovery-policy:retry}")
+    private String recoveryPolicy = "retry";
+
+    @org.springframework.beans.factory.annotation.Value("${order.peers.mode:mock}")
+    private String peersMode = "mock";
+
     @Transactional
     public Order configure(
             String commandId,
@@ -47,6 +53,9 @@ public class OrderRepostService {
 
     @Transactional
     public Order automatic(String commandId, String id, Instant now, String authorization) {
+        if ("http".equals(peersMode)) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Automatic repost requires its durable server-owned command.");
+        }
         Optional<CommandReceipt> previous = receipts.findExisting(
                 "AUTO_REPOST",
                 commandId);
@@ -145,6 +154,21 @@ public class OrderRepostService {
         return saveRepost("MANUAL_REPOST", commandId, original, repost, now, null, fingerprint);
     }
 
+    @Transactional
+    public Order automaticConfirmed(String commandId, String id, String candidateId, long version) {
+        Order original = findForUpdate(id);
+        original.requireVersion(version);
+        Instant now = Instant.now();
+        if (!original.eligibleForAutomaticRepost(now)) {
+            throw OrderProblem.conflict("Order is no longer eligible for automatic repost.");
+        }
+        RepostPlan plan = original.getRepostPlan();
+        Order repost = original.createRepostWithId(candidateId, original.getItemDescription(),
+                plan.getCreditAmount(), plan.getDeliveryDurationMinutes(), now, plan.getExpiresAt());
+        return saveRepost("AUTO_REPOST", commandId, original, repost, now, null,
+                CommandReceipt.fingerprint("AUTO_REPOST", id));
+    }
+
     private Order saveRepost(
             String operation,
             String commandId,
@@ -172,6 +196,9 @@ public class OrderRepostService {
 
     private Order prepareRepost(Order original, String description, long amount, int duration,
             Instant createdAt, Instant expiresAt, String authorization, boolean manual) {
+        if ("compensate".equals(recoveryPolicy)) {
+            throw new OrderProblem("SERVICE_UNAVAILABLE", "Repost must use the durable command protocol; automatic delegated execution is unavailable.");
+        }
         try {
             Order repost = manual
                     ? original.createManualRepost(description, amount, duration, createdAt, expiresAt)

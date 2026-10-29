@@ -41,5 +41,11 @@ public class OrderLifecycleScheduler {
         } catch (RuntimeException exception) {
             log.error("Automatic order-completion pass failed; the next lifecycle pass will retry.", exception);
         }
+        try {
+            int reposted = lifecycle.repostDue(now, null);
+            if (reposted > 0) log.info("Automatically reposted {} expired orders.", reposted);
+        } catch (RuntimeException exception) {
+            log.error("Automatic repost pass failed; the next lifecycle pass will retry.", exception);
+        }
     }
 }

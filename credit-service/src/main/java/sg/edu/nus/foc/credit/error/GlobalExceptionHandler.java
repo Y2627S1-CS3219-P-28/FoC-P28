@@ -92,6 +92,12 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.VALIDATION_ERROR, exception.getMessage(), request, List.of());
     }
 
+    @ExceptionHandler(InvalidCompensationEventException.class)
+    ResponseEntity<ApiError> invalidCompensationEvent(InvalidCompensationEventException exception,
+                                                       HttpServletRequest request) {
+        return respond(ErrorCode.VALIDATION_ERROR, exception.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(InvalidUserEventException.class)
     ResponseEntity<ApiError> invalidUserEvent(InvalidUserEventException exception, HttpServletRequest request) {
         return respond(ErrorCode.VALIDATION_ERROR, exception.getMessage(), request, List.of());

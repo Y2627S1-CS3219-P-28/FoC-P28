@@ -38,6 +38,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import sg.edu.nus.foc.credit.config.CreditProperties;
 import sg.edu.nus.foc.credit.config.CreditPushProperties;
+import sg.edu.nus.foc.credit.api.CreditCompensationController;
 import sg.edu.nus.foc.credit.api.CreditOrderEventController;
 import sg.edu.nus.foc.credit.api.CreditUserEventController;
 import tools.jackson.databind.json.JsonMapper;
@@ -70,6 +71,7 @@ class SecurityConfig {
             // event paths are exempt. Firebase auth on all user APIs is unchanged.
             http.securityMatcher(CreditOrderEventController.OPEN_REFUND_PATH,
                             CreditOrderEventController.COMPLETION_PATH,
+                            CreditCompensationController.PUSH_PATH,
                             CreditUserEventController.USER_CREATED_PATH)
                     .csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -81,7 +83,8 @@ class SecurityConfig {
                 .securityMatcher(
                         CreditOrderEventController.OPEN_REFUND_PATH,
                         CreditOrderEventController.COMPLETION_PATH,
-                        CreditUserEventController.USER_CREATED_PATH)
+                        CreditCompensationController.PUSH_PATH,
+                            CreditUserEventController.USER_CREATED_PATH)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())

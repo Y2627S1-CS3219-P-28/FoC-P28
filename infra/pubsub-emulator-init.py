@@ -32,7 +32,8 @@ def create(path, body):
 
 for topic in ("order-completion", "open-order-refund",
               "courier-penalty-addition", "courier-penalty-deduction",
-              "user-created"):
+              "user-created", "credit-command-compensation",
+              "credit-command-compensation-result"):
     create(f"/topics/{topic}-local-v1", {})
 
 for topic, route in (("order-completion", "completion"), ("open-order-refund", "open-refund")):
@@ -48,4 +49,18 @@ create("/subscriptions/credit-user-created-local-v1", {
     "pushConfig": {"pushEndpoint": "http://credit-service:8080/api/credits/internal/user-events/created"},
 })
 
-print("Local emulator initialized: refund/completion/user-created -> real Credit; penalty topics ready; no cloud API used.")
+create("/subscriptions/credit-command-compensation-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-local-v1",
+    "ackDeadlineSeconds": 30,
+    "pushConfig": {"pushEndpoint": "http://credit-service:8080/api/credits/internal/command-compensations"},
+})
+create("/subscriptions/credit-compensation-results-test-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-result-local-v1",
+    "ackDeadlineSeconds": 30,
+})
+create("/subscriptions/order-credit-compensation-result-local-v1", {
+    "topic": "projects/demo-foc-local/topics/credit-command-compensation-result-local-v1",
+    "ackDeadlineSeconds": 30,
+    "pushConfig": {"pushEndpoint": "http://order-service:8080/api/orders/internal/credit-compensations"},
+})
+print("Local emulator initialized: Order outcomes/compensation and user-created -> Credit; compensation results -> Order; no cloud API used.")

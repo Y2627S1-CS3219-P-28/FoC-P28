@@ -1,5 +1,21 @@
 # Order Service Work Allocation
 
+## Vincent actual compensation integration - 2026-10-27
+
+Vincent authorizes Order/Credit fixes to the agreed compensation workflow, then
+approves gated Order transport, Google OIDC receiver and real local tests under
+CHANGE-158/ADR-055. Narrow extension of the fixture/read-only boundary below;
+no other peer, auto repost, deployment/IAM or unrelated reassignment.
+
+## Vincent compensation fixture extension - 2026-10-26
+
+Vincent confirms feature/vincent-credit-compensation from main and approves
+CHANGE-156 / ADR-054: Order-owned compensation-first command journal/outbox/result
+inbox and companion existing-pending-UI tests, against explicit contract fixtures.
+Safe restoration of the previous assignment is required for ABORT. New live
+compensation is disabled until Credit is verified; peer source/cloud read-only.
+Existing Yao Xiang lifecycle/hold/penalty ownership and history are preserved.
+
 CHANGE-135 / ADR-045 (Yao Xiang, 2026-10-17) supersedes the earlier overdue
 reader: persist deliveryDeadlineAt at courier START plus delivery duration and
 deliveredAt at delivery. isOverdue is a nullable timestamp comparison, without

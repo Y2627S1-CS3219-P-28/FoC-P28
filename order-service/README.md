@@ -41,6 +41,50 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Order Service
 
+## Opt-in compensation integration (CHANGE-158 / ADR-055)
+
+Actual Credit HTTP and Pub/Sub request/result transport is implemented behind
+ORDER_COMPENSATION_ENABLED (default false). New commands use the configured
+ORDER_COMMAND_RECOVERY_POLICY (default retry); saved commands retain their policy.
+Local Compose already provisions request and result subscriptions; to test this
+policy deliberately set both ORDER_COMPENSATION_ENABLED=true and
+ORDER_COMMAND_RECOVERY_POLICY=compensate, then rebuild the local stack normally.
+No local database reset is needed. These instructions do not enable any cloud
+deployment. Real integration tests use disposable databases, not Compose volumes.
+
+Cloud configuration additionally requires explicit request topic, result
+subscription, Google push audience and service-account email, no emulators,
+dedicated OIDC/IAM/subscriptions and prior rollout review. Credit result publishing
+must be enabled in the same coordinated rollout. See
+concurrency/compensation-workflow-handoff.md and CHANGE-158 for tests/remaining gates.
+The new request-topic variable must match the existing infrastructure setting
+ORDER_CREDIT_COMPENSATION_TOPIC. No cloud provisioning was performed here.
+
+## Compensation-first recovery fixture milestone (CHANGE-156)
+
+The default `ORDER_COMMAND_RECOVERY_POLICY=retry` retains the current live
+credit-command-v1 protocol. New `compensate` selection is **mock/contract-fixture
+only**; selecting it with HTTP peers disables command execution before peer I/O.
+It is not a deployment-ready replacement yet. Credit's async consumer/result
+publisher, missing-command fencing and safe courier-clear reversal are FEEDBACK-017.
+
+`ORDER_COMMAND_RESOLUTION_SECONDS` (default120) is the unfinished-command deadline,
+not Order expiry or worker lease length. V15 adds the journal states, result inbox
+and command-owned outbox reference required before an Order exists. Apply through
+Flyway, never ORM auto-update. Preserve old pending commands and their saved policy.
+Do not flip policy over an undrained backlog without explicit reconciliation.
+
+Peer tasks and exact wire formats: [handoff](concurrency/compensation-workflow-handoff.md).
+Testing from repository root (Java21 and Docker required for PostgreSQL):
+
+```powershell
+.\mvnw.cmd -pl order-service -am "-Dtest=OrderCompensationWorkflowTest,OrderCompensationJournalTest,OrderCommandGateTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+.\mvnw.cmd -pl order-service -am "-Dtest=OrderCompensationPostgresIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+The second run uses real PostgreSQL but fixture Credit/transport, not actual Credit.
+There is no new public push receiver or live compensation publisher in this milestone.
+
 ## Admin table page size — CHANGE-140
 
 CHANGE-140, Yao Xiang2026-10-17: Admin Orders requests20 rows in live/mock mode; local sample User table requests20. Shared frontend ADMIN_TABLE_PAGE_SIZE keeps Order exact-search metadata consistent. Server totals/pagination and scrolling retained; fewer matching records do not get blank filler rows. Supplier cards remain10 and Credit history20. Live User directory still awaits its existing provider; not enabled by this change. No backend/schema/API-shape/auth/config changes.

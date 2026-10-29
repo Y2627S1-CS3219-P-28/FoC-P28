@@ -10,8 +10,4 @@ class UserserviceApplicationTests {
 	void contextLoads() {
 	}
 
-	static {
-        System.out.println("MONGODB_URI: " + System.getenv("MONGODB_URI"));
-        System.out.println("PORT: " + System.getenv("PORT"));
-    }
 }

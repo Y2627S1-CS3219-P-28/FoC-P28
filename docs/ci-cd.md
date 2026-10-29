@@ -171,7 +171,14 @@ infra/gcp/bootstrap.sh
 infra/gcp/configure-order-pubsub.sh staging      # Order topics + publisher access, per environment
 infra/gcp/configure-order-pubsub.sh production
 infra/gcp/configure-credit-pubsub.sh staging     # User topic + Credit push subscriptions (after credit-service is deployed)
+infra/gcp/configure-credit-pubsub.sh production
+infra/gcp/configure-compensation-pubsub.sh staging     # Compensation request/result topics, push subscription and DLQ
+infra/gcp/configure-compensation-pubsub.sh production
 ```
+
+`configure-compensation-pubsub.sh` runs the Order and Credit provisioning scripts first, then
+adds the Order-to-Credit compensation request flow and the Credit-to-Order result flow. Use it when
+the infrastructure check reports missing compensation topics, subscriptions or dead-letter paths.
 
 Each environment has its own Order and user-created topics (`*-staging-v1`, `*-prod-v1`). Local runs
 use Docker-emulator `*-local-v1` topics, which no cloud environment subscribes to, so a laptop can
@@ -199,7 +206,7 @@ Adding required reviewers to the `production` environment is optional.
 | Rollout succeeded but the job failed on `artifacts docker tags add` (`tags.delete` denied) | The deployer needs `artifactregistry.repoAdmin` on the repository (in `bootstrap.sh`). |
 | Sign-up fails in the cloud but works locally | The cloud Firebase project enforces a password policy; the emulator doesn't. The sign-up form lists the rules. |
 | **Repository checks** fails installing actionlint (`Connection reset`, `./actionlint: No such file`) | A network blip while downloading. The step now retries and verifies a pinned release; re-run the job if GitHub itself is down. |
-| **Cloud infrastructure** check fails on a PR | A service is missing its identity, databases or access (usually a new service). The CI/CD owner runs `infra/gcp/bootstrap.sh`, then re-runs the job. |
+| **Cloud infrastructure** check fails on a PR | A service is missing its identity, databases, access or Pub/Sub wiring (usually a new service or event flow). The CI/CD owner runs `infra/gcp/bootstrap.sh`, then `infra/gcp/configure-compensation-pubsub.sh staging` and `infra/gcp/configure-compensation-pubsub.sh production`, and re-runs the job. |
 | Deploy fails with "Missing runtime identity" | Same cause, caught at deploy time. `deploy.sh` never falls back to the default (over-privileged) identity. |
 | First request is slow | Services scale to zero; a cold start takes 10–20 s. Set `--min-instances=1` in `EXTRA_FLAGS` for demos. |
 | A deploy failed | Earlier services keep their previous revision. Fix the problem and re-run the failed job (`gh run rerun <id> --failed`), or push a fix. |

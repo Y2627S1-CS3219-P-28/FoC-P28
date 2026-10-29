@@ -32,14 +32,14 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
-it("polls every fifteen seconds and refreshes immediately after credit mutations", async () => {
+it("polls every five seconds and refreshes immediately after credit mutations", async () => {
   const { result } = renderHook(() => useCreditTransactions(1))
   await act(() => vi.advanceTimersByTimeAsync(0))
   expect(result.current.items).toHaveLength(1)
   expect(mocks.api).toHaveBeenLastCalledWith(
     "/api/credits/me/transactions?page=1&size=20", expect.objectContaining({ signal: expect.any(AbortSignal) }))
 
-  await act(() => vi.advanceTimersByTimeAsync(14_999))
+  await act(() => vi.advanceTimersByTimeAsync(4_999))
   expect(mocks.api).toHaveBeenCalledTimes(1)
   await act(() => vi.advanceTimersByTimeAsync(1))
   expect(mocks.api).toHaveBeenCalledTimes(2)
@@ -53,7 +53,7 @@ it("isolates page and account changes while retaining rows on background errors"
   })
   await act(() => vi.advanceTimersByTimeAsync(0))
   mocks.api.mockRejectedValue(new Error("offline"))
-  await act(() => vi.advanceTimersByTimeAsync(15_000))
+  await act(() => vi.advanceTimersByTimeAsync(5_000))
   expect(result.current.items).toHaveLength(1)
   expect(result.current.error).toBe(true)
 

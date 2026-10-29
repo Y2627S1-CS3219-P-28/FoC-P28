@@ -12,8 +12,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import sg.edu.nus.foc.user.model.AccountStatus;
 import sg.edu.nus.foc.user.model.OutboxEvent;
 import sg.edu.nus.foc.user.model.User;
 import sg.edu.nus.foc.user.repository.OutboxEventRepository;
@@ -29,19 +31,25 @@ public class UserService {
 
     private final FirebaseAuthService firebaseAuthService;
     private final UserRepository userRepository;
+    private final OrderServiceClient orderServiceClient;
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
+    private final UserLifecycleStore lifecycle;
 
     private static final int MAX_PENALTY = 10;
 
-    public UserService(UserRepository userRepository, 
+    public UserService(UserRepository userRepository,
             FirebaseAuthService firebaseAuthService,
+            OrderServiceClient orderServiceClient,
             OutboxEventRepository outboxEventRepository,
-            JsonMapper objectMapper) {
+            JsonMapper objectMapper,
+            UserLifecycleStore lifecycle) {
         this.userRepository = userRepository;
         this.firebaseAuthService = firebaseAuthService;
+        this.orderServiceClient = orderServiceClient;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
+        this.lifecycle = lifecycle;
     }
 
     public List<User> fetchAllUsers() {
@@ -60,28 +68,30 @@ public class UserService {
     public User getProfileInfo(String userId) {
         return userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
     }
 
     public UserRoleContext getRoleContext(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
-        return new UserRoleContext(user.getUserId(), user.getRoles());
+        return new UserRoleContext(user.getUserId(),
+                user.getStatus() == AccountStatus.ACTIVE && user.getRoles() != null
+                        ? List.copyOf(user.getRoles()) : List.of());
     }
 
     public CourierEligibility getCourierEligibility(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
         Instant now = Instant.now();
 
-        return new CourierEligibility(
+        return new CourierEligibility(verifyCourier(user) &&
                 !(user.getPenalty() >= 10
                 && user.getSuspensionEndDate() != null
                 && user.getSuspensionEndDate().isAfter(now))
@@ -91,10 +101,8 @@ public class UserService {
     public RequesterEligibility getRequesterEligibility(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
-
-        Instant now = Instant.now();
 
         return new RequesterEligibility(verifyRequester(user));
     }
@@ -102,7 +110,7 @@ public class UserService {
     public AdminEligibility getAdminEligibility(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
         return new AdminEligibility(verifyAdmin(user));
@@ -112,28 +120,51 @@ public class UserService {
         User user = getUserByUserId(userId);
 
         return new UserSummary(
-            user.getUsername(), 
-            user.getUserId(), 
-            user.getEmail(), 
-            user.getRoles(), 
-            user.getPenalty(), 
-            user.getIsCourierSuspended(), 
+            user.getUsername(),
+            user.getUserId(),
+            user.getEmail(),
+            user.getRoles(),
+            user.getPenalty(),
+            user.getIsCourierSuspended(),
             user.getSuspensionEndDate());
     }
 
+    // Transactional so adding user and user-created event is done atomically
     @Transactional
     public User addUser(String userId, String email) {
+        return createUser(userId, email, List.of("courier", "requester"));
+    }
+
+    @Transactional
+    public User addAdmin(String userId, String email) {
+        return createUser(userId, email, List.of("courier", "requester", "admin"));
+    }
+
+    public User createUser(String userId, String email, List<String> roles) {
         if (userId == null || userId.isBlank()
             || email == null || email.isBlank()) {
         throw new IllegalArgumentException(
                 "User ID and email are required.");
         }
 
+        if (userRepository.findByUserId(userId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This identity already has an account.");
+        }
+
+        Optional<User> existingUser = userRepository.findFirstByEmailAndStatus(email, AccountStatus.ACTIVE);
+
+        if (existingUser.isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Email already registered"
+            );
+        }
+
         User user = new User();
         user.setUserId(userId);
         user.setEmail(email);
         user.setUsername("");
-        user.setRoles(List.of("courier", "requester"));
+        user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
 
@@ -174,7 +205,7 @@ public class UserService {
             user.setUsername(username);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Syncs MongoDB user email with Firebase
@@ -188,30 +219,39 @@ public class UserService {
         // Update MongoDB only after Firebase verification succeeds.
         user.setEmail(verifiedEmail);
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Updates email
     public User updateUserEmail(String userId, UpdateUserRequest request) {
         User user = getUserByUserId(userId);
         String email = request.getEmail();
-        
+
         if (email != null && !email.equals(user.getEmail())) {
             user.setEmail(email);
             firebaseAuthService.updateUserEmail(userId, email);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
-    public void deleteUser(String userId) {
+    /*public void deleteUser(String token, String userId) {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
- 
-        boolean isAdmin = user.getRoles() != null && user.getRoles().contains("admin");
-        
+
+        // Check if user has pending orders
+        // Throws error if it has
+        boolean hasActiveOrders = orderServiceClient.hasActiveInvolvement(userId, token);
+        if (hasActiveOrders) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot delete user with active orders"
+            );
+        }
+
         // Checks if it is the last admin
         // Throws error if it is
+        boolean isAdmin = user.getRoles() != null && user.getRoles().contains("admin");
         if (isAdmin) {
             long adminCount = userRepository.countByRolesContaining("admin");
 
@@ -228,6 +268,74 @@ public class UserService {
 
         // Deletes user from MongoDB
         userRepository.delete(user);
+    }*/
+
+    public void deactivateUser(String token, String userId) {
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                    ));
+
+        // Already deactivated.
+        if (user.getStatus() == AccountStatus.DEACTIVATED) {
+            return;
+        }
+
+        // Do not start another deletion while one is in progress.
+        if (user.getStatus() == AccountStatus.DEACTIVATION_PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Account deactivation is already in progress"
+            );
+        }
+
+        // Checks if it is the last admin
+        // Throws error if it is
+        boolean isAdmin = user.getRoles() != null && user.getRoles().contains("admin");
+        if (isAdmin) {
+            long adminCount = userRepository.countByRolesContainingAndStatus(
+                        "admin",
+                        AccountStatus.ACTIVE
+                );
+
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Cannot disable the last administrator"
+                );
+            }
+        }
+
+        User pending = lifecycle.begin(userId);
+        recoverDeletion(pending);
+    }
+
+    public void recoverDeletion(User pending) {
+        try {
+            if (pending.getDeletionOperationId() == null) {
+                pending = lifecycle.attachLegacyOperation(pending.getUserId());
+            }
+            if (pending == null || pending.getStatus() != AccountStatus.DEACTIVATION_PENDING) return;
+            if (!orderServiceClient.prepareDeletion(pending.getUserId(), pending.getDeletionOperationId())) {
+                // Only an authoritative, durable denial permits reversing a new deletion attempt.
+                lifecycle.restoreAfterDenial(pending);
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot disable user with active orders or unresolved requests.");
+            }
+            if (!lifecycle.seal(pending)) return;
+            firebaseAuthService.deleteUserIfExists(pending.getUserId());
+            lifecycle.complete(pending);
+        } catch (ResponseStatusException expected) {
+            throw expected;
+        } catch (RuntimeException e) {
+            // Leave the account pending if the Firebase deletion outcome is uncertain.
+            // A recovery process can reconcile the state.
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Account deletion could not be confirmed. Please try again later.",
+                    e
+            );
+        }
     }
 
     // TODO: Implement this API and demoteAdmin
@@ -236,7 +344,7 @@ public class UserService {
     public User promoteUser(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
         List<String> roles = user.getRoles();
@@ -245,7 +353,7 @@ public class UserService {
             user.setRoles(roles);
         }
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Single method to update a user's penalty
@@ -275,7 +383,7 @@ public class UserService {
 
         user.setPenalty(newPenalty);
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     // Single method to suspend a user
@@ -294,7 +402,7 @@ public class UserService {
         user.setIsCourierSuspended(true);
         user.setSuspensionEndDate(Instant.now().plus(1, ChronoUnit.MONTHS));
 
-        return userRepository.save(user);
+        return lifecycle.saveActive(user);
     }
 
     private User refreshSuspensionStatus(User user) {
@@ -308,31 +416,56 @@ public class UserService {
             roles.add("courier");
             user.setRoles(roles);
 
-            return userRepository.save(user);
+            return lifecycle.saveActive(user);
         }
 
         return user;
     }
 
-    
+
     // Helper functions
     public boolean verifyAdmin(User user) {
         List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("admin");
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("admin");
     }
 
     public boolean verifyAdmin(String userId) {
         User user = userRepository
                 .findByUserId(userId)
-                .orElseThrow(() -> 
+                .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
         List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("admin");
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("admin");
     }
 
     public boolean verifyRequester(User user) {
         List<String> roles = user.getRoles();
-        return roles == null || !roles.contains("requester");
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("requester");
+    }
+
+    public boolean verifyRequester(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        List<String> roles = user.getRoles();
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("requester");
+    }
+
+    public boolean verifyCourier(User user) {
+        List<String> roles = user.getRoles();
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("courier");
+    }
+
+    public boolean verifyCourier(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        List<String> roles = user.getRoles();
+        return user.getStatus() == AccountStatus.ACTIVE && roles != null && roles.contains("courier");
     }
 }

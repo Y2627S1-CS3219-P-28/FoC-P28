@@ -51,4 +51,16 @@ class OrderCommandGateTest {
         verifyNoInteractions(users);
         assertThrows(OrderProblem.class, () -> service.status("K", "other", "auth"));
     }
+
+    @Test void compensationFixturesCanNeverEnableUnverifiedHttpRecovery() {
+        ReflectionTestUtils.setField(service, "recoveryPolicy", "compensate");
+        ReflectionTestUtils.setField(service, "flag", true);
+        when(gateway.getIfAvailable()).thenReturn(mock(CreditCommandGateway.class));
+        ReflectionTestUtils.setField(service, "mode", "http");
+        assertFalse(service.enabled());
+        assertThrows(OrderProblem.class, () -> service.submit("K", new CommandRequest("ACCEPT", "u", "O", 0, null), "auth"));
+        verifyNoInteractions(store, users);
+        ReflectionTestUtils.setField(service, "mode", "mock");
+        assertTrue(service.enabled());
+    }
 }

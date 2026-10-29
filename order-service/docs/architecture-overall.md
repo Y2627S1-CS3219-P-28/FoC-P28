@@ -30,6 +30,12 @@ Frontend uses existing theme/components, compact toolbar, darker selected rows a
 
 # Overall Architecture
 
+CHANGE-158/ADR-055 connects the previously fixture-only compensation saga using
+the existing agreed HTTP + durable Pub/Sub request/result boundaries. Credit
+retains financial ownership; Order retains lifecycle/journal/outbox/inbox.
+Real transport is explicitly gated/default off; deployed environment/IAM
+activation is separate. User/Supplier read APIs and other services unchanged.
+
 ## Compact calendar toolbar — CHANGE-139
 
 CHANGE-139, user-directed2026-10-17: Admin Orders toolbar is a compact41px desktop table-top row, with existing RefreshCwIcon-only refresh and two native calendar-icon date fields (DD/MM/YYYY to DD/MM/YYYY), no visible Created-from label. Wrap on mobile; keep existing Order-ID/status search and financial dialogs/navigation. Creation-date bounds are local calendar days converted to explicit instants (start inclusive, day after end exclusive). Refresh retains filters and clears stale selection. Additive admin list filters execute in SQL before sorting/count/pagination; samples filter only isolated fixtures. No schema/financial/event/peer/config change. See changes/CHANGE-139-compact-admin-toolbar-date-filter.md.

@@ -18,13 +18,24 @@ public class User {
     @Indexed(unique = true)
     private String userId;
 
-    @Indexed(unique = true)
     private String email;
 
     private List<String> roles;
     private int penalty = 0;
     private boolean isCourierSuspended = false;
     private Instant suspensionEndDate;
+
+    private AccountStatus status = AccountStatus.ACTIVE;
+    private String deletionOperationId;
+    private boolean deletionCanRestore;
+
+    public String getDeletionOperationId() {
+        return deletionOperationId;
+    }
+
+    public boolean isDeletionCanRestore() {
+        return deletionCanRestore;
+    }
 
     public User() {
     }
@@ -60,6 +71,10 @@ public class User {
 
     public Instant getSuspensionEndDate() {
         return this.suspensionEndDate;
+    }
+
+    public AccountStatus getStatus() {
+        return status;
     }
 
     // Setters
@@ -101,5 +116,9 @@ public class User {
     public void setSuspensionEndDate(Instant newSuspensionEndDate) {
         this.suspensionEndDate = newSuspensionEndDate;
         return;
+    }
+
+    public void setStatus(AccountStatus status) {
+        this.status = status;
     }
 }

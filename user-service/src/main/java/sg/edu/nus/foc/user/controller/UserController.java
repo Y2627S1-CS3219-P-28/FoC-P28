@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +29,7 @@ import sg.edu.nus.foc.user.authentication.AuthenticationService;
 import sg.edu.nus.foc.user.authentication.FirebaseAuthService;
 import sg.edu.nus.foc.user.logic.AddUserRequest;
 import sg.edu.nus.foc.user.logic.ApplyPenaltyRequest;
+import sg.edu.nus.foc.user.logic.AdminEligibility;
 import sg.edu.nus.foc.user.logic.CourierEligibility;
 import sg.edu.nus.foc.user.logic.RequesterEligibility;
 import sg.edu.nus.foc.user.logic.UpdateUserRequest;
@@ -39,11 +41,13 @@ import sg.edu.nus.foc.user.model.User;
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
+    private static final String ADMIN_ONLY = "@callerRoles.isAdmin(authentication)";
+
     private final AuthenticationService authenticationService;
     private final UserService userService;
 
     public UserController(
-            UserService userService, 
+            UserService userService,
             AuthenticationService authenticationService) {
 
         this.userService = userService;
@@ -61,19 +65,10 @@ public class UserController {
     // Only admins can get full info of a specific user
     @Operation(summary = "Get specific user based on userId")
     @GetMapping("/{userId}")
+    @PreAuthorize(ADMIN_ONLY)
     public ResponseEntity<User> getUser(
             @PathVariable String userId,
             JwtAuthenticationToken authentication) {
-
-        String requesterId = authentication.getToken().getSubject();
-
-        User requester = userService.getUserByUserId(requesterId);
-        if (!userService.verifyAdmin(requester)) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                "USER_NOT_ADMIN"
-            );
-        }
 
         User user = userService.getUserByUserId(userId);
 
@@ -121,6 +116,19 @@ public class UserController {
         );
     }
 
+    // GET /api/users/admin-eligibility/
+    @Operation(summary = "Get requesting user's requester eligibility from auth token")
+    @GetMapping("/admin-eligibility")
+    public ResponseEntity<AdminEligibility> getAdminEligibility(
+            JwtAuthenticationToken authentication) {
+
+        String userId = authentication.getToken().getSubject();
+
+        return ResponseEntity.ok(
+                userService.getAdminEligibility(userId)
+        );
+    }
+
 
     // GET /api/users/summary/:userId
     @Operation(summary = "Get user summary from user id")
@@ -138,7 +146,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<User> getMyProfile(
             JwtAuthenticationToken authentication) {
-        
+
         String userId = authentication.getToken().getSubject();
 
         User user = userService.getUserByUserId(userId);
@@ -152,7 +160,7 @@ public class UserController {
     @PostMapping
     public ResponseEntity<User> addUser(
             JwtAuthenticationToken authentication) {
-        
+
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");
@@ -192,22 +200,13 @@ public class UserController {
     // PUT /api/users/:userId
     // Only admin can update other users' info
     @Operation(summary = "Update any user's info")
+    @PreAuthorize(ADMIN_ONLY)
     @PutMapping("/{userId}")
     public ResponseEntity<User> updateUser(
             @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
             JwtAuthenticationToken authentication) {
 
-        String requesterId = authentication.getToken().getSubject();
-        User requester = userService.getUserByUserId(requesterId);
-
-        if (!userService.verifyAdmin(requester)) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                "USER_NOT_ADMIN"
-            );
-        }
-            
         User user = userService.updateUser(userId, request);
 
         return ResponseEntity.ok(user);
@@ -216,20 +215,11 @@ public class UserController {
     // PUT /api/users/:userId/user-promotion
     // Only admin can update other users' info
     @Operation(summary = "Promote a user to admin")
+    @PreAuthorize(ADMIN_ONLY)
     @PutMapping("/{userId}/user-promotion")
     public ResponseEntity<User> promoteUser(
             @PathVariable String userId,
             JwtAuthenticationToken authentication) {
-
-        String requesterId = authentication.getToken().getSubject();
-        User requester = userService.getUserByUserId(requesterId);
-
-        if (!userService.verifyAdmin(requester)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "USER_NOT_ADMIN"
-            );
-        }
 
         User promotedUser = userService.promoteUser(userId);
 
@@ -243,74 +233,54 @@ public class UserController {
     public ResponseEntity<User> updateUserPenalty(
             @PathVariable String userId,
             @RequestBody ApplyPenaltyRequest request) {
-            
+
         User user = userService.adjustPenalty(userId, request.getPenalty());
 
         return ResponseEntity.ok(user);
     }
 
     // DELETE /api/users/me
-    // User can delete their own account
-    // TODO: Change to soft delete (i.e. deactivate)
-    // Also implement account deletion event
-    // Check active orders before deactivation
-    @Operation(summary = "Delete user themselves from database")
+    @Operation(summary = "Delete user from Firebase, disables MongoDB user doc")
     @DeleteMapping("/me")
-    public ResponseEntity<String> deleteUser(
+    public ResponseEntity<String> deactivateSelf(
             JwtAuthenticationToken authentication) {
 
+        String token = authentication.getToken().getTokenValue();
         String userId = authentication.getToken().getSubject();
 
-        userService.deleteUser(userId);
+        userService.deactivateUser(token, userId);
 
-        return ResponseEntity.ok("User deleted");
+        return ResponseEntity.ok("User's own account disabled");
     }
 
     // DELETE /api/users/:id
     // Only admins can delete other users
-    // TODO: Change to soft delete (i.e. deactivate)
-    @Operation(summary = "Delete specified user from database")
+    @Operation(summary = "Delete specified user from Firebase, disables MongoDB user doc")
+    @PreAuthorize(ADMIN_ONLY)
     @DeleteMapping("/{userId}")
-    public ResponseEntity<String> deleteUserAsAdmin(
+    public ResponseEntity<String> deactivateUser(
             @PathVariable String userId,
             JwtAuthenticationToken authentication) {
 
-        String requesterId = authentication.getToken().getSubject();
-        User requester = userService.getUserByUserId(requesterId);
+        String requesterToken = authentication.getToken().getTokenValue();
 
-        if (!userService.verifyAdmin(requester)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "USER_NOT_ADMIN"
-            );
-        }
-        
-        userService.deleteUser(userId);
+        userService.deactivateUser(requesterToken, userId);
 
-        return ResponseEntity.ok("User removed");
+        return ResponseEntity.ok("User disabled");
     }
 
-    //TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
-    
+    // TODO: GET /api/users?searchBy=name&q=Alex&page=1&size=20
+
     // TODO: PUT or POST /api/users/:userid/suspension
     // Admin manual suspension
     @Operation(summary = "Update any user's info")
+    @PreAuthorize(ADMIN_ONLY)
     @PutMapping("/{userId}/suspension")
     public ResponseEntity<User> updateUserSuspension(
             @PathVariable String userId,
             @RequestBody UpdateUserRequest request,
             JwtAuthenticationToken authentication) {
 
-        String requesterId = authentication.getToken().getSubject();
-        User requester = userService.getUserByUserId(requesterId);
-
-        if (!userService.verifyAdmin(requester)) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                "USER_NOT_ADMIN"
-            );
-        }
-            
         User user = userService.suspendUser(userId);
 
         return ResponseEntity.ok(user);
