@@ -1,5 +1,11 @@
 # Order Service Database Migration Workflow
 
+## V18 handoff — Report resolution saga (CHANGE-162, 2026-10-29)
+
+Additive V18__report_resolution_saga.sql creates independent order_report_resolutions journal and order_report_resolution_results inbox, including report/order foreign keys, one active command per report, generation/state checks and a SQL due-work index. Existing V1–V17 remain immutable; no placement snapshots, Report records or guessed outcomes are backfilled. Existing outbox schema is reused. Feature remains default-disabled.
+
+Normal Flyway startup migrates before Hibernate validation; clean schema18 and17→18 upgrade are verified with disposable PostgreSQL. Prior holds/commands remain intact. No application/cloud DB was migrated in this task. Preserve journal/inbox/outbox/hold records on rollback. Disabling transport is not recovery; pending work blocks direct hold release. Do not deploy an older binary without these release guards while unresolved work exists. Resolve/reconcile before removal or use a forward corrective migration, never drop audit tables or edit applied migrations. Report protocol and activation gates: [handoff](report-servicehandoff.md).
+
 ## V11 handoff — saved admin explanation
 
 V11__admin_resolution_reason.sql adds nullable orders.admin_resolution_reason varchar(1000). Old rows remain null; V1–V10 unchanged, no guessed backfill or table rewrite. Code reads/writes the field only through explicit admin resolution. Startup Flyway migrates before Hibernate validate. Required verification: root PowerShell .\mvnw.cmd -B -ntp -pl order-service -am verify; expected schema11. Rebuild both Order and frontend images for rollout. No manual schema edits or ddl-auto update.

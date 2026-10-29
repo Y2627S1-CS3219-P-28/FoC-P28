@@ -29,7 +29,7 @@ export function ApplyPenaltyDialog({orderId,onClose,onSaved}:{orderId:string;onC
     setRequest(body);locked.current=true;setBusy(true);setFailure(null)
     try {
       const result=await api.applyPenalty(orderId,body)
-      toast.success(api.mode==="mock"?"Sample penalty stored; no real score changed.":"Highest penalty stored. It will be processed at the final order outcome.")
+      toast.success("Highest penalty stored. It will be processed at the final order outcome.")
       onSaved(result)
     }catch(cause){setFailure(cause instanceof Error?cause.message:"Could not store penalty. Please retry.")}
     finally{locked.current=false;setBusy(false)}

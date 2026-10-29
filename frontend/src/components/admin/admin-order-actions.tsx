@@ -78,8 +78,7 @@ export function AdminOrderResolutionDialog({ order, action, onClose, onResolved 
         requesterId: order.requesterId, courierId: order.courierId,
         appliedPenalties: choice === "apply" && selected ? [selected] : [], resolutionReason: explanation,
       })
-      toast.success(api.mode === "mock" ? "Sample order updated. No real funds or scores changed."
-        : "Order updated. Funding and any selected penalty will be processed asynchronously.")
+      toast.success("Order updated. Funding and any selected penalty will be processed asynchronously.")
       onResolved(result)
     } catch (cause) {
       setFailure(cause instanceof Error ? cause.message : "The order could not be updated. Please retry.")
@@ -102,11 +101,10 @@ export function AdminOrderResolutionDialog({ order, action, onClose, onResolved 
           <p>{order.offeredCredits} credits will be refunded.</p>
           {order.appliedPenalty && <p>Stored penalty: {policyLabels[order.appliedPenalty] ?? order.appliedPenalty} · {order.appliedPenaltyAmount} points</p>}
           {order.isCompletionHold && <p>This order has an ongoing report/completion hold. Your decision overrides the completion restriction and preserves the hold history.</p>}
-          {api.mode === "mock" && <p>Demo only. No real order, funds or penalty score will change.</p>}
         </div>
         <fieldset disabled={busy} className="space-y-3">
           <legend className="mb-2 text-sm font-medium">Courier penalty</legend>
-          <label className="flex items-center gap-2 text-sm"><input type="radio" name="penalty-choice" checked={choice === "none"} onChange={() => setChoice("none")} />{order.appliedPenalty ? "No additional penalty" : "No penalty"}</label>
+          <label className="flex items-center gap-2 text-sm"><input type="radio" name="penalty-choice" checked={choice === "none"} onChange={() => setChoice("none")} />No penalty</label>
           <label className="flex items-center gap-2 text-sm"><input type="radio" name="penalty-choice" disabled={!order.courierId} checked={choice === "apply"} onChange={() => setChoice("apply")} />Apply penalty</label>
           {!order.courierId && <p className="text-sm text-muted-foreground">No courier is assigned, so a courier penalty cannot be applied.</p>}
           {choice === "apply" && <div className="space-y-3 rounded-lg border p-3">

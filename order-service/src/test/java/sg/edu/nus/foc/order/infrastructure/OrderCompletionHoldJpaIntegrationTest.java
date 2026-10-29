@@ -305,6 +305,77 @@ class OrderCompletionHoldJpaIntegrationTest {
         assertFalse(orders.findById(order.getId()).orElseThrow().isCompletionHold());
     }
 
+    @Autowired private sg.edu.nus.foc.order.application.OrderQueryService activeQueries;
+
+    @Test
+    void reportingActiveListFiltersOwnerAndTerminalBeforePagination() {
+        for (OrderStatus status : OrderStatus.values()) {
+            Order candidate = open();
+            org.springframework.test.util.ReflectionTestUtils.setField(candidate, "status", status);
+            orders.saveAndFlush(candidate);
+        }
+        Order other = Order.open("different-owner", "Other", "p", "d", 1, 30, NOW, NOW.plusSeconds(7200));
+        orders.saveAndFlush(other);
+        var first = activeQueries.requestedActiveBy("owner", 1, 2);
+        var second = activeQueries.requestedActiveBy("owner", 2, 2);
+        var third = activeQueries.requestedActiveBy("owner", 3, 2);
+        assertEquals(5, first.getTotalItems());
+        assertEquals(3, first.getTotalPages());
+        assertEquals(2, first.getItems().size());
+        assertEquals(1, third.getItems().size());
+        var ids = new java.util.HashSet<String>();
+        for (var page : java.util.List.of(first, second, third)) for (Order o : page.getItems()) {
+            assertEquals("owner", o.getRequesterId());
+            assertTrue(java.util.Set.of(OrderStatus.OPEN, OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS,
+                    OrderStatus.PICKED_UP, OrderStatus.DELIVERED).contains(o.getStatus()));
+            assertTrue(ids.add(o.getId()));
+        }
+        assertEquals(first.getItems().stream().map(Order::getId).toList(),
+                activeQueries.requestedActiveBy("owner", 1, 2).getItems().stream().map(Order::getId).toList());
+        assertThrows(OrderProblem.class, () -> activeQueries.requestedActiveBy("owner", 0, 20));
+        assertThrows(OrderProblem.class, () -> activeQueries.requestedActiveBy("owner", 1, 101));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(OrderStatus.class)
+    void reportingHoldScopesAndValidatesEveryState(OrderStatus status) {
+        Order candidate = open();
+        org.springframework.test.util.ReflectionTestUtils.setField(candidate, "status", status);
+        candidate = orders.saveAndFlush(candidate);
+        String id = candidate.getId();
+        boolean active = java.util.Set.of(OrderStatus.OPEN, OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS,
+                OrderStatus.PICKED_UP, OrderStatus.DELIVERED).contains(status);
+        if (active) {
+            assertTrue(holdService.placeActive(id, "active-report", "owner", false, null).isCompletionHold());
+            assertTrue(holds.existsById("active-report"));
+        } else {
+            assertEquals("NOT_FOUND", assertThrows(OrderProblem.class,
+                    () -> holdService.placeActive(id, "active-report", "owner", false, null)).getCode());
+            assertFalse(holds.existsById("active-report"));
+        }
+    }
+
+    @Test
+    void reportingHoldChecksCourierBindingOwnershipAndReusesCurrentSnapshot() {
+        Order candidate = orders.saveAndFlush(open());
+        String id = candidate.getId();
+        assertEquals("NOT_FOUND", assertThrows(OrderProblem.class,
+                () -> holdService.placeActive(id, "report", "stranger", false, null)).getCode());
+        assertEquals("NOT_FOUND", assertThrows(OrderProblem.class,
+                () -> holdService.placeActive("missing", "report", "owner", false, null)).getCode());
+        assertEquals("CONFLICT", assertThrows(OrderProblem.class,
+                () -> holdService.placeActive(id, "report", "owner", true, null)).getCode());
+        holdService.placeActive(id, "report", "owner", false, null);
+        Order progressing = orders.findById(id).orElseThrow();
+        progressing.accept("courier", progressing.getVersion(), progressing.getCreatedAt().plusSeconds(60));
+        orders.saveAndFlush(progressing);
+        assertEquals(OrderStatus.ACCEPTED, holdService.placeActive(id, "report", "owner", true, null).getStatus());
+        assertEquals(1, holds.count());
+        Order other = orders.saveAndFlush(open());
+        assertEquals("CONFLICT", assertThrows(OrderProblem.class,
+                () -> holdService.placeActive(other.getId(), "report", "owner", false, null)).getCode());
+    }
+
     private Order delivered() {
         Order order = open();
         Instant start = NOW.minusSeconds(3 * 86400L);

@@ -46,6 +46,8 @@ public class AdminOrderController {
     private final AdminOrderCancellationService cancellations;
     private final OrderCompletionHoldService holds;
     private final AdminApplyPenaltyService penalties;
+    @org.springframework.beans.factory.annotation.Value("${order.reports.resolution.enabled:false}")
+    private boolean coordinatedReportResolution;
 
     @Operation(summary = "List orders for administrators by status, exact ID and creation date range",
             description = "Filters are applied in SQL before pagination. createdFrom is inclusive; createdBefore is exclusive. Send explicit ISO8601 instants; omitted bounds are unrestricted.")
@@ -89,7 +91,7 @@ public class AdminOrderController {
     @RequireAdminRole
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Cancel an active order as administrator, optionally applying the highest courier penalty",
-            description = "May resolve a held order. Participant IDs must match the stored order. Null/empty selections mean refund only when no penalty was stored. A stored penalty cannot be waived. Cancellation does not consider overdue. SUCCESSFUL_DELIVERY is not an addition. State and event intents commit atomically; delivery is asynchronous. Exact retries by the same administrator are idempotent.")
+            description = "May resolve a held order. Participant IDs must match the stored order. Null/empty selections explicitly cancel without a penalty, even when one was stored. A selected penalty competes with the stored policy; the highest applies. Cancellation does not consider overdue. SUCCESSFUL_DELIVERY is not an addition. State and event intents commit atomically; delivery is asynchronous. Exact retries by the same administrator are idempotent.")
     @ApiResponse(responseCode = "200", description = "Cancellation and required event intents committed, or an exact replay")
     @ApiResponse(responseCode = "400", description = "Invalid request, reward case or penalty without an assigned courier")
     @ApiResponse(responseCode = "401", description = "Authentication required")
@@ -109,13 +111,14 @@ public class AdminOrderController {
     @PutMapping("/admin/{orderId}/completion-holds/{reportId}/release")
     @RequireAdminRole
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Release one resolved report's completion hold", description = "Report Service forwards the resolving administrator's Firebase token. Idempotent; other active report holds remain. Does not change order status or publish funding events.")
+    @Operation(summary = "Release one resolved report's completion hold", description = "Legacy direct administrative release. Disabled while coordinated Report resolution is enabled; use its resolve endpoint. Existing unresolved resolution journals always block bypass, even with transport disabled. Other report holds remain; no status/funding event is emitted.")
     @ApiResponse(responseCode = "200", description = "Hold released, or already released")
     @ApiResponse(responseCode = "401", description = "Authentication required")
     @ApiResponse(responseCode = "403", description = "Administrator required")
     @ApiResponse(responseCode = "404", description = "Order or hold not found")
     @ApiResponse(responseCode = "409", description = "Wrong report binding, pending command or row contention")
     public OrderResponse releaseHold(@PathVariable String orderId, @PathVariable String reportId, Principal principal) {
+        if (coordinatedReportResolution) throw sg.edu.nus.foc.order.domain.OrderProblem.conflict("Use the coordinated Report resolution endpoint to release this hold.");
         return orderMapper.toResponse(holds.release(orderId, reportId, principal == null ? "local-admin" : principal.getName()));
     }
 

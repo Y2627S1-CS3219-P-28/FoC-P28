@@ -15,6 +15,9 @@ public class OrderLifecycleScheduler {
     private final LifecycleProcessingService lifecycle;
     private final OrderCommandService commands;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<sg.edu.nus.foc.order.application.reportresolution.ReportResolutionService> reportResolutions;
+
     @Scheduled(cron = "${order.lifecycle.cron:0 * * * * *}")
     public void processDueOrders() {
         try {
@@ -22,6 +25,12 @@ public class OrderLifecycleScheduler {
         } catch (RuntimeException exception) {
             log.error("Order command recovery pass failed; lifecycle checks will continue and the next pass will retry.",
                     exception);
+        }
+
+        try {
+            if (reportResolutions != null) reportResolutions.ifAvailable(service -> service.recoverDue());
+        } catch (RuntimeException exception) {
+            log.error("Report resolution recovery failed; lifecycle checks will continue.", exception);
         }
 
         Instant now = Instant.now();

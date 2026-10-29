@@ -32,17 +32,18 @@ function OrderDetails({ order }: { order: AdminOrder }) {
   const people = ["requesterName", "requesterId", "courierName", "courierId"]
   const locations = ["pickupSupplierName", "pickupSupplierId", "deliverySupplierName", "deliverySupplierId"]
   const timing = ["status", "createdAt", "expiresAt", "deliveryTimeLimitMinutes", "deliveryDeadlineAt", "deliveredAt", "completedAt", "isOverdue", "isCompletionHold"]
-  const resolution = ["appliedPenalty", "appliedPenaltyAmount", "appliedPenaltyAt", "appliedPenaltyBy", "appliedPenaltyReason", "overduePenaltyWaived", "overdueWaivedAt", "overdueWaivedBy", "overdueWaiverReason", "adminResolutionReason", "adminPenaltyDecision", "adminPenaltyReason", "adminPenaltyAmount", "adminResolutionAt"]
+  const resolution = ["appliedPenalty", "appliedPenaltyAmount", "appliedPenaltyAt", "appliedPenaltyBy", "appliedPenaltyReason", "adminResolutionReason", "adminPenaltyDecision", "adminPenaltyReason", "adminPenaltyAmount", "adminResolutionAt"]
+  const retired = new Set(["overduePenaltyWaived", "overdueWaivedAt", "overdueWaivedBy", "overdueWaiverReason"])
   const information = ["id", "attemptId", "version", "offeredCredits", "itemDescription"]
   const groups: { title: string; fields: [string, unknown][] }[] = [
     { title: "Order information", fields: ordered(information) },
     { title: "People", fields: ordered(people) },
     { title: "Locations", fields: entries.filter(([key]) => locations.includes(key)) },
     { title: "Status and timing", fields: entries.filter(([key]) => timing.includes(key)) },
-    { title: "Admin resolution", fields: ordered(resolution) },
     { title: "Repost information", fields: entries.filter(([key]) => key.toLowerCase().includes("repost") || key === "originalOrderId") },
+    { title: "Admin resolution", fields: ordered(resolution).filter(([key, value]) => value != null && value !== "" && (key !== "appliedPenaltyAmount" || Boolean(order.appliedPenalty))) },
   ]
-  const grouped = new Set(groups.flatMap((group) => group.fields.map(([key]) => key)))
+  const grouped = new Set([...groups.flatMap((group) => group.fields.map(([key]) => key)), ...resolution, ...retired])
   const other = entries.filter(([key]) => !grouped.has(key))
   if (other.length) groups.push({ title: "Other information", fields: other })
   function field([key, value]: [string, unknown]): [string, React.ReactNode] {
@@ -59,7 +60,7 @@ function OrderDetails({ order }: { order: AdminOrder }) {
       ? <CopyId key={key} id={value as string | null} /> : display]
   }
   return <div className="grid gap-6 lg:grid-cols-2">
-    {groups.map((group) => <Card key={group.title} className={group.title === "Repost information" ? "lg:col-span-2" : undefined}>
+    {groups.map((group) => <Card key={group.title} className={["Repost information", "Admin resolution"].includes(group.title) ? "lg:col-span-2" : undefined}>
       <CardHeader><CardTitle><h2 className="text-xl">{group.title}</h2></CardTitle></CardHeader>
       <CardContent>{group.fields.length ? <AdminDetails fields={group.fields.map(field)} /> : <p className="text-sm text-muted-foreground">No information provided.</p>}</CardContent>
     </Card>)}

@@ -11,8 +11,11 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminMockRoleResponse {
+public class ReportDemoPageResponse<T> {
 
-    private String userId;
-    private List<String> roles;
+    private List<T> items;
+    private int page;
+    private int size;
+    private long totalItems;
+    private int totalPages;
 }

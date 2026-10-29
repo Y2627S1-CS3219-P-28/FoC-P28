@@ -22,10 +22,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AdminComingSoon, AdminFilterActions, AdminFilterForm, AdminHeading, AdminLoadState, AdminPagination, CopyId, adminDate } from "@/components/admin/admin-ui"
 
 export function AdminReportsPage({ reportId }: { reportId?: string }) {
-  const { adminApiMode } = useConfig()
+  const { reportApiMode } = useConfig()
   return <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
     <AdminHeading title={reportId ? "Report details" : "Reports"} description="Review delivered-item issues, evidence and responses." />
-    {adminApiMode !== "mock" ? <AdminComingSoon title="Delivery reports" />
+    {reportApiMode === "mock" && <p className="text-sm text-muted-foreground">Sample reports • Changes reset when the service restarts.</p>}
+    {reportApiMode !== "mock" ? <AdminComingSoon title="Delivery reports" />
       : reportId ? <ReportCase key={reportId} id={reportId} /> : <ReportList />}
   </section>
 }

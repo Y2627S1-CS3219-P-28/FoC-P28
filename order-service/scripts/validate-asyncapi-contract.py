@@ -58,9 +58,9 @@ def main():
         "penaltyAddition": ("PenaltyScoreAdditionEvent", "courier-penalty-addition", "ORDER_COURIER_PENALTY_ADDITION_TOPIC", "courier-penalty-addition-dev-v1", "1"),
         "penaltyDeduction": ("PenaltyScoreDeductionEvent", "courier-penalty-deduction", "ORDER_COURIER_PENALTY_DEDUCTION_TOPIC", "courier-penalty-deduction-dev-v1", "1"),
     }
-    require(set(spec["channels"]) == set(expected) | {"compensationRequest", "compensationResult"},
-            "Expected four lifecycle/penalty and two opt-in compensation channels")
-    require(len(spec["operations"]) == 6, "Expected five sends and one receive")
+    require(set(spec["channels"]) == set(expected) | {"compensationRequest", "compensationResult", "reportCompensationRequest", "reportCompensationResult"},
+            "Expected four lifecycle/penalty and four opt-in compensation channels")
+    require(len(spec["operations"]) == 8, "Expected six sends and two receives")
     checked_examples = 0
     for channel_id, (event_type, config_key, env_key, topic, version) in expected.items():
         channel = spec["channels"][channel_id]
@@ -104,7 +104,7 @@ def main():
 
     for operation in spec["operations"].values():
         channel_id = operation["channel"]["$ref"].split("/")[-1]
-        require(operation["action"] == ("receive" if channel_id == "compensationResult" else "send"),
+        require(operation["action"] == ("receive" if channel_id in {"compensationResult", "reportCompensationResult"} else "send"),
                 "Wrong operation direction")
         require("reply" not in operation, "Publication acknowledgment is not a business reply")
         require(channel_id in spec["channels"], "Unknown channel")
@@ -124,6 +124,30 @@ def main():
             invalid["generation"] = 0
             require(not validator.is_valid(invalid), "Invalid compensation generation accepted")
             checked_examples += 1
+    report_source = (JAVA / "application/reportresolution/ReportResolutionMessages.java").read_text(encoding="utf-8")
+    for name, record in (("ReportResolutionCompensationRequested", "Compensation"), ("ReportResolutionCompensationResult", "Result")):
+        declaration = re.search(r"record " + record + r"\((.*?)\)", report_source, re.S).group(1)
+        record_fields = set(re.findall(r"(?:String|long)\s+(\w+)", declaration))
+        require(set(schemas[name]["properties"]) == record_fields, "Report compensation DTO drift")
+        schema = schemas[name]
+        Draft7Validator.check_schema(schema)
+        validator = Draft7Validator(schema, format_checker=FormatChecker())
+        message = spec["components"]["messages"][name]
+        for example in message["examples"]:
+            validator.validate(example["payload"])
+            Draft7Validator(message["headers"]).validate(example["headers"])
+            require(example["headers"]["eventId"] == example["payload"]["eventId"], "Report ID mismatch")
+            for generation in (0, 1, 3):
+                invalid = copy.deepcopy(example["payload"])
+                invalid["generation"] = generation
+                require(not validator.is_valid(invalid), "Report fence generation drift")
+            invalid = copy.deepcopy(example["payload"])
+            invalid["token"] = "must-not-publish"
+            require(not validator.is_valid(invalid), "Report body accepts undeclared data")
+            checked_examples += 1
+    require("enabled: ${ORDER_REPORT_RESOLUTION_ENABLED:false}" in config, "Report integration must default off")
+    require("compensation-topic: ${ORDER_REPORT_COMPENSATION_TOPIC:}" in config, "Report request topic config drift")
+    require("result-topic: ${REPORT_COMPENSATION_RESULT_TOPIC:}" in config, "Report result topic config drift")
     require("request-topic: ${ORDER_COMPENSATION_REQUEST_TOPIC:}" in config, "Compensation topic config drift")
     require("enabled: ${ORDER_COMPENSATION_ENABLED:false}" in config, "Compensation default must remain off")
     publisher = (JAVA / "messagingpublisher/publisher/GoogleCloudPubSubEventPublisher.java").read_text(encoding="utf-8")
@@ -131,7 +155,7 @@ def main():
     require("setOrderingKey" not in publisher, "Ordering behavior changed; review documentation")
     scheduler = (JAVA / "application/OrderOutboxScheduler.java").read_text(encoding="utf-8")
     require("0 */15 * * * *" in scheduler, "Outbox default cadence drift")
-    print(f"PASS: 5 send/1 receive operations, 6 DTO field sets, {checked_examples} examples, negative schemas and source/default/topic/cadence parity.")
+    print(f"PASS: 6 send/2 receive operations, 8 DTO field sets, {checked_examples} examples, negative schemas and source/default/topic/cadence parity.")
 
 
 if __name__ == "__main__":

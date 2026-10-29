@@ -160,8 +160,8 @@ describe("Admin Order row actions", () => {
     fireEvent.click(screen.getByRole("button",{name:"Cancel order"}))
     const dialog=await screen.findByRole("dialog",{name:"Cancel this order?"})
     expect(dialog).toHaveTextContent("Stored penalty: Item mishandling or damage · 4 points")
-    expect(within(dialog).queryByRole("radio",{name:"No penalty"})).not.toBeInTheDocument()
-    expect(within(dialog).getByRole("radio",{name:"No additional penalty"})).toBeInTheDocument()
+    expect(within(dialog).getByRole("radio",{name:"No penalty"})).toBeInTheDocument()
+    expect(within(dialog).queryByRole("radio",{name:"No additional penalty"})).not.toBeInTheDocument()
   })
 
 })

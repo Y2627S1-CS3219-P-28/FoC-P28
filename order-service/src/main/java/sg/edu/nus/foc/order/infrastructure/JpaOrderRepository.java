@@ -25,10 +25,12 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpeci
     @Query(value = "select o.id from orders o where o.status='EXPIRED' and not o.completion_hold "
             + "and o.enabled and not o.used and o.due_at<=:now and o.repost_expires_at>:now "
             + "and o.reposted_order_id is null and not exists "
-            + "(select 1 from order_commands c where c.command_id='AUTO_REPOST:' || o.id) "
+            + "(select 1 from order_commands c where c.actor_id=o.requester_id and c.order_id=o.id "
+            + "and c.automatic_execution and not (c.status='COMPLETED' and c.outcome='REJECTED' "
+            + "and c.final_stage_status='FULLY_COMPENSATED' and c.credit_step_status in ('FAILED','COMPENSATED'))) "
             + "and not exists(select 1 from order_commands c where c.order_id=o.id and c.status='PENDING') "
             + "and not exists(select 1 from order_user_deletion_guards g where g.user_id=o.requester_id and g.blocked) "
-            + "order by o.due_at,o.id limit 100", nativeQuery = true)
+            + "order by coalesce(o.repost_failure_at,o.due_at),o.due_at,o.id limit 100", nativeQuery = true)
     List<String> findDueAutomaticRepostIds(@Param("now") Instant now);
 
     @Query(value = "select exists(select 1 from orders where status in (:activeStatuses) "
@@ -92,6 +94,16 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpeci
             @Param("requesterId") String requesterId,
             @Param("status") OrderStatus status,
             Pageable pageable);
+
+    @Query("select o from Order o where o.requesterId = :requesterId and o.status in :statuses order by o.createdAt desc, o.id desc")
+    Page<Order> findActiveRequesterOrders(@Param("requesterId") String requesterId,
+            @Param("statuses") List<OrderStatus> statuses, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
+    @Query("select o from Order o where o.id = :id and o.requesterId = :requesterId and o.status in :statuses")
+    Optional<Order> findActiveRequesterOrderForUpdate(@Param("id") String id,
+            @Param("requesterId") String requesterId, @Param("statuses") List<OrderStatus> statuses);
 
     Page<Order> findByCourierIdOrderByCreatedAtDesc(String courierId, Pageable pageable);
 
