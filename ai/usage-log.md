@@ -3174,3 +3174,12 @@ CHANGE-162 final verification (2026-10-29): native full Order/common Maven verif
 
 
 CHANGE-164 final verification (2026-10-29): native full Order/common Maven verify exit0,666 Order +12 common =678 tests, zero failures/errors/skips; original coverage gates pass (Order94.86% LINE/80.98% BRANCH). Actual Order/Credit/PostgreSQL/PubSub compensation suite21 tests passes, including concurrent fresh retries with one successor/reservation, pre-Credit timeout recovery on later scheduler passes, insufficient funds then recovery, lost applied Credit response/confirmed reversal before fresh attempt, pending-effect barrier, holds/expiry, refund lag and manual guards. User/Supplier eligibility checks remain explicit fixtures in that suite, not a deployed peer claim. Three regressions failed before the fix; initial focused20 passed before the final race test. Fresh foc-order-service:change164-check image builds exit0. Context TOML and git diff/conflict checks pass. No frontend/schema/API/topic/env/feature-gate/sibling production or GCP change; no application data/container recreation, deployment, commit or staging. Existing safely failed eligible plans recover without deleting/resetting old commands after rollout; unresolved compensation/FAILED publication still requires existing recovery/redrive and is never bypassed.
+
+
+## CHANGE-165 — User directory CI Mongo fixture
+
+- **Tool:** OpenAI Codex; **Date:**2026-10-29; **Owner:**Yao Xiang, order-service/admin-ui-linking.
+- **Prompt:**Fix repeated User CI failure: AdminUserDirectoryTest.database cannot launch mongo:8; passing OpenAPI/background localhost warnings included.
+- **Key response:**Pinned the introduced directory test to mongo:7.0.43 used by the existing Order/User fixture; kept real query checks. Confirmed the localhost warnings belong to passing full-context tests, not the reported startup error. Full User verify runs against disposable Mongo7 replica sets;36 tests pass including4 directory cases and OpenAPI, native exit0. No production, pom/env/workflow or application-data changes; exact GitHub kernel/container crash not reproduced locally.
+- **Affected locations:**User AdminUserDirectoryTest and maintainer handoff; Order CHANGE165/context/index/active-work and this disclosure.
+- **Author verification:**User explicitly requests CI fix; human review remains pending. Supplied CI log is failure evidence, local Mongo8 had passed earlier. New pinned-image full verification passes; GitHub CI rerun is still required. No commit/push/deploy/staging.

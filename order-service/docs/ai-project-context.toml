@@ -530,3 +530,11 @@ safety = "pending/uncertain compensation blocks new attempt; original lock + uni
 identity = "legacy first AUTO_REPOST key retained; subsequent reserved-namespace retry UUID keys; preserve all old commands/fences/results"
 selection = "SQL status/hold/plan/expiry/deletion/command predicates; oldest due or last failure first limit100; latest attempt actor/order SQL limit1"
 limits = "configured plan expiry, holds and enablement retained; no bypass of FAILED publication or reconciliation; deployment gates unchanged"
+
+
+[user_directory_ci_image_165]
+date = "2026-10-29"
+owner = "Yao Xiang on order-service/admin-ui-linking"
+scope = "explicit User CI test-only fix; pinned mongo:7.0.43; production/pom/env/workflow unchanged"
+verification = "standalone User verify native exit0;36 tests including4 real Mongo directory tests;0 failures/errors/skips; disposable databases removed"
+remaining = "push correction and rerun GitHub CI; exact original container crash output absent"

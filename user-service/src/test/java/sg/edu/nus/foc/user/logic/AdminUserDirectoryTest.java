@@ -12,7 +12,8 @@ import sg.edu.nus.foc.user.model.AccountStatus;
 import sg.edu.nus.foc.user.model.User;
 
 class AdminUserDirectoryTest {
-    private static final MongoDBContainer DATABASE = new MongoDBContainer("mongo:8");
+    // Match the pinned Mongo image used by Order's CI-compatible User integration fixture.
+    private static final MongoDBContainer DATABASE = new MongoDBContainer("mongo:7.0.43");
     private static MongoClient client;
     private static MongoTemplate mongo;
     private AdminUserDirectory directory;
