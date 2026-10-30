@@ -21,3 +21,8 @@ Alternatives: fixture-only cannot verify delivery; synchronous compensation
 requires fresh user credentials after a crash and contradicts the approved
 direction; unauthenticated production push is rejected. Cloud deployment/IAM
 and direct/unkeyed financial-bypass review remain separate rollout gates.
+
+
+## Automatic plan retry repair — CHANGE-164, approved user instruction2026-10-29
+
+Compensation-first remains per immutable command, not a permanent ban on the saved automatic plan. A later minute pass may create a fresh opaque command/candidate only after a terminal no-effect rejection or confirmed compensation. Preserve all old command/fence/history and never retry an uncertain financial effect forward. Pending/reconciliation blocks new attempts. Original locking, existing pending uniqueness and atomic successful successor/link/plan-used remain; current plan expiry/holds/eligibility and feature gates still apply. No new transport, schema or peer protocol. See changes/CHANGE-164-automatic-repost-retry-until-success.md relative to Order root.

@@ -9,6 +9,7 @@ import { useOrderDisplayNames } from "@/hooks/use-order-display-names"
 import { useReportApi, useReportResource } from "@/hooks/use-reports"
 import { useVisiblePolling } from "@/hooks/use-visible-polling"
 import { useApi } from "@/hooks/use-api"
+import { ApiError } from "@/lib/api"
 import { REPORT_CATEGORIES, REPORT_STATUSES, type DeliveryReport, type ReportEvidence } from "@/lib/reports"
 import type { AdminOrder } from "@/lib/admin-api"
 import { StatusSelect } from "@/components/orders/status-select"
@@ -132,7 +133,9 @@ function ReportCase({ id }: { id: string }) {
   const displayName = useOrderDisplayNames(report?.order ? [report.order] : [])
   if (!report) return <AdminLoadState loading={loading} error={error} empty={false} retry={refresh} />
   const root = "/admin/reports"
-  const order = report.order ? { ...report.order, requesterName: displayName("users", report.requesterId, report.order.requesterName), courierName: displayName("users", report.courierId, report.order.courierName), pickupSupplierName: displayName("suppliers", report.order.pickupSupplierId, report.order.pickupSupplierName), deliverySupplierName: displayName("suppliers", report.order.deliverySupplierId, report.order.deliverySupplierName) } : null
+  const order = report.order ? { ...report.order, requesterName: displayName("users", report.order.requesterId, report.order.requesterName), courierName: displayName("users", report.order.courierId, report.order.courierName), pickupSupplierName: displayName("suppliers", report.order.pickupSupplierId, report.order.pickupSupplierName), deliverySupplierName: displayName("suppliers", report.order.deliverySupplierId, report.order.deliverySupplierName) } : null
+  const creditContext = report.violationCategory === "CREDITS"
+  const submitterName = report.requesterId === order?.requesterId ? order.requesterName : report.requesterId === order?.courierId ? order.courierName : null
   return <>
     <Link href={root} className={buttonVariants({ variant: "outline" })}>Back to reports</Link>
     {error && <p role="status" className="text-sm text-muted-foreground">Could not refresh. Showing the last available case.</p>}
@@ -144,24 +147,24 @@ function ReportCase({ id }: { id: string }) {
           ["Status", <Badge key="status" variant="outline">{REPORT_STATUSES[report.status]}</Badge>],
           ["Violation category", REPORT_CATEGORIES[report.violationCategory]],
           ["Submitted", adminDate(report.createdAt)],
-          ["Courier response", report.courierResponseSubmittedAt ? "Submitted " + adminDate(report.courierResponseSubmittedAt)
+          ["Courier response", creditContext ? "Not required for credit issues." : report.courierResponseSubmittedAt ? "Submitted " + adminDate(report.courierResponseSubmittedAt)
             : report.status === "AWAITING_COURIER_RESPONSE" ? "Awaiting response" : "No response submitted."],
         ]} />
       </ReportSection>
-      <ReportSection title="Requester account">
-        <SummaryFields rows={[["Requester name", <Participant key="requester" id={report.requesterId} name={order?.requesterName ?? null} />],
-          ["Requester ID", <CopyId key="requester-id" id={report.requesterId} />],
+      <ReportSection title={creditContext ? "Submitter account" : "Requester account"}>
+        <SummaryFields rows={[[creditContext ? "Submitter name" : "Requester name", <Participant key="requester" id={report.requesterId} name={submitterName ?? null} />],
+          [creditContext ? "Submitter ID" : "Requester ID", <CopyId key="requester-id" id={report.requesterId} />],
           ["Explanation", report.requesterExplanation], ["Attachments", <Evidence key="requester-evidence" files={report.requesterAttachments} />]]} />
       </ReportSection>
-      <ReportSection title="Courier account">
+      {!creditContext && <ReportSection title="Courier account">
         <SummaryFields rows={[["Courier name", report.courierId ? <Participant key="courier" id={report.courierId} name={order?.courierName ?? null} /> : "Unassigned"],
           ["Courier ID", report.courierId ? <CopyId key="courier-id" id={report.courierId} /> : "Unassigned"],
           ["Explanation", report.courierExplanation || "No response submitted."], ["Attachments", <Evidence key="courier-evidence" files={report.courierAttachments} />]]} />
-      </ReportSection>
+      </ReportSection>}
       {report.status === "RESOLVED" && <ReportSection title="Resolution"><SummaryFields rows={[
         ["Admin reply", report.resolutionNote], ["Resolved", adminDate(report.resolvedAt!)], ["Resolved by", report.resolvedBy],
       ]} /></ReportSection>}
-      {(report.status !== "RESOLVED" || sessionStorage.getItem(resolutionKey(report.id, user?.uid ?? ""))) && <div className="flex justify-end border-t px-5 py-5 sm:px-8"><Button onClick={() => setResolving(true)}>{report.status === "RESOLVED" ? "Resume resolution" : "Mark report resolved"}</Button></div>}
+      {(report.status !== "RESOLVED" || savedResolution(resolutionKey(report.id, user?.uid ?? ""))) && <div className="flex justify-end border-t px-5 py-5 sm:px-8"><Button onClick={() => setResolving(true)}>{report.status === "RESOLVED" ? "Resume resolution" : "Mark report resolved"}</Button></div>}
     </Card>
     {resolving && <ResolveReportDialog report={report} onClose={() => setResolving(false)} onDone={() => { setResolving(false); refresh() }} />}
   </>
@@ -173,7 +176,7 @@ function ResolveReportDialog({ report, onClose, onDone }: { report: DeliveryRepo
   const api = useReportApi(); const { user } = useAuth()
   const storageKey = resolutionKey(report.id, user?.uid ?? "")
   const [attempt, setAttempt] = useState<{ commandId: string; reply: string } | null>(() => {
-    try { const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null"); return saved?.commandId && typeof saved.reply === "string" ? saved : null } catch { return null }
+    try { const saved = JSON.parse(savedResolution(storageKey) ?? "null"); return saved?.commandId && typeof saved.reply === "string" ? saved : null } catch { return null }
   })
   const [note, setNote] = useState(attempt?.reply ?? ""); const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState(false); const [final, setFinal] = useState(false)
@@ -181,7 +184,7 @@ function ResolveReportDialog({ report, onClose, onDone }: { report: DeliveryRepo
   const succeeded = useRef(false)
   const complete = useCallback(() => {
     if (succeeded.current) return
-    succeeded.current = true; sessionStorage.removeItem(storageKey); toast.success("Report resolved."); onDone()
+    succeeded.current = true; clearResolution(storageKey); toast.success("Report resolved."); onDone()
   }, [onDone, storageKey])
   const poll = useCallback(async (signal: AbortSignal) => {
     if (!attempt) return
@@ -193,18 +196,23 @@ function ResolveReportDialog({ report, onClose, onDone }: { report: DeliveryRepo
       else if (result.status === "RECONCILIATION_REQUIRED") { setPending(false); setError("This resolution needs operator review. The order remains on hold.") }
     } catch { if (!signal.aborted) setError("Could not check the resolution yet. Your request has been kept.") }
   }, [api, attempt, complete])
-  useVisiblePolling(poll, pending && !!attempt && !!report.order, 5000)
+  useVisiblePolling(poll, pending && !!attempt && !!report.order && report.violationCategory !== "CREDITS", 5000)
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (!user || !note.trim() || locked.current) return
     locked.current = true; setBusy(true); setError(null)
     const current = attempt ?? { commandId: crypto.randomUUID(), reply: note.trim() }
-    setAttempt(current); sessionStorage.setItem(storageKey, JSON.stringify(current))
+    setAttempt(current)
     try {
+      try { sessionStorage.setItem(storageKey, JSON.stringify(current)) }
+      catch { throw new Error("Allow site storage so this resolution can be safely retried.") }
       const result = await api.resolve(report.id, user.uid, current.reply, current.commandId)
       if (result.status === "SUCCEEDED" || result.status === "RESOLVED") complete()
       else { setPending(true); setError("Resolution is being checked. The order stays on hold until confirmation.") }
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not resolve report.") }
+    catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409 && report.order && report.violationCategory !== "CREDITS") setPending(true)
+      setError(cause instanceof Error ? cause.message : "Could not resolve report.")
+    }
     finally { locked.current = false; setBusy(false) }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose() }}><DialogContent className="sm:max-w-lg"><form onSubmit={submit} className="space-y-4">
@@ -212,9 +220,11 @@ function ResolveReportDialog({ report, onClose, onDone }: { report: DeliveryRepo
     {report.status === "AWAITING_COURIER_RESPONSE" && <p role="alert" className="rounded-md border p-3 text-sm">The courier has not responded and their response deadline has not passed. Are you sure you want to resolve this report?</p>}
     <Label htmlFor="resolution-note">Admin reply</Label><Textarea id="resolution-note" maxLength={2000} required value={note} onChange={event => setNote(event.target.value)} disabled={busy || !!attempt} />
     {error && <p role="status" className="text-sm text-muted-foreground">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Back</Button>
-      {final ? <Button type="button" onClick={() => { sessionStorage.removeItem(storageKey); setAttempt(null); setFinal(false); setError(null) }}>Start new request</Button>
+      {final ? <Button type="button" onClick={() => { clearResolution(storageKey); setAttempt(null); setFinal(false); setError(null) }}>Start new request</Button>
         : <Button type="submit" disabled={busy || pending || !note.trim()}>{busy ? "Saving…" : attempt ? "Retry same request" : "Confirm resolved"}</Button>}
     </DialogFooter>
   </form></DialogContent></Dialog>
 }
 function resolutionKey(reportId: string, userId: string) { return `report-resolution:${userId}:${reportId}` }
+function savedResolution(key: string) { try { return sessionStorage.getItem(key) } catch { return null } }
+function clearResolution(key: string) { try { sessionStorage.removeItem(key) } catch { /* An already committed result remains successful. */ } }

@@ -50,6 +50,19 @@ class AdminReportResolutionControllerTest {
         verify(store).resolve(new ResolutionMessages.Command("stable","r",null,"requester","courier","admin",1,"Reply"));
         assertThrows(NotFoundException.class,()->controller.resolve("missing",new AdminReportResolutionController.Request("key","Reply"),jwt));
     }
+
+    @Test void linkedCreditReportResolvesLocallyWithoutCallingOrderOrReleasingAHold() {
+        var reports = mock(ReportRepository.class); var store = mock(ReportResolutionStore.class);
+        Report report = new Report("r", "requester", ReportCategory.CREDITS, "Missing refund", "completed-order", null,
+                ReportStatus.READY_FOR_REVIEW, Instant.now(), null, null, null, null, List.of(), List.of());
+        when(reports.findById("r")).thenReturn(Optional.of(report));
+        var builder = RestClient.builder().baseUrl("http://order");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var controller = new AdminReportResolutionController(reports, store, builder.build());
+        assertEquals(200, controller.resolve("r", new AdminReportResolutionController.Request("stable", "Reply"), jwt).getStatusCode().value());
+        verify(store).resolve(new ResolutionMessages.Command("stable", "r", "completed-order", "requester", null, "admin", 1, "Reply"));
+        server.verify();
+    }
     @Test void googlePushRequiresIssuerAudienceExpiryAndVerifiedAccount() {
         var s=new ResolutionSettings(true,"real","topic","sub","https://audience","push@project.iam.gserviceaccount.com","",false);
         var validate=ReportPushSecurity.validator(s);

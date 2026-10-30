@@ -45,6 +45,8 @@ class ReportServiceTest {
         assertEquals(List.of(true), orders.requireCourier);
         assertEquals("Bearer token", orders.tokens.getFirst());
         assertEquals(1, report.attachments().size());
+        assertEquals(1, service.awaitingResponseCount("courier"));
+        assertEquals(0, service.awaitingResponseCount("other"));
     }
 
     @Test void openOrdersAreRejectedForBothOrderLinkedCategories() {
@@ -63,7 +65,7 @@ class ReportServiceTest {
         assertEquals(ReportStatus.READY_FOR_REVIEW, general.status());
         assertNull(general.orderId());
         assertThrows(BadRequestException.class, () -> service.submit("requester", "Bearer token",
-                ReportCategory.CREDITS, "Credits", "order", List.of()));
+                ReportCategory.GENERAL, "Credits", "order", List.of()));
         assertThrows(BadRequestException.class, () -> service.submit("requester", "Bearer token",
                 ReportCategory.ORDER, "Order", null, List.of()));
         assertTrue(orders.requireCourier.isEmpty());
@@ -138,6 +140,18 @@ class ReportServiceTest {
         assertEquals(ReportStatus.READY_FOR_REVIEW, repository.findById(report.id()).orElseThrow().status());
     }
 
+
+    @Test void creditsAreUnlinkedAndRejectSubmittedOrderIdsWithoutCallingOrder() {
+        Report result = service.submit("requester", "Bearer token", ReportCategory.CREDITS, "Missing credit", null, List.of());
+        assertNull(result.orderId());
+        assertNull(result.courierId());
+        assertNull(result.responseDeadlineAt());
+        assertEquals(ReportStatus.READY_FOR_REVIEW, result.status());
+        assertThrows(BadRequestException.class, () -> service.submit("requester", "Bearer token", ReportCategory.CREDITS, "Issue", "order", List.of()));
+        assertTrue(orders.requireCourier.isEmpty());
+        assertTrue(orders.tokens.isEmpty());
+    }
+
     private ReportService at(Instant instant) {
         return new ReportService(repository, storage, orders, new ImageValidator(), Clock.fixed(instant, ZoneOffset.UTC));
     }
@@ -172,6 +186,9 @@ class ReportServiceTest {
 
     static class MemoryRepository implements ReportRepository {
         final Map<String, Report> values = new LinkedHashMap<>();
+        @Override public long countAwaitingResponse(String id, Instant now) {
+            return values.values().stream().filter(r -> id.equals(r.courierId()) && r.status() == ReportStatus.AWAITING_COURIER_RESPONSE && r.responseDeadlineAt() != null && now.isBefore(r.responseDeadlineAt())).count();
+        }
         @Override public Report save(Report report) { values.put(report.id(), report); return report; }
         @Override public Optional<Report> findById(String id) { return Optional.ofNullable(values.get(id)); }
         @Override public PageResult<Report> findAll(int page, int size) { return page(item -> true, page, size); }

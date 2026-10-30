@@ -127,3 +127,8 @@ Current scope extension (2026-10-09): Yao Xiang explicitly requests CHANGE-093 O
 Current scope extension (2026-10-09): Yao Xiang requests CHANGE-094 Order frontend polling/abort labels/personal status filters and necessary Order query contract; shared frontend allocation recorded.
 
 Current scope extension (2026-10-10): Yao Xiang explicitly requests independent DB-selected scheduled items. CHANGE-096 audits CHANGE-093 and fixes active outbox per-item transactions/error isolation, Order-only; no peer/frontend/schema/configuration writes.
+
+
+## Current reporting integration ? 2026-10-29
+
+Owner: Yao Xiang; branch feat/reporting-service. User explicitly requests Report frontend/API linking, Report-owned resolution journal/compensation consumer/result outbox, live Order integration, and exclusion of OPEN orders from reporting. Main has now been merged by the user; resolve only the three Report UI conflicts in favor of the approved real APIs. Scope includes the two Order reporting queries/hold validation, shared Report-only configuration, Report/frontend tests and documentation. No sibling business behavior, cloud mutation, commit or deployment is authorized. Verification is in progress.

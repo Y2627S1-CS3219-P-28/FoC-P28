@@ -27,7 +27,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Repo-wide OpenAPI completeness gate, based on docs/templates/OpenApiDocumentationTest.java. */
-@SpringBootTest(properties = {"REPORT_RESPONSE_RECOVERY_CRON=-", "foc.reporting.firestore.emulator-host=localhost:9999", "foc.reporting.storage.emulator-host=http://localhost:9998", "foc.reporting.user-service.mode=mock"})
+@SpringBootTest(properties = {"REPORT_RESPONSE_RECOVERY_CRON=-", "REPORT_RESULT_RECOVERY_CRON=-",
+        "REPORT_RESOLUTION_ENABLED=true", "REPORT_PUBSUB_PROJECT_ID=demo-foc", "REPORT_RESOLUTION_RESULT_TOPIC=results",
+        "REPORT_RESOLUTION_COMPENSATION_SUBSCRIPTION=projects/demo-foc/subscriptions/test-compensation",
+        "REPORT_RESOLUTION_PUSH_MODE=emulator", "PUBSUB_EMULATOR_HOST=localhost:9997", "FIREBASE_AUTH_EMULATOR_HOST=localhost:9099",
+        "foc.reporting.firestore.emulator-host=localhost:9999", "foc.reporting.storage.emulator-host=http://localhost:9998", "foc.reporting.user-service.mode=mock"})
 @AutoConfigureMockMvc
 class OpenApiDocumentationTest {
     private static final String PREFIX = "/api/reports";

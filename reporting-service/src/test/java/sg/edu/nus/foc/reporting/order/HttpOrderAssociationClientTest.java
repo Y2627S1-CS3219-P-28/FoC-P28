@@ -30,6 +30,16 @@ class HttpOrderAssociationClientTest {
         server.verify();
     }
 
+
+    @Test void duplicateReportMessageIsPreservedWithoutMislabelingOtherConflicts() {
+        var builder = RestClient.builder().baseUrl("http://orders");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(anything()).andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_JSON).body("{\"message\":\"This order already has an active report.\"}"));
+        var failure = assertThrows(ConflictException.class, () -> new HttpOrderAssociationClient(builder.build()).placeReportHold("id", "r", true, "Bearer x"));
+        assertTrue(failure.getMessage().contains("Please resolve it"));
+    }
+
     @Test void releasesTheAdminReportHold() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://orders");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

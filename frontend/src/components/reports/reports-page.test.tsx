@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api"
 ﻿import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import * as React from "react"
@@ -30,6 +31,7 @@ describe("Reports", () => {
   it("searches exact Order ID, filters report status and clears both without a refresh button", async () => {
     mocks.list.mockImplementation(async (_user: string, _mode: string, page: number) => ({ items: [report], page, totalPages: 2, totalItems: 21 }))
     render(<AdminReportsPage />)
+    expect(screen.queryByText(/Sample reports/)).not.toBeInTheDocument()
     fireEvent.click(await screen.findByRole("button", { name: "Next" }))
     await waitFor(() => expect(mocks.list).toHaveBeenCalledWith("courier", "admin", 2, "", expect.any(AbortSignal), { orderId: "", status: "" }))
     expect(screen.queryByRole("button", { name: "Refresh reports" })).not.toBeInTheDocument()
@@ -122,4 +124,32 @@ describe("Reports", () => {
     expect(mocks.refresh).not.toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "Retry same request" })).toBeDisabled()
   })
+  it("does not send an unrecoverable mutation when browser storage is unavailable", async () => {
+    const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage unavailable") })
+    try {
+      render(<AdminReportsPage reportId="report-1" />)
+      fireEvent.click(await screen.findByRole("button", { name: "Mark report resolved" }))
+      fireEvent.change(screen.getByLabelText("Admin reply"), { target: { value: "Reviewed" } })
+      fireEvent.click(screen.getByRole("button", { name: "Confirm resolved" }))
+      expect(await screen.findByText(/Allow site storage/)).toBeInTheDocument()
+      expect(mocks.resolve).not.toHaveBeenCalled()
+      expect(screen.getByRole("button", { name: "Retry same request" })).toBeEnabled()
+    } finally { storage.mockRestore() }
+  })
+  it("keeps a completed-order credit report out of Order command recovery", async () => {
+    mocks.detail.mockResolvedValue({ ...report, violationCategory: "CREDITS", status: "READY_FOR_REVIEW", courierId: null,
+      order: { ...report.order, status: "COMPLETED", isCompletionHold: false } })
+    mocks.resolve.mockRejectedValue(new ApiError(409, "CONFLICT", "Review the credit report request."))
+    render(<AdminReportsPage reportId="report-1" />)
+    fireEvent.click(await screen.findByRole("button", { name: "Mark report resolved" }))
+    fireEvent.change(screen.getByLabelText("Admin reply"), { target: { value: "Reviewed credit issue" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirm resolved" }))
+    expect(await screen.findByText("Review the credit report request.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry same request" })).toBeEnabled()
+    expect(mocks.resolution).not.toHaveBeenCalled()
+    expect(screen.getByText("Not required for credit issues.")).toBeInTheDocument()
+    expect(screen.getByText("Submitter account")).toBeInTheDocument()
+    expect(screen.queryByText("Courier account")).not.toBeInTheDocument()
+  })
+
 })

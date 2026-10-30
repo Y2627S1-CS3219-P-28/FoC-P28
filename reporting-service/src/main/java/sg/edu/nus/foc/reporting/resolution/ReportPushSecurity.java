@@ -13,16 +13,17 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration(proxyBeanMethods=false)
 public class ReportPushSecurity {
     @Bean @Order(1)
-    SecurityFilterChain reportPush(HttpSecurity http, ResolutionSettings settings) throws Exception {
+    SecurityFilterChain reportPush(HttpSecurity http, ResolutionSettings settings, sg.edu.nus.foc.reporting.security.JsonSecurityHandlers handlers) throws Exception {
         http.securityMatcher(ReportResolutionController.PUSH).csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e.authenticationEntryPoint(handlers).accessDeniedHandler(handlers));
         if (!settings.enabled()) http.authorizeHttpRequests(a -> a.anyRequest().denyAll());
         else if (settings.emulatorPush()) http.authorizeHttpRequests(a -> a.anyRequest().permitAll());
         else {
             var decoder = NimbusJwtDecoder.withJwkSetUri("https://www.googleapis.com/oauth2/v3/certs").build();
             decoder.setJwtValidator(validator(settings));
             http.authorizeHttpRequests(a -> a.anyRequest().authenticated())
-                    .oauth2ResourceServer(o -> o.jwt(j -> j.decoder(decoder)));
+                    .oauth2ResourceServer(o -> o.jwt(j -> j.decoder(decoder)).authenticationEntryPoint(handlers).accessDeniedHandler(handlers));
         }
         return http.build();
     }

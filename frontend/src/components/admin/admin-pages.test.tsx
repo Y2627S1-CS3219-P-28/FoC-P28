@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   orders: vi.fn(), users: vi.fn(), user: vi.fn(), suppliers: vi.fn(),
   order: vi.fn(), push: vi.fn(),
   recordName: vi.fn(),
-  supplier: vi.fn(), userTransactions: vi.fn(),
+  supplier: vi.fn(), userTransactions: vi.fn(), userBalance: vi.fn(),
   suspendUser: vi.fn(), promoteUser: vi.fn(), deactivateUser: vi.fn(),
   createSupplier: vi.fn(), deactivateSupplier: vi.fn(),
 }))
@@ -49,6 +49,7 @@ beforeEach(() => {
   mocks.order.mockResolvedValue(order)
   mocks.users.mockResolvedValue(page([user]))
   mocks.user.mockResolvedValue(user)
+  mocks.userBalance.mockImplementation((id) => Promise.resolve({ ...user, userId: id }))
   mocks.supplier.mockResolvedValue(supplier)
   mocks.userTransactions.mockResolvedValue(page([]))
   mocks.suppliers.mockResolvedValue(page([supplier]))
@@ -60,7 +61,39 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe("Admin pages", () => {
-  it("paginates real selected-user history while keeping unavailable balances as placeholders", async () => {
+  it("places a full-width Admin resolution below repost information and hides retired waiver fields", async () => {
+    mocks.order.mockResolvedValue({ ...order, originalOrderId: "original", adminResolutionReason: "Investigation complete", adminResolutionAt: "2026-10-29T01:00:00Z", adminPenaltyAmount: 0,
+      overduePenaltyWaived: true, overdueWaivedAt: "2026-10-28T01:00:00Z", overdueWaivedBy: "old-admin", overdueWaiverReason: "Old waiver" })
+    render(<AdminOrders initialOrderId="order-1" />)
+    await screen.findByText("Investigation complete")
+    const resolution = screen.getByRole("heading", { name: "Admin resolution" }).closest("[data-slot=card]")!
+    const repost = screen.getByRole("heading", { name: "Repost information" }).closest("[data-slot=card]")!
+    expect(resolution).toHaveClass("lg:col-span-2")
+    expect(repost.compareDocumentPosition(resolution) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText("Old waiver")).not.toBeInTheDocument()
+    expect(screen.queryByText("Overdue penalty waived")).not.toBeInTheDocument()
+    expect(within(resolution as HTMLElement).queryByText("Not provided")).not.toBeInTheDocument()
+  })
+
+  it("offers ID and Name now that the real directory supports both", async () => {
+    render(<AdminUsers />)
+    const searchType = screen.getByRole("combobox", { name: "Users search type" })
+    expect(searchType).toHaveTextContent("ID")
+    fireEvent.click(searchType)
+    expect(await screen.findByRole("option", { name: "ID" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Name" })).toBeInTheDocument()
+  })
+  it("keeps profile and history visible when balance fails and retries only the balance", async () => {
+    mocks.userBalance.mockRejectedValueOnce(new Error("Credit unavailable"))
+    render(<AdminSelectedUser userId="user-1" />)
+    expect(await screen.findByText("Credit unavailable")).toBeInTheDocument()
+    expect(screen.getByText("alex@u.nus.edu")).toBeInTheDocument()
+    expect(await screen.findByText("No credit transactions")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("100")).toBeInTheDocument()
+    expect(mocks.user).toHaveBeenCalledTimes(1)
+  })
+  it("paginates real selected-user history with independently loaded balance", async () => {
     mocks.mode = "live"
     mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: true }
     mocks.user.mockResolvedValue({ ...user, usableBalance: null, reservedBalance: null, totalBalance: null })
@@ -71,7 +104,7 @@ describe("Admin pages", () => {
     }))
     const view = render(<AdminSelectedUser userId="user-1" />)
     expect((await screen.findAllByText("history-order-1")).length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Coming soon")).toHaveLength(3)
+    expect(await screen.findByText("100")).toBeInTheDocument()
     expect(mocks.userTransactions).toHaveBeenLastCalledWith("user-1", 1, expect.any(AbortSignal))
     fireEvent.click(screen.getByRole("button", { name: "Next" }))
     expect((await screen.findAllByText("history-order-2")).length).toBeGreaterThan(0)
@@ -108,26 +141,16 @@ describe("Admin pages", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
-  it("opens an existing user summary by exact UID when the live directory is not ready", async () => {
+  it("searches by exact UID then opens the real profile", async () => {
     mocks.mode = "live"
-    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: false }
+    mocks.capabilities = { userDirectory: false, userActions: true, creditTransactions: true }
     render(<AdminUsers />)
-    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: " user-1 " } })
-    fireEvent.click(screen.getByRole("button", { name: "View profile" }))
-    expect(await screen.findByText("alex@u.nus.edu")).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Search users"), { target: { value: " user-1 " } })
+    fireEvent.click(screen.getByRole("button", { name: "Search" }))
+    await waitFor(() => expect(mocks.users).toHaveBeenCalledWith({ page: 1, searchBy: "id", q: "user-1" }, expect.any(AbortSignal)))
+    fireEvent.click(await screen.findByRole("button", { name: "View profile of Alex" }))
+    expect(await screen.findByText("Profile summary")).toBeInTheDocument()
     expect(mocks.user).toHaveBeenCalledWith("user-1", expect.any(AbortSignal))
-    expect(mocks.users).not.toHaveBeenCalled()
-    expect(mocks.userTransactions).not.toHaveBeenCalled()
-  })
-
-  it("shows a live directory Coming soon card without loading the missing list endpoint", async () => {
-    mocks.mode = "live"
-    mocks.capabilities = { userDirectory: false, userActions: false, creditTransactions: false }
-    render(<AdminUsers />)
-    expect(screen.getByText("User directory")).toBeInTheDocument()
-    expect(screen.getByText(/Coming soon/)).toBeInTheDocument()
-    expect(mocks.users).not.toHaveBeenCalled()
-    expect(screen.queryByText(/Changes reset/)).not.toBeInTheDocument()
   })
 
   it("keeps live user summary visible with missing-value placeholders and no Credit or mutation calls", async () => {
@@ -138,7 +161,7 @@ describe("Admin pages", () => {
     render(<AdminSelectedUser userId="user-1" />)
     expect(await screen.findByText("alex@u.nus.edu")).toBeInTheDocument()
     expect(screen.getByText("Credit transactions")).toBeInTheDocument()
-    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(3)
+    expect(screen.getAllByText("Not provided").length).toBeGreaterThan(2)
     expect(screen.queryByRole("button", { name: "Suspend User" })).not.toBeInTheDocument()
     for (const name of ["Promote to Admin", "Deactivate User"]) {
       const button = screen.getByRole("button", { name })

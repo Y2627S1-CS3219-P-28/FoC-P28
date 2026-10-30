@@ -50,6 +50,7 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
     const controller = new AbortController()
     async function loadAll() {
       setOrdersLoading(true)
+      setOrders([])
       setOrdersError("")
       try {
         const collected: Order[] = []
@@ -61,18 +62,19 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
           totalPages = response.totalPages
           page += 1
         } while (page <= totalPages)
+        if (controller.signal.aborted) return
         setOrders(collected)
-        if (initialOrderId && collected.some(order => order.id === initialOrderId
+        if (category === initialCategory && initialOrderId && collected.some(order => order.id === initialOrderId
           && (initialCategory !== "COURIER" || !!order.courierId))) setOrderId(initialOrderId)
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setOrdersError("Your active orders could not be loaded. Try again shortly.")
+        if (!(error instanceof DOMException && error.name === "AbortError")) setOrdersError("Your orders could not be loaded. Try again shortly.")
       } finally {
-        setOrdersLoading(false)
+        if (!controller.signal.aborted) setOrdersLoading(false)
       }
     }
     void loadAll()
     return () => controller.abort()
-  }, [api, initialCategory, initialOrderId, required])
+  }, [api, category, initialCategory, initialOrderId, required])
 
   useEffect(() => { photosRef.current = photos }, [photos])
   useEffect(() => () => photosRef.current.forEach(photo => URL.revokeObjectURL(photo.url)), [])
@@ -112,6 +114,7 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
     setSuccessId("")
     if (!description.trim()) return setFormError("Describe what happened.")
     if (required && !orderId) return setFormError("Select an associated order for this category.")
+    if (required && selectedOrder?.isCompletionHold) return setFormError("This order already has an active report. Please resolve it before submitting another report.")
     setSubmitting(true)
     try {
       const body = new FormData()
@@ -142,7 +145,7 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
                 <Select items={REPORT_CATEGORIES} value={category} onValueChange={value => {
                   const next = value as ReportCategory
                   setCategory(next)
-                  if (!reportCategoryRequiresOrder(next) || (next === "COURIER" && selectedOrder && !selectedOrder.courierId)) setOrderId("")
+                  setOrderId("")
                   setFormError("")
                 }}>
                   <SelectTrigger id="report-category" className="w-full" aria-label="Report category"><SelectValue /></SelectTrigger>
@@ -151,16 +154,14 @@ export function ReportForm({ initialCategory, initialOrderId, onSubmitted }: { i
               </Field>
 
               {required && <Field>
-                <FieldLabel htmlFor="report-order">Associated order{required ? " (required)" : ""}</FieldLabel>
+                <FieldLabel htmlFor="report-order">Associated order (required)</FieldLabel>
                 <Select items={orderItems} value={orderId || null} onValueChange={value => setOrderId(value ?? "")} disabled={ordersLoading || !!ordersError}>
-                  <SelectTrigger id="report-order" className="w-full" aria-label="Associated order"><SelectValue placeholder={ordersLoading ? "Loading associated orders…" : "Select an order"} /></SelectTrigger>
+                  <SelectTrigger id="report-order" className="w-full" aria-label="Associated order"><SelectValue placeholder={ordersLoading ? "Loading associated orders..." : "Select an order"} /></SelectTrigger>
                   <SelectContent>{selectableOrders.map(order => <SelectItem key={order.id} value={order.id}>{associatedOrderLabel(order)}</SelectItem>)}</SelectContent>
                 </Select>
-                <FieldDescription>{category === "COURIER"
-                  ? "Only active orders with an assigned courier can be reported."
-                  : "Only active orders are available. An open order goes directly to administrator review."}</FieldDescription>
+                <FieldDescription>Only your accepted, in-progress, picked-up or delivered orders can be reported. Open and terminal orders cannot be reported.</FieldDescription>
                 {ordersError && <FieldError>{ordersError}</FieldError>}
-                {initialOrderId && !ordersLoading && !selectedOrder && <FieldError>The linked order is not active and was not preselected.</FieldError>}
+                {initialOrderId && category === initialCategory && !ordersLoading && !selectedOrder && <FieldError>The linked order is not eligible and was not preselected.</FieldError>}
               </Field>}
 
               <Field>

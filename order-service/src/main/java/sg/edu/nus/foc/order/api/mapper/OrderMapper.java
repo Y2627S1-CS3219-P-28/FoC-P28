@@ -38,6 +38,7 @@ public interface OrderMapper {
     @Mapping(target = "adminResolutionAt", source = "adminResolutionAt")
     @Mapping(target = "adminResolutionReason", source = "adminResolutionReason")
     @Mapping(target = "deliveryDeadlineAt", source = "deliveryDeadlineAt")
+    @Mapping(target = "startedAt", expression = "java(order.getDeliveryDeadlineAt() == null ? null : order.getDeliveryDeadlineAt().minusSeconds(order.getDeliveryTimeLimitMinutes() * 60L))")
     @Mapping(target = "deliveredAt", source = "deliveredAt")
     @Mapping(target = "id", source = "id")
     @Mapping(target = "attemptId", source = "attemptId")
@@ -87,6 +88,15 @@ public interface OrderMapper {
     @Mapping(target = "completionHold", source = "order.completionHold")
     @Mapping(target = "version", source = "order.version")
     CompletionHoldResponse toHoldResponse(Order order, String reportId);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "order.id")
+    @Mapping(target = "requesterId", source = "order.requesterId")
+    @Mapping(target = "courierId", source = "order.courierId")
+    @Mapping(target = "status", source = "order.status")
+    @Mapping(target = "reportId", source = "reportId")
+    @Mapping(target = "isCompletionHold", source = "order.completionHold")
+    sg.edu.nus.foc.order.api.dto.response.ActiveReportHoldResponse toActiveHoldResponse(Order order, String reportId);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "items", source = "items")

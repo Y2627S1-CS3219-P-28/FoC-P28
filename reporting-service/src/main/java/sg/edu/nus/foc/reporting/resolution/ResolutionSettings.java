@@ -18,15 +18,17 @@ public record ResolutionSettings(boolean enabled, String project, String resultT
             @Value("${PUBSUB_EMULATOR_HOST:}") String emulatorHost,
             @Value("${REPORT_RESOLUTION_PUSH_MODE:google}") String mode,
             @Value("${FOC_ENVIRONMENT:local}") String environment,
-            @Value("${FIREBASE_AUTH_EMULATOR_HOST:}") String authEmulator) {
+            @Value("${FIREBASE_AUTH_EMULATOR_HOST:}") String authEmulator,
+            @Value("${foc.reporting.auth.project-id:demo-foc}") String authProject) {
         this(enabled, project, resultTopic, subscription, audience, account, emulatorHost, "emulator".equals(mode));
         if (!mode.equals("google") && !mode.equals("emulator")) throw new IllegalStateException("Invalid Report push mode.");
         if (enabled && (project.isBlank() || resultTopic.isBlank() || subscription.isBlank()))
             throw new IllegalStateException("Report saga project, result topic and request subscription are required.");
         if (enabled && emulatorPush && (!environment.equals("local") || !project.startsWith("demo-")
-                || emulatorHost.isBlank() || authEmulator.isBlank()))
+                || emulatorHost.isBlank() || authEmulator.isBlank() || !authProject.startsWith("demo-")))
             throw new IllegalStateException("Unsigned Report push requires local demo Auth and Pub/Sub emulators.");
-        if (enabled && !emulatorPush && (!emulatorHost.isBlank() || audience.isBlank() || account.isBlank()))
+        if (enabled && !emulatorPush && (!emulatorHost.isBlank() || !authEmulator.isBlank()
+                || !audience.startsWith("https://") || !account.endsWith(".gserviceaccount.com")))
             throw new IllegalStateException("Cloud Report push requires audience/service identity and no emulator.");
     }
 }

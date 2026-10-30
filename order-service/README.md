@@ -219,50 +219,25 @@ IDs/names, statuses and dates. Headers remain distinct; other pages stay unchang
 CHANGE-123 keeps long table Order IDs on one line with an ellipsis. Clicking copies
 the whole ID; hovering or View details exposes the full ID. Other IDs unchanged.
 
-CHANGE-122 makes Compose choose the Admin UI provider:
+CHANGE-160 makes ready Admin APIs consistent in every environment:
 
-| Run configuration | Admin UI |
-|---|---|
-| compose.yaml | Order-owned mock endpoints and sample roles/data |
-| compose.yaml + compose.http-peers.yaml | Actual local peer APIs and genuine admin role verification; same partial capabilities/placeholders as staging |
-| Staging / production | Actual APIs; mock UI cannot be enabled |
+| Run configuration | Orders / Users / Suppliers / Credit | Reports |
+|---|---|---|
+| compose.yaml | Actual local peers; real admin role required | Local sample data |
+| compose.yaml + compose.http-peers.yaml | Actual local peers; real admin role required | Local sample data |
+| Staging / production | Actual deployed APIs | Coming soon |
 
-Choose one command from the project root:
+From the project root, rebuild the affected frontend and Order images:
 
 ~~~powershell
-# Sample Admin UI
-docker compose -f compose.yaml up -d --build
-
-# Actual local Admin APIs (a real admin role in local User Service is required)
-docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build
+docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build order-service frontend
 ~~~
 
-The new request-time FOC_ADMIN_API_MODE is pinned to mock/live by those Compose
-files. Mock is allowed only locally with the Auth emulator. HTTP override disables
-Order's Admin demo routes. Both runs retain local databases and Auth/Pub/Sub
-emulators; neither reads staging databases. Order backend peers already use HTTP
-in base Compose under ADR-036, and this independent setting is unchanged.
+Admin Users loads a real initial page of20 records from GET /api/users/admin/search. The Search by dropdown defaults to ID and also offers Name; filtering/counting/paging happen in MongoDB. Clear reloads the initial real page. Profile management and independent Credit balance/history use their ready APIs; real errors never fall back to samples. See ../user-service/user-servicehandoff.md for the narrow User endpoint change.
 
-CHANGE-121 shares the same responsive search layout across Admin Orders, Users
-and Suppliers: fields first/actions below on mobile, inline on larger screens.
+Only Reports uses FOC_REPORT_API_MODE=mock with ORDER_REPORT_DEMO_ENABLED=true, local environment and Auth emulator. Both Compose variants use local data, never staging databases. Staging/production cannot enable the sample transport. Generic Admin mock endpoints and FOC_ADMIN_API_MODE / ORDER_ADMIN_MOCK_ENABLED selection are retired. See [pending peer contracts](docs/peer-service-api-feedback.md) and [ADR-057](docs/decisions/ADR-057-ready-admin-api-and-local-report-demo.md).
 
-CHANGE-120 aligns Status and Order ID on the same row on phones, with Search/Clear
-below; larger screens keep controls inline. Search/filter behavior is unchanged.
-
-CHANGE-119 keeps the existing sample Admin UI locally with the Auth emulator.
-Staging/production now use actual Order and Supplier APIs and actual User admin
-role verification. Supplier creation/deactivation outside local changes real
-Supplier data and retains the existing confirmation/authorization.
-
-Unfinished User directory and credit history show **Coming soon** cards. User
-links and exact UID lookup reuse existing User summaries; missing profile fields
-and credit balances show **Coming soon** rather than invented values. User
-suspension/promotion/deactivation remain disabled outside local. Existing layout,
-maps, ID/status search and pagination are retained. An actual admin account is
-required on staging; local sample roles do not grant real production access.
-CHANGE-122 adds FOC_ADMIN_API_MODE; no peer backend changes are needed. Runtime
-mode, FOC_ENVIRONMENT and Auth emulator config select the adapter; live errors never
-fall back to sample data. See [capability/API handoff](docs/admin-peer-api-request.md).
+Historical layout/prototype notes below describe their original milestones; their mock transport and readiness statements are superseded by CHANGE-159/160.
 
 CHANGE-116 restores the original Order detail card sizes/two-column arrangement.
 Version and Item Description exchange positions, leaving description last;
@@ -307,11 +282,7 @@ docker compose -f compose.yaml -f compose.http-peers.yaml up -d --build order-se
 ~~~
 
 Use the existing gateway at http://localhost:8080 and refresh the page.
-The sample API requires ORDER_ADMIN_MOCK_ENABLED=true (local Compose default),
-FOC_ENVIRONMENT=local and FIREBASE_AUTH_EMULATOR_HOST. Cloud defaults exclude
-these mocks. Real endpoint authentication is unchanged. Local demo updates reset on
-Order restart; the local demo makes no real database/account/role/supplier/credit
-mutations. Live Supplier actions use their existing real provider contracts.
+The Report sample API alone requires ORDER_REPORT_DEMO_ENABLED=true, FOC_ENVIRONMENT=local and FIREBASE_AUTH_EMULATOR_HOST. Report fixtures reset on Order restart and never change real funds, scores or accounts. All other Admin sections call real local peers and require a real admin role.
 See [peer API requests](docs/admin-peer-api-request.md),
 [design](docs/decisions/ADR-039-admin-ui-local-mock-prototype.md) and
 [verification](changes/CHANGE-111-admin-ui-mock-prototype.md).
@@ -510,3 +481,56 @@ Yao Xiang approved placing a requester-owned completion hold on any Order status
 The user explicitly clarified that ordinary cancellation, expiry and courier abort (and their refunds/penalties) must remain paused, in addition to requester/automatic completion. START, PICKUP and DELIVER continue normally; acceptance keeps its existing behavior. Admin cancellation remains the previously approved explicit override. Auto-completion and expiry retain held-row SQL exclusion. Report mock submission fixtures remain delivered-item samples; this change broadens the real Order hold endpoint, not a production Report Service implementation.
 
 No schema, event/topic, frontend, shared configuration or sibling backend change. This is eligibility validation only. See CHANGE-153 and ADR-052.
+
+
+CHANGE-159: [Reporting/Order integration](docs/reporting-order-integration.md) documents the new active list/report-hold APIs, current-snapshot retries, admin No penalty override, ready User/Credit links and deferred Report resolution saga.
+
+
+## Effective ready Admin integration — CHANGE-160
+
+CHANGE-160 / ADR-057 (Yao Xiang, 2026-10-28): all non-Report Admin sections use ready provider APIs in base Compose, HTTP-peer Compose, staging and production. Generic /api/orders/admin-mock routes and frontend transport are removed. User search retains the category dropdown with ID only, adapting existing admin profile lookup into a single-result page; blank/clear makes no peer call and name search remains pending. Reports alone retain /api/orders/admin-mock/reports with independent ORDER_REPORT_DEMO_ENABLED / FOC_REPORT_API_MODE settings gated by local environment plus Auth emulator; cloud Reports remain Coming soon. Report-only fixture store/mapper replace generic Admin mock CRUD. No schema, score, Order lifecycle, provider authorization or sibling backend changes. Feedback now contains only pending work; historical records are archived in the same docs folder.
+
+See [pending peer contracts](docs/peer-service-api-feedback.md).
+
+## Effective real User directory and resolution display — CHANGE-161
+
+CHANGE-161 / ADR-058 (Yao Xiang,2026-10-29) supersedes CHANGE-160 ID-only/blank-directory behavior: GET /api/users/admin/search supplies the initial real User page and optional exact Firebase ID/literal case-insensitive username search, Mongo count/filter/sort/paging, size1..100 and active-admin authorization. User Service edits are explicitly limited to this endpoint/DTO/query, tests/test dependency and maintainer handoff; legacy routes/model/role/penalty/deactivation behavior unchanged. Frontend requests20, keeps ID default and enables Name, with no generic mock fallback. Admin resolution is full-width below Repost information; retired waiver fields/empty admin values are hidden in UI only. No Order lifecycle/schema/saga/config/cloud change. Only Report remains a missing Admin HTTP integration; separate subscriber/Supplier guard follow-ups remain.
+
+Contract/handoff: ../user-service/user-servicehandoff.md. Verification: CHANGE-161.
+
+
+## Effective Report resolution saga — CHANGE-162 / ADR-059 (2026-10-29)
+
+Approved by Yao Xiang on order-service/admin-ui-linking: implement a guarded Order contract stub while Report Service is absent. Initial callback-free Report resolve is synchronous HTTP with admin Firebase token/reply; Order persists a bound command and possible-effect marker before the call. Confirmed remote result permits one locked transaction releasing only that report hold plus SUCCEEDED/saved result. Failed or uncertain local success chooses separate durable generation2 compensation through the existing Pub/Sub outbox. Authenticated exact-binding result inbox commit, not broker ACK, confirms reversal/fence. Committed local success is never compensated after a lost response. Pending/reconciliation holds stay active and manual release is guarded even after transport disablement.
+
+V18 adds independent Report journal/inbox; no placement-snapshot backfill, Credit journal change or old migration edit. Existing minute scheduler selects due IDs in SQL (limit20), with per-command transactions/catches; no new whole-batch timer. New conditional admin resolve/status APIs and dedicated Google OIDC result receiver default disabled. Configuration/.env.example document explicit topics/URL/identity. No Report backend, GCP provisioning, deployment activation or frontend change. Reports stay local sample/cloud Coming soon. Existing progress/funding/penalty/admin-cancel rules are retained.
+
+Report must implement operation preimage/revision checks, idempotent resolve, generation fences/tombstones, conditional restore and durable result outbox. This supersedes earlier proposed HTTP restore/result-query requirements only for Report resolution. Proposed exact protocol, diagram, migration and activation gates: docs/report-servicehandoff.md (relative to Order root); ADR-059 and changes/CHANGE-162-report-resolution-compensation-saga.md. Tests use explicit peer fixtures, not a verified live Report integration.
+
+
+## Approved Report response window and early resolution — CHANGE-163 / ADR-060 (2026-10-29)
+
+Yao Xiang confirms the courier response deadline is required. Report persists/exposes responseDeadlineAt and changes to READY_FOR_REVIEW on a timely response or deadline expiry without response. This supersedes earlier no-deadline guidance; no new duration is selected here. Admin may resolve either unresolved status; still-awaiting cases require a UI warning/confirmation that the courier has not responded and still has time. Required reply is stored as resolutionNote with resolvedBy/resolvedAt and is visible only to submitter/admin. Violation category changes remain undecided.
+
+Documented Report provider responsibilities retain ADR-059: synchronous callback-free resolution with admin token, atomic report/operation-preimage/revision journal, stable command deduplication, generation2 compensation/fencing and durable authenticated result. Restore actual prior state/reply, reconcile the original deadline, and preserve newer work. No Order wire change or new confirmation flag is introduced. Report source is absent; this is a documentation milestone, not implemented Report/UI behavior. Local sample Report behavior is unchanged, Order saga defaults disabled and cloud Reports remains Coming soon. Exact peer requirements/tests: docs/report-servicehandoff.md (relative to Order root).
+
+
+## Automatic repost retry repair — CHANGE-164 (2026-10-29)
+
+Yao Xiang explicitly requests repeated automatic repost attempts until success. Existing NTH4/ADR-055/V16 flow is retained: SQL-only due selection, original NOWAIT lock/unique pending command guard, refund/requester/location checks, one forward Credit effect per immutable attempt, durable compensation on uncertainty, and atomic successor/link/plan-used/result commit.
+
+Safe completed automatic rejections no longer permanently exclude the original. Each later eligible minute pass may register a fresh server-only AUTO_REPOST:<originalId>:retry:<UUID> command/candidate after the previous attempt is COMPLETED/REJECTED, FULLY_COMPENSATED and its Credit step is FAILED or COMPENSATED. First legacy key, all old candidate IDs/results/fences and public/peer payloads stay intact. Pending/reconciling/uncertain work blocks another attempt; success is replayed rather than repeated. DB selection prioritizes older due work over recently failed plans and remains bounded100; latest-attempt SQL is actor/order scoped, newest-first/limit1, not an in-memory history search.
+
+No attempt-count cutoff is imposed on safe later attempts. Retry stops when a successor exists or the configured plan expires/is disabled/used; holds and deactivation/pending guards remain. Unresolved or exhausted compensation publication is not bypassed and retains the existing operator recovery requirement. No new schema, API, topic, credentials, timer, flag, frontend or sibling/backend/cloud change. Existing automatic-repost/compensation activation gates remain unchanged. Tests and rollout evidence: changes/CHANGE-164-automatic-repost-retry-until-success.md (relative to Order root).
+
+
+## Reporting integration ? CHANGE-166
+
+Report selectors and atomic hold placement exclude OPEN and terminal Orders; only ACCEPTED, IN_PROGRESS, PICKED_UP and DELIVERED are reportable. This restriction does not change deletion/involvement checks. Reporting Service now implements the agreed resolution/compensation contracts and real Admin UI transport. Both saga flags remain opt-in; see [Report handoff](../reporting-service/HANDOFF.md).
+
+
+Report saga cloud setup (CHANGE-167): `infra/gcp/configure-report-pubsub.sh staging|production prepare|wire` prepares identities and wires the existing subscriptions after deployment. Order Publisher grants remain untouched and both saga flags default false. Follow [Report rollout instructions](../reporting-service/HANDOFF.md#cloud-rollout-change-167-approved-2026-10-30); this does not provision resources automatically during CI.
+
+Report enhancements (CHANGE-168): optional completed Order context for credit complaints, requester/courier-scoped SQL reads, nullable startedAt, duplicate-report protection and the caller-scoped courier response count are implemented. See [Report handoff](../reporting-service/HANDOFF.md). No credit adjustment or new topic is introduced.
+
+Effective Report simplification (CHANGE-169): credit/general reports are unlinked and the original active-order dropdown is restored. The courier reply badge remains. Independent caller-scoped completed/cancelled Order history lives in OrderCreditHistoryController at /api/orders/mine/completed and /api/orders/mine/cancelled (list/detail); Report submission does not call these APIs. No new topics or migration.

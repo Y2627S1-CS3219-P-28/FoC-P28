@@ -50,6 +50,11 @@ class OpenApiDocumentationTest {
 
         JsonNode paths = mapper.readTree(json).path("paths");
         assertThat(paths.isEmpty()).as("OpenAPI document lists no paths").isFalse();
+        JsonNode directory = paths.path(PREFIX + "/admin/search").path("get");
+        assertThat(directory.path("responses").has("200")).isTrue();
+        for (String code : List.of("400", "401", "403", "503")) assertThat(directory.path("responses").has(code)).isTrue();
+        assertThat(directory.path("parameters").size()).isEqualTo(4);
+        assertThat(directory.path("security").isEmpty()).isFalse();
 
         List<String> problems = new ArrayList<>();
         for (Map.Entry<String, JsonNode> path : paths.properties()) {

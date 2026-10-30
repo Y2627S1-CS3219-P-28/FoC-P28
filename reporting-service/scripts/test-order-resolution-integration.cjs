@@ -15,7 +15,7 @@ async function until(check,label){for(let i=0;i<120;i++){try{const v=await check
 function startJar(label,jar,env){const fd=fs.openSync(path.join(target,'live-'+label+'.log'),'w');const child=cp.spawn(java,['-XX:ActiveProcessorCount=2','-Xmx512m','-jar',jar],{cwd:root,env:{...process.env,...env},stdio:['ignore',fd,fd],windowsHide:true});children.push(child);fs.closeSync(fd);child.on('error',e=>console.error(label,e.message));}
 function token(id,email=id+'@example.com'){const encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url'),now=Math.floor(Date.now()/1000);return encode({alg:'none',typ:'JWT'})+'.'+encode({sub:id,user_id:id,email,iat:now,exp:now+3600,iss:'https://securetoken.google.com/'+project,aud:project})+'.';}
 async function call(base,url,who,body,method=body===undefined?'GET':'POST',expected=200){const headers={Authorization:'Bearer '+token(who)};let data;if(body instanceof FormData)data=body;else if(body!==undefined){headers['Content-Type']='application/json';data=JSON.stringify(body);}const response=await fetch(base+url,{method,headers,body:data,signal:AbortSignal.timeout(30000)});const text=await response.text();assert.equal(response.status,expected,method+' '+url+': '+text);return text?JSON.parse(text):null;}
-async function broker(base,url,body,method='PUT'){const r=await fetch(base+'/v1/projects/'+project+url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const t=await r.text();if(!r.ok)throw Error('Broker '+r.status+': '+t);return t?JSON.parse(t):{};}
+async function broker(base,url,body,method='PUT'){const r=await fetch(base+'/v1/projects/'+project+url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});const t=await r.text();if(!r.ok)throw Error('Broker '+r.status+': '+t);return t?JSON.parse(t):{};}
 let pg,proxy,dropReplyFor='',delayOriginalFor='';
 function sql(text){return d(['exec',pg.name,'psql','-U','test','-d','order_test','-At','-v','ON_ERROR_STOP=1','-c',text]);}
 (async()=>{const keepAlive=setInterval(()=>{},1000);let failure;
@@ -24,6 +24,7 @@ try {
  pg=container('pg','postgres:15-alpine',['-e','POSTGRES_DB=order_test','-e','POSTGRES_USER=test','-e','POSTGRES_PASSWORD=fixture-only'],5432);
  const firestore=container('fs',image,[],8080),pubsub=container('pubsub',image,[],8085);
  const orderPort=await freePort(),reportPort=await freePort();const order='http://127.0.0.1:'+orderPort,report='http://127.0.0.1:'+reportPort;
+ console.log('Disposable containers started; application ports allocated.');
  proxy=http.createServer(async(req,res)=>{
    try {
      const chunks=[];for await(const chunk of req)chunks.push(chunk);const body=Buffer.concat(chunks);
@@ -36,9 +37,12 @@ try {
    }catch{if(!res.destroyed){res.writeHead(502);res.end();}}
  });
  await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));const reportGateway='http://127.0.0.1:'+proxy.address().port;
+ console.log('HTTP fault proxy listening.');
  const brokerUrl='http://127.0.0.1:'+pubsub.port;
  await until(()=>{try{return sql('select 1')==='1';}catch{return false;}},'PostgreSQL');
- await until(async()=>{const r=await fetch(brokerUrl+'/v1/projects/'+project+'/topics');return r.status===200;},'Pub/Sub');
+ console.log('PostgreSQL ready.');
+ await until(async()=>{const r=await fetch(brokerUrl+'/v1/projects/'+project+'/topics',{signal:AbortSignal.timeout(2000)});return r.status===200;},'Pub/Sub');
+ console.log('Pub/Sub ready.');
  const requestTopic='report-resolution-compensation-local-v1',resultTopic='report-resolution-compensation-result-local-v1';
  const requestSub='report-resolution-request-local',resultSub='order-resolution-result-local';
  for(const name of [requestTopic,resultTopic,'order-completion-dev-v1','open-order-refund-dev-v1','courier-penalty-addition-dev-v1','courier-penalty-deduction-dev-v1'])await broker(brokerUrl,'/topics/'+name,{});
@@ -46,13 +50,23 @@ try {
  await broker(brokerUrl,'/subscriptions/'+resultSub,{topic:'projects/'+project+'/topics/'+resultTopic,pushConfig:{pushEndpoint:'http://host.docker.internal:'+orderPort+'/api/orders/internal/report-resolution-compensations'},ackDeadlineSeconds:30});
  const common={FOC_ENVIRONMENT:'local',FIREBASE_AUTH_PROJECT_ID:project,FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:9099',USER_SERVICE_MODE:'mock',MOCK_ADMIN_EMAILS:'admin@example.com',PUBSUB_EMULATOR_HOST:'127.0.0.1:'+pubsub.port,LOG_LEVEL:'INFO'};
  startJar('report',reportJar,{...common,PORT:String(reportPort),FIRESTORE_PROJECT_ID:project,FIRESTORE_DATABASE_ID:'reporting-saga-test',FIRESTORE_EMULATOR_HOST:'127.0.0.1:'+firestore.port,STORAGE_EMULATOR_HOST:'http://127.0.0.1:9',ORDER_SERVICE_URL:order,ORDER_SERVICE_TIMEOUT:'20s',REPORT_RESOLUTION_ENABLED:'true',REPORT_PUBSUB_PROJECT_ID:project,REPORT_RESOLUTION_RESULT_TOPIC:resultTopic,REPORT_RESOLUTION_COMPENSATION_SUBSCRIPTION:'projects/'+project+'/subscriptions/'+requestSub,REPORT_RESOLUTION_PUSH_MODE:'emulator',REPORT_RESULT_RECOVERY_CRON:'-'});
- startJar('order',orderJar,{...common,PORT:String(orderPort),SPRING_PROFILES_ACTIVE:'prod',SPRING_DATASOURCE_URL:'jdbc:postgresql://127.0.0.1:'+pg.port+'/order_test',SPRING_DATASOURCE_USERNAME:'test',SPRING_DATASOURCE_PASSWORD:'fixture-only',SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:'3',ORDER_PEERS_MODE:'mock',ORDER_USER_SERVICE_MODE:'mock',ORDER_LIFECYCLE_CRON:'-',ORDER_OUTBOX_RECOVERY_CRON:'-',ORDER_MESSAGING_MODE:'emulator',PUBSUB_PROJECT_ID:project,ORDER_REPORT_RESOLUTION_ENABLED:'true',ORDER_REPORT_RESOLUTION_TIMEOUT:'3s',REPORT_SERVICE_URL:reportGateway,ORDER_REPORT_COMPENSATION_TOPIC:requestTopic,REPORT_COMPENSATION_RESULT_TOPIC:resultTopic,ORDER_REPORT_COMPENSATION_RESULT_SUBSCRIPTION:resultSub,ORDER_REPORT_COMPENSATION_PUSH_MODE:'emulator'});
+ startJar('order',orderJar,{...common,PORT:String(orderPort),SPRING_PROFILES_ACTIVE:'prod',SPRING_DATASOURCE_URL:'jdbc:postgresql://127.0.0.1:'+pg.port+'/order_test',SPRING_DATASOURCE_USERNAME:'test',SPRING_DATASOURCE_PASSWORD:'fixture-only',SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:'3',ORDER_PEERS_MODE:'mock',ORDER_USER_SERVICE_MODE:'mock',ORDER_LIFECYCLE_CRON:'-',ORDER_OUTBOX_RECOVERY_CRON:'*/1 * * * * *',ORDER_MESSAGING_MODE:'emulator',PUBSUB_PROJECT_ID:project,ORDER_REPORT_RESOLUTION_ENABLED:'true',ORDER_REPORT_RESOLUTION_TIMEOUT:'3s',REPORT_SERVICE_URL:reportGateway,ORDER_REPORT_COMPENSATION_TOPIC:requestTopic,REPORT_COMPENSATION_RESULT_TOPIC:resultTopic,ORDER_REPORT_COMPENSATION_RESULT_SUBSCRIPTION:resultSub,ORDER_REPORT_COMPENSATION_PUSH_MODE:'emulator'});
  for(const [name,origin] of [['Order',order],['Report',report]])await until(async()=>{const r=await fetch(origin+'/actuator/health');return r.status===200;},name+' health');
  async function create(){const expiry=new Date(Date.now()+4*3600000);expiry.setUTCMinutes(Math.ceil(expiry.getUTCMinutes()/15)*15,0,0);return call(order,'/api/orders','requester',{commandId:crypto.randomUUID(),requesterId:'requester',itemDescription:'Saga integration parcel',pickupSupplierId:'pickup',deliverySupplierId:'delivery',offeredCredits:1,deliveryTimeLimitMinutes:60,expiresAt:expiry.toISOString(),automaticRepost:false,repostDueAt:null,repostCreditAmount:0,repostDeliveryDurationMinutes:0,repostExpiresAt:null});}
  async function action(o,step,who,expected=200){return call(order,'/api/orders/'+o.id+'/'+step,who,{commandId:crypto.randomUUID(),actorId:who,expectedVersion:o.version},'POST',expected);}
- async function submit(o){const form=new FormData();form.append('report',new Blob([JSON.stringify({category:'COURIER',description:'Parcel damaged',orderId:o.id})],{type:'application/json'}));return call(report,'/api/reports','requester',form,'POST',201);}
+ async function submit(o,expected=201){const form=new FormData();form.append('report',new Blob([JSON.stringify({category:'COURIER',description:'Parcel damaged',orderId:o.id})],{type:'application/json'}));return call(report,'/api/reports','requester',form,'POST',expected);}
+ const open=await create();
+ assert(!(await call(order,'/api/orders/mine/active?page=1&size=100','requester')).items.some(x=>x.id===open.id));
+ await call(order,'/api/orders/mine/active/'+open.id+'/report-holds/'+crypto.randomUUID(),'requester',{requireAssignedCourier:false},'PUT',404);
+ const openReport=new FormData();openReport.append('report',new Blob([JSON.stringify({category:'ORDER',description:'Not accepted yet',orderId:open.id})],{type:'application/json'}));
+ await call(report,'/api/reports','requester',openReport,'POST',404);
+ assert.equal(sql("select count(*) from order_completion_holds where order_id='"+open.id+"'"),'0');
+ evidence.push('OPEN excluded from SQL report selector; atomic hold and Report submission reject OPEN without leaving a hold PASS');
  let o=await action(await create(),'accept','courier'),r=await submit(o);
  assert.equal(r.status,'AWAITING_COURIER_RESPONSE');
+ assert.equal((await call(report,'/api/reports/mine/response-count','courier')).count,1);
+ assert.equal((await call(report,'/api/reports/mine/response-count','other')).count,0);
+ const duplicate=await submit(o,409);assert(duplicate.message.includes('already has an active report'));
  const mine=await call(order,'/api/orders/mine/active?page=1&size=100','requester');assert(mine.items.some(x=>x.id===o.id));
  assert.equal((await call(order,'/api/orders/mine/active?page=1&size=100','other')).totalItems,0);
  const hold=await call(order,'/api/orders/mine/active/'+o.id+'/report-holds/'+r.id,'requester',{requireAssignedCourier:true},'PUT');assert.equal(hold.isCompletionHold,true);
@@ -68,6 +82,27 @@ try {
  o=await call(order,'/api/orders/'+o.id,'requester');assert.equal(o.isCompletionHold,false);
  o=await action(o,'complete','requester');assert.equal(o.status,'COMPLETED');
  evidence.push('Actual active-order selection, atomic hold/retry current snapshot, delivery while held, blocked completion, coordinated resolution/replay and private reply PASS');
+
+ assert.equal((await call(report,'/api/reports/mine/response-count','courier')).count,0);
+ for(const who of ['requester','courier'])assert((await call(order,'/api/orders/mine/completed?page=1&size=20',who)).items.some(x=>x.id===o.id));
+ assert(!(await call(order,'/api/orders/mine/completed?page=1&size=20','other')).items.some(x=>x.id===o.id));
+ assert((await call(order,'/api/orders/mine/completed/'+o.id,'courier')).startedAt);
+ await call(order,'/api/orders/mine/completed/'+o.id,'other',undefined,'GET',404);
+ await call(order,'/api/orders/mine/completed/'+open.id,'requester',undefined,'GET',404);
+ async function credit(who,id,expected=201){const form=new FormData();form.append('report',new Blob([JSON.stringify({category:'CREDITS',description:'Missing delivery credit',orderId:id})],{type:'application/json'}));return call(report,'/api/reports',who,form,'POST',expected);}
+
+ await credit('courier',o.id,400);
+ const creditReport=await credit('courier',null);assert.equal(creditReport.status,'READY_FOR_REVIEW');assert.equal(creditReport.courierId,null);assert.equal(creditReport.orderId,null);
+ const creditResolved=await call(report,'/api/reports/'+creditReport.id+'/resolve','admin',{commandId:crypto.randomUUID(),reply:'Credit issue reviewed.'});assert.equal(creditResolved.status,'RESOLVED');
+ const cancelled=await action(await create(),'cancel','requester');assert.equal(cancelled.status,'CANCELLED');
+ assert((await call(order,'/api/orders/mine/cancelled?page=1&size=20','requester')).items.some(x=>x.id===cancelled.id));
+ assert.equal((await call(order,'/api/orders/mine/cancelled/'+cancelled.id,'requester')).status,'CANCELLED');
+ await call(order,'/api/orders/mine/cancelled/'+cancelled.id,'other',undefined,'GET',404);
+ await call(order,'/api/orders/mine/cancelled/'+o.id,'requester',undefined,'GET',404);
+ await call(order,'/api/orders/mine/completed/'+cancelled.id,'requester',undefined,'GET',404);
+ assert.equal(sql("select completion_hold from orders where id='"+o.id+"'"),'f');
+ assert.equal((await call(report,'/api/reports/mine/response-count','courier')).count,0);
+ evidence.push('Completed/cancelled caller-scoped SQL history, unlinked credit submission/resolution, linked-credit rejection and courier reminder count PASS');
  // Fail only final Order hold release AFTER Report commits. No service mock handles resolution/compensation.
  let bad=await action(await create(),'accept','courier'),dispute=await submit(bad);
  sql("CREATE FUNCTION fail_test_release() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id='"+bad.id+"' AND OLD.completion_hold AND NOT NEW.completion_hold THEN RAISE EXCEPTION 'isolated test release failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_test_release BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION fail_test_release();");

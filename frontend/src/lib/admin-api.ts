@@ -23,6 +23,7 @@ export type AdminUser = {
   phoneNumber: string | null
   address: string | null
   active: boolean | null
+  accountStatus?: string | null
   usableBalance: number | null
   reservedBalance: number | null
   totalBalance: number | null
@@ -48,60 +49,11 @@ export const ADMIN_ORDER_STATUSES: OrderStatus[] = [
   "COMPLETED", "CANCELLED", "ABORTED", "EXPIRED",
 ]
 
-const MOCK_ROOT = "/api/orders/admin-mock"
 const ADMIN_TABLE_PAGE_SIZE = 20
-const resource = (kind: string, id: string) => MOCK_ROOT + "/" + kind + "/" + encodeURIComponent(id)
 
-/** Transport selection is explicit; live errors never fall back to sample data. */
-export function createAdminApi(request: AdminRequest, mode: AdminApiMode = "mock") {
-  if (mode === "live") return createLiveAdminApi(request)
-  const search = (query: AdminSearch, size = 10) => new URLSearchParams({
-    page: String(query.page), size: String(size), searchBy: query.searchBy, q: query.q.trim(),
-  }).toString()
-
-  return {
-    mode,
-    capabilities: { userDirectory: true, userActions: true, creditTransactions: true },
-    penaltyPolicies: (signal?: AbortSignal) => request<PenaltyPolicy[]>("/api/orders/admin/penalty-policies", { signal }),
-    applyPenalty: (id: string, body: ApplyPenaltyInput) => request<AdminOrder>(resource("orders", id) + "/apply-penalty", { method: "POST", body }),
-    resolveOrder: (id: string, action: AdminOrderAction, input: AdminOrderResolution) =>
-      request<AdminOrder>(resource("orders", id) + "/" + action, { method: "POST", body: input }),
-    recordName: async () => null as string | null,
-    roleContext: (userId: string, signal?: AbortSignal) =>
-      request<AdminRoleContext>(MOCK_ROOT + "/role-context?" + new URLSearchParams({ userId }), { signal }),
-    orders: (query: AdminOrderQuery, signal?: AbortSignal) => {
-      const params = new URLSearchParams({ page: String(query.page), size: String(ADMIN_TABLE_PAGE_SIZE) })
-      if (query.status) params.set("status", query.status)
-      if (query.orderId.trim()) params.set("orderId", query.orderId.trim())
-      addDateBounds(params, query)
-      return request<Page<AdminOrder>>(MOCK_ROOT + "/orders?" + params, { signal })
-    },
-    order: async (id: string, signal?: AbortSignal) => {
-      const params = new URLSearchParams({ page: "1", size: "1", orderId: id })
-      const result = await request<Page<AdminOrder>>(MOCK_ROOT + "/orders?" + params, { signal })
-      const order = result.items[0]
-      if (!order || order.id !== id) throw new Error("Order not found.")
-      return order
-    },
-    users: (query: AdminSearch, signal?: AbortSignal) =>
-      request<Page<AdminUser>>(MOCK_ROOT + "/users?" + search(query, ADMIN_TABLE_PAGE_SIZE), { signal }),
-    user: (id: string, signal?: AbortSignal) => request<AdminUser>(resource("users", id), { signal }),
-    userTransactions: (id: string, page: number, signal?: AbortSignal) =>
-      request<CreditTransactionPage>(resource("users", id) + "/transactions?" + new URLSearchParams({ page: String(page), size: "20" }), { signal }),
-    suspendUser: (id: string, suspensionEndDate: string) =>
-      request<AdminUser>(resource("users", id) + "/suspend", { method: "POST", body: { suspensionEndDate } }),
-    promoteUser: (id: string) =>
-      request<AdminUser>(resource("users", id) + "/promote", { method: "POST" }),
-    deactivateUser: (id: string) =>
-      request<AdminUser>(resource("users", id) + "/deactivate", { method: "POST" }),
-    suppliers: (query: AdminSearch, signal?: AbortSignal) =>
-      request<Page<Supplier>>(MOCK_ROOT + "/suppliers?" + search(query), { signal }),
-    supplier: (id: string, signal?: AbortSignal) => request<Supplier>(resource("suppliers", id), { signal }),
-    createSupplier: (input: SupplierInput) =>
-      request<Supplier>(MOCK_ROOT + "/suppliers", { method: "POST", body: input }),
-    deactivateSupplier: (id: string) =>
-      request<Supplier>(resource("suppliers", id) + "/deactivate", { method: "POST" }),
-  }
+/** Administrative operations always use provider APIs. Reports have a separate local demo transport. */
+export function createAdminApi(request: AdminRequest) {
+  return createLiveAdminApi(request)
 }
 
 function createLiveAdminApi(request: AdminRequest) {
@@ -112,11 +64,11 @@ function createLiveAdminApi(request: AdminRequest) {
       detail("/api/users/summary", id), { signal })
   const order = async (id: string, signal?: AbortSignal): Promise<AdminOrder> =>
     adminOrder(await request<Order>(detail("/api/orders", id), { signal }))
-  const unavailable = async <T>(): Promise<T> => { throw new Error("Coming soon: this administrative API is not available yet.") }
 
+  const profile = async (id: string, signal?: AbortSignal) => normalizeUser(await request<UserProfile>(detail("/api/users", id), { signal }), id)
   return {
     mode: "live" as const,
-    capabilities: { userDirectory: false, userActions: false, creditTransactions: true },
+    capabilities: { userDirectory: true, userActions: true, creditTransactions: true },
     penaltyPolicies: (signal?: AbortSignal) => request<PenaltyPolicy[]>("/api/orders/admin/penalty-policies", { signal }),
     applyPenalty: async (id: string, body: ApplyPenaltyInput) => adminOrder(await request<Order>(detail("/api/orders/admin", id) + "/apply-penalty", { method: "POST", body })),
     resolveOrder: async (id: string, action: AdminOrderAction, input: AdminOrderResolution) =>
@@ -135,20 +87,26 @@ function createLiveAdminApi(request: AdminRequest) {
       return { ...result, items: result.items.map(adminOrder) }
     },
     order,
-    // Only the existing public summary is read until the full admin profile is ready.
-    user: async (id: string, signal?: AbortSignal): Promise<AdminUser> => {
-      const result = await summary(id, signal)
-      if (result.userId !== id) throw new Error("User summary does not match the requested user.")
-      return { ...result, id: null, phoneNumber: null, address: null, active: null,
-        usableBalance: null, reservedBalance: null, totalBalance: null }
+    user: profile,
+    userBalance: async (id: string, signal?: AbortSignal) => {
+      const balance = await request<Pick<AdminUser, "userId" | "usableBalance" | "reservedBalance" | "totalBalance">>(detail("/api/credits/users", id) + "/balance", { signal })
+      if (!balance || balance.userId !== id) throw new Error("Credit balance does not match the requested user.")
+      return balance
     },
-    users: unavailable<Page<AdminUser>>,
+    users: async (query: AdminSearch, signal?: AbortSignal): Promise<Page<AdminUser>> => {
+      const params = new URLSearchParams({ page: String(query.page), size: String(ADMIN_TABLE_PAGE_SIZE), searchBy: query.searchBy })
+      if (query.q.trim()) params.set("q", query.q.trim())
+      const result = await request<Page<UserProfile>>("/api/users/admin/search?" + params, { signal })
+      return { ...result, items: result.items.map(user => normalizeUser(user, user.userId)) }
+    },
     userTransactions: (id: string, page: number, signal?: AbortSignal) =>
       request<CreditTransactionPage>(detail("/api/credits/users", id) + "/transactions?" +
         new URLSearchParams({ page: String(page), size: "20" }), { signal }),
-    suspendUser: unavailable<AdminUser>,
-    promoteUser: unavailable<AdminUser>,
-    deactivateUser: unavailable<AdminUser>,
+    promoteUser: async (id: string) => normalizeUser(await request<UserProfile>(detail("/api/users", id) + "/user-promotion", { method: "PUT" }), id),
+    deactivateUser: async (id: string) => {
+      await request<unknown>(detail("/api/users", id), { method: "DELETE" })
+      return profile(id)
+    },
     suppliers: (query: AdminSearch, signal?: AbortSignal): Promise<Page<Supplier>> => {
       if (query.searchBy === "id" && query.q.trim()) return exactPage(() => supplier(query.q.trim(), signal), query.page)
       const params = new URLSearchParams({ page: String(query.page), size: "10", status: "all" })
@@ -194,4 +152,15 @@ async function exactPage<T>(load: () => Promise<T>, page: number, matches: (item
     if (!(error instanceof ApiError) || error.status !== 404) throw error
     return { items: [], page, size, totalItems: 0, totalPages: 0 }
   }
+}
+
+
+type UserProfile = Pick<AdminUser, "id" | "userId" | "username" | "email" | "roles" | "penalty" | "isCourierSuspended" | "suspensionEndDate"> & { status?: string; phoneNumber?: string | null; address?: string | null }
+function normalizeUser(result: UserProfile, id: string): AdminUser {
+  if (!result || result.userId !== id) throw new Error("User profile does not match the requested user.")
+  return { id: result.id ?? null, userId: result.userId, username: result.username, email: result.email,
+    roles: result.roles, penalty: result.penalty, isCourierSuspended: result.isCourierSuspended, suspensionEndDate: result.suspensionEndDate,
+    phoneNumber: result.phoneNumber ?? null, address: result.address ?? null, accountStatus: result.status ?? null,
+    active: result.status === "ACTIVE" ? true : result.status === "DEACTIVATED" || result.status === "DEACTIVATION_PENDING" ? false : null,
+    usableBalance: null, reservedBalance: null, totalBalance: null }
 }

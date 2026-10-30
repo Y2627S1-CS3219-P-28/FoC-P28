@@ -19,7 +19,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import sg.edu.nus.foc.reporting.error.ApiError;
 import tools.jackson.databind.json.JsonMapper;
 
-class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDeniedHandler {
+public class JsonSecurityHandlers implements AuthenticationEntryPoint, AccessDeniedHandler {
     private final JsonMapper mapper; private final Clock clock;
     JsonSecurityHandlers(JsonMapper mapper, Clock clock) { this.mapper = mapper; this.clock = clock; }
     @Override public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException {

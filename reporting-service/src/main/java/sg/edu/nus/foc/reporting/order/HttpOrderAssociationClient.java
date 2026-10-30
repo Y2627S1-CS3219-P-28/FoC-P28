@@ -54,6 +54,9 @@ public class HttpOrderAssociationClient implements OrderAssociationClient {
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) throw new NotFoundException("The selected order is unavailable for reporting.");
             if (e.getStatusCode().isSameCodeAs(HttpStatus.CONFLICT)) {
+                if (e.getResponseBodyAsString().contains("This order already has an active report.")) {
+                    throw new ConflictException("This order already has an active report. Please resolve it before submitting another report.");
+                }
                 throw new ConflictException("The selected order cannot accept this report.");
             }
             throw new DependencyUnavailableException("Order Service is unavailable.", e);

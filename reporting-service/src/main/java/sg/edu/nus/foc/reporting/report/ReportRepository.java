@@ -13,6 +13,7 @@ import java.util.function.UnaryOperator;
 
 public interface ReportRepository {
     Report save(Report report);
+    default Report saveNewLinked(Report report) { return save(report); }
     Optional<Report> findById(String id);
     PageResult<Report> findAll(int page, int size);
     default PageResult<Report> findAll(int page, int size, String orderId, ReportStatus status) {
@@ -22,4 +23,5 @@ public interface ReportRepository {
     PageResult<Report> findByCourierId(String courierId, int page, int size);
     Optional<Report> update(String id, UnaryOperator<Report> operation);
     default java.util.List<String> dueResponseIds(Instant now) { return java.util.List.of(); }
+    default long countAwaitingResponse(String courierId, Instant now) { return 0; }
 }

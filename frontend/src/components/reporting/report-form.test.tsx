@@ -64,7 +64,7 @@ describe("report form", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Report category" }))
     fireEvent.pointerDown(await screen.findByRole("option", { name: "Credits" }), { pointerType: "mouse" })
     fireEvent.click(screen.getByRole("option", { name: "Credits" }))
-    expect(screen.queryByLabelText("Associated order")).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Associated order" })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Submit report" }))
     await waitFor(() => expect(mocks.api.mock.calls.some(([path]) => path === "/api/reports")).toBe(true))
     const options = mocks.api.mock.calls.find(([path]) => path === "/api/reports")?.[1]
@@ -110,8 +110,8 @@ describe("report form", () => {
   it("does not accept a prefilled order absent from the authoritative response", async () => {
     mocks.api.mockResolvedValue({ items: [order("other", "OPEN")], page: 1, size: 100, totalItems: 1, totalPages: 1 })
     render(<ReportForm initialCategory="ORDER" initialOrderId="unrelated" />)
-    expect(await screen.findByText(/linked order is not active/)).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "Associated order" })).not.toHaveTextContent("unrelated")
+    expect(await screen.findByText(/linked order is not eligible/)).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /unrelated/ })).not.toBeInTheDocument()
   })
 
   it("prevents duplicate submission while the first request is pending", async () => {
@@ -129,4 +129,33 @@ describe("report form", () => {
     resolveReport({ id: "once" })
     expect(await screen.findByText("Reference: once")).toBeInTheDocument()
   })
+  it("submits Credits without an order picker or lookup, even when a link contains an order ID", async () => {
+    mocks.api.mockResolvedValue({ id: "credit-report" })
+    render(<ReportForm initialCategory="CREDITS" initialOrderId="paid" />)
+    expect(screen.queryByRole("combobox", { name: "Associated order" })).not.toBeInTheDocument()
+    expect(mocks.api).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText("Description (required)"), { target: { value: "Missing payment" } })
+    fireEvent.click(screen.getByRole("button", { name: "Submit report" }))
+    expect(await screen.findByText("Reference: credit-report")).toBeInTheDocument()
+    expect(mocks.api).toHaveBeenCalledTimes(1)
+    const body = mocks.api.mock.calls[0][1].body as FormData
+    const payload = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = reject
+      reader.readAsText(body.get("report") as Blob)
+    })
+    expect(JSON.parse(payload)).toMatchObject({ category: "CREDITS", orderId: null })
+  })
+  it("explains an existing active report without sending another submission", async () => {
+    mocks.api.mockResolvedValue({ items: [{ ...order("held", "DELIVERED"), isCompletionHold: true }], totalPages: 1 })
+    render(<ReportForm initialCategory="ORDER" initialOrderId="held" />)
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Associated order" })).toHaveTextContent(/DELIVERED/))
+    expect(screen.queryByText("Active report")).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Description (required)"), { target: { value: "Duplicate" } })
+    fireEvent.click(screen.getByRole("button", { name: "Submit report" }))
+    expect(await screen.findByText("This order already has an active report. Please resolve it before submitting another report.")).toBeInTheDocument()
+    expect(mocks.api.mock.calls.some(([path]) => path === "/api/reports")).toBe(false)
+  })
+
 })

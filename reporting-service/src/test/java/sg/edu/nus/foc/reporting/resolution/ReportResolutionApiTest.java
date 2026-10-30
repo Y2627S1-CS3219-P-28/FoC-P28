@@ -60,10 +60,12 @@ class ReportResolutionApiTest {
                 "attributes",Map.of("eventId",id,"eventType","ReportResolutionCompensationRequested","eventVersion","1"))));
     }
     @Test void settingsRejectUnsafeCloudAndEmulatorActivation() {
-        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"real","t","s","","","localhost:1","emulator","production","localhost:2"));
-        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"real","t","s","","","","google","production",""));
-        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"demo-foc","","s","","","host","emulator","local","auth"));
-        assertDoesNotThrow(()->new ResolutionSettings(true,"real","t","s","https://aud","push@example.com","","google","production",""));
+        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"real","t","s","","","localhost:1","emulator","production","localhost:2","demo-foc"));
+        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"real","t","s","","","","google","production","","real-auth"));
+        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"demo-foc","","s","","","host","emulator","local","auth","demo-foc"));
+        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"demo-foc","t","s","","","host","emulator","local","auth","real-auth"));
+        assertThrows(IllegalStateException.class,()->new ResolutionSettings(true,"real","t","s","https://aud","push@p.iam.gserviceaccount.com","","google","production","auth","real-auth"));
+        assertDoesNotThrow(()->new ResolutionSettings(true,"real","t","s","https://aud","push@p.iam.gserviceaccount.com","","google","production","","real-auth"));
     }
     @Test void dispatcherRetainsFailedWorkAndContinuesOtherResults() throws Exception {
         var settings=new ResolutionSettings(true,"demo-foc","t","s","","","host",true);

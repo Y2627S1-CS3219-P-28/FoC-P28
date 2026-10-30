@@ -7,13 +7,11 @@ import { TransactionHistoryView } from "@/components/credits/transaction-history
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAdminApi } from "@/hooks/use-admin-api"
 import { useAdminPage } from "@/hooks/use-admin-page"
 import type { AdminSearch, AdminUser } from "@/lib/admin-api"
-import { AdminComingSoon, AdminConfirmation, AdminDetails, AdminFilterActions, AdminFilterForm, AdminHeading, AdminLoadState, AdminPagination, AdminSearchForm, CopyId, adminDate } from "./admin-ui"
+import { AdminComingSoon, AdminConfirmation, AdminDetails, AdminHeading, AdminLoadState, AdminPagination, AdminSearchForm, CopyId, adminDate } from "./admin-ui"
 
 function AdminUserTransactions({ userId }: { userId: string }) {
   const api = useAdminApi()
@@ -38,7 +36,7 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const missing = api.mode === "live" ? "Coming soon" : null
+  const missing = "Not provided"
 
   async function mutate(action: () => Promise<AdminUser>, message: string) {
     setBusy(true)
@@ -79,20 +77,13 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
           ["Phone number", selected.phoneNumber ?? missing], ["Address", selected.address ?? missing],
           ["Roles", <div key="roles" className="flex flex-wrap gap-1">{selected.roles.map((role) => <Badge key={role} variant="secondary">{role}</Badge>)}</div>],
           ["Penalty score", selected.penalty],
-          ["Account status", selected.active === null ? missing : <Badge key="status" variant={selected.active ? "outline" : "destructive"}>{selected.active ? "Active" : "Inactive"}</Badge>],
+          ["Account status", selected.accountStatus === "DEACTIVATION_PENDING" ? "Deactivation pending" : selected.active === null ? missing : <Badge key="status" variant={selected.active ? "outline" : "destructive"}>{selected.active ? "Active" : "Inactive"}</Badge>],
           ["Courier status", selected.isCourierSuspended ? "Suspended" : "Active"],
           ["Suspension ends", adminDate(selected.suspensionEndDate)],
         ]} /></CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle className="text-xl">Credit balance</CardTitle><CardDescription>{api.mode === "mock" ? "Sample credit account projection." : "Selected user's credit balance."}</CardDescription></CardHeader>
-        <CardContent><dl className="grid gap-5 sm:grid-cols-3">
-          {[["Available credits", selected.usableBalance], ["Reserved credits", selected.reservedBalance], ["Total credits", selected.totalBalance]].map(([label, value]) =>
-            <div key={String(label)}><dt className="text-sm text-muted-foreground">{label}</dt>
-              <dd className={value == null ? "mt-1 text-sm text-muted-foreground" : "mt-1 text-2xl font-semibold tabular-nums"}>{value ?? missing}</dd></div>)}
-        </dl></CardContent>
-      </Card>
-      {api.capabilities.creditTransactions ? <AdminUserTransactions key={selected.userId} userId={selected.userId} />
+      <AdminUserBalance key={"balance-" + selected.userId} userId={selected.userId} />
+      {api.capabilities.creditTransactions ? <AdminUserTransactions key={"transactions-" + selected.userId} userId={selected.userId} />
         : <AdminComingSoon title="Credit transactions" />}
     </>}
     <AdminConfirmation open={confirmDeactivate} title="Deactivate this user?"
@@ -103,32 +94,12 @@ export function AdminUserProfile({ userId, onBack }: { userId: string; onBack: (
 }
 
 export function AdminUsers() {
-  const api = useAdminApi()
-  return api.capabilities.userDirectory ? <AdminUserDirectory /> : <AdminUserLookup />
-}
-
-function AdminUserLookup() {
-  const [id, setId] = useState("")
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  if (selectedId) return <AdminUserProfile key={selectedId} userId={selectedId} onBack={() => setSelectedId(null)} />
-  return <section className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
-    <AdminHeading title="Users" description="View an existing user's summary by their User ID." />
-    <AdminFilterForm onSubmit={(event) => {
-      event.preventDefault()
-      if (id.trim()) setSelectedId(id.trim())
-    }}>
-      <div className="col-span-2 flex min-w-0 flex-col gap-2"><Label htmlFor="admin-user-id">User ID</Label>
-        <Input id="admin-user-id" className="h-10 min-w-0" maxLength={128} value={id} onChange={(event) => setId(event.target.value)} placeholder="Enter an exact User ID" />
-      </div>
-      <AdminFilterActions><Button type="submit" className="h-10" disabled={!id.trim()}>View profile</Button></AdminFilterActions>
-    </AdminFilterForm>
-    <AdminComingSoon title="User directory" />
-  </section>
+  return <AdminUserDirectory />
 }
 
 function AdminUserDirectory() {
   const api = useAdminApi()
-  const [query, setQuery] = useState<AdminSearch>({ page: 1, searchBy: "name", q: "" })
+  const [query, setQuery] = useState<AdminSearch>({ page: 1, searchBy: "id", q: "" })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const load = useCallback((signal: AbortSignal) => api.users(query, signal), [api, query])
   const { data, loading, error, refresh } = useAdminPage(load)
@@ -137,7 +108,7 @@ function AdminUserDirectory() {
 
   return <section className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
     <AdminHeading title="Users" description="Find a user, view their profile and manage account access." />
-    <AdminSearchForm label="Users" onSearch={(searchBy, q) => setQuery({ page: 1, searchBy, q })} />
+    <AdminSearchForm label="Users" initialSearchBy="id" onSearch={(searchBy, q) => setQuery({ page: 1, searchBy, q })} />
     <AdminLoadState loading={loading} error={error} empty={data?.items.length === 0} retry={refresh} />
     {data && data.items.length > 0 && <>
       <div className="overflow-x-auto rounded-xl border">
@@ -148,11 +119,11 @@ function AdminUserDirectory() {
             <TableCell><span className="block max-w-52 truncate" title={user.email}>{user.email}</span></TableCell>
             <TableCell><CopyId id={user.userId} compact /></TableCell>
             <TableCell><span className="block max-w-40 truncate" title={user.roles.join(", ")}>{user.roles.join(", ")}</span></TableCell>
-            <TableCell><Badge variant="outline">{user.active ? "Active" : "Inactive"}</Badge></TableCell>
+            <TableCell><Badge variant="outline">{user.active === null ? "Unavailable" : user.active ? "Active" : "Inactive"}</Badge></TableCell>
             <TableCell><Badge variant="outline">{user.isCourierSuspended ? "Suspended" : "Active"}</Badge></TableCell>
-            <TableCell>{user.usableBalance}</TableCell>
-            <TableCell>{user.reservedBalance}</TableCell>
-            <TableCell>{user.totalBalance}</TableCell>
+            <TableCell>{user.usableBalance ?? "—"}</TableCell>
+            <TableCell>{user.reservedBalance ?? "—"}</TableCell>
+            <TableCell>{user.totalBalance ?? "—"}</TableCell>
             <TableCell><Button size="sm" variant="outline" aria-label={"View profile of " + user.username} onClick={() => setSelectedId(user.userId)}>View profile</Button></TableCell>
           </TableRow>)}</TableBody>
         </Table>
@@ -160,4 +131,21 @@ function AdminUserDirectory() {
       <AdminPagination {...data} onPage={(page) => setQuery((current) => ({ ...current, page }))} />
     </>}
   </section>
+}
+
+
+function AdminUserBalance({ userId }: { userId: string }) {
+  const api = useAdminApi()
+  const load = useCallback((signal: AbortSignal) => api.userBalance(userId, signal), [api, userId])
+  const { data, loading, error, refresh } = useAdminPage(load)
+  return <Card>
+    <CardHeader><CardTitle className="text-xl">Credit balance</CardTitle><CardDescription>Selected user&apos;s credit balance.</CardDescription></CardHeader>
+    <CardContent>
+      <AdminLoadState loading={loading} error={error} empty={false} retry={refresh} />
+      {data && !error && <dl className="grid gap-5 sm:grid-cols-3">
+        {[["Available credits", data.usableBalance], ["Reserved credits", data.reservedBalance], ["Total credits", data.totalBalance]].map(([label, value]) =>
+          <div key={String(label)}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{value ?? "Unavailable"}</dd></div>)}
+      </dl>}
+    </CardContent>
+  </Card>
 }

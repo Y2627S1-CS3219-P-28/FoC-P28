@@ -97,6 +97,22 @@ public class OrderCommandStore {
         return jdbc.query("select * from order_commands where command_id=?", this::map, key).stream().findFirst();
     }
 
+    /** Actor-scoped SQL can use the existing actor/time index; return only the newest attempt. */
+    public Optional<Entry> latestAutomatic(String orderId, String requesterId) {
+        return jdbc.query("""
+            select * from order_commands where actor_id=? and order_id=? and automatic_execution
+            order by created_at desc,command_id desc limit 1
+            """, this::map, requesterId, orderId).stream().findFirst();
+    }
+
+    public boolean automaticRetrySafe(String key) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+            select exists(select 1 from order_commands where command_id=? and automatic_execution
+              and kind='REPOST' and recovery_policy='COMPENSATE' and status='COMPLETED' and outcome='REJECTED'
+              and final_stage_status='FULLY_COMPENSATED' and credit_step_status in ('FAILED','COMPENSATED'))
+            """, Boolean.class, key));
+    }
+
     public String recoveryPolicy(String key) {
         return jdbc.queryForObject("select recovery_policy from order_commands where command_id=?", String.class, key);
     }

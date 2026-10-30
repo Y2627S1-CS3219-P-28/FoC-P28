@@ -63,6 +63,13 @@ class FirestoreReportRepositoryIntegrationTest {
         assertEquals(List.of("a"), repository.findAll(1,1,"order",ReportStatus.READY_FOR_REVIEW).items().stream().map(Report::id).toList());
         assertEquals(1,repository.findAll(1,1,"order",ReportStatus.RESOLVED).totalItems());
         assertEquals(0,repository.findAll(1,20,"missing",null).totalItems());
+        repository.save(new Report("due","reporter",ReportCategory.ORDER,"Issue","order","courier",
+                ReportStatus.AWAITING_COURIER_RESPONSE,created,created.plusSeconds(86400),null,null,null,List.of(),List.of()));
+        var clock=java.time.Clock.fixed(created.plusSeconds(86400),java.time.ZoneOffset.UTC);
+        assertEquals(List.of("due"),repository.dueResponseIds(clock.instant()));
+        new ReportDeadlineScheduler(repository,clock).reconcileDue();
+        assertEquals(ReportStatus.READY_FOR_REVIEW,repository.findById("due").orElseThrow().status());
+        assertEquals(2,repository.findAll(1,20,"order",ReportStatus.READY_FOR_REVIEW).totalItems());
     }
 
     @Test void persistsCourierResponseAndReadsLegacyOpenAsReadyForReview() throws Exception {
@@ -88,8 +95,50 @@ class FirestoreReportRepositoryIntegrationTest {
 
         Report migrated = repository.findById("legacy").orElseThrow();
         assertEquals(ReportStatus.READY_FOR_REVIEW, migrated.status());
+        assertTrue(repository.findAll(1, 20, null, ReportStatus.READY_FOR_REVIEW).items().stream()
+                .anyMatch(item -> item.id().equals("legacy")));
         assertNull(migrated.responseDeadlineAt());
         assertTrue(migrated.responseAttachments().isEmpty());
+    }
+
+
+    @Test void responseCountIsCourierScopedAndExcludesRespondedResolvedAndExpiredReports() {
+        Instant now = Instant.parse("2026-10-30T01:00:00Z");
+        Report waiting = new Report("waiting", "owner", ReportCategory.ORDER, "Issue", "o", "courier",
+                ReportStatus.AWAITING_COURIER_RESPONSE, now, now.plusSeconds(60), null, null, null, List.of(), List.of());
+        repository.save(waiting);
+        repository.save(new Report("expired", "owner", ReportCategory.ORDER, "Issue", "old", "courier",
+                ReportStatus.AWAITING_COURIER_RESPONSE, now.minusSeconds(60), now, null, null, null, List.of(), List.of()));
+        assertEquals(1, repository.countAwaitingResponse("courier", now));
+        assertEquals(0, repository.countAwaitingResponse("outsider", now));
+        repository.update("waiting", current -> current.respond("courier", "Explanation", now, List.of()));
+        assertEquals(0, repository.countAwaitingResponse("courier", now));
+        repository.update("waiting", current -> current.resolved(now));
+        assertEquals(0, repository.countAwaitingResponse("courier", now));
+    }
+
+    @Test void linkedCreationRejectsLegacyAndConcurrentDuplicatesButAllowsResolvedOrders() throws Exception {
+        Instant now = Instant.parse("2026-10-30T01:00:00Z");
+        Report first = report("legacy-active", now, List.of());
+        repository.save(first);
+        var conflict = assertThrows(sg.edu.nus.foc.reporting.error.ConflictException.class,
+                () -> repository.saveNewLinked(report("duplicate", now, List.of())));
+        assertTrue(conflict.getMessage().contains("already has an active report"));
+        repository.update(first.id(), current -> current.resolved(now));
+        try (var pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var jobs = List.of("one", "two").stream().map(id -> pool.submit(() -> {
+                try { repository.saveNewLinked(report(id, now, List.of())); return true; }
+                catch (sg.edu.nus.foc.reporting.error.ConflictException rejected) { return false; }
+            })).toList();
+            int created = 0;
+            for (var job : jobs) if (job.get()) created++;
+            assertEquals(1, created);
+        }
+        String activeId = repository.findById("one").isPresent() ? "one" : "two";
+        repository.update(activeId, current -> current.resolved(now));
+        assertEquals("after-resolved", repository.saveNewLinked(report("after-resolved", now, List.of())).id());
+        assertThrows(sg.edu.nus.foc.reporting.error.ConflictException.class,
+                () -> repository.saveNewLinked(report("another", now, List.of())));
     }
 
     private static Report report(String id, Instant created, List<Attachment> attachments) {

@@ -101,6 +101,14 @@ public class ReportController {
                 result.size(), result.totalItems(), result.totalPages());
     }
 
+    @Operation(summary = "Count the authenticated courier's unanswered reports within the response deadline")
+    @GetMapping("/mine/response-count")
+    @ApiResponse(responseCode = "200", description = "Number of reports the caller can still respond to; expired deadlines are excluded")
+    @ApiResponse(responseCode = "401", description = "Authentication required")
+    ReportResponseCountResponse responseCount(@AuthenticationPrincipal Jwt jwt) {
+        return new ReportResponseCountResponse(reports.awaitingResponseCount(jwt.getSubject()));
+    }
+
     @Operation(summary = "View a report as a participant or administrator")
     @ApiResponse(responseCode = "200", description = "Authorized report details")
     @ApiResponse(responseCode = "403", description = "Caller is not a participant or administrator")

@@ -38,6 +38,34 @@ public class FirestoreReportRepository implements ReportRepository {
     }
 
     @Override
+    public Report saveNewLinked(Report report) {
+        if (report.orderId() == null) return save(report);
+        return await(firestore.runTransaction(tx -> {
+            var slot = firestore.collection("active_report_orders").document(report.orderId());
+            var previous = tx.get(slot).get();
+            if (previous.exists()) {
+                var existing = tx.get(firestore.collection(COLLECTION).document(previous.getString("reportId"))).get();
+                if (existing.exists() && !"RESOLVED".equals(existing.getString("status"))) {
+                    throw activeReportConflict();
+                }
+            }
+            // Include reports created before slots existed. The slot serializes concurrent creates.
+            var active = tx.get(firestore.collection(COLLECTION).whereEqualTo("orderId", report.orderId())
+                    .whereIn("status", List.of("AWAITING_COURIER_RESPONSE", "READY_FOR_REVIEW", "OPEN"))
+                    .limit(1)).get();
+            if (!active.isEmpty()) throw activeReportConflict();
+            tx.set(slot, Map.of("reportId", report.id()));
+            tx.set(firestore.collection(COLLECTION).document(report.id()), toDocument(report));
+            return report;
+        }));
+    }
+
+    private static sg.edu.nus.foc.reporting.error.ConflictException activeReportConflict() {
+        return new sg.edu.nus.foc.reporting.error.ConflictException(
+                "This order already has an active report. Please resolve it before submitting another report.");
+    }
+
+    @Override
     public Optional<Report> findById(String id) {
         if (!validId(id)) return Optional.empty();
         DocumentSnapshot snapshot = await(firestore.collection(COLLECTION).document(id).get());
@@ -53,7 +81,8 @@ public class FirestoreReportRepository implements ReportRepository {
     public PageResult<Report> findAll(int page, int size, String orderId, ReportStatus status) {
         com.google.cloud.firestore.Query query = firestore.collection(COLLECTION);
         if (orderId != null && !orderId.isBlank()) query = query.whereEqualTo("orderId", orderId.strip());
-        if (status != null) query = query.whereEqualTo("status", status.name());
+        if (status == ReportStatus.READY_FOR_REVIEW) query = query.whereIn("status", List.of("READY_FOR_REVIEW", "OPEN"));
+        else if (status != null) query = query.whereEqualTo("status", status.name());
         long total = await(query.count().get()).getCount();
         var rows = await(query.orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .orderBy(com.google.cloud.firestore.FieldPath.documentId(), com.google.cloud.firestore.Query.Direction.DESCENDING)
@@ -109,6 +138,13 @@ public class FirestoreReportRepository implements ReportRepository {
         return await(firestore.collection(COLLECTION).whereEqualTo("status", "AWAITING_COURIER_RESPONSE")
                 .whereLessThanOrEqualTo("responseDeadlineAt", timestamp(now))
                 .orderBy("responseDeadlineAt").limit(100).get()).getDocuments().stream().map(DocumentSnapshot::getId).toList();
+    }
+
+    @Override
+    public long countAwaitingResponse(String courierId, Instant now) {
+        return await(firestore.collection(COLLECTION).whereEqualTo("courierId", courierId)
+                .whereEqualTo("status", "AWAITING_COURIER_RESPONSE")
+                .whereGreaterThan("responseDeadlineAt", timestamp(now)).count().get()).getCount();
     }
 
     static Map<String, Object> toDocument(Report report) {

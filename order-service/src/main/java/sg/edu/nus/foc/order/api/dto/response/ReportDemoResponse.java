@@ -6,7 +6,7 @@ import sg.edu.nus.foc.order.api.dto.request.ReportEvidence;
 @Getter @Setter @NoArgsConstructor
 public class ReportDemoResponse {
     private String id;
-    private AdminMockOrderResponse order;
+    private ReportDemoOrderResponse order;
     private String requesterId;
     private String courierId;
     private String status;

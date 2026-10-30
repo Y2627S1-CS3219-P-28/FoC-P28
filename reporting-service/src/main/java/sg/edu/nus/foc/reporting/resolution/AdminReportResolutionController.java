@@ -46,8 +46,8 @@ public class AdminReportResolutionController {
     public ResponseEntity<?> resolve(@PathVariable String reportId, @Valid @RequestBody Request request,
             @AuthenticationPrincipal Jwt jwt) {
         Report report=reports.findById(reportId).orElseThrow(() -> new NotFoundException("Report not found."));
-        if (report.orderId()==null) {
-            store.resolve(new ResolutionMessages.Command(request.commandId(), report.id(), null, report.reporterId(),
+        if (report.orderId()==null || report.category()==ReportCategory.CREDITS) {
+            store.resolve(new ResolutionMessages.Command(request.commandId(), report.id(), report.orderId(), report.reporterId(),
                     report.courierId(), jwt.getSubject(), 1, request.reply().strip()));
             return ResponseEntity.ok(sg.edu.nus.foc.reporting.api.ReportResponse.from(reports.findById(reportId).orElseThrow(), null, true));
         }

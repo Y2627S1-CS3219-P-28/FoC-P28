@@ -75,7 +75,7 @@ export function ReportingHub({ initialTab, initialCategory, initialOrderId }: {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Reporting</h1>
-        <p className="text-muted-foreground">Report issues with your accepted, in-progress, picked-up or delivered orders. Open and completed orders cannot be reported.</p>
+        <p className="text-muted-foreground">Order and Courier reports require your accepted, in-progress, picked-up or delivered order. Credits and General reports do not require an order.</p>
       </div>
 
       <div role="tablist" aria-label="Reporting sections" className="mb-6 grid grid-cols-3 gap-1 rounded-xl border bg-muted/40 p-1">

@@ -83,11 +83,22 @@ class DeferredPenaltyJpaIntegrationTest {
         assertTrue(transitions.autoComplete(automatic.getId(),Instant.now()));assertFalse(transitions.autoComplete(automatic.getId(),Instant.now()));
         assertEquals(4,outcomes.findByOrderIdOrderByCreatedAtAsc(automatic.getId()).getFirst().getSignedAmount());
     }
-    @Test void adminCancelIgnoresOverdueAndPreservesStoredPenaltyWithoutPublishingReward(){
+    @Test void explicitNoPenaltyRecordsZeroOutcomeDespiteStoredPolicy() {
+        Order o = apply(delivered(true, false), "stored-for-waiver", PenaltySystemPolicy.DELIBERATE_ITEM_RETENTION_OR_THEFT);
+        cancellations.cancel(o.getId(), "owner", "courier", List.of(), "admin", "Courier cleared");
+        Order cancelled = orders.findById(o.getId()).orElseThrow();
+        assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
+        assertEquals(0, cancelled.getAdminPenaltyAmount());
+        assertEquals(PenaltySystemPolicy.DELIBERATE_ITEM_RETENTION_OR_THEFT, cancelled.getAppliedPenalty());
+        assertEquals(0, outcomes.findByOrderIdOrderByCreatedAtAsc(o.getId()).getFirst().getSignedAmount());
+        assertEquals(1, outbox.count());
+        assertEquals("OpenOrderRefundTaskEvent", outbox.findAll().getFirst().getEventType());
+    }
+    @Test void adminCancelIgnoresOverdueAndUsesStoredPenaltyWhenAdditionSelected(){
         Order innocent=delivered(true,false);cancellations.cancel(innocent.getId(),"owner","courier",null,"admin","False alarm");
         assertEquals(1,outbox.count());assertEquals(0,outcomes.findByOrderIdOrderByCreatedAtAsc(innocent.getId()).getFirst().getSignedAmount());
         Order guilty=apply(delivered(true,false),"guilty",PenaltySystemPolicy.ITEM_MISHANDLING_OR_DAMAGE);
-        cancellations.cancel(guilty.getId(),"owner","courier",null,"admin","Refund with stored penalty");
+        cancellations.cancel(guilty.getId(),"owner","courier",java.util.List.of(PenaltySystemPolicy.OVERDUE_DELIVERY),"admin","Refund with stored penalty");
         assertEquals(PenaltySystemPolicy.ITEM_MISHANDLING_OR_DAMAGE,orders.findById(guilty.getId()).orElseThrow().getAdminPenaltyReason());
         assertEquals(4,outcomes.findByOrderIdOrderByCreatedAtAsc(guilty.getId()).getFirst().getSignedAmount());
         assertEquals(3,outbox.count());assertEquals(0,outbox.findAll().stream().filter(e->"PenaltyScoreDeductionEvent".equals(e.getEventType())).count());

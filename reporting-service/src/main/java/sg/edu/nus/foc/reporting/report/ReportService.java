@@ -21,7 +21,7 @@ import sg.edu.nus.foc.reporting.storage.StoredObject;
 @Service
 public class ReportService {
     private static final Duration RESPONSE_WINDOW = Duration.ofHours(24);
-    private static final List<String> ACTIVE_STATUSES = List.of(
+    private static final List<String> REPORTABLE_STATUSES = List.of(
             "ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED");
 
     private final ReportRepository repository;
@@ -59,7 +59,7 @@ public class ReportService {
             List<Attachment> attachments = upload(reportId, "submission", validated, uploadAttempts);
             AssociatedOrder associated = orderId == null ? null
                     : orders.placeReportHold(orderId, reportId, true, bearerToken);
-            if (associated != null) validateHold(associated, reporterId, reportId, category);
+            if (associated != null) validateHold(associated, reporterId, reportId);
 
             Instant createdAt = clock.instant();
             String courierId = associated == null ? null : normalize(associated.courierId());
@@ -69,7 +69,7 @@ public class ReportService {
                     awaitingCourier ? ReportStatus.AWAITING_COURIER_RESPONSE : ReportStatus.READY_FOR_REVIEW,
                     createdAt, awaitingCourier ? createdAt.plus(RESPONSE_WINDOW) : null,
                     null, null, null, attachments, List.of());
-            return repository.save(report);
+            return repository.saveNewLinked(report);
         } catch (RuntimeException failure) {
             cleanup(uploadAttempts);
             if (failure instanceof BadRequestException || failure instanceof NotFoundException
@@ -95,6 +95,10 @@ public class ReportService {
             default -> throw new BadRequestException("View must be submitted or against-me.", "view");
         };
         return reconcile(result);
+    }
+
+    public long awaitingResponseCount(String callerId) {
+        return repository.countAwaitingResponse(callerId, clock.instant());
     }
 
     public Report detail(String id, String callerId, boolean admin) {
@@ -170,14 +174,13 @@ public class ReportService {
         });
     }
 
-    private static void validateHold(AssociatedOrder order, String reporterId,
-                                     String reportId, ReportCategory category) {
+    private static void validateHold(AssociatedOrder order, String reporterId, String reportId) {
         if (order == null || !reporterId.equals(order.requesterId())
                 || !reportId.equals(order.reportId()) || !order.isCompletionHold()
-                || !ACTIVE_STATUSES.contains(order.status())) {
+                || !REPORTABLE_STATUSES.contains(order.status())) {
             throw new DependencyUnavailableException("Order Service returned an invalid report hold.");
         }
-        if (category == ReportCategory.COURIER && normalize(order.courierId()) == null) {
+        if (normalize(order.courierId()) == null) {
             throw new ConflictException("A courier must be assigned before they can be reported.");
         }
     }

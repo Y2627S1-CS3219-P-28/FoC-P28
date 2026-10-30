@@ -167,9 +167,11 @@ kept across restarts in the `firebase-data` volume. Services that run with mock 
 admin role to the accounts listed in `MOCK_ADMIN_EMAILS` (default
 `admin@u.nus.edu,e1398851@u.nus.edu`).
 
-The Supplier Service reads roles from the User Service instead. Signing up on the sign-in page
-creates the User Service profile, but the User Service has no API to grant `admin` yet, so grant it
-once in the local MongoDB (or set `SUPPLIER_USER_SERVICE_MODE=mock` in `.env`):
+The Supplier, Order and Credit services read roles from the User Service instead. Signing up on
+the sign-in page creates the User Service profile. An admin can promote other accounts from the
+admin pages (`PUT /api/users/{userId}/user-promotion`), so only the first admin needs granting by
+hand, once, in the local MongoDB (or set `SUPPLIER_USER_SERVICE_MODE=mock` in `.env` for the Supplier
+Service):
 
 ```bash
 docker compose exec mongodb mongosh UserServiceDB --quiet   --eval 'db.users.updateOne({email: "admin@u.nus.edu"}, {$addToSet: {roles: "admin"}})'
@@ -233,8 +235,9 @@ A service joins CI/CD automatically once its `Dockerfile` has content.
   on the sign-in page. The project enforces a password policy: at least 8 characters, with an
   uppercase letter, a lowercase letter, a number and a special character. The sign-up form
   shows a checklist as you type.
-- **Admins** (while roles are mocked) are listed in `MOCK_ADMIN_EMAILS` in
-  `infra/environments/<environment>.env`. Changes apply on the next deploy.
+- **Admins** are accounts with the `admin` role in that environment's User Service. An admin
+  promotes others from the admin pages. (`MOCK_ADMIN_EMAILS` in
+  `infra/environments/<environment>.env` only applies if `USER_SERVICE_MODE` is set back to `mock`.)
 - Services scale to zero when idle, so the first request after a quiet period can take
   10–20 seconds.
 

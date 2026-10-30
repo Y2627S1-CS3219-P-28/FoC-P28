@@ -47,6 +47,13 @@ class ReportControllerTest {
                 controller.resolve("r", new UpdateReportStatusRequest(ReportStatus.RESOLVED), jwt).status());
     }
 
+
+    @Test void responseCountUsesTheVerifiedPrincipalOnly() {
+        when(service.awaitingResponseCount("u")).thenReturn(4L);
+        assertEquals(4, controller.responseCount(jwt).count());
+        verify(service).awaitingResponseCount("u");
+    }
+
     @Test void streamsPrivateAttachmentsAndRejectsReopening() {
         Authentication authentication = mock(Authentication.class);
         when(service.attachment("r", "a", "u", false)).thenReturn(

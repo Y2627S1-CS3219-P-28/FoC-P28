@@ -143,8 +143,9 @@ Generate a new service from https://start.spring.io (Maven, Java 21, Boot 4.1.1,
 - Prefer looking roles up only on endpoints that need them, with a short per-user cache, so reads
   keep working when the User Service is down (see `supplier-service` `CallerRoles`). A failed lookup
   answers 503, never 500.
-- Until the User Service role API exists, use `USER_SERVICE_MODE=mock`. Admin emails are set in
-  `MOCK_ADMIN_EMAILS`: `compose.yaml` for local runs and `infra/environments/<env>.env` for the cloud.
+- Compose and the cloud use `USER_SERVICE_MODE=http`. `mock` (everyone is a requester and a
+  courier, and the emails in `MOCK_ADMIN_EMAILS` are admins) is for running one service on its own,
+  and is the cloud's rollback switch in `infra/environments/<env>.env`.
 - The cloud Firebase project (`cs3219-p28-auth`) enforces a password policy (8+ characters,
   upper- and lowercase letters, a number and a special character). The local Auth emulator
   does not.

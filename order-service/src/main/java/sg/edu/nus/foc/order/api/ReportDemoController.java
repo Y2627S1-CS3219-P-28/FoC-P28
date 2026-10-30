@@ -7,14 +7,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.web.bind.annotation.*;
-import sg.edu.nus.foc.order.config.AdminMockCondition;
+import sg.edu.nus.foc.order.config.ReportDemoCondition;
 import sg.edu.nus.foc.order.api.dto.request.ReportDemoRequest;
 import sg.edu.nus.foc.order.api.dto.response.*;
 import sg.edu.nus.foc.order.application.adminmock.ReportDemoService;
 
 /** Explicitly local-only sample surface; not the Report Service contract or production authorization. */
 @RestController
-@Conditional(AdminMockCondition.class)
+@Conditional(ReportDemoCondition.class)
 @RequestMapping("/api/orders/admin-mock/reports")
 @RequiredArgsConstructor
 @Tag(name = "Report demo", description = "Isolated sample reports; no real reports, funding or scores")
@@ -23,7 +23,7 @@ public class ReportDemoController {
 
     @GetMapping
     @Operation(summary = "Poll sample submitted, against-me or admin report pages")
-    public AdminMockPageResponse<ReportDemoResponse> list(@RequestParam String userId,
+    public ReportDemoPageResponse<ReportDemoResponse> list(@RequestParam String userId,
             @RequestParam(defaultValue = "submitted") String mode, @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "Exact related Order ID; optional") @RequestParam(required = false) String orderId,
@@ -32,7 +32,7 @@ public class ReportDemoController {
     }
     @GetMapping("/eligible-orders")
     @Operation(summary = "List current sample requester's delivered orders eligible for a report")
-    public List<AdminMockOrderResponse> eligible(@RequestParam String userId) { return reports.eligible(userId); }
+    public List<ReportDemoOrderResponse> eligible(@RequestParam String userId) { return reports.eligible(userId); }
 
     @GetMapping("/{id}")
     @Operation(summary = "View one sample report, its evidence and related sample order")

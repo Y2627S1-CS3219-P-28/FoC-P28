@@ -68,8 +68,9 @@ public class AdminOrderCancellationService {
                 highest = candidate;
             }
         }
-        // Stored penalties cannot be waived. Cancellation never considers delivery overdue.
-        highest = Order.higherPenalty(order.getAppliedPenalty(), highest);
+        // An explicit no-penalty cancellation overrides stored scoring; keep the stored audit.
+        // A selected addition still competes with the stored policy, never automatic overdue.
+        if (highest != null) highest = Order.higherPenalty(order.getAppliedPenalty(), highest);
         Instant cancelledAt = Instant.now();
         order.cancelByAdmin(requesterId, courierId, cancelledAt, highest, explanation);
         checkpoints.save(new OrderCheckpoint(orderId, OrderStatus.CANCELLED, cancelledAt, adminId, null));

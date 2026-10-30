@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAdminApi } from "@/hooks/use-admin-api"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -19,11 +18,9 @@ import {
 export function AdminHeading({ title, description, children }: {
   title: string; description: string; children?: React.ReactNode
 }) {
-  const api = useAdminApi()
   return <div className="flex flex-wrap items-start justify-between gap-4">
     <div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      {api.mode === "mock" && <p className="mt-2 text-xs text-muted-foreground">Demo data • Changes reset when the service restarts.</p>}
     </div>{children}
   </div>
 }
@@ -68,10 +65,10 @@ export function AdminFilterActions({ children }: { children: React.ReactNode }) 
   return <div className="col-span-2 flex gap-2 sm:col-span-1">{children}</div>
 }
 
-export function AdminSearchForm({ label, onSearch }: {
-  label: string; onSearch: (searchBy: "name" | "id", q: string) => void
+export function AdminSearchForm({ label, onSearch, initialSearchBy = "name" }: {
+  label: string; initialSearchBy?: "name" | "id"; onSearch: (searchBy: "name" | "id", q: string) => void
 }) {
-  const [searchBy, setSearchBy] = useState<"name" | "id">("name")
+  const [searchBy, setSearchBy] = useState<"name" | "id">(initialSearchBy)
   const [query, setQuery] = useState("")
   return <AdminFilterForm onSubmit={(event) => {
     event.preventDefault(); onSearch(searchBy, query.trim())
@@ -85,7 +82,7 @@ export function AdminSearchForm({ label, onSearch }: {
     </div>
     <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={label + "-search"}>Search {label.toLowerCase()}</Label>
-      <Input className="h-10 min-w-0" id={label + "-search"} maxLength={100} value={query} onChange={(event) => setQuery(event.target.value)}
+      <Input className="h-10 min-w-0" id={label + "-search"} maxLength={initialSearchBy === "id" ? 128 : 100} value={query} onChange={(event) => setQuery(event.target.value)}
         placeholder={searchBy === "id" ? "Enter an exact ID" : "Enter a name"} />
     </div>
     <AdminFilterActions>
