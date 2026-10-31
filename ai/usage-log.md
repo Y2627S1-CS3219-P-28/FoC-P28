@@ -9,6 +9,16 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Reporting staging activation reapplied on integration branch
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-11-01
+- **Mode:** User-requested configuration update and verification; human review pending.
+- **Prompt:** Redo the flag toggle after discarded changes, on the new branch feat/integrate-report-service.
+- **Affected locations:** infra/environments/staging.env, scripts/ci/test_report_pubsub.py, reporting-service/README.md, reporting-service/HANDOFF.md and this log.
+- **Key response:** Enabled both staging resolution flags and updated the rollout test and current documentation. Production and application/local defaults stay disabled. Reused the session's earlier confirmed cloud wiring and six READY indexes; no new cloud mutation, deployment, commit or push.
+- **Verification:** Seven focused tests pass, covering coordinated staging flags, disabled production, template forwarding and existing bucket-reader checks. Staging Bash syntax and diff whitespace checks pass. Live resolution/recovery remains a post-deployment check.
+
 ## Reporting CI deployer bucket-policy inspection permission
 
 - **Tool:** OpenAI Codex
