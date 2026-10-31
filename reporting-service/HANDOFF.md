@@ -106,6 +106,12 @@ Cloud settings are now forwarded explicitly by both services' `deploy/env.yaml`,
 After reviewing wiring/indexes, set **both** saga flags to `true` in the staging environment config, redeploy both backends, and verify successful resolution plus duplicate/compensation handling using disposable staging cases. Do not inject rollback triggers into a shared staging database. Cloud Google OIDC delivery is still unverified until that check passes. Repeat the prepare/deploy/index/wire/activation sequence for production only after staging passes. Provisioning can be rerun; it never silently rebinds a subscription to a different topic.
 
 
+## Bucket verification correction (2026-10-31)
+
+AI assistance: OpenAI Codex; human review pending. The infrastructure check previously read only the Storage API's nested `iamConfiguration.publicAccessPrevention` field. Current `gcloud storage buckets describe --format=json` returns top-level `public_access_prevention`, causing false failures for both Reporting attachment buckets even when protection was enforced. The checker now accepts either representation while still requiring `enforced` and the Reporting runtime's bucket-scoped object access.
+
+Four regression tests execute the actual bucket-check section with CLI-shaped/API-shaped metadata and negative protection/access cases; two reproduced the original defect before the fix. All four pass after the fix. Read-only verification against the actual staging and production buckets confirms both privacy and runtime access checks pass. Bash syntax and diff whitespace checks pass. No cloud resource, IAM, billing or feature-flag changes were made. Rerun the full infrastructure check and PR CI; this targeted verification does not establish complete deployment or Report saga delivery.
+
 ## Credit report context and courier reminders - CHANGE-168 (2026-10-30)
 
 Owner: Yao Xiang on feat/reporting-service. The user requested optional Order context for credit issues, dates and a clearer order picker, an actionable duplicate-report message, and a red unanswered-report reminder. They explicitly approved completed-order context for either the requester or assigned courier, with no completion hold, no courier response request and direct admin review. Compact selectable rows reuse the existing UI theme; all original report categories and active ORDER/COURIER restrictions remain.

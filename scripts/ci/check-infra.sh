@@ -453,7 +453,8 @@ for env in "${environments[@]}"; do
     problem "reporting-service: attachment bucket gs://$bucket does not exist"
     continue
   fi
-  if [[ $(jq -r '.iamConfiguration.publicAccessPrevention // ""' <<<"$bucket_json") != enforced ]]; then
+  # gcloud storage emits snake_case; also accept the nested Storage API shape.
+  if [[ $(jq -r '.public_access_prevention // .iamConfiguration.publicAccessPrevention // ""' <<<"$bucket_json") != enforced ]]; then
     problem "reporting-service: gs://$bucket does not enforce public-access prevention"
   elif gcloud storage buckets get-iam-policy "gs://$bucket" --project "$PROJECT_ID" --format=json |
       jq -e --arg m "serviceAccount:$(runtime_sa reporting-service)" \

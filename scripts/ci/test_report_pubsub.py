@@ -68,6 +68,52 @@ class ReportCloudWorkflowTest(unittest.TestCase):
     def write(self, state):
         self.state.write_text(json.dumps(state))
 
+    def check_bucket_privacy(self, metadata, allowed=True):
+        source = (ROOT / 'scripts/ci/check-infra.sh').read_text()
+        block = source.split('echo "Reporting Service private attachment buckets"', 1)[1]
+        block = block.split('if [[ ${#problems[@]} -gt 0 ]]', 1)[0]
+        member = 'serviceAccount:foc-reporting-service@protean-vigil-509704-q4.iam.gserviceaccount.com'
+        policy = {'bindings': [{'role': 'roles/storage.objectAdmin', 'members': [member]}]} if allowed else {}
+        program = '''set -euo pipefail
+PROJECT_ID=protean-vigil-509704-q4
+environments=(staging production)
+problems=()
+runtime_sa() { echo "foc-$1@$PROJECT_ID.iam.gserviceaccount.com"; }
+problem() { problems+=("$1"); echo "$1"; }
+ok() { echo "$1"; }
+gcloud() {
+  case "$*" in
+    *get-iam-policy*) printf '%s' "$BUCKET_IAM" ;;
+    *describe*) printf '%s' "$BUCKET_METADATA" ;;
+    *) return 1 ;;
+  esac
+}
+''' + block + '\nexit "${#problems[@]}"'
+        return subprocess.run(['bash', '-c', program], text=True, capture_output=True,
+                              env=dict(self.env, BUCKET_METADATA=json.dumps(metadata),
+                                       BUCKET_IAM=json.dumps(policy)))
+
+    def test_bucket_check_accepts_gcloud_storage_metadata(self):
+        result = self.check_bucket_privacy({'public_access_prevention': 'enforced'})
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(2, result.stdout.count('is private and bucket-scoped object access is granted'))
+
+    def test_bucket_check_accepts_nested_api_metadata(self):
+        result = self.check_bucket_privacy({'iamConfiguration': {'publicAccessPrevention': 'enforced'}})
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_bucket_check_rejects_missing_or_unenforced_protection(self):
+        for metadata in [{}, {'public_access_prevention': 'inherited'}]:
+            with self.subTest(metadata=metadata):
+                result = self.check_bucket_privacy(metadata)
+                self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(2, result.stdout.count('does not enforce public-access prevention'))
+
+    def test_bucket_check_still_requires_runtime_object_access(self):
+        result = self.check_bucket_privacy({'public_access_prevention': 'enforced'}, allowed=False)
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(2, result.stdout.count('has no object access'))
+
     def run_script(self, environment='staging', phase='wire', ok=True):
         result = subprocess.run(['bash', str(ROOT / 'infra/gcp/configure-report-pubsub.sh'), environment, phase],
                                 env=self.env, text=True, capture_output=True)

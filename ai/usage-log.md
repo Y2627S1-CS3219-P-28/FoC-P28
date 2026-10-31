@@ -9,6 +9,16 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Reporting bucket infrastructure-check correction
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-31
+- **Mode:** Diagnosis, implementation and regression verification; human review pending.
+- **Prompt:** User supplied the completed infrastructure check showing two Reporting attachment bucket privacy failures after bootstrap.
+- **Affected locations:** scripts/ci/check-infra.sh, scripts/ci/test_report_pubsub.py, reporting-service/HANDOFF.md and this log.
+- **Key response:** Read-only GCP metadata showed both buckets already enforced public-access prevention. Fixed the checker to accept gcloud's top-level public_access_prevention field, preserving nested API-format compatibility and the object-access requirement. No cloud mutations, deployment, billing changes or commits.
+- **Verification:** Two regression cases failed before the correction; all four privacy/access tests pass afterward. Actual staging and production bucket checks pass; Bash syntax and diff whitespace checks pass. Docker was unavailable, so focused tests ran with installed SDK Python, Git Bash and jq. Full infrastructure verification and cloud integration remain rollout steps.
+
 ## Command submission polling race fix assistance (Order Service / Frontend)
 
 - **Tool:** OpenAI Codex (model not recorded)
