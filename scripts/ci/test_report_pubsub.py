@@ -190,12 +190,13 @@ gcloud() {
                 actual = self.run_script(ok=False)
                 self.assertTrue(all(c[2] == 'describe' for c in actual['calls']))
 
-    def test_deployment_settings_match_push_contract_and_remain_disabled(self):
+    def test_deployment_settings_match_push_contract_and_staged_activation(self):
         for environment, suffix in [('staging', 'dev'), ('production', 'prod')]:
             settings = dict(re.findall(r'^([A-Z_]+)=([^\r\n]*)',
                             (ROOT / f'infra/environments/{environment}.env').read_text(), re.M))
-            self.assertEqual('false', settings['REPORT_RESOLUTION_ENABLED'])
-            self.assertEqual('false', settings['ORDER_REPORT_RESOLUTION_ENABLED'])
+            enabled = 'true' if environment == 'staging' else 'false'
+            self.assertEqual(enabled, settings['REPORT_RESOLUTION_ENABLED'])
+            self.assertEqual(enabled, settings['ORDER_REPORT_RESOLUTION_ENABLED'])
             self.assertEqual(f'report-resolution-compensation-{suffix}-v1', settings['ORDER_REPORT_COMPENSATION_TOPIC'])
             self.assertEqual(settings['REPORT_COMPENSATION_RESULT_TOPIC'] + '-sub',
                              settings['ORDER_REPORT_COMPENSATION_RESULT_SUBSCRIPTION'])
@@ -208,6 +209,8 @@ gcloud() {
         self.assertIn('REPORT_SERVICE_URL: "${REPORTING_SERVICE_URL}"', order)
         self.assertIn('ORDER_REPORT_COMPENSATION_PUSH_AUDIENCE: "${ORDER_SERVICE_URL}"', order)
         self.assertIn('REPORT_RESOLUTION_PUSH_AUDIENCE: "${REPORTING_SERVICE_URL}"', report)
+        self.assertIn('REPORT_RESOLUTION_ENABLED: "${REPORT_RESOLUTION_ENABLED}"', report)
+        self.assertIn('ORDER_REPORT_RESOLUTION_ENABLED: "${ORDER_REPORT_RESOLUTION_ENABLED}"', order)
 
 
 if __name__ == '__main__':
