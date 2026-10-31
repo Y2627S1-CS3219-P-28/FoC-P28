@@ -19,7 +19,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
-import sg.edu.nus.foc.user.config.SecurityConfig;
+import sg.edu.nus.foc.user.security.SecurityConfig;
 import sg.edu.nus.foc.user.logic.AdminUserDirectory;
 import sg.edu.nus.foc.user.logic.AdminUserPage;
 import sg.edu.nus.foc.user.model.AccountStatus;

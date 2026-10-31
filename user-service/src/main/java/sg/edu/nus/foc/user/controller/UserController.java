@@ -55,8 +55,10 @@ public class UserController {
     }
 
     // GET /api/users
+    // Only admins can retrieve all user info
     @Operation(summary = "Get all users")
     @GetMapping
+    @PreAuthorize(ADMIN_ONLY)
     public ResponseEntity<List<User>> fetchAllUsers() {
         return ResponseEntity.ok(userService.fetchAllUsers());
     }
