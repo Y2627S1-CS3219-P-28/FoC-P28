@@ -64,6 +64,21 @@ public class CreditCommandRecordEntity {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "effect_revision")
+    private Long effectRevision;
+
+    @Column(name = "prior_courier_id", length = 128)
+    private String priorCourierId;
+
+    @Column(name = "prior_assignment_identity", length = 128)
+    private String priorAssignmentIdentity;
+
+    @Column(name = "prior_revision")
+    private Long priorRevision;
+
+    @Column(name = "provider_resolution_revision", nullable = false)
+    private long providerResolutionRevision;
+
     protected CreditCommandRecordEntity() {
     }
 
@@ -105,6 +120,40 @@ public class CreditCommandRecordEntity {
 
     String resultJson() {
         return resultJson;
+    }
+
+    Long effectRevision() {
+        return effectRevision;
+    }
+
+    String priorCourierId() {
+        return priorCourierId;
+    }
+
+    String priorAssignmentIdentity() {
+        return priorAssignmentIdentity;
+    }
+
+    Long priorRevision() {
+        return priorRevision;
+    }
+
+    long providerResolutionRevision() {
+        return providerResolutionRevision;
+    }
+
+    void recordEffect(long revision) {
+        effectRevision = revision;
+    }
+
+    void recordClearPreimage(String courierId, String assignmentIdentity, long revision) {
+        priorCourierId = courierId;
+        priorAssignmentIdentity = assignmentIdentity;
+        priorRevision = revision;
+    }
+
+    long nextProviderResolutionRevision() {
+        return ++providerResolutionRevision;
     }
 
     void advanceGeneration(long generation, Instant now) {

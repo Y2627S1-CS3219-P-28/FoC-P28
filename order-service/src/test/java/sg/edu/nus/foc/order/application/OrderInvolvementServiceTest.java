@@ -34,6 +34,7 @@ class OrderInvolvementServiceTest {
         for (String id : new String[] {null, " ", "x".repeat(129)}) {
             assertEquals("VALIDATION_ERROR", assertThrows(OrderProblem.class, () -> service.user(id)).getCode());
             assertThrows(OrderProblem.class, () -> service.supplier(id));
+            assertThrows(OrderProblem.class, () -> service.canDeleteUser(id));
         }
         verifyNoInteractions(orders);
     }

@@ -46,6 +46,36 @@ server {
     }
 
     # ---- Backend services (one block per service) -------------------------
+    # Financial Order commands are peer protocols, not browser APIs. Order calls
+    # Credit directly with the forwarded user JWT (or its narrow automatic route).
+    location ^~ /api/credits/orders/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/credits/commands/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    # Network-trusted service APIs are NEVER routed from a browser, with or without JWT.
+    location ^~ /api/users/internal/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/suppliers/internal/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    location ^~ /api/orders/internal/users/ {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+    # The User Service's penalty adjustment is for other services and only checks that the caller is
+    # signed in, so from a browser anyone could suspend any courier or clear their own penalty.
+    # A regex location, so it wins over the /api/users prefix; ";" and "/" cover matrix and extra segments.
+    location ~ "^/api/users/[^/]+/penalty([;/].*)?$" {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
     location /api/users {
         set $upstream ${USER_SERVICE_URL};
         include /etc/nginx/snippets/proxy.conf;
@@ -69,6 +99,12 @@ server {
     # Pub/Sub pushes order events straight to the Credit Service (its own URL in the cloud,
     # credit-service:8080 locally), never through this public entry point. Not routing them here
     # keeps internal endpoints off the public surface; locally Credit even accepts unsigned emulator pushes.
+    # Only the trusted broker reaches Order's result receiver directly.
+    location = /api/orders/internal/credit-compensations {
+        default_type application/json;
+        return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';
+    }
+
     location /api/credits/internal/ {
         default_type application/json;
         return 404 '{"status":404,"error":"NOT_FOUND","message":"No service handles this path."}';

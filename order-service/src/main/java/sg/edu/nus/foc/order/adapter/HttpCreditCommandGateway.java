@@ -50,6 +50,22 @@ public class HttpCreditCommandGateway implements CreditCommandGateway {
 
     @Override
     public Result execute(String key, Mutation mutation, long generation, String authorization) {
+        if ("AUTO_REPOST".equals(mutation.kind())) {
+            ResponseEntity<String> response = request(HttpMethod.PUT,
+                    "/api/credits/internal/automatic-reposts/{id}/reservation", mutation.orderId(),
+                    null, key, generation, Map.of("requesterId", mutation.actorId(), "amount", mutation.amount()));
+            String outcome = response.getHeaders().getFirst("Command-Outcome");
+            if (key.equals(response.getHeaders().getFirst("Idempotency-Key"))
+                    && response.getStatusCode().is4xxClientError()
+                    && ("REJECTED".equals(outcome) || "COMPENSATED".equals(outcome))) {
+                String code = error(response);
+                if (code == null || code.isBlank()) throw uncertain();
+                return Result.rejection(code);
+            }
+            checkAttempt(response);
+            requireHeaders(response, key, "APPLIED");
+            return Result.success();
+        }
         String token = token(authorization);
         Optional<CreditCommandResponse> saved = lookup(key, mutation, token);
         if (saved.isPresent() && !"PENDING".equals(saved.get().outcome())) {
@@ -140,8 +156,8 @@ public class HttpCreditCommandGateway implements CreditCommandGateway {
     private ResponseEntity<String> request(HttpMethod method, String path, String pathId,
             String token, String key, long generation, Object body) {
         try {
-            RestClient.RequestBodySpec request = credit.method(method).uri(path, pathId)
-                    .header(HttpHeaders.AUTHORIZATION, token);
+            RestClient.RequestBodySpec request = credit.method(method).uri(path, pathId);
+            if (token != null) request.header(HttpHeaders.AUTHORIZATION, token);
             if (key != null) {
                 if (generation <= 0) {
                     throw new IllegalArgumentException("Command generation must be positive.");

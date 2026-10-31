@@ -113,3 +113,7 @@ $env:MONGODB_URI="mongodb+srv://..."
 ```
 
 Tests are not implemented yet.
+
+## Admin directory
+
+The Admin UI uses GET /api/users/admin/search with active-admin authorization and database pagination. Exact contract, changed files, tests and integration scope: [user-servicehandoff.md](user-servicehandoff.md). Existing User routes are preserved.

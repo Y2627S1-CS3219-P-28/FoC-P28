@@ -54,7 +54,7 @@ every environment:
 
 ## Order personal-list controls (CHANGE-094)
 
-My Requests/My Errands use the existing gateway Order mine API with optional status, All statuses default and previous/next pages. Status change resets page 1 and discards old reads. Order lists poll5 seconds while authenticated/visible; Credit polling stays15 seconds. Courier accepted action says Abort errand and still calls cancel-accepted. Existing Base UI/design/auth infrastructure is reused. Tests: npm test, npm run lint, npm run typecheck. Normal build needs the existing Google Fonts downloads; Order verification is recorded in order-service/changes/CHANGE-094-order-ui-status-filters.md.
+My Requests/My Errands use the existing gateway Order mine API with optional status, All statuses default and previous/next pages. Status change resets page 1 and discards old reads. Order lists and Credit data poll every 5 seconds while authenticated/visible. Courier accepted action says Abort errand and still calls cancel-accepted. Existing Base UI/design/auth infrastructure is reused. Tests: npm test, npm run lint, npm run typecheck. Normal build needs the existing Google Fonts downloads; Order verification is recorded in order-service/changes/CHANGE-094-order-ui-status-filters.md.
 
 ## Missing locations in saved orders (CHANGE-097)
 

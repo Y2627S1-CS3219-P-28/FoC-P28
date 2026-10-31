@@ -15,6 +15,11 @@ public class OrderInvolvementService {
 
     private final OrderRepository orders;
 
+    public boolean canDeleteUser(String userId) {
+        requireId(userId);
+        return !orders.hasNonTerminalUserInvolvement(userId);
+    }
+
     public ActiveOrderInvolvement user(String userId) {
         requireId(userId);
         return new ActiveOrderInvolvement(userId, orders.hasActiveUserInvolvement(userId));

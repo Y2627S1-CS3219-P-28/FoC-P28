@@ -21,6 +21,10 @@ public class LifecycleProcessingService {
     private final OrderRepostService reposts;
     private final OrderAuditLogger audit;
     private final OrderTransitionService transitions;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<sg.edu.nus.foc.order.application.recovery.OrderCommandService> automaticCommands;
+    @org.springframework.beans.factory.annotation.Value("${order.lifecycle.automatic-repost-enabled:false}")
+    private boolean automaticRepostEnabled;
 
     public int autoCompleteDue(Instant now) {
         Instant deliveredAtOrBefore = now.minus(Order.AUTOMATIC_COMPLETION_DELAY);
@@ -55,19 +59,16 @@ public class LifecycleProcessingService {
     }
 
     public int repostDue(Instant now, String lifecycleAuthorization) {
+        if (!automaticRepostEnabled) return 0;
         int repostedCount = 0;
-        List<Order> expiredOrders = orders.findDueUnassigned(OrderStatus.EXPIRED, now);
-        for (Order order : expiredOrders) {
-            if (order.eligibleForAutomaticRepost(now)) {
-                String commandId = "AUTO_REPOST:" + order.getId();
-                reposts.automatic(commandId, order.getId(), now, lifecycleAuthorization);
-                audit.action(
-                        "AUTO_REPOST",
-                        order.getId(),
-                        order.getRequesterId(),
-                        commandId,
-                        "accepted");
-                repostedCount++;
+        // Select IDs without row locks; every registration/finalization rechecks under its own lock.
+        for (String orderId : orders.findDueAutomaticRepostIds(now)) {
+            try {
+                sg.edu.nus.foc.order.application.recovery.CommandView result =
+                        automaticCommands.getObject().submitAutomatic(orderId, now);
+                if ("SUCCESS".equals(result.outcome())) repostedCount++;
+            } catch (RuntimeException failure) {
+                log.error("Automatic repost failed for order {}; continuing with remaining orders.", orderId, failure);
             }
         }
         return repostedCount;

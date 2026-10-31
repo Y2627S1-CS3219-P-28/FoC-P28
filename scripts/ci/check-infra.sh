@@ -190,7 +190,7 @@ fi
 
 echo "Order Service Pub/Sub topics"
 for env in "${environments[@]}"; do
-  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_COURIER_PENALTY_ADDITION_TOPIC ORDER_COURIER_PENALTY_DEDUCTION_TOPIC; do
+  for key in ORDER_COMPLETION_TOPIC ORDER_OPEN_REFUND_TOPIC ORDER_COURIER_PENALTY_ADDITION_TOPIC ORDER_COURIER_PENALTY_DEDUCTION_TOPIC ORDER_CREDIT_COMPENSATION_TOPIC; do
     topic=$(environment_value "$env" "$key")
     if ! gcloud pubsub topics describe "$topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
       problem "order-service: Pub/Sub topic '$topic' ($env) does not exist"
@@ -253,6 +253,17 @@ for env in "${environments[@]}"; do
   dlq_topic=$(credit_dlq_topic "$env")
   dlq_subscription=$(credit_dlq_subscription "$env")
   pubsub_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+  result_topic=$(environment_value "$env" CREDIT_COMPENSATION_RESULT_TOPIC)
+
+  if ! gcloud pubsub topics describe "$result_topic" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    problem "credit-service: compensation result topic '$result_topic' does not exist"
+  elif gcloud pubsub topics get-iam-policy "$result_topic" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg member "serviceAccount:$(runtime_sa credit-service)" \
+        '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($member)))' >/dev/null; then
+    ok "credit-service: may publish compensation results to '$result_topic'"
+  else
+    problem "credit-service: $(runtime_sa credit-service) cannot publish to '$result_topic'"
+  fi
 
   if gcloud iam service-accounts describe "$push_sa" --project "$PROJECT_ID" >/dev/null 2>&1; then
     ok "credit-service: Pub/Sub push identity '$push_sa'"
@@ -278,16 +289,19 @@ for env in "${environments[@]}"; do
   topics=(
     "$(environment_value "$env" ORDER_OPEN_REFUND_TOPIC)"
     "$(environment_value "$env" ORDER_COMPLETION_TOPIC)"
+    "$(environment_value "$env" ORDER_CREDIT_COMPENSATION_TOPIC)"
     "$(environment_value "$env" USER_CREATED_TOPIC)"
   )
   subscriptions=(
     "$(environment_value "$env" CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_ORDER_COMPLETION_SUBSCRIPTION)"
+    "$(environment_value "$env" CREDIT_COMPENSATION_SUBSCRIPTION)"
     "$(environment_value "$env" CREDIT_USER_CREATED_SUBSCRIPTION)"
   )
   push_paths=(
     "/api/credits/internal/order-events/open-refund"
     "/api/credits/internal/order-events/completion"
+    "/api/credits/internal/command-compensations"
     "/api/credits/internal/user-events/created"
   )
   for index in "${!subscriptions[@]}"; do
@@ -332,7 +346,9 @@ for env in "${environments[@]}"; do
     fi
   done
 
-  if gcloud run services get-iam-policy "credit-service-$env" --region "$REGION" \
+  if ! gcloud run services describe "credit-service-$env" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    ok "credit-service-$env not deployed yet; push target is pre-provisioned for its deterministic URL"
+  elif gcloud run services get-iam-policy "credit-service-$env" --region "$REGION" \
       --project "$PROJECT_ID" --format=json 2>/dev/null |
       jq -e --arg member "serviceAccount:$push_sa" \
         '.bindings // [] | any(.role == "roles/run.invoker" and (.members | index($member)))' >/dev/null; then
@@ -347,6 +363,47 @@ for env in "${environments[@]}"; do
     ok "credit-service: Pub/Sub may mint OIDC tokens for '$push_sa'"
   else
     problem "credit-service: Pub/Sub cannot mint OIDC tokens for '$push_sa'"
+  fi
+done
+
+
+echo "Order Service compensation result push"
+for env in "${environments[@]}"; do
+  result_topic=$(environment_value "$env" CREDIT_COMPENSATION_RESULT_TOPIC)
+  result_sub=$(environment_value "$env" ORDER_COMPENSATION_RESULT_SUBSCRIPTION)
+  result_sa=$(environment_value "$env" ORDER_COMPENSATION_PUSH_SERVICE_ACCOUNT)
+  result_url="https://order-service-$env-$PROJECT_NUMBER.$REGION.run.app"
+  suffix=$env
+  [[ $env != production ]] || suffix=prod
+  result_dlq="order-compensations-dead-letter-$suffix-v1"
+  result_agent="serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com"
+  if ! result_json=$(gcloud pubsub subscriptions describe "$result_sub" --project "$PROJECT_ID" --format=json 2>/dev/null); then
+    problem "order-service: compensation result subscription '$result_sub' is missing; run configure-compensation-pubsub.sh $env"
+    continue
+  fi
+  if ! jq -e --arg topic "projects/$PROJECT_ID/topics/$result_topic" \
+      --arg endpoint "$result_url/api/orders/internal/credit-compensations" \
+      --arg audience "$result_url" --arg sa "$result_sa" --arg dlq "projects/$PROJECT_ID/topics/$result_dlq" \
+      '.topic == $topic and .pushConfig.pushEndpoint == $endpoint and
+       .pushConfig.oidcToken.audience == $audience and .pushConfig.oidcToken.serviceAccountEmail == $sa and
+       .deadLetterPolicy.deadLetterTopic == $dlq and .deadLetterPolicy.maxDeliveryAttempts == 10' <<<"$result_json" >/dev/null; then
+    problem "order-service: compensation result subscription '$result_sub' is misconfigured"
+  fi
+  if ! gcloud pubsub subscriptions describe "$result_dlq-recovery" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg topic "projects/$PROJECT_ID/topics/$result_dlq" '.topic == $topic' >/dev/null; then
+    problem "order-service: compensation dead-letter recovery subscription is missing or misconfigured"
+  fi
+  if ! gcloud iam service-accounts get-iam-policy "$result_sa" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg m "$result_agent" '.bindings // [] | any(.role == "roles/iam.serviceAccountTokenCreator" and (.members | index($m)))' >/dev/null; then
+    problem "order-service: Pub/Sub cannot mint OIDC tokens for '$result_sa'"
+  fi
+  if ! gcloud pubsub subscriptions get-iam-policy "$result_sub" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg m "$result_agent" '.bindings // [] | any(.role == "roles/pubsub.subscriber" and (.members | index($m)))' >/dev/null; then
+    problem "order-service: Pub/Sub cannot forward exhausted compensation results to the DLQ"
+  fi
+  if ! gcloud pubsub topics get-iam-policy "$result_dlq" --project "$PROJECT_ID" --format=json 2>/dev/null |
+      jq -e --arg m "$result_agent" '.bindings // [] | any(.role == "roles/pubsub.publisher" and (.members | index($m)))' >/dev/null; then
+    problem "order-service: Pub/Sub cannot publish to the compensation DLQ"
   fi
 done
 
@@ -385,13 +442,13 @@ done
 
 if [[ ${#problems[@]} -gt 0 ]]; then
   echo
-  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, infra/gcp/configure-order-pubsub.sh <environment> and, for enabled Credit push delivery, infra/gcp/configure-credit-pubsub.sh <environment>; then re-run this check."
+  echo "::error title=Cloud infrastructure incomplete::${#problems[@]} problem(s). Ask the CI/CD owner to run infra/gcp/bootstrap.sh, then infra/gcp/configure-compensation-pubsub.sh staging and infra/gcp/configure-compensation-pubsub.sh production; then re-run this check."
   if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     {
       echo "### Cloud infrastructure incomplete"
       printf -- '- %s\n' "${problems[@]}"
       echo
-      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\` and the enabled Credit Pub/Sub provisioning script, then re-runs this job."
+      echo "Fix: the CI/CD owner runs \`infra/gcp/bootstrap.sh\`, then \`infra/gcp/configure-compensation-pubsub.sh staging\` and \`infra/gcp/configure-compensation-pubsub.sh production\`, then re-runs this job."
     } >>"$GITHUB_STEP_SUMMARY"
   fi
   exit 1

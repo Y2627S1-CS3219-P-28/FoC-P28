@@ -25,8 +25,20 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
+// These controls have explicit ARIA labels. Select the exact control first to avoid
+// JSDOM style/name walks over every date/time select, then check the same accessibility.
+function combobox(name: string) {
+  const matches = document.querySelectorAll<HTMLElement>(`[role="combobox"][aria-label=${JSON.stringify(name)}]`)
+  expect(matches).toHaveLength(1)
+  const control = matches.item(0)
+  expect(control).toHaveAccessibleName(name)
+  expect(control).toBeVisible()
+  expect(control.closest('[aria-hidden="true"]')).toBeNull()
+  return control
+}
+
 async function selectOption(name: string, option: string) {
-  fireEvent.click(screen.getByRole("combobox", { name }))
+  fireEvent.click(combobox(name))
   const item = await screen.findByRole("option", { name: option })
   fireEvent.pointerDown(item, { pointerType: "mouse" })
   fireEvent.click(item)
@@ -35,13 +47,13 @@ async function selectOption(name: string, option: string) {
 describe("request creation quarter-hour time integration", () => {
   it("shows only the actual same-supplier error inline and does not post", async () => {
     render(<NewRequestPage />)
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    await waitFor(() => expect(combobox("Pickup supplier")).not.toBeDisabled())
     fireEvent.change(screen.getByLabelText("What do you need?"), { target: { value: "Parcel" } })
     await selectOption("Pickup supplier", "Store — A")
     await selectOption("Delivery supplier", "Store — A")
     fireEvent.submit(screen.getByRole("form", { name: "Post request form" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Delivery supplier must differ from pickup supplier.")
-    expect(screen.getByRole("combobox", { name: "Delivery supplier" })).toHaveAttribute("aria-invalid", "true")
+    expect(combobox("Delivery supplier")).toHaveAttribute("aria-invalid", "true")
     expect(screen.getByRole("alert")).not.toHaveTextContent("Expiry")
     expect(mocks.api).not.toHaveBeenCalledWith("/api/orders", expect.anything())
   })
@@ -54,7 +66,7 @@ describe("request creation quarter-hour time integration", () => {
       return { items: [{ id: "store", name: "Store", building: "A" }, { id: "hall", name: "Hall", building: "B" }] }
     })
     render(<NewRequestPage />)
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
+    await waitFor(() => expect(combobox("Pickup supplier")).not.toBeDisabled())
     fireEvent.change(screen.getByLabelText("What do you need?"), { target: { value: "Parcel" } })
     await selectOption("Pickup supplier", "Store — A")
     await selectOption("Delivery supplier", "Hall — B")
@@ -66,20 +78,20 @@ describe("request creation quarter-hour time integration", () => {
 
   it("has a required automatic-repost expiry with quarter-hour minutes only", async () => {
     render(<NewRequestPage />)
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
-    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).toBeDisabled()
+    await waitFor(() => expect(combobox("Pickup supplier")).not.toBeDisabled())
+    expect(combobox("Repost expiry minutes")).toBeDisabled()
     fireEvent.click(screen.getByRole("checkbox", { name: "Enable automatic repost if no courier accepts" }))
     expect(screen.getByLabelText("Repost expiry date")).toBeRequired()
-    expect(screen.getByRole("combobox", { name: "Repost expiry minutes" })).not.toBeDisabled()
-    fireEvent.click(screen.getByRole("combobox", { name: "Repost expiry minutes" }))
+    expect(combobox("Repost expiry minutes")).not.toBeDisabled()
+    fireEvent.click(combobox("Repost expiry minutes"))
     expect((await screen.findAllByRole("option")).map(option => option.textContent)).toEqual(["00", "15", "30", "45"])
   })
 
   it("submits rounded local expiry and repost time using the existing ISO request body", async () => {
     render(<NewRequestPage />)
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Pickup supplier" })).not.toBeDisabled())
-    expect(screen.getByRole("combobox", { name: "Order expiry minutes" })).toHaveTextContent("15")
-    expect(screen.getByRole("combobox", { name: "Repost time minutes" })).toBeDisabled()
+    await waitFor(() => expect(combobox("Pickup supplier")).not.toBeDisabled())
+    expect(combobox("Order expiry minutes")).toHaveTextContent("15")
+    expect(combobox("Repost time minutes")).toBeDisabled()
     fireEvent.change(screen.getByLabelText("What do you need?"), { target: { value: "Pick up a parcel" } })
     await selectOption("Pickup supplier", "Store — A")
     await selectOption("Delivery supplier", "Hall — B")

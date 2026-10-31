@@ -36,6 +36,12 @@ public class OrderOutboxDispatcher {
     private final IPenaltyScoreDeductionPublisher penaltyDeductionPublisher;
     private final JsonMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<sg.edu.nus.foc.order.application.recovery.CreditCompensationPublisher> compensationPublisher;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<sg.edu.nus.foc.order.application.reportresolution.ReportCompensationPublisher> reportCompensationPublisher;
+
     @Value("${order.messaging.outbox.batch-size:50}")
     private int batchSize;
 
@@ -78,6 +84,10 @@ public class OrderOutboxDispatcher {
 
     private void publish(OrderEventOutbox message) {
         switch (message.getEventType()) {
+            case "ReportResolutionCompensationRequested" -> reportCompensationPublisher.getObject().publish(objectMapper.readValue(
+                    message.getPayload(), sg.edu.nus.foc.order.application.reportresolution.ReportResolutionMessages.Compensation.class));
+            case "CreditCompensationRequested" -> compensationPublisher.getObject().publish(objectMapper.readValue(
+                    message.getPayload(), sg.edu.nus.foc.order.application.recovery.CreditCompensationRequest.class));
             case "PenaltyScoreAdditionEvent" -> {
                 PenaltyScoreAdditionEvent event = objectMapper.readValue(message.getPayload(), PenaltyScoreAdditionEvent.class);
                 event.setEventVersion(message.getEventVersion());

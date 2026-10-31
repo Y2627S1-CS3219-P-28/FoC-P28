@@ -1,5 +1,13 @@
 # Order–Credit synchronous command recovery handoff
 
+## New compensation-first fixture work - 2026-10-26
+
+Vincent-approved CHANGE-156/ADR-054 adds an opt-in Order fixture milestone.
+See [compensation-workflow-handoff.md](compensation-workflow-handoff.md) for the
+new request/result schemas, safe ABORT restoration and peer implementation work.
+The earlier live protocol below remains current until FEEDBACK-017 is verified;
+do not delete its HTTP endpoints or reinterpret existing pending commands.
+
 ## Effective manual repost extension — ADR-037 / CHANGE-106 (2026-10-11)
 
 Vincent approves this on `sprint-2-3-credit-service-concurrency-update-event-payload`.

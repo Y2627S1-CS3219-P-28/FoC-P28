@@ -20,8 +20,12 @@ public class OrderEventOutbox {
     @Column(name = "event_id", length = 36)
     private String eventId;
 
-    @Column(name = "order_id", nullable = false, length = 36)
+    // V15: command compensation may precede creation of an Order row.
+    @Column(name = "order_id", length = 36)
     private String orderId;
+
+    @Column(name = "command_id", length = 128)
+    private String commandId;
 
     @Column(name = "event_type", nullable = false, length = 100)
     private String eventType;

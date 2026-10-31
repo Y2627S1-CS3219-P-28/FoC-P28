@@ -19,6 +19,13 @@ public class OrderQueryService {
                 .orElseThrow(() -> OrderProblem.notFound("Order not found."));
     }
 
+    public OrderPage requestedActiveBy(String requesterId, int page, int size) {
+        if (page < 1 || size < 1 || size > 100) {
+            throw new OrderProblem("VALIDATION_ERROR", "Page must be at least 1 and size must be between 1 and 100.");
+        }
+        return orders.findActiveRequestedBy(requesterId, page - 1, size);
+    }
+
     public OrderPage available(int page, int size) {
         return orders.findAvailable(Instant.now(), page, size);
     }

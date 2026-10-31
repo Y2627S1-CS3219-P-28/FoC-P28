@@ -40,12 +40,13 @@ class OrderDeferredPenaltyTest {
             assertEquals(PenaltySystemPolicy.WRONG_LOCATION_DELIVERY,o.penaltyAtCompletion());
         }
     }
-    @Test void adminCancellationIgnoresOverdueAndCannotEraseStoredPenalty() {
+    @Test void adminCancellationIgnoresOverdueAndExplicitlyWaivesScoring() {
         Order innocent=delivered(true);innocent.cancelByAdmin("owner","courier",NOW,null);
         assertNull(innocent.getAdminPenaltyReason());
         Order guilty=delivered(true);guilty.applyPenalty("courier",0,PenaltySystemPolicy.ITEM_MISHANDLING_OR_DAMAGE,"admin","Damage",NOW);
         guilty.cancelByAdmin("owner","courier",NOW,null);
-        assertEquals(PenaltySystemPolicy.ITEM_MISHANDLING_OR_DAMAGE,guilty.getAdminPenaltyReason());
+        assertNull(guilty.getAdminPenaltyReason());
+        assertEquals(PenaltySystemPolicy.ITEM_MISHANDLING_OR_DAMAGE,guilty.getAppliedPenalty());
     }
     @Test void invalidStateCourierVersionAndPolicyAreRejected() {
         Order o=assigned();

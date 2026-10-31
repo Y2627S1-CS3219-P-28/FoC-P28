@@ -49,6 +49,17 @@ public class SecurityConfiguration {
     };
 
     @Bean
+    @org.springframework.core.annotation.Order(0)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "FOC_INTERNAL_ORDER_API_ENABLED", havingValue = "true")
+    SecurityFilterChain internalOrderQueries(HttpSecurity http) throws Exception {
+        return http.securityMatcher("/api/orders/internal/users/*/can-delete",
+                        "/api/orders/internal/users/*/deletion-preparations/*")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
+    }
+
+    @Bean
     @Profile("!prod")
     SecurityFilterChain localSecurity(HttpSecurity http) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
@@ -91,6 +102,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    @org.springframework.context.annotation.Primary
     @Profile("prod")
     JwtDecoder jwtDecoder(
             @Value("${order.security.auth.project-id:demo-foc}") String projectId,

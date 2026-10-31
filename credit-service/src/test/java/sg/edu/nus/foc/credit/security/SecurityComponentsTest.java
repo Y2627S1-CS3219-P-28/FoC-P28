@@ -39,8 +39,7 @@ class SecurityComponentsTest {
                 new CreditProperties.AuthSettings("demo-foc", "firebase-emulator:9099"), null, null);
         CreditProperties cloud = new CreditProperties(
                 new CreditProperties.AuthSettings("real-project", ""), null, null);
-        CreditPushProperties push = new CreditPushProperties(
-                "demo-foc", null, null, null, null, null);
+        CreditPushProperties push = new CreditPushProperties("demo-foc", null, null, null, null, null, null);
         assertThat(config.emulatorPushEnabled("emulator", "pubsub-emulator:8085", "local", local, push)).isTrue();
         assertThat(config.emulatorPushEnabled("google", "", "staging", cloud, push)).isFalse();
         assertThatThrownBy(() -> config.emulatorPushEnabled("emulator", "pubsub-emulator:8085", "production", local, push))
@@ -135,7 +134,7 @@ class SecurityComponentsTest {
 
     private CreditPushProperties pushProperties() {
         return new CreditPushProperties("project", "https://credit.example.com", "push@example.com",
-                "completion", "refund", "user-created");
+                "completion", "refund", "compensation", "user-created");
     }
 
     private Jwt pushToken(Map<String, Object> overrides) {

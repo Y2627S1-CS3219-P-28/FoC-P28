@@ -48,21 +48,31 @@ pubsub_service_agent="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccoun
 topics=(
   "$ORDER_OPEN_REFUND_TOPIC"
   "$ORDER_COMPLETION_TOPIC"
+  "$ORDER_CREDIT_COMPENSATION_TOPIC"
   "$USER_CREATED_TOPIC"
 )
 subscriptions=(
   "$CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION"
   "$CREDIT_ORDER_COMPLETION_SUBSCRIPTION"
+  "$CREDIT_COMPENSATION_SUBSCRIPTION"
   "$CREDIT_USER_CREATED_SUBSCRIPTION"
 )
 push_paths=(
   "/api/credits/internal/order-events/open-refund"
   "/api/credits/internal/order-events/completion"
+  "/api/credits/internal/command-compensations"
   "/api/credits/internal/user-events/created"
 )
 
 echo "Configuring Credit Pub/Sub push delivery for $environment"
 gc services enable pubsub.googleapis.com
+
+exists gc pubsub topics describe "$CREDIT_COMPENSATION_RESULT_TOPIC" ||
+  gc pubsub topics create "$CREDIT_COMPENSATION_RESULT_TOPIC" \
+    --labels "service=credit-service,environment=$environment,purpose=compensation-result"
+gc pubsub topics add-iam-policy-binding "$CREDIT_COMPENSATION_RESULT_TOPIC" \
+  --member "serviceAccount:foc-credit-service@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role roles/pubsub.publisher >/dev/null
 
 exists gc pubsub topics describe "$USER_CREATED_TOPIC" ||
   gc pubsub topics create "$USER_CREATED_TOPIC" \
@@ -71,7 +81,7 @@ gc pubsub topics add-iam-policy-binding "$USER_CREATED_TOPIC" \
   --member "serviceAccount:foc-user-service@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role roles/pubsub.publisher >/dev/null
 
-for topic in "$ORDER_OPEN_REFUND_TOPIC" "$ORDER_COMPLETION_TOPIC"; do
+for topic in "${topics[@]}"; do
   exists gc pubsub topics describe "$topic" || {
     echo "Required Order Service topic '$topic' does not exist. Run infra/gcp/configure-order-pubsub.sh $environment first." >&2
     exit 1
@@ -86,12 +96,10 @@ gc iam service-accounts add-iam-policy-binding "$push_service_account" \
   --member "serviceAccount:$pubsub_service_agent" \
   --role roles/iam.serviceAccountTokenCreator >/dev/null
 
-exists gc run services describe "credit-service-$environment" --region "$REGION" || {
-  echo "Deploy credit-service-$environment before configuring its push subscriptions." >&2
-  exit 1
-}
-gc run services add-iam-policy-binding "credit-service-$environment" --region "$REGION" \
-  --member "serviceAccount:$push_service_account" --role roles/run.invoker >/dev/null
+if exists gc run services describe "credit-service-$environment" --region "$REGION"; then
+  gc run services add-iam-policy-binding "credit-service-$environment" --region "$REGION" \
+    --member "serviceAccount:$push_service_account" --role roles/run.invoker >/dev/null
+fi
 
 exists gc pubsub topics describe "$dead_letter_topic" ||
   gc pubsub topics create "$dead_letter_topic" \

@@ -28,11 +28,22 @@ public class OrderPersistenceAdapter implements OrderRepository {
 
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
+    private final sg.edu.nus.foc.order.domain.repository.UserDeletionGuard deletionGuard;
     private sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands;
 
     @org.springframework.beans.factory.annotation.Autowired
     public void setCommandStore(sg.edu.nus.foc.order.application.recovery.OrderCommandStore commands) {
         this.commands = commands;
+    }
+
+    @Override
+    public List<String> findDueAutomaticRepostIds(Instant now) {
+        return repository.findDueAutomaticRepostIds(now);
+    }
+
+    @Override
+    public boolean hasNonTerminalUserInvolvement(String userId) {
+        return repository.existsNonTerminalUserInvolvement(userId);
     }
 
     @Override
@@ -58,6 +69,21 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> getActiveForReportHoldUpdate(String id, String requesterId) {
+        Optional<Order> locked = repository.findActiveRequesterOrderForUpdate(id, requesterId,
+                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList());
+        if (locked.isPresent() && commands != null) commands.guard(id);
+        return locked;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderPage findActiveRequestedBy(String requesterId, int page, int size) {
+        return toOrderPage(repository.findActiveRequesterOrders(requesterId,
+                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList(), pageRequest(page, size)));
+    }
+
+    @Override
     public Optional<Order> getForLifecycleUpdate(String id) {
         Optional<Order> locked = repository.findByIdForLifecycleUpdate(id);
         if (commands != null) commands.guard(id);
@@ -77,9 +103,14 @@ public class OrderPersistenceAdapter implements OrderRepository {
     }
 
     @Override
+    @Transactional
     public Order save(Order order) {
         if (order.getAttemptId() != null) {
             throw new IllegalArgumentException("Courier history cannot be saved as a current Order.");
+        }
+        if (order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELLED
+                && order.getStatus() != OrderStatus.EXPIRED) {
+            deletionGuard.requireAllowed(order.getRequesterId(), order.getCourierId());
         }
         return repository.save(order);
     }

@@ -21,9 +21,12 @@ import sg.edu.nus.foc.credit.persistence.CreditCommandStore.Snapshot;
 public class CreditCommandService {
 
     private final CreditCommandStore store;
+    private final sg.edu.nus.foc.credit.persistence.CreditCompensationStore compensationStore;
 
-    public CreditCommandService(CreditCommandStore store) {
+    public CreditCommandService(CreditCommandStore store,
+                                sg.edu.nus.foc.credit.persistence.CreditCompensationStore compensationStore) {
         this.store = store;
+        this.compensationStore = compensationStore;
     }
 
     public CommandMutationResult<ReservationResult> reserve(String key, long generation,
@@ -88,7 +91,8 @@ public class CreditCommandService {
         if (!permitted) {
             throw new ForbiddenException("The caller lacks permission to compensate this Credit command.");
         }
-        CreditCommandStore.CompensationResult result = store.compensate(key, generation, actorId);
+        sg.edu.nus.foc.credit.persistence.CreditCompensationStore.ExistingResult result =
+                compensationStore.compensateExisting(key, generation, actorId);
         if (result.reconciliationRequired()) {
             throw new CreditCommandException(ErrorCode.RECONCILIATION_REQUIRED,
                     "The Credit effect cannot be reversed safely and requires reconciliation.",

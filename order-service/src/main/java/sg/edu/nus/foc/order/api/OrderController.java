@@ -302,7 +302,7 @@ public class OrderController {
     public Map<String, Integer> automaticRepost(
             @RequestHeader("X-Lifecycle-Token") String token) {
         checkToken(token);
-        return Map.of("reposted", lifecycle.repostDue(Instant.now(), "Bearer " + token));
+        return Map.of("reposted", lifecycle.repostDue(Instant.now(), null));
     }
 
     private void checkToken(String token) {

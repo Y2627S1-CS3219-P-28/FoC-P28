@@ -2,14 +2,14 @@ asyncapi: 3.0.0
 id: urn:foc:order-service:pubsub
 info:
   title: Friend on Campus - Order Service Pub/Sub
-  version: 1.3.0
+  version: 1.5.0
   description: |
-    Order Service's existing outgoing Google Cloud Pub/Sub contracts.
-    This document describes the publisher, not a new consumer or infrastructure deployment.
+    Existing lifecycle/penalty contracts plus ADR-055 Credit and ADR-059 Report opt-in compensation request/result.
+    Compensation transport is disabled by default; no cloud deployment is implied.
     Refund/completion use compact schema v2; explicit penalty add/deduct use seven fields v1.
     Accepted-cancellation publishing/replay is retired (CHANGE-155). Published history is retained.
     ADR-044 adds admin cancellation refunds and one highest optional addition;
-    addition reasons include report misconduct and COURIER_UNRESPONSIVE (+3).
+    addition reasons include report misconduct; retired COURIER_UNRESPONSIVE remains historical read compatibility only.
     ADR-050 removes admin completion; requester and automatic completion remain.
     Topic suffix v1 is a resource name, NOT the payload schema version.
     Order state, checkpoint, receipt and outbox intent commit atomically. Publication is
@@ -43,6 +43,45 @@ servers:
       push subscriptions. Ordinary application APIs still verify Firebase user JWTs.
       Emulator delivery does not verify cloud IAM/OIDC or User penalty processing.
 channels:
+  reportCompensationRequest:
+    address: projects/{projectId}/topics/{topicId}
+    description: Proposed callback-free Report restore/fence contract; disabled until peer verification. No token or reply in data.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID.}
+      topicId: {description: Explicit ORDER_REPORT_COMPENSATION_TOPIC; no default.}
+    x-topic-environment-variable: ORDER_REPORT_COMPENSATION_TOPIC
+    messages:
+      request: {$ref: '#/components/messages/ReportResolutionCompensationRequested'}
+  reportCompensationResult:
+    address: projects/{projectId}/topics/{topicId}
+    description: Proposed committed Report reversal/fence result; authenticated dedicated Order push receiver. Broker ACK is not compensation success.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID.}
+      topicId: {description: Explicit REPORT_COMPENSATION_RESULT_TOPIC; no default.}
+    x-topic-environment-variable: REPORT_COMPENSATION_RESULT_TOPIC
+    messages:
+      result: {$ref: '#/components/messages/ReportResolutionCompensationResult'}
+  compensationRequest:
+    address: projects/{projectId}/topics/{topicId}
+    description: Opt-in durable reversal/fence request; Credit owns the financial decision.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID for the environment.}
+      topicId: {description: Explicit ORDER_COMPENSATION_REQUEST_TOPIC; no default.}
+    x-topic-environment-variable: ORDER_COMPENSATION_REQUEST_TOPIC
+    messages:
+      request: {$ref: '#/components/messages/CreditCompensationRequested'}
+  compensationResult:
+    address: projects/{projectId}/topics/{topicId}
+    description: |
+      Credit committed result, received at POST /api/orders/internal/credit-compensations.
+      ORDER_COMPENSATION_RESULT_SUBSCRIPTION identifies the exact authorized subscription.
+      Separate Google OIDC identity chain; unsigned push only in gated local demo emulators.
+      ACK only after Order inbox/finalization commit. Duplicates retain their IDs.
+    parameters:
+      projectId: {description: Explicit PUBSUB_PROJECT_ID for the environment.}
+      topicId: {description: Credit's configured CREDIT_COMPENSATION_RESULT_TOPIC.}
+    messages:
+      result: {$ref: '#/components/messages/CreditCompensationResult'}
   openRefund:
     address: projects/{projectId}/topics/{topicId}
     title: OPEN cancellation or expiry refund
@@ -73,8 +112,7 @@ channels:
     description: |
       Intended financial consumer: Credit Service. Settle/transfer the stored reservation.
       Trigger: requester confirms DELIVERED, or scheduler completes a still-DELIVERED
-      order at least 48 hours after delivery, or admin resolves an assigned active
-      order (including held Orders) to COMPLETED. All use the same message type.
+      order at least 48 hours after delivery. Admin completion is retired.
       This compact body has NO overdue/overdueAt; do not infer User penalty policy from it.
       Penalty decisions are published separately as explicit add/deduct events (ADR-041).
     servers:
@@ -98,8 +136,8 @@ channels:
     description: |
       ADR-041: User Service applies transmitted positive amount in the event's direction.
       Addition follows successful ACCEPTED cancellation (+2) or overdue completion (+1).
-      Admin cancellation or completion can emit the single highest selected addition, including
-      wrong location (+4), damage (+4), theft (+10), or unresponsive courier (+3).
+      Admin cancellation with an explicit penalty emits the highest stored/selected addition:
+      wrong location (+4), damage (+4), theft (+10). No penalty overrides provisional scoring.
       Deduction follows on-time requester/automatic completion (-1). Admin resolution
       never adds an automatic penalty or reward; null/empty selection means no score event.
       Target is the courier, never requester/lifecycle. Consumer integration is pending.
@@ -144,6 +182,22 @@ channels:
       penalty:
         $ref: '#/components/messages/PenaltyScoreDeductionEvent'
 operations:
+  publishReportCompensation:
+    action: send
+    channel: {$ref: '#/channels/reportCompensationRequest'}
+    messages: [{$ref: '#/channels/reportCompensationRequest/messages/request'}]
+  receiveReportCompensationResult:
+    action: receive
+    channel: {$ref: '#/channels/reportCompensationResult'}
+    messages: [{$ref: '#/channels/reportCompensationResult/messages/result'}]
+  publishCompensation:
+    action: send
+    channel: {$ref: '#/channels/compensationRequest'}
+    messages: [{$ref: '#/channels/compensationRequest/messages/request'}]
+  receiveCompensationResult:
+    action: receive
+    channel: {$ref: '#/channels/compensationResult'}
+    messages: [{$ref: '#/channels/compensationResult/messages/result'}]
   publishOpenRefund:
     action: send
     title: Publish refund task after cancellation or expiry commits
@@ -182,6 +236,79 @@ components:
         and not Google's transport messageId. Same event retains this ID across retries.
       location: $message.payload#/eventId
   messages:
+    ReportResolutionCompensationRequested:
+      name: ReportResolutionCompensationRequested
+      description: Proposed Report consumer restores only this operation or fences its absent/late execution. No Report implementation is claimed.
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: ReportResolutionCompensationRequested}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/ReportResolutionCompensationRequested'}
+      examples:
+        - headers: {eventId: '33333333-3333-3333-8333-333333333333', eventType: ReportResolutionCompensationRequested, eventVersion: '1'}
+          payload: {eventId: '33333333-3333-3333-8333-333333333333', commandId: report-resolve-K, reportId: report-1, orderId: order-1, requesterId: requester-1, courierId: courier-1, adminId: admin-1, generation: 2}
+    ReportResolutionCompensationResult:
+      name: ReportResolutionCompensationResult
+      description: Report commits conditional restore/fence and result outbox atomically. ACK is sent only after Order inbox commit. Unknown/newer revisions require reconciliation.
+      headers:
+        type: object
+        additionalProperties: false
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: ReportResolutionCompensationResult}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/ReportResolutionCompensationResult'}
+      examples:
+        - headers: {eventId: '44444444-4444-4444-8444-444444444444', eventType: ReportResolutionCompensationResult, eventVersion: '1'}
+          payload: {eventId: '44444444-4444-4444-8444-444444444444', compensationId: '33333333-3333-3333-8333-333333333333', commandId: report-resolve-K, reportId: report-1, orderId: order-1, requesterId: requester-1, courierId: courier-1, adminId: admin-1, generation: 2, outcome: COMPENSATED, code: REVERSED}
+        - headers: {eventId: '55555555-5555-4555-8555-555555555555', eventType: ReportResolutionCompensationResult, eventVersion: '1'}
+          payload: {eventId: '55555555-5555-4555-8555-555555555555', compensationId: '33333333-3333-3333-8333-333333333333', commandId: report-resolve-K, reportId: report-1, orderId: order-1, requesterId: requester-1, courierId: null, adminId: admin-1, generation: 2, outcome: COMPENSATED, code: FENCED_NO_EFFECT}
+    CreditCompensationRequested:
+      name: CreditCompensationRequested
+      headers:
+        type: object
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: CreditCompensationRequested}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/CreditCompensationRequested'}
+      examples:
+        - headers: {eventId: '11111111-1111-4111-8111-111111111111', eventType: CreditCompensationRequested, eventVersion: '1'}
+          payload:
+            eventId: '11111111-1111-4111-8111-111111111111'
+            commandId: K
+            operation: RESERVE
+            orderId: '22087f91-26d8-4704-be72-0f7ba5df702b'
+            actorId: requester
+            generation: 2
+            amount: 5
+    CreditCompensationResult:
+      name: CreditCompensationResult
+      headers:
+        type: object
+        required: [eventId, eventType, eventVersion]
+        properties:
+          eventId: {type: string, format: uuid}
+          eventType: {const: CreditCompensationResult}
+          eventVersion: {const: '1'}
+      payload: {$ref: '#/components/schemas/CreditCompensationResult'}
+      examples:
+        - headers: {eventId: '22222222-2222-4222-8222-222222222222', eventType: CreditCompensationResult, eventVersion: '1'}
+          payload:
+            eventId: '22222222-2222-4222-8222-222222222222'
+            compensationId: '11111111-1111-4111-8111-111111111111'
+            commandId: K
+            operation: RESERVE
+            orderId: '22087f91-26d8-4704-be72-0f7ba5df702b'
+            generation: 2
+            outcome: COMPENSATED
+            code: REVERSED
     PenaltyScoreAdditionEvent:
       name: PenaltyScoreAdditionEvent
       contentType: application/json
@@ -338,6 +465,70 @@ components:
             occurredAt: '2026-10-10T10:00:00Z'
             courierId: courier-example
   schemas:
+    ReportResolutionCompensationRequested:
+      type: object
+      additionalProperties: false
+      required: [eventId, commandId, reportId, orderId, requesterId, courierId, adminId, generation]
+      properties:
+        eventId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        reportId: {type: string, minLength: 1, maxLength: 128}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        requesterId: {type: string, minLength: 1, maxLength: 128}
+        courierId: {type: [string, 'null'], minLength: 1, maxLength: 128}
+        adminId: {type: string, minLength: 1, maxLength: 128}
+        generation: {type: integer, const: 2}
+    ReportResolutionCompensationResult:
+      type: object
+      additionalProperties: false
+      required: [eventId, compensationId, commandId, reportId, orderId, requesterId, courierId, adminId, generation, outcome, code]
+      properties:
+        eventId: {type: string, format: uuid}
+        compensationId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        reportId: {type: string, minLength: 1, maxLength: 128}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        requesterId: {type: string, minLength: 1, maxLength: 128}
+        courierId: {type: [string, 'null'], minLength: 1, maxLength: 128}
+        adminId: {type: string, minLength: 1, maxLength: 128}
+        generation: {type: integer, const: 2}
+        outcome: {enum: [COMPENSATED, RECONCILIATION_REQUIRED]}
+        code: {type: string, minLength: 1, maxLength: 80}
+      allOf:
+        - if: {properties: {outcome: {const: COMPENSATED}}}
+          then: {properties: {code: {enum: [REVERSED, FENCED_NO_EFFECT]}}}
+    CreditCompensationRequested:
+      type: object
+      additionalProperties: false
+      required: [eventId, commandId, operation, orderId, actorId, generation]
+      properties:
+        eventId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        operation: {enum: [RESERVE, ASSIGN_COURIER, CLEAR_COURIER]}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        actorId: {type: string, minLength: 1, maxLength: 128}
+        generation: {type: integer, minimum: 1}
+        amount: {type: integer, minimum: 1}
+      allOf:
+        - if: {properties: {operation: {const: RESERVE}}}
+          then: {required: [amount]}
+          else: {not: {required: [amount]}}
+    CreditCompensationResult:
+      type: object
+      additionalProperties: false
+      required: [eventId, compensationId, commandId, operation, orderId, generation, outcome, code]
+      properties:
+        eventId: {type: string, format: uuid}
+        compensationId: {type: string, format: uuid}
+        commandId: {type: string, minLength: 1, maxLength: 128}
+        operation: {enum: [RESERVE, ASSIGN_COURIER, CLEAR_COURIER]}
+        orderId: {type: string, minLength: 1, maxLength: 36}
+        generation: {type: integer, minimum: 1}
+        outcome: {enum: [COMPENSATED, RECONCILIATION_REQUIRED]}
+        code: {type: string, minLength: 1, maxLength: 80}
+      allOf:
+        - if: {properties: {outcome: {const: COMPENSATED}}}
+          then: {properties: {code: {enum: [REVERSED, FENCED_NO_EFFECT]}}}
     PenaltyScoreAdditionEvent:
       type: object
       additionalProperties: false

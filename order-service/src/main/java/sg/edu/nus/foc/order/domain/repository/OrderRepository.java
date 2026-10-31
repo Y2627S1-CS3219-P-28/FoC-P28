@@ -8,6 +8,9 @@ import sg.edu.nus.foc.order.domain.OrderCourierAttempt;
 import sg.edu.nus.foc.order.domain.OrderStatus;
 
 public interface OrderRepository {
+    boolean hasNonTerminalUserInvolvement(String userId);
+    List<String> findDueAutomaticRepostIds(Instant now);
+
     boolean hasActiveUserInvolvement(String userId);
 
     boolean hasActiveSupplierInvolvement(String supplierId);
@@ -15,6 +18,10 @@ public interface OrderRepository {
     Optional<Order> get(String id);
 
     Optional<Order> getForUpdate(String id);
+
+    Optional<Order> getActiveForReportHoldUpdate(String id, String requesterId);
+
+    OrderPage findActiveRequestedBy(String requesterId, int page, int size);
 
     Optional<Order> getForLifecycleUpdate(String id);
 

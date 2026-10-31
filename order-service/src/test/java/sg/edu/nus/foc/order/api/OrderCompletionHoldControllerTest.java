@@ -37,13 +37,15 @@ import sg.edu.nus.foc.order.security.RoleProvider;
 class OrderCompletionHoldControllerTest {
 
 
-    private static final String PATH = "/api/orders/internal/order-1/completion-holds/report-1";
+    private static final String PATH = "/api/orders/mine/active/order-1/report-holds/report-1";
 
     @Autowired
     private MockMvc mvc;
 
     @MockitoBean
     private OrderCompletionHoldService holds;
+
+    @MockitoBean private sg.edu.nus.foc.order.application.OrderQueryService queries;
 
     @MockitoBean
     private RoleProvider roles;
@@ -53,11 +55,11 @@ class OrderCompletionHoldControllerTest {
 
     @Test
     void requiresAuthenticationAndRequesterRole() throws Exception {
-        mvc.perform(put(PATH).contentType(MediaType.APPLICATION_JSON).content("{\"requesterId\":\"owner\"}"))
+        mvc.perform(put(PATH).contentType(MediaType.APPLICATION_JSON).content("{\"requireAssignedCourier\":false}"))
                 .andExpect(status().isUnauthorized());
         for (String role : new String[] {"COURIER", "ADMIN"}) {
             mvc.perform(put(PATH).with(user("owner").roles(role)).contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"requesterId\":\"owner\"}"))
+                            .content("{\"requireAssignedCourier\":false}"))
                     .andExpect(status().isForbidden());
         }
     }
@@ -70,38 +72,62 @@ class OrderCompletionHoldControllerTest {
         Instant now = Instant.parse("2026-10-14T00:00:00Z");
         Order order = Order.open("owner", "books", "p", "d", 5, 30, now, now.plusSeconds(3600));
         order.placeCompletionHold("owner");
-        when(holds.place("order-1", "report-1", "owner", "Bearer token")).thenReturn(order);
+        when(holds.placeActive("order-1", "report-1", "owner", false, "Bearer token")).thenReturn(order);
 
         mvc.perform(put(PATH).header("Authorization", "Bearer token").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"requesterId\":\"owner\"}"))
+                        .content("{\"requireAssignedCourier\":false}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(order.getId()))
+                .andExpect(jsonPath("$.requesterId").value("owner"))
+                .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.reportId").value("report-1"))
                 .andExpect(jsonPath("$.isCompletionHold").value(true))
                 .andExpect(jsonPath("$.completionHold").doesNotExist());
-        verify(holds).place("order-1", "report-1", "owner", "Bearer token");
+        verify(holds).placeActive("order-1", "report-1", "owner", false, "Bearer token");
     }
 
     @Test
-    void rejectsInvalidPayloadAndOwnerMismatch() throws Exception {
+    void rejectsInvalidPayloadAndHidesOwnerMismatch() throws Exception {
         mvc.perform(put(PATH).with(user("owner").roles("REQUESTER"))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
-        when(holds.place("order-1", "report-1", "other", null))
-                .thenThrow(OrderProblem.forbidden("Only the requester may place a report hold on their order."));
+        when(holds.placeActive("order-1", "report-1", "other", false, null))
+                .thenThrow(OrderProblem.notFound("Active order not found."));
         mvc.perform(put(PATH).with(user("other").roles("REQUESTER"))
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"requesterId\":\"other\"}"))
-                .andExpect(status().isForbidden());
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"requireAssignedCourier\":false}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
     void reportsBindingConflictAndHasNoReleaseOperation() throws Exception {
-        when(holds.place("order-1", "report-1", "owner", null))
+        when(holds.placeActive("order-1", "report-1", "owner", false, null))
                 .thenThrow(OrderProblem.conflict("The report hold conflicts with an existing placement."));
         mvc.perform(put(PATH).with(user("owner").roles("REQUESTER"))
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"requesterId\":\"owner\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"requireAssignedCourier\":false}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CONFLICT"));
         mvc.perform(delete(PATH).with(user("owner").roles("REQUESTER")))
                 .andExpect(status().isMethodNotAllowed());
+    }
+    @Test
+    void activeRequesterListContractExists() throws Exception {
+        when(queries.requestedActiveBy("owner", 1, 20)).thenReturn(new sg.edu.nus.foc.order.domain.repository.OrderPage(java.util.List.of(), 0, 20, 0, 0));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/mine/active")
+                .with(user("owner").roles("REQUESTER"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1));
+        verify(queries).requestedActiveBy("owner", 1, 20);
+    }
+    @Test
+    void activeListRequiresRequesterAndIgnoresClientIdentityHints() throws Exception {
+        var path = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/mine/active");
+        mvc.perform(path).andExpect(status().isUnauthorized());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/mine/active")
+                .with(user("admin").roles("ADMIN"))).andExpect(status().isForbidden());
+        when(queries.requestedActiveBy("owner", 1, 100)).thenReturn(
+                new sg.edu.nus.foc.order.domain.repository.OrderPage(java.util.List.of(), 0, 100, 0, 0));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/mine/active")
+                .with(user("owner").roles("REQUESTER")).param("userId", "intruder").param("size", "100"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.size").value(100));
+        verify(queries).requestedActiveBy("owner", 1, 100);
     }
 }

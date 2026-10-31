@@ -1,5 +1,18 @@
 # Order Service Pub/Sub documentation
 
+CHANGE-158/ADR-055 supersedes the fixture-only description below. AsyncAPI1.4.0
+documents four existing lifecycle/penalty sends plus opt-in compensation send and
+result receive. Default transport remains off; no cloud rollout is implied.
+The validator checks six DTO field sets, eight examples and source/config parity.
+
+CHANGE-156 / ADR-054: the new compensation request/result protocol is an explicitly
+approved fixture milestone with no live transport/receiver. Its proposed schemas
+and reserved topics/handlers are in
+[the peer handoff](../../concurrency/compensation-workflow-handoff.md). The live
+AsyncAPI document intentionally continues to describe the four implemented
+channels; add the new channels with verified producer/consumer/auth wiring before
+live activation. Do not mistake fixture outbox intent for deployed Pub/Sub support.
+
 CHANGE-155 / ADR-053: accepted-cancellation publisher, replay and snapshot schema removed. AsyncAPI1.3.0 retains four channels; published history is preserved. Check each deployment database for outstanding legacy rows before rollout. No schema migration or GCP deletion is performed. This supersedes older replay instructions below.
 
 CHANGE-137 / ADR-046: admin completion of assigned active/held Orders reuses the
@@ -26,8 +39,8 @@ after ten attempts; ADMIN redrive preserves event ID/payload. See
 ../local-live-testing.md for commands. Earlier local-cloud statements are historical.
 
 Open [asyncapi.yaml](asyncapi.yaml) for the machine-readable **AsyncAPI 3.0.0**
-document. It describes **four current outgoing operations**, not new
-REST endpoints or consumers. REST remains documented by OpenAPI/Swagger.
+document. It describes four existing lifecycle/penalty sends plus the opt-in
+compensation send/result receive. REST is documented separately by OpenAPI/Swagger.
 Vincent approved this documentation-only addition on 2026-10-10 (CHANGE-103).
 
 ## Open it in a browser

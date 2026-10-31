@@ -63,6 +63,10 @@ class OrderInvolvementJpaIntegrationTest {
 
         boolean expected = ACTIVE.contains(status);
         assertEquals(expected, involvement.user("owner").isHasActiveOrders());
+        boolean terminal = Set.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.EXPIRED).contains(status);
+        assertEquals(terminal, involvement.canDeleteUser("owner"));
+        assertEquals(terminal || status == OrderStatus.OPEN, involvement.canDeleteUser("courier"));
+        assertTrue(involvement.canDeleteUser("other"));
         assertEquals(expected && status != OrderStatus.OPEN, involvement.user("courier").isHasActiveOrders());
         assertEquals(expected, involvement.supplier("pickup").isHasActiveOrders());
         assertEquals(expected, involvement.supplier("delivery").isHasActiveOrders());

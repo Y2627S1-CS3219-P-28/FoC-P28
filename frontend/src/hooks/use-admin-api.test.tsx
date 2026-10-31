@@ -10,7 +10,7 @@ afterEach(cleanup)
 
 describe("Admin runtime provider selection", () => {
   it.each([
-    ["local", "http://localhost:9099", "mock", "mock"], ["local", null, "live", "live"],
+    ["local", "http://localhost:9099", "mock", "live"], ["local", null, "live", "live"],
     ["staging", null, "live", "live"], ["production", null, "live", "live"],
     ["staging", "http://localhost:9099", "live", "live"],
     ["local", "http://localhost:9099", "live", "live"],

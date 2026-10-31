@@ -6,42 +6,42 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Service;
-import sg.edu.nus.foc.order.config.AdminMockCondition;
+import sg.edu.nus.foc.order.config.ReportDemoCondition;
 import sg.edu.nus.foc.order.api.dto.request.ReportDemoRequest;
 import sg.edu.nus.foc.order.api.dto.request.ReportEvidence;
 import sg.edu.nus.foc.order.api.dto.response.*;
-import sg.edu.nus.foc.order.api.mapper.AdminMockMapper;
+import sg.edu.nus.foc.order.api.mapper.ReportDemoMapper;
 import sg.edu.nus.foc.order.domain.OrderProblem;
 
 /** Local UI prototype only. Never calls real Order commands, funds, scores or Report APIs. */
 @Service
-@Conditional(AdminMockCondition.class)
+@Conditional(ReportDemoCondition.class)
 public class ReportDemoService {
-    private final AdminMockService orders;
-    private final AdminMockMapper mapper;
+    private final ReportDemoOrderStore orders;
+    private final ReportDemoMapper mapper;
     private final Clock clock;
     private final Map<String, ReportDemoResponse> reports = new LinkedHashMap<>();
     private final Set<String> seededUsers = new HashSet<>();
 
     @Autowired
-    public ReportDemoService(AdminMockService orders, AdminMockMapper mapper) {
+    public ReportDemoService(ReportDemoOrderStore orders, ReportDemoMapper mapper) {
         this(orders, mapper, Clock.systemUTC());
     }
-    public ReportDemoService(AdminMockService orders, AdminMockMapper mapper, Clock clock) {
+    public ReportDemoService(ReportDemoOrderStore orders, ReportDemoMapper mapper, Clock clock) {
         this.orders = orders; this.mapper = mapper; this.clock = clock;
     }
 
-    public synchronized List<AdminMockOrderResponse> eligible(String userId) {
+    public synchronized List<ReportDemoOrderResponse> eligible(String userId) {
         seed(userId);
         return orders.reportFixtures(userId).stream().filter(order -> userId.equals(order.getRequesterId())
                 && "DELIVERED".equals(order.getStatus()) && !hasActive(order.getId())).toList();
     }
 
-    public synchronized AdminMockPageResponse<ReportDemoResponse> list(String userId, String mode, String status, int page) {
+    public synchronized ReportDemoPageResponse<ReportDemoResponse> list(String userId, String mode, String status, int page) {
         return list(userId, mode, status, page, null, null);
     }
 
-    public synchronized AdminMockPageResponse<ReportDemoResponse> list(String userId, String mode, String status, int page,
+    public synchronized ReportDemoPageResponse<ReportDemoResponse> list(String userId, String mode, String status, int page,
             String orderId, String reportStatus) {
         String exactOrderId = orderId == null ? "" : orderId.strip();
         if (exactOrderId.length() > 128 || (reportStatus != null && !reportStatus.isBlank()
@@ -58,7 +58,7 @@ public class ReportDemoService {
                 .filter(report -> reportStatus == null || reportStatus.isBlank() || reportStatus.equals(report.getStatus()))
                 .sorted(Comparator.comparing(ReportDemoResponse::getCreatedAt).reversed()).toList();
         int from = (int) Math.min((long) (page - 1) * 20, matches.size());
-        return new AdminMockPageResponse<>(matches.subList(from, Math.min(from + 20, matches.size())).stream()
+        return new ReportDemoPageResponse<>(matches.subList(from, Math.min(from + 20, matches.size())).stream()
                 .map(report -> visibleSnapshot(report, userId, "admin".equals(mode))).toList(), page, 20, matches.size(), (matches.size() + 19) / 20);
     }
 
@@ -72,7 +72,7 @@ public class ReportDemoService {
 
     public synchronized ReportDemoResponse create(ReportDemoRequest input) {
         seed(input.getUserId());
-        AdminMockOrderResponse order = orders.sampleOrder(input.getOrderId());
+        ReportDemoOrderResponse order = orders.sampleOrder(input.getOrderId());
         if (!Objects.equals(order.getRequesterId(), input.getUserId())) throw OrderProblem.forbidden("Only the requester can report their own delivery.");
         if (!"DELIVERED".equals(order.getStatus()) || hasActive(order.getId())) throw OrderProblem.conflict("Only a delivered order without an active report can be reported.");
         if (!List.of("WRONG_LOCATION_DELIVERY", "ITEM_MISHANDLING_OR_DAMAGE").contains(Objects.toString(input.getViolationCategory(), ""))) throw invalid("Choose one delivered-item violation category.");
@@ -115,10 +115,10 @@ public class ReportDemoService {
     }
 
     private void seed(String userId) {
-        List<AdminMockOrderResponse> fixtures = orders.reportFixtures(userId);
+        List<ReportDemoOrderResponse> fixtures = orders.reportFixtures(userId);
         if (!seededUsers.add(userId)) return;
         for (int index = 1; index < 4; index++) {
-            AdminMockOrderResponse order = fixtures.get(index);
+            ReportDemoOrderResponse order = fixtures.get(index);
             ReportDemoResponse report = new ReportDemoResponse();
             report.setId("demo-case-" + order.getId()); report.setOrder(order);
             report.setRequesterId(order.getRequesterId()); report.setCourierId(order.getCourierId());

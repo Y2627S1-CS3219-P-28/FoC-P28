@@ -50,6 +50,7 @@ x-order-pubsub-topics: &order-pubsub-topics
   ORDER_OPEN_REFUND_TOPIC: open-order-refund-local-v1
   ORDER_COURIER_PENALTY_ADDITION_TOPIC: courier-penalty-addition-local-v1
   ORDER_COURIER_PENALTY_DEDUCTION_TOPIC: courier-penalty-deduction-local-v1
+  ORDER_CREDIT_COMPENSATION_TOPIC: credit-command-compensation-local-v1
   USER_CREATED_TOPIC: user-created-local-v1
 
 services:
@@ -99,8 +100,8 @@ services:
       - "${FRONTEND_PORT:-3000}:8080"
     environment:
       FOC_ENVIRONMENT: local
-      # Base Compose is the Admin UI demo; compose.http-peers.yaml selects live APIs.
-      FOC_ADMIN_API_MODE: mock
+      # Ready Admin sections use real peer APIs. Reports alone keep local sample data.
+      FOC_REPORT_API_MODE: mock
       # The browser reaches the frontend on :3000, while APIs are exposed by
       # the host gateway on :8080. Keep this explicit for direct frontend use.
       # Explicit IPv4 avoids broken localhost IPv6 forwarding on Docker Desktop.
@@ -168,6 +169,7 @@ services:
     environment:
       <<: [*backend-env, *firestore-env]
       FIRESTORE_DATABASE_ID: supplier-local
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
       # Roles come from the User Service. Reads don't need it, so there is deliberately no
       # startup dependency on it; set SUPPLIER_USER_SERVICE_MODE=mock to use MOCK_ADMIN_EMAILS.
       USER_SERVICE_MODE: ${SUPPLIER_USER_SERVICE_MODE:-http}
@@ -202,6 +204,13 @@ services:
       CREDIT_PUBSUB_PUSH_SERVICE_ACCOUNT: foc-credit-push-local@demo-foc.iam.gserviceaccount.com
       CREDIT_ORDER_COMPLETION_SUBSCRIPTION: credit-order-completion-local-v1
       CREDIT_ORDER_OPEN_REFUND_SUBSCRIPTION: credit-open-order-refund-local-v1
+      CREDIT_COMPENSATION_SUBSCRIPTION: credit-command-compensation-local-v1
+      CREDIT_COMPENSATION_RESULT_TOPIC: credit-command-compensation-result-local-v1
+      CREDIT_MESSAGING_MODE: emulator
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
+      CREDIT_PUBLISH_TIMEOUT: 10s
+      CREDIT_RESULT_OUTBOX_BATCH_SIZE: 50
+      CREDIT_RESULT_OUTBOX_RECOVERY_CRON: "0 * * * * *"
       CREDIT_USER_CREATED_SUBSCRIPTION: credit-user-created-local-v1
     depends_on:
       <<: *backend-depends
@@ -238,6 +247,8 @@ services:
       <<: [*backend-env, *order-pubsub-topics]
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/UserServiceDB}
       ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-false}
+      ORDER_SERVICE_URL: http://order-service:8080
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
       SPRING_PROFILES_ACTIVE: prod
       USER_MESSAGING_MODE: emulator
@@ -288,14 +299,21 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       ORDER_PEERS_MODE: http
       SPRING_PROFILES_ACTIVE: prod
-      # Sample Admin UI endpoints require local environment and Firebase emulator.
-      ORDER_ADMIN_MOCK_ENABLED: ${ORDER_ADMIN_MOCK_ENABLED:-true}
+      # Sample Reports endpoints require local environment and Firebase emulator.
+      ORDER_REPORT_DEMO_ENABLED: ${ORDER_REPORT_DEMO_ENABLED:-true}
       ORDER_USER_SERVICE_MODE: http
       USER_SERVICE_MODE: http
       USER_SERVICE_URL: http://user-service:8080
       SUPPLIER_SERVICE_URL: http://supplier-service:8080
       CREDIT_SERVICE_URL: http://credit-service:8080
       ORDER_COMMANDS_ENABLED: ${ORDER_COMMANDS_ENABLED:-true}
+      ORDER_COMMAND_RECOVERY_POLICY: ${ORDER_COMMAND_RECOVERY_POLICY:-retry}
+      FOC_INTERNAL_ORDER_API_ENABLED: "true"
+      ORDER_AUTO_REPOST_ENABLED: ${ORDER_AUTO_REPOST_ENABLED:-false}
+      ORDER_COMPENSATION_ENABLED: ${ORDER_COMPENSATION_ENABLED:-false}
+      ORDER_COMPENSATION_REQUEST_TOPIC: credit-command-compensation-local-v1
+      ORDER_COMPENSATION_RESULT_SUBSCRIPTION: order-credit-compensation-result-local-v1
+      ORDER_COMPENSATION_PUSH_MODE: emulator
       ORDER_COMMAND_LEASE_SECONDS: ${ORDER_COMMAND_LEASE_SECONDS:-120}
       ORDER_COMMAND_RETRY_SECONDS: ${ORDER_COMMAND_RETRY_SECONDS:-15}
       ORDER_COMMAND_BATCH_SIZE: ${ORDER_COMMAND_BATCH_SIZE:-20}

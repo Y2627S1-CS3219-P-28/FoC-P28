@@ -1,5 +1,11 @@
 # Order Service Database Migration Workflow
 
+## V18 handoff — Report resolution saga (CHANGE-162, 2026-10-29)
+
+Additive V18__report_resolution_saga.sql creates independent order_report_resolutions journal and order_report_resolution_results inbox, including report/order foreign keys, one active command per report, generation/state checks and a SQL due-work index. Existing V1–V17 remain immutable; no placement snapshots, Report records or guessed outcomes are backfilled. Existing outbox schema is reused. Feature remains default-disabled.
+
+Normal Flyway startup migrates before Hibernate validation; clean schema18 and17→18 upgrade are verified with disposable PostgreSQL. Prior holds/commands remain intact. No application/cloud DB was migrated in this task. Preserve journal/inbox/outbox/hold records on rollback. Disabling transport is not recovery; pending work blocks direct hold release. Do not deploy an older binary without these release guards while unresolved work exists. Resolve/reconcile before removal or use a forward corrective migration, never drop audit tables or edit applied migrations. Report protocol and activation gates: [handoff](report-servicehandoff.md).
+
 ## V11 handoff — saved admin explanation
 
 V11__admin_resolution_reason.sql adds nullable orders.admin_resolution_reason varchar(1000). Old rows remain null; V1–V10 unchanged, no guessed backfill or table rewrite. Code reads/writes the field only through explicit admin resolution. Startup Flyway migrates before Hibernate validate. Required verification: root PowerShell .\mvnw.cmd -B -ntp -pl order-service -am verify; expected schema11. Rebuild both Order and frontend images for rollout. No manual schema edits or ddl-auto update.
@@ -174,3 +180,22 @@ CHANGE-144 adds forward-only V13__courier_penalty_outcomes_and_adjustments.sql: 
 
 
 Current CHANGE-146 handoff: forward-only V14__deferred_courier_penalty.sql adds nullable policy/audit fields to orders and order_courier_attempts, with policy/audit consistency checks. Derived amount is not separately persisted. No terminal-history backfill or adjustment-table drop. V1-V13 remain immutable. Old replacement records require operator review if previously enabled; no automatic score changes. Normal startup applies V14; existing database not migrated by this coding task. Clean/V13 upgrade verification required.
+
+## CHANGE-156 / V15 compensation-journal handoff
+
+V15__compensation_first_command_journal.sql adds per-command recovery policy,
+Credit step/final stage state, recovery deadline and compensation identity; all
+existing commands remain RETRY. It adds an idempotent result inbox and a distinct
+command FK for compensation outboxes before an Order exists. The existing Order
+FK remains mandatory for lifecycle events via an aggregate-reference check.
+No balance/ledger copy, existing migration edit, destructive table drop or old
+command conversion. Entity mapping permits the new command-owned null order_id.
+
+Expected Flyway version15. Apply through normal startup against the selected
+local PostgreSQL database; never ddl-auto=update. Before deployment, run clean
+V1->V15 and preserved-data V14->V15 verification, then
+OrderCompensationPostgresIntegrationTest (root reactor, Docker required). Local
+test/runtime evidence and unverified gates belong to CHANGE-156. This task does
+not migrate a user/staging/production database. Rollback disables new commands,
+retains all journal/inbox/outbox records and reconciles pending compensation;
+never drop tombstones or restore old code that reinterprets new-policy keys.
