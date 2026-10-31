@@ -68,7 +68,7 @@ class ReportCloudWorkflowTest(unittest.TestCase):
     def write(self, state):
         self.state.write_text(json.dumps(state))
 
-    def check_bucket_privacy(self, metadata, allowed=True):
+    def check_bucket_privacy(self, metadata, allowed=True, readable=True):
         source = (ROOT / 'scripts/ci/check-infra.sh').read_text()
         block = source.split('echo "Reporting Service private attachment buckets"', 1)[1]
         block = block.split('if [[ ${#problems[@]} -gt 0 ]]', 1)[0]
@@ -83,7 +83,7 @@ problem() { problems+=("$1"); echo "$1"; }
 ok() { echo "$1"; }
 gcloud() {
   case "$*" in
-    *get-iam-policy*) printf '%s' "$BUCKET_IAM" ;;
+    *get-iam-policy*) [[ $BUCKET_IAM_READABLE == true ]] || return 1; printf '%s' "$BUCKET_IAM" ;;
     *describe*) printf '%s' "$BUCKET_METADATA" ;;
     *) return 1 ;;
   esac
@@ -91,7 +91,8 @@ gcloud() {
 ''' + block + '\nexit "${#problems[@]}"'
         return subprocess.run(['bash', '-c', program], text=True, capture_output=True,
                               env=dict(self.env, BUCKET_METADATA=json.dumps(metadata),
-                                       BUCKET_IAM=json.dumps(policy)))
+                                       BUCKET_IAM=json.dumps(policy),
+                                       BUCKET_IAM_READABLE=str(readable).lower()))
 
     def test_bucket_check_accepts_gcloud_storage_metadata(self):
         result = self.check_bucket_privacy({'public_access_prevention': 'enforced'})
@@ -113,6 +114,21 @@ gcloud() {
         result = self.check_bucket_privacy({'public_access_prevention': 'enforced'}, allowed=False)
         self.assertEqual(2, result.returncode, result.stdout + result.stderr)
         self.assertEqual(2, result.stdout.count('has no object access'))
+
+    def test_bucket_check_distinguishes_unreadable_policy_from_missing_runtime_access(self):
+        result = self.check_bucket_privacy({'public_access_prevention': 'enforced'}, readable=False)
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(2, result.stdout.count('CI cannot read bucket IAM policy'))
+        self.assertIn('storage.buckets.getIamPolicy', result.stdout)
+        self.assertNotIn('has no object access', result.stdout)
+
+    def test_infrastructure_reader_can_inspect_bucket_policy_without_object_access(self):
+        source = (ROOT / 'infra/gcp/bootstrap.sh').read_text()
+        permissions = set(re.search(r'^reader_permissions="([^"]+)"', source, re.M)[1].split(','))
+        self.assertIn('storage.buckets.get', permissions)
+        self.assertIn('storage.buckets.getIamPolicy', permissions)
+        self.assertFalse(any(p.startswith('storage.objects.') or p == 'storage.buckets.setIamPolicy'
+                             for p in permissions))
 
     def run_script(self, environment='staging', phase='wire', ok=True):
         result = subprocess.run(['bash', str(ROOT / 'infra/gcp/configure-report-pubsub.sh'), environment, phase],

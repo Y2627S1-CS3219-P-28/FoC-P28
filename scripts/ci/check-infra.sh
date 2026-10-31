@@ -456,9 +456,10 @@ for env in "${environments[@]}"; do
   # gcloud storage emits snake_case; also accept the nested Storage API shape.
   if [[ $(jq -r '.public_access_prevention // .iamConfiguration.publicAccessPrevention // ""' <<<"$bucket_json") != enforced ]]; then
     problem "reporting-service: gs://$bucket does not enforce public-access prevention"
-  elif gcloud storage buckets get-iam-policy "gs://$bucket" --project "$PROJECT_ID" --format=json |
-      jq -e --arg m "serviceAccount:$(runtime_sa reporting-service)" \
-        '.bindings // [] | any(.role == "roles/storage.objectAdmin" and (.members | index($m)))' >/dev/null; then
+  elif ! bucket_policy=$(gcloud storage buckets get-iam-policy "gs://$bucket" --project "$PROJECT_ID" --format=json); then
+    problem "reporting-service: CI cannot read bucket IAM policy for gs://$bucket; ensure the deployer has storage.buckets.getIamPolicy"
+  elif jq -e --arg m "serviceAccount:$(runtime_sa reporting-service)" \
+      '.bindings // [] | any(.role == "roles/storage.objectAdmin" and (.members | index($m)))' <<<"$bucket_policy" >/dev/null; then
     ok "reporting-service: gs://$bucket is private and bucket-scoped object access is granted"
   else
     problem "reporting-service: $(runtime_sa reporting-service) has no object access to gs://$bucket"

@@ -9,6 +9,16 @@ Author review: I reviewed for correctness and course compliance.
 
 # AI Usage Log
 
+## Reporting CI deployer bucket-policy inspection permission
+
+- **Tool:** OpenAI Codex
+- **Date:** 2026-10-31
+- **Mode:** CI diagnosis, implementation and regression verification; human review pending.
+- **Prompt:** User supplied cloud infrastructure CI failure: foc-deployer lacks storage.buckets.getIamPolicy on both Reporting attachment buckets.
+- **Affected locations:** infra/gcp/bootstrap.sh, scripts/ci/check-infra.sh, scripts/ci/test_report_pubsub.py, reporting-service/HANDOFF.md and this log.
+- **Key response:** Added only bucket-policy inspection to the existing infrastructure-reader role definition. Distinguished inability to read bucket policy from a missing runtime object-access binding. Documented an additive owner-run custom-role update; no cloud IAM mutation, deployment or commit by the assistant.
+- **Verification:** Two new regressions failed before the fix; six focused privacy/access/reader-role checks pass afterward using SDK Python, Git Bash and jq without cloud access. Live CI remains pending after the authorized owner updates the deployed role.
+
 ## Reporting bucket infrastructure-check correction
 
 - **Tool:** OpenAI Codex

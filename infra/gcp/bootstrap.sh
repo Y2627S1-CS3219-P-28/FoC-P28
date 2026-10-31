@@ -245,7 +245,7 @@ gc compute networks subnets add-iam-policy-binding "$VPC_SUBNET" --region "$REGI
   --member "serviceAccount:$DEPLOYER_SA" --role roles/compute.networkUser >/dev/null
 
 log "Read-only infrastructure role for the CI check (scripts/ci/check-infra.sh)"
-reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy,compute.networks.get,compute.subnetworks.get,compute.subnetworks.getIamPolicy,compute.routers.get"
+reader_permissions="iam.serviceAccounts.get,iam.serviceAccounts.getIamPolicy,datastore.databases.getMetadata,datastore.databases.list,cloudsql.instances.get,cloudsql.instances.list,cloudsql.databases.get,cloudsql.databases.list,cloudsql.users.list,secretmanager.secrets.get,secretmanager.secrets.getIamPolicy,secretmanager.versions.list,resourcemanager.projects.getIamPolicy,storage.buckets.get,storage.buckets.getIamPolicy,pubsub.topics.get,pubsub.topics.getIamPolicy,pubsub.subscriptions.get,pubsub.subscriptions.getIamPolicy,run.services.get,run.services.getIamPolicy,compute.networks.get,compute.subnetworks.get,compute.subnetworks.getIamPolicy,compute.routers.get"
 if exists gc iam roles describe focInfraReader; then
   gc iam roles update focInfraReader --permissions "$reader_permissions" >/dev/null
 else

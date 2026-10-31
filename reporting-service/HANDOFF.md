@@ -106,6 +106,18 @@ Cloud settings are now forwarded explicitly by both services' `deploy/env.yaml`,
 After reviewing wiring/indexes, set **both** saga flags to `true` in the staging environment config, redeploy both backends, and verify successful resolution plus duplicate/compensation handling using disposable staging cases. Do not inject rollback triggers into a shared staging database. Cloud Google OIDC delivery is still unverified until that check passes. Repeat the prepare/deploy/index/wire/activation sequence for production only after staging passes. Provisioning can be rerun; it never silently rebinds a subscription to a different topic.
 
 
+## CI bucket-policy reader permission (2026-10-31)
+
+AI assistance: OpenAI Codex; human review pending. CI runs as `foc-deployer`, whereas local checks run as the signed-in developer. The existing `focInfraReader` custom role omitted `storage.buckets.getIamPolicy`, so CI could not verify the Reporting runtime's bucket access even though local checks passed. Bootstrap now includes that read-only permission. The checker distinguishes a policy-read failure from a successfully read policy missing the runtime binding.
+
+An authorized owner can apply only the missing permission, preserving the role's other permissions, then rerun CI:
+
+```powershell
+gcloud iam roles update focInfraReader --project=protean-vigil-509704-q4 --add-permissions=storage.buckets.getIamPolicy
+```
+
+Alternatively rerun the updated bootstrap. Include the source fix in the PR so future bootstrap runs preserve the permission. No bucket object access or IAM-edit permission is added to the reader role. Two new regressions failed before the fix; all six focused bucket/reader checks pass afterward. Cloud IAM was not modified by the assistant; CI under the deployer identity remains pending after the owner applies the role update.
+
 ## Bucket verification correction (2026-10-31)
 
 AI assistance: OpenAI Codex; human review pending. The infrastructure check previously read only the Storage API's nested `iamConfiguration.publicAccessPrevention` field. Current `gcloud storage buckets describe --format=json` returns top-level `public_access_prevention`, causing false failures for both Reporting attachment buckets even when protection was enforced. The checker now accepts either representation while still requiring `enforced` and the Reporting runtime's bucket-scoped object access.
