@@ -106,6 +106,14 @@ Cloud settings are now forwarded explicitly by both services' `deploy/env.yaml`,
 After reviewing wiring/indexes, set **both** saga flags to `true` in the staging environment config, redeploy both backends, and verify successful resolution plus duplicate/compensation handling using disposable staging cases. Do not inject rollback triggers into a shared staging database. Cloud Google OIDC delivery is still unverified until that check passes. Repeat the prepare/deploy/index/wire/activation sequence for production only after staging passes. Provisioning can be rerun; it never silently rebinds a subscription to a different topic.
 
 
+## Staging activation configuration (2026-11-01)
+
+AI assistance: OpenAI Codex; human review pending. Reapplied on feat/integrate-report-service at Yao Xiang's request after the prior uncommitted activation changes were discarded. Earlier read-only cloud verification in this session confirmed all six declared Reporting composite indexes READY, plus both request/result subscriptions targeting the expected direct backend paths with Google OIDC identities/audiences and the dead-letter topic. Configuration readiness does not establish end-to-end message processing.
+
+Both ORDER_REPORT_RESOLUTION_ENABLED and REPORT_RESOLUTION_ENABLED are now true in infra/environments/staging.env. Production and application/local defaults remain disabled. The rollout test enforces coordinated staging activation, production isolation and flag forwarding through both deployment templates. Seven focused tests, staging Bash syntax and diff whitespace checks pass. Push through a PR and wait for successful staging deployment; no recurring manual GCP toggle is needed. No cloud mutation, deployment or push was performed by the assistant.
+
+After deployment, test a disposable active-order report: courier progress remains available, held completion/funding is blocked, admin resolution stores the reply and releases the report's hold, and same-command retries do not repeat effects. Check submitter-only reply visibility and authenticated compensation/result recovery before production promotion. Do not inject rollback triggers into the shared staging database. Preserve journals and pending messages during any controlled rollback of both flags.
+
 ## CI bucket-policy reader permission (2026-10-31)
 
 AI assistance: OpenAI Codex; human review pending. CI runs as `foc-deployer`, whereas local checks run as the signed-in developer. The existing `focInfraReader` custom role omitted `storage.buckets.getIamPolicy`, so CI could not verify the Reporting runtime's bucket access even though local checks passed. Bootstrap now includes that read-only permission. The checker distinguishes a policy-read failure from a successfully read policy missing the runtime binding.
