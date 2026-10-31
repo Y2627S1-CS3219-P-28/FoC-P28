@@ -99,6 +99,14 @@ public interface JpaOrderRepository extends JpaRepository<Order, UUID>, JpaSpeci
     Page<Order> findActiveRequesterOrders(@Param("requesterId") String requesterId,
             @Param("statuses") List<OrderStatus> statuses, Pageable pageable);
 
+    @Query("select o from Order o where o.status = :status "
+            + "and (o.requesterId = :userId or o.courierId = :userId) order by o.createdAt desc, o.id desc")
+    Page<Order> findCreditHistoryInvolving(@Param("userId") String userId, @Param("status") OrderStatus status, Pageable pageable);
+
+    @Query("select o from Order o where o.id = :id and o.status = :status "
+            + "and (o.requesterId = :userId or o.courierId = :userId)")
+    Optional<Order> findCreditHistoryInvolving(@Param("id") String id, @Param("userId") String userId, @Param("status") OrderStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
     @Query("select o from Order o where o.id = :id and o.requesterId = :requesterId and o.status in :statuses")

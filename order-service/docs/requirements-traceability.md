@@ -785,3 +785,38 @@ Yao Xiang explicitly requests repeated automatic repost attempts until success. 
 Safe completed automatic rejections no longer permanently exclude the original. Each later eligible minute pass may register a fresh server-only AUTO_REPOST:<originalId>:retry:<UUID> command/candidate after the previous attempt is COMPLETED/REJECTED, FULLY_COMPENSATED and its Credit step is FAILED or COMPENSATED. First legacy key, all old candidate IDs/results/fences and public/peer payloads stay intact. Pending/reconciling/uncertain work blocks another attempt; success is replayed rather than repeated. DB selection prioritizes older due work over recently failed plans and remains bounded100; latest-attempt SQL is actor/order scoped, newest-first/limit1, not an in-memory history search.
 
 No attempt-count cutoff is imposed on safe later attempts. Retry stops when a successor exists or the configured plan expires/is disabled/used; holds and deactivation/pending guards remain. Unresolved or exhausted compensation publication is not bypassed and retains the existing operator recovery requirement. No new schema, API, topic, credentials, timer, flag, frontend or sibling/backend/cloud change. Existing automatic-repost/compensation activation gates remain unchanged. Tests and rollout evidence: changes/CHANGE-164-automatic-repost-retry-until-success.md (relative to Order root).
+
+
+## Effective Report integration - CHANGE-166 / ADR-061 (2026-10-29)
+
+Yao Xiang approved the real Report backend, frontend and Order-owned saga integration on feat/reporting-service, then merged main and approved excluding OPEN from reporting. GET /api/orders/mine/active and its locked PUT report-hold endpoint now accept only ACCEPTED, IN_PROGRESS, PICKED_UP and DELIVERED for the verified requester. OPEN remains active for unrelated User/Supplier involvement guards. Both ORDER/COURIER report submissions require an assigned courier. A hold retry still returns the current snapshot; no snapshot migration.
+
+Report now implements the exact callback-free admin resolve contract, atomic Firestore preimage/revision journal, compensation-before-original fencing, conditional restoration and stable result outbox. Admin Reports uses actual APIs in all frontend modes, required/private replies, an early-resolution warning, stable retry keys and pending-status polling; the obsolete sample/Coming soon frontend gate is superseded. The old Report release-first route rejects409. Report's deadline/filter job selects due IDs in Firestore and handles each transaction independently. Existing progress/funding/penalty rules and Order V18 remain unchanged. Cloud activation is explicit/default-off.
+
+Source and operations: [Report handoff](../../reporting-service/HANDOFF.md), [saga contract](../../reporting-service/docs/order-resolution-saga.md), [change record](../changes/CHANGE-166-reporting-integration-and-reportable-orders.md). Earlier missing-provider statements describe prior evidence. Final verification results are recorded in CHANGE-166; no User/Credit/Supplier code, GCP resource or deployed flag is modified by this task. Report creation after an uncertain hold is a separate remaining reconciliation requirement.
+
+
+## CHANGE-166 final traceability
+
+| Project D1 reference | Requirement | Implementation | Test | Result |
+|---|---|---|---|---|
+| NTH3 PDF41 + user-approved eligibility amendment | Own assigned active orders only; no OPEN; holds pause funding | Order reporting SQL/locked hold; Report validation/form | PostgreSQL every-state/scoping tests + actual OPEN/hold HTTP integration | Passed |
+| NTH1/NTH3 + ADR-059/060/061 | Admin private reply; Order-owned resolution and safe compensation | ReportResolutionStore, strict consumer, durable result publisher, real Admin UI | Actual rollback/lost reply/delayed original/duplicate broker scenarios; UI retry/privacy tests | Passed locally; cloud activation pending |
+| NFR3.1.1/NFR3.1.3 | Automated positive/negative coverage and failure isolation | Existing gates; per-record transactions and database due queries | 678 Order/common,54 Report,267 frontend tests; both line/branch gates | Passed |
+
+
+## CHANGE-168 (2026-10-30)
+
+| Project D1 reference | Requirement | Implementation | Test | Result |
+|---|---|---|---|---|
+| Reporting NTH3 + approved credit-context refinement | Own completed Order is optional credit context without funds/hold changes | CompletedReportOrderController, SQL adapter, ReportService | PostgreSQL ownership tests and actual HTTP integration | Passed |
+| Reporting NTH3 | Clear duplicate prevention and courier response reminder | Firestore creation slot/legacy guard and count, dated picker and shell badge | Concurrent Firestore tests, API tests and frontend tests | Passed locally |
+| NFR3.1.1 / NFR3.1.3 | Preserve coverage gates and negative/edge verification | Root/Report verify, frontend checks and live harness |669 Order+12 common;61 Report; gates met | Passed |
+
+
+## CHANGE-169 (2026-10-30)
+
+| Project D1 reference | Requirement | Implementation | Test | Result |
+|---|---|---|---|---|
+| Reporting NTH + explicit user refinement | Original form, unlinked credit issues and retained reply reminder | ReportService, ReportForm and existing count/badge | Unlinked validation and picker/reminder tests | Passed locally |
+| Approved Order history scope | Retrieve own completed/cancelled Orders independently | OrderCreditHistoryController and SQL predicates | Route authorization and PostgreSQL filtering | Passed locally |

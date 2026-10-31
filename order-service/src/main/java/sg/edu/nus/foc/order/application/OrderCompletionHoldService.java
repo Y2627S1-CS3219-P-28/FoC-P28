@@ -64,6 +64,9 @@ public class OrderCompletionHoldService {
             throw OrderProblem.conflict("A courier must be assigned for this report.");
         }
         if (previous.isPresent()) return order;
+        if (holds.hasActiveForOrder(orderId)) {
+            throw OrderProblem.conflict("This order already has an active report. Please resolve it before submitting another report.");
+        }
         order.placeCompletionHold(actor);
         holds.save(new OrderCompletionHold(reportId, orderId, actor, Instant.now()));
         Order saved = orders.save(order);

@@ -23,6 +23,10 @@ public interface OrderRepository {
 
     OrderPage findActiveRequestedBy(String requesterId, int page, int size);
 
+    OrderPage findCreditHistoryInvolving(String userId, OrderStatus status, int page, int size);
+
+    Optional<Order> getCreditHistoryInvolving(String id, String userId, OrderStatus status);
+
     Optional<Order> getForLifecycleUpdate(String id);
 
     Order save(Order order);

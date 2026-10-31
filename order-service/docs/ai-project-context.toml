@@ -538,3 +538,53 @@ owner = "Yao Xiang on order-service/admin-ui-linking"
 scope = "explicit User CI test-only fix; pinned mongo:7.0.43; production/pom/env/workflow unchanged"
 verification = "standalone User verify native exit0;36 tests including4 real Mongo directory tests;0 failures/errors/skips; disposable databases removed"
 remaining = "push correction and rerun GitHub CI; exact original container crash output absent"
+
+
+[reporting_integration_166]
+owner = "Yao Xiang"
+branch = "feat/reporting-service"
+date = "2026-10-29"
+status = "verified locally; cloud activation disabled; optional local bootstrap pending approval"
+reportable_states = ["ACCEPTED", "IN_PROGRESS", "PICKED_UP", "DELIVERED"]
+contract = "reporting-service/HANDOFF.md"
+change = "changes/CHANGE-166-reporting-integration-and-reportable-orders.md"
+
+
+[report_saga_cloud_167]
+date = "2026-10-30"
+owner = "Yao Xiang"
+branch = "feat/reporting-service"
+status = "configuration verified; cloud provisioning and activation not executed"
+script = "infra/gcp/configure-report-pubsub.sh"
+phases = ["prepare", "wire"]
+order_publisher = "existing grants unchanged"
+flags = "both default false"
+verification = "10 credential-free infrastructure tests pass; new script ShellCheck passes"
+
+
+[credit_report_context_168]
+date = "2026-10-30"
+owner = "Yao Xiang"
+branch = "feat/reporting-service"
+credit_link = "optional COMPLETED Order, requester or assigned courier; no hold or courier response; local admin resolution"
+active_creation = "same report retry; reject another active report; SQL lock and Firestore slot/legacy guard"
+reminder = "JWT-scoped Firestore count, answerable reports only; five-second visible polling"
+order_started_at = "nullable derived timestamp; no SQL migration"
+indexes = "courierId/status/responseDeadlineAt; orderId/status"
+status = "local verification passed; cloud deployment not performed"
+verification = "669 Order +12 common,61 Report,274 frontend; coverage/lint/types/build and seven live scenario groups pass; four focused OpenAPI checks pass"
+
+picker_ui = "user refinement: compact selectable rows; status/Created retained, Started/Active report labels removed; duplicate message on submit"
+
+
+[reporting_simplification_169]
+date = "2026-10-30"
+owner = "Yao Xiang"
+branch = "feat/reporting-service"
+status = "verified locally; no deployment or cloud changes"
+credit_reports = "unlinked; reject supplied orderId; no Order lookup or hold"
+form = "original active-order dropdown; no credit picker, cards, rows or dates"
+retained = "reply reminder; completed history URLs"
+added = "caller-scoped cancelled history list/detail; SQL filtering"
+compatibility = "read and locally resolve historical linked credit reports; no data cleanup or migration"
+verification = "670 Order +12 common,60 Report,274 frontend; coverage/lint/build/OpenAPI and seven live groups pass"

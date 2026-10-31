@@ -34,6 +34,31 @@ public class OrderQueryService {
         return orders.findRequestedBy(requesterId, page, size);
     }
 
+    public OrderPage completedInvolving(String userId, int page, int size) {
+        return historyInvolving(userId, OrderStatus.COMPLETED, page, size);
+    }
+
+    public Order completedInvolving(String id, String userId) {
+        return orders.getCreditHistoryInvolving(id, userId, OrderStatus.COMPLETED)
+                .orElseThrow(() -> OrderProblem.notFound("Completed order not found."));
+    }
+
+    public OrderPage cancelledInvolving(String userId, int page, int size) {
+        return historyInvolving(userId, OrderStatus.CANCELLED, page, size);
+    }
+
+    public Order cancelledInvolving(String id, String userId) {
+        return orders.getCreditHistoryInvolving(id, userId, OrderStatus.CANCELLED)
+                .orElseThrow(() -> OrderProblem.notFound("Cancelled order not found."));
+    }
+
+    private OrderPage historyInvolving(String userId, OrderStatus status, int page, int size) {
+        if (page < 1 || size < 1 || size > 100) {
+            throw new OrderProblem("VALIDATION_ERROR", "Page must be >=1 and size 1..100.");
+        }
+        return orders.findCreditHistoryInvolving(userId, status, page - 1, size);
+    }
+
     public OrderPage courierFor(String courierId, int page, int size) {
         return orders.findCourierOrders(courierId, page, size);
     }

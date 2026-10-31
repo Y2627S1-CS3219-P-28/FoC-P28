@@ -25,6 +25,8 @@ public class OrderPersistenceAdapter implements OrderRepository {
     private static final List<String> ACTIVE_STATUSES = List.of(
             OrderStatus.OPEN.name(), OrderStatus.ACCEPTED.name(), OrderStatus.IN_PROGRESS.name(),
             OrderStatus.PICKED_UP.name(), OrderStatus.DELIVERED.name());
+    private static final List<OrderStatus> REPORTABLE_STATUSES = List.of(
+            OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS, OrderStatus.PICKED_UP, OrderStatus.DELIVERED);
 
     private final JpaOrderRepository repository;
     private final JpaOrderCourierAttemptRepository attempts;
@@ -71,7 +73,7 @@ public class OrderPersistenceAdapter implements OrderRepository {
     @Override
     public Optional<Order> getActiveForReportHoldUpdate(String id, String requesterId) {
         Optional<Order> locked = repository.findActiveRequesterOrderForUpdate(id, requesterId,
-                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList());
+                REPORTABLE_STATUSES);
         if (locked.isPresent() && commands != null) commands.guard(id);
         return locked;
     }
@@ -80,7 +82,19 @@ public class OrderPersistenceAdapter implements OrderRepository {
     @Transactional(readOnly = true)
     public OrderPage findActiveRequestedBy(String requesterId, int page, int size) {
         return toOrderPage(repository.findActiveRequesterOrders(requesterId,
-                ACTIVE_STATUSES.stream().map(OrderStatus::valueOf).toList(), pageRequest(page, size)));
+                REPORTABLE_STATUSES, pageRequest(page, size)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderPage findCreditHistoryInvolving(String userId, OrderStatus status, int page, int size) {
+        return toOrderPage(repository.findCreditHistoryInvolving(userId, status, pageRequest(page, size)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Order> getCreditHistoryInvolving(String id, String userId, OrderStatus status) {
+        return repository.findCreditHistoryInvolving(id, userId, status);
     }
 
     @Override

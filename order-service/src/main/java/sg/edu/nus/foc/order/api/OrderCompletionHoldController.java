@@ -30,7 +30,7 @@ public class OrderCompletionHoldController {
     private final OrderMapper mapper;
 
     @GetMapping
-    @Operation(summary = "List the authenticated requester's active orders", description = "SQL filtering before pagination; OPEN, ACCEPTED, IN_PROGRESS, PICKED_UP and DELIVERED only. Newest first with stable ID tie-break. Caller comes only from the validated token.")
+    @Operation(summary = "List the authenticated requester's reportable orders", description = "SQL filtering before pagination; ACCEPTED, IN_PROGRESS, PICKED_UP and DELIVERED only. OPEN and terminal orders are excluded. Newest first with stable ID tie-break. Caller comes only from the validated token.")
     @ApiResponse(responseCode = "200", description = "One-based active Order page")
     @ApiResponse(responseCode = "400", description = "Invalid page or size; page >=1 and size 1..100")
     @ApiResponse(responseCode = "401", description = "Authentication required")
@@ -43,7 +43,7 @@ public class OrderCompletionHoldController {
     }
 
     @PutMapping("/{orderId}/report-holds/{reportId}")
-    @Operation(summary = "Atomically validate an active requester-owned order and place its report hold", description = "Locks the scoped Order and saves the report-specific hold in one transaction. No requester ID is accepted from the body. Retries reuse the hold and return the current authoritative snapshot; status can progress after the initial placement. Released report IDs cannot reactivate holds.")
+    @Operation(summary = "Atomically validate a reportable requester-owned order and place its report hold", description = "ACCEPTED, IN_PROGRESS, PICKED_UP or DELIVERED only; OPEN and terminal orders return 404. Locks the scoped Order and saves the report-specific hold in one transaction. No requester ID is accepted from the body. Retries reuse the hold and return the current authoritative snapshot; status can progress after the initial placement. Released report IDs cannot reactivate holds.")
     @ApiResponse(responseCode = "200", description = "Hold committed or existing active hold reused; current snapshot returned")
     @ApiResponse(responseCode = "400", description = "Invalid report ID or missing requireAssignedCourier flag")
     @ApiResponse(responseCode = "401", description = "Authentication required")

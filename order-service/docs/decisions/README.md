@@ -91,3 +91,10 @@ ADR-050 — Deferred monotonic Order penalty (CHANGE-146), approved Yao Xiang202
 
 
 - [ADR-060 — Report response window and early resolution](ADR-060-report-response-window-and-early-resolution.md), user-approved documentation requirements2026-10-29, CHANGE-163; required deadline, confirmed early admin resolution, private reply and saga peer responsibilities.
+
+
+- [ADR-061 ? Real Report saga and assigned-order reporting](ADR-061-real-report-saga-and-assigned-order-reporting.md): Report-side protocol implemented; four reporting states, real frontend and opt-in rollout.
+
+- [ADR-062: Credit report context and courier reminders](ADR-062-credit-report-context-and-response-reminders.md) - approved completed-order association and scoped count, CHANGE-168.
+
+- [ADR-063: Unlinked credit reports and independent Order history](ADR-063-unlinked-credit-reports-and-independent-order-history.md) - supersedes the credit association/picker parts of ADR-062; keeps the courier reminder, CHANGE-169.
