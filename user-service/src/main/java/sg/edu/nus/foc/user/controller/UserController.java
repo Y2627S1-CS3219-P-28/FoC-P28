@@ -279,7 +279,7 @@ public class UserController {
 
     // TODO: PUT or POST /api/users/:userid/suspension
     // Admin manual suspension
-    @Operation(summary = "Update any user's info")
+    @Operation(summary = "Manually suspend a user")
     @PreAuthorize(ADMIN_ONLY)
     @PutMapping("/{userId}/suspension")
     public ResponseEntity<User> updateUserSuspension(

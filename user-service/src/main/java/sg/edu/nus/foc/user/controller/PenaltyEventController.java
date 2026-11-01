@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 
 import sg.edu.nus.foc.user.event.PenaltyEventConsumer;
@@ -19,6 +20,7 @@ public class PenaltyEventController {
     private final PenaltyEventConsumer penaltyEventConsumer;
 
     // POST /api/users/internal/penalties/addition
+    @Operation(summary = "Add to a courier's penalty")
     @PostMapping("/addition")
     public ResponseEntity<Void> receiveAddition(
             @RequestBody PubSubPushRequest request
@@ -30,6 +32,7 @@ public class PenaltyEventController {
     }
 
     // POST /api/users/internal/penalties/deduction
+    @Operation(summary = "Deduct from a courier's penalty")
     @PostMapping("/deduction")
     public ResponseEntity<Void> receiveDeduction(
             @RequestBody PubSubPushRequest request

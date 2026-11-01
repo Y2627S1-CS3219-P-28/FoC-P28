@@ -105,7 +105,7 @@ public class User {
 
     // This allows roles list to be modified, while still ensuring immutability
     public void setRoles(List<String> roles) {
-        this.roles = List.copyOf(roles);
+        this.roles = roles == null ? null : List.copyOf(roles);
     }
 
     public void setPenalty(int newPenalty) {
