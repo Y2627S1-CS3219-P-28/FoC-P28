@@ -232,6 +232,20 @@ public class UserController {
         return ResponseEntity.ok(promotedUser);
     }
 
+    // PUT /api/users/:userId/user-demotion
+    // Only admin can update other users' info
+    @Operation(summary = "Demote an admin to regular user")
+    @PreAuthorize(ADMIN_ONLY)
+    @PutMapping("/{userId}/user-demotion")
+    public ResponseEntity<User> demoteUser(
+            @PathVariable String userId,
+            JwtAuthenticationToken authentication) {
+
+        User promotedUser = userService.demoteUser(userId);
+
+        return ResponseEntity.ok(promotedUser);
+    }
+
     // PUT /api/users/{userId}/penalty
     // Only used by other services
     @Operation(summary = "Update any user's penalty")

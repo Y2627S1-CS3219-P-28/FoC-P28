@@ -84,6 +84,7 @@ longer calls Credit Service synchronously, so a temporary Credit outage leaves t
 | PUT    | `/api/users/me`          | authenticated user                  | Update own information after registration              |
 | PUT    | `/api/users/{:userId}`   | authenticated admin user            | Update user information after registration             |
 | PUT    | `/api/users/{:userId}/user-promotion`| authenticated admin user| Promotes a regular user to admin                       |
+| PUT    | `/api/users/{:userId}/user-demotion`| authenticated admin user | Demotes an admin to regular user                       |
 | PUT    | `/api/users/{:userId}/penalty`| admin and services             | Updates given user's penalty by a specified amount     |
 | PUT    | `/api/users/{:userId}/suspension`| authenticated admin user    | Suspends a given user                                  |
 | DELETE | `/api/users/me`          | authenticated user                  | Deletes user information from user databases           |

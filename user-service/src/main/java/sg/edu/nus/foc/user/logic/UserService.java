@@ -283,7 +283,7 @@ public class UserService {
 
         // Checks if it is the last admin
         // Throws error if it is
-        boolean isAdmin = user.getRoles() != null && user.getRoles().contains("admin");
+        boolean isAdmin = verifyAdmin(user);
         if (isAdmin) {
             long adminCount = userRepository.countByRolesContainingAndStatus(
                         "admin",
@@ -329,7 +329,6 @@ public class UserService {
         }
     }
 
-    // TODO: Implement this API and demoteAdmin
     // Adds admin role to user
     // Doesn't change role list if already admin
     public User promoteUser(String userId) {
@@ -345,6 +344,41 @@ public class UserService {
         if (!roles.contains("admin")) {
             List<String> updatedRoles = new ArrayList<>(user.getRoles());
             updatedRoles.add("admin");
+            user.setRoles(updatedRoles);
+        }
+
+        return lifecycle.saveActive(user);
+    }
+
+    // Removes admin role from user
+    // Doesn't change role list if already not admin
+    public User demoteUser(String userId) {
+        User user = userRepository
+                .findByUserId(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        // Refresh to ensure status is up to date
+        user = refreshSuspensionStatus(user);
+
+        // Checks if it is the last admin
+        // Throws error if it is
+        boolean isAdmin = verifyAdmin(user);
+        if (isAdmin) {
+            long adminCount = userRepository.countByRolesContainingAndStatus(
+                        "admin",
+                        AccountStatus.ACTIVE
+                );
+
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Cannot disable the last administrator"
+                );
+            }
+
+            List<String> updatedRoles = new ArrayList<>(user.getRoles());
+            updatedRoles.remove("admin");
             user.setRoles(updatedRoles);
         }
 
@@ -396,6 +430,8 @@ public class UserService {
     }
 
     // Single method to suspend a user
+    // Can suspend admin because suspended admins still can carry out admin actions
+    // Just not courier actions
     // Sets penalty to MAX_PENALTY
     public User suspendUser(String userId) {
         User user = getUserByUserId(userId);
@@ -412,6 +448,8 @@ public class UserService {
     }
 
     // Single method to premanently suspend a user
+    // Can suspend admin because suspended admins still can carry out admin actions
+    // Just not courier actions
     // Sets penalty to MAX_PENALTY
     public User suspendUserPermanently(String userId) {
         User user = getUserByUserId(userId);
