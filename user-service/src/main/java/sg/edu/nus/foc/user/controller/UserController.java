@@ -161,13 +161,17 @@ public class UserController {
     @Operation(summary = "Add user into database")
     @PostMapping
     public ResponseEntity<User> addUser(
+            @RequestBody AddUserRequest addUserRequest,
             JwtAuthenticationToken authentication) {
+
+        // Extract username from request
+        String username = addUserRequest.getUsername();
 
         // Extract claims from the already-validated token
         String userId = authentication.getToken().getSubject();
         String email = authentication.getToken().getClaimAsString("email");
 
-        User user = userService.addUser(userId, email);
+        User user = userService.addUser(userId, email, username);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }

@@ -153,20 +153,21 @@ public class UserService {
 
     // Transactional so adding user and user-created event is done atomically
     @Transactional
-    public User addUser(String userId, String email) {
-        return createUser(userId, email, List.of("courier", "requester"));
+    public User addUser(String userId, String email, String username) {
+        return createUser(userId, email, List.of("courier", "requester"), username);
     }
 
     @Transactional
     public User addAdmin(String userId, String email) {
-        return createUser(userId, email, List.of("courier", "requester", "admin"));
+        return createUser(userId, email, List.of("courier", "requester", "admin"), "Admin");
     }
 
-    public User createUser(String userId, String email, List<String> roles) {
+    public User createUser(String userId, String email, List<String> roles, String username) {
         if (userId == null || userId.isBlank()
-            || email == null || email.isBlank()) {
-        throw new IllegalArgumentException(
-                "User ID and email are required.");
+            || email == null || email.isBlank()
+            || username == null || username.isBlank()) {
+            throw new IllegalArgumentException(
+                "Username, user ID and email are required.");
         }
 
         if (userRepository.findByUserId(userId).isPresent()) {
@@ -185,7 +186,7 @@ public class UserService {
         User user = new User();
         user.setUserId(userId);
         user.setEmail(email);
-        user.setUsername("");
+        user.setUsername(username);
         user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
